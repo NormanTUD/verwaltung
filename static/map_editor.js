@@ -762,35 +762,6 @@ function import_text() {
     }
 }
 
-
-function enablePageZoomWithMouseWheel() {
-    const zoomStep = 0.1;
-    const minZoom = 0.5;
-    const maxZoom = 3;
-
-    window.addEventListener('wheel', (event) => {
-        event.preventDefault();
-
-        if (event.deltaY < 0) {
-            zoomLevel += zoomStep;
-        } else {
-            zoomLevel -= zoomStep;
-        }
-        zoomLevel = Math.min(maxZoom, Math.max(minZoom, zoomLevel));
-
-        $("#container").css("scale", zoomLevel);
-    }, { passive: false });
-}
-
-
-function disableMouseWheelScrollAllowArrowKeys() {
-    window.addEventListener('wheel', (event) => {
-        event.preventDefault(); // Mausrad-Scrollen verhindern
-    }, { passive: false });
-
-    // Pfeiltasten bleiben unberührt und können scrollen
-}
-
 document.addEventListener('mousemove', (event) => {
     const element = document.elementFromPoint(event.clientX, event.clientY);
     if (!element) {
@@ -824,110 +795,8 @@ function isMouseOutsideRooms(event, container, rooms) {
     return true; // Maus ist außerhalb aller Räume
 }
 
-function enableDragIfOutsideRooms(containerId, rooms) {
-    if (window.dragData || window.resizeData) {
-        log('Drag/Resize beendet (Escape gedrückt)');
-    }
-    window.dragData = null;
-    window.resizeData = null;
-    const container = document.getElementById(containerId);
-    if (!container) {
-        error('Element #' + containerId + ' nicht gefunden!');
-        return;
-    }
-
-    let isDragging = false;
-    let startX, startY;
-    let origX = 0, origY = 0;
-
-    container.style.position = container.style.position || 'relative';
-
-    container.addEventListener('mousedown', (event) => {
-        if (event.button !== 0) return; // Nur linke Maustaste
-
-        if (!isMouseOutsideRooms(event, container, rooms)) {
-            log('Klick war in einem Raum – Drag nicht erlaubt.');
-            return;
-        }
-
-        log('Drag gestartet außerhalb der Räume');
-
-        isDragging = true;
-        startX = event.clientX;
-        startY = event.clientY;
-
-        const style = window.getComputedStyle(container);
-        origX = parseInt(style.left) || 0;
-        origY = parseInt(style.top) || 0;
-
-        event.preventDefault();
-    });
-
-    window.addEventListener('mousemove', (event) => {
-        if (mauszeiger_is_on_room()) {
-            return;
-        }
-        if (!isDragging) return;
-
-        const dx = event.clientX - startX;
-        const dy = event.clientY - startY;
-
-        container.style.left = origX + dx + 'px';
-        container.style.top = origY + dy + 'px';
-    });
-
-    window.addEventListener('mouseup', () => {
-        if (isDragging) {
-            isDragging = false;
-            log('Drag beendet');
-        }
-    });
-}
-
-function loadFloorplan(buildingId, floor) {
-	if (typeof buildingId !== "number" || typeof floor !== "number") {
-		console.error("loadFloorplan: buildingId und floor müssen Zahlen sein");
-		return;
-	}
-
-	var url = "/get_floorplan?building_id=" + encodeURIComponent(buildingId) + "&etage=" + encodeURIComponent(floor);
-
-	fetch(url)
-		.then(function (response) {
-			if (!response.ok) {
-				throw new Error("Serverantwort war nicht OK: " + response.status + " " + response.statusText);
-			}
-			return response.json();
-		})
-		.then(function (data) {
-			if (!Array.isArray(data)) {
-				throw new Error("Antwort ist kein Array: " + JSON.stringify(data));
-			}
-
-			rooms = data;
-
-			try {
-				renderAll();
-			} catch (e) {
-				console.error("Fehler beim renderAll:", e);
-			}
-
-			try {
-				updateOutput();
-			} catch (e) {
-				console.error("Fehler beim updateOutput:", e);
-			}
-		})
-		.catch(function (error) {
-			console.error("Fehler beim Laden des Floorplans:", error);
-		});
-}
-
-//enableDragIfOutsideRooms('container', rooms);
 renderAll();
 updateOutput();
-//enablePageZoomWithMouseWheel()
-//disableMouseWheelScrollAllowArrowKeys()
 import_text()
 
 loadFloorplan(building_id, floor);

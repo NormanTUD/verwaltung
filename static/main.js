@@ -1,5 +1,7 @@
 // TODO: Snapping mit mehreren Snapfeldern geht noch nicht
 
+const building_id = 1;
+const floor = 7;
 
 const floorplan = document.getElementById("floorplan");
 let scale = 1;
@@ -12,23 +14,36 @@ let startPanY = 0;
 let startOffsetX = 0;
 let startOffsetY = 0;
 
-const roomsData = [
-  {
-    "name": "668",
-    "x": 27,
-    "y": 45,
-    "width": 276,
-    "height": 353,
+var roomsData = [];
 
-  },
-  {
-    "name": "",
-    "x": 312,
-    "y": 45,
-    "width": 133,
-    "height": 353,
-  }
-]
+function loadFloorplan(buildingId, floor) {
+	if (typeof buildingId !== "number" || typeof floor !== "number") {
+		console.error("loadFloorplan: buildingId und floor müssen Zahlen sein");
+		return;
+	}
+
+	var url = "/get_floorplan?building_id=" + encodeURIComponent(buildingId) + "&etage=" + encodeURIComponent(floor);
+
+	fetch(url)
+		.then(function (response) {
+			if (!response.ok) {
+				throw new Error("Serverantwort war nicht OK: " + response.status + " " + response.statusText);
+			}
+			return response.json();
+		})
+		.then(function (data) {
+			if (!Array.isArray(data)) {
+				throw new Error("Antwort ist kein Array: " + JSON.stringify(data));
+			}
+
+			roomsData = data;
+
+			createRooms();
+		})
+		.catch(function (error) {
+			console.error("Fehler beim Laden des Floorplans:", error);
+		});
+}
 
 const rooms = {};
 
@@ -724,16 +739,6 @@ confirmAddBtn.addEventListener("click", () => {
   shapeSelector.style.display = "none";
 });
 
-function disableMouseWheelScrollAllowArrowKeys() {
-  window.addEventListener('wheel', (event) => {
-    event.preventDefault(); // Mausrad-Scrollen verhindern
-  }, { passive: false });
-
-  // Pfeiltasten bleiben unberührt und können scrollen
-}
-
-
-
 document.addEventListener("DOMContentLoaded", () => {
   const shapeSelector = document.getElementById("shapeSelector");
   const shapeSelect = document.getElementById("shapeSelect");
@@ -785,4 +790,4 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Initial
-createRooms();
+loadFloorplan(building_id, floor);
