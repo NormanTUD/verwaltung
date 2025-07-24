@@ -1,7 +1,7 @@
 // TODO: Building-ID aus Gebäudeliste erstellen
 
-var floor = 7;
 var building_id = 1;
+var floor = 7;
 
 function createGUID() {
 	function getRandomHexDigit() {
@@ -309,7 +309,9 @@ function getResizeEdge(e, rect) {
         if (!edge) {
             log('No resize edge detected');
             return null;
-        }
+        } else {
+		save_rooms();
+	}
 
         log(`Final resize edge string: "${edge}"`);
         return edge;
@@ -448,6 +450,8 @@ $(document).on('mouseup.dragResize', function (e) {
     if (window.dragData) {
         log(`Drag beendet (${type}): ID=${window.dragData.id}`);
         window.dragData = null;
+
+		save_rooms();
     }
     if (window.resizeData) {
         log(`Resize beendet (${type}): ID=${window.resizeData.id}`);
@@ -672,11 +676,6 @@ function renderAll() {
 
 function startDrawRoom(e) {
     drawingRoom = null;
-
-    $('#draw-room-btn').prop('disabled', true);
-    $('#cancel-draw-btn').prop('disabled', false);
-
-    log('Zeichenmodus "Raum" aktiviert. Warte auf mousedown...');
 }
 
 // Deselect room on container click
@@ -885,9 +884,50 @@ function enableDragIfOutsideRooms(containerId, rooms) {
     });
 }
 
+function loadFloorplan(buildingId, floor) {
+	if (typeof buildingId !== "number" || typeof floor !== "number") {
+		console.error("loadFloorplan: buildingId und floor müssen Zahlen sein");
+		return;
+	}
+
+	var url = "/get_floorplan?building_id=" + encodeURIComponent(buildingId) + "&etage=" + encodeURIComponent(floor);
+
+	fetch(url)
+		.then(function (response) {
+			if (!response.ok) {
+				throw new Error("Serverantwort war nicht OK: " + response.status + " " + response.statusText);
+			}
+			return response.json();
+		})
+		.then(function (data) {
+			if (!Array.isArray(data)) {
+				throw new Error("Antwort ist kein Array: " + JSON.stringify(data));
+			}
+
+			rooms = data;
+
+			try {
+				renderAll();
+			} catch (e) {
+				console.error("Fehler beim renderAll:", e);
+			}
+
+			try {
+				updateOutput();
+			} catch (e) {
+				console.error("Fehler beim updateOutput:", e);
+			}
+		})
+		.catch(function (error) {
+			console.error("Fehler beim Laden des Floorplans:", error);
+		});
+}
+
 //enableDragIfOutsideRooms('container', rooms);
 renderAll();
 updateOutput();
 //enablePageZoomWithMouseWheel()
 //disableMouseWheelScrollAllowArrowKeys()
 import_text()
+
+loadFloorplan(building_id, floor);

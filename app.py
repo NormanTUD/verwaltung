@@ -1619,6 +1619,55 @@ def save_or_update_room():
         finally:
             session.close()
 
+@app.route("/get_floorplan", methods=["GET"])
+def get_floorplan():
+    building_id_param = request.args.get("building_id")
+    floor_param = request.args.get("etage")
+
+    try:
+        building_id = int(building_id_param) if building_id_param is not None else None
+        floor = int(floor_param) if floor_param is not None else None
+    except ValueError:
+        return jsonify({"error": "Invalid 'building_id' or 'etage' – must be integers"}), 400
+
+    if building_id is None or floor is None:
+        return jsonify({"error": "Both 'building_id' and 'etage' parameters are required"}), 400
+
+    session = Session()
+    try:
+        query = session.query(Room).join(RoomLayout).filter(
+            Room.building_id == building_id,
+            Room.floor == floor
+        )
+
+        rooms = query.all()
+
+        result = []
+        for room in rooms:
+            layout = room.layout
+            if layout is None:
+                continue  # skip rooms without layout
+
+            result.append({
+                "id": f"r{room.id}",
+                "name": room.name,
+                "x": layout.x,
+                "y": layout.y,
+                "width": layout.width,
+                "height": layout.height,
+                "guid": room.guid,
+                "building_id": room.building_id,
+                "floor": room.floor
+            })
+
+        return jsonify(result), 200
+
+    except SQLAlchemyError as e:
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        session.close()
+
 @app.route("/api/delete_room", methods=["POST"])
 def delete_room():
     data = request.get_json()
