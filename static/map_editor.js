@@ -688,17 +688,17 @@ function import_text() {
 		    },
 		    body: JSON.stringify([newRoom])  // API erwartet Liste!
 	    })
-		    .then(response => response.json())
-		    .then(data => {
-			    if (data.status === "success") {
-				    log("Raum erfolgreich gespeichert: " + newRoom.name);
-			    } else {
-				    console.error("Fehler beim Speichern:", data.error || data);
-			    }
-		    })
-		    .catch(error => {
-			    console.error("API Fehler:", error);
-		    });
+	    .then(response => response.json())
+	    .then(data => {
+		    if (data.status === "success") {
+			    log("Raum erfolgreich gespeichert: " + newRoom.name);
+		    } else {
+			    console.error("Fehler beim Speichern:", data.error || data);
+		    }
+	    })
+	    .catch(error => {
+		    console.error("API Fehler:", error);
+	    });
 
 
         removeTempRects();
