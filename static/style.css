@@ -1,246 +1,112 @@
-body {
-	font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-	margin: 2em;
-	background: #f9f9f9;
-	color: #333;
+html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #e0e0e0;
+    font-family: sans-serif;
+}
+#viewport {
+    width: 100vw; height: 100vh; position: relative;
+    user-select: none; /* Verhindert Textauswahl beim Drag */
+}
+#floorplan {
+    position: relative; top: 0; left: 0; transform-origin: top left;
+    background: #fff;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    cursor: grab;
+}
+.room {
+    position: absolute;
+    width: 200px; height: 150px;
+    border: 2px solid #007bff;
+    box-shadow: 0 0 5px rgba(0,0,0,0.3);
+    box-sizing: border-box;
+    overflow: visible;
+    z-index: 1;
+}
+.room-label {
+    position: absolute; top: 5px; left: 5px;
+    font-weight: bold; color: #007bff; z-index: 200; pointer-events: none;
+}
+.room-counter {
+    position: absolute; bottom: 5px; left: 5px;
+    font-size: 14px; color: #333; z-index: 200; pointer-events: none;
 }
 
-h1 {
-	margin-bottom: 1em;
+#addPersonBtn {
+    position: fixed;
+    bottom: 20px; left: 240px;
+    z-index: 9999;
+    padding: 10px 15px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 200px;
+}
+#personForm {
+    position: fixed;
+    bottom: 70px;
+    left: 240px;
+    z-index: 9999;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 5px 10px;
+    display: none;
+    width: 200px;
 }
 
-li {
-	margin-bottom: 0.5em;
+#shapeSelector {
+    position: fixed;
+    bottom: 70px;
+    left: 20px;
+    z-index: 9999;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 5px 10px;
+    display: none;
+    width: 200px;
+}
+#addBtn {
+    position: fixed;
+    bottom: 20px; left: 20px;
+    z-index: 9999;
+    padding: 10px 15px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 200px;
 }
 
-a {
-	text-decoration: none;
-	color: #007bff;
-	font-weight: 600;
+
+#objectForm {
+    position: fixed;
+    bottom: 70px;       /* bleibt gleich */
+    left: 20px;         /* gleiche left-Position wie #addBtn */
+    z-index: 8000;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 5px 10px;
+    display: none;
+    width: 200px;
 }
 
 
-a:hover {
-	text-decoration: underline;
+#shapeSelector {
+    position: fixed;
+    bottom: 70px;
+    left: 20px;
+    z-index: 9999;
+    background: rgb(255, 255, 255);
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 5px 10px;
+    display: none;
+    width: 200px;
 }
 
-.contact-row {
-	margin-bottom: 1rem;
-	padding: 1rem;
-	border: 1px solid #ddd;
-	border-radius: 5px;
-}
-
-.error {
-	background: #fffbfb;
-	color: #aa0000;
-}
-.error_a {
-	color: #0066cc;
-}
-
-.filter-box {
-	margin: 16px 0;
-	padding: 12px;
-	background: #eef2ff;
-	border: 1px solid #ccd5ff;
-	border-radius: 4px;
-}
-.filter-box form {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px;
-	align-items: center;
-}
-.filter-box label {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-}
-
-.table-wrapper {
-	overflow-x: auto;
-}
-
-table {
-	border-collapse: collapse;
-	width: 100%;
-	margin-bottom: 2em;
-	box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-	background: white;
-	border-radius: 6px;
-	overflow: hidden;
-}
-thead tr {
-	background-color: #2980b9;
-	color: white;
-	text-align: left;
-	font-weight: 600;
-	user-select: none;
-}
-th, td {
-	padding: 10px 15px;
-	border-bottom: 1px solid #ddd;
-	vertical-align: middle;
-}
-tbody tr:hover:not(.new-entry) {
-	background-color: #ecf0f1;
-}
-input.cell-input, select.cell-input {
-	width: 100%;
-	padding: 6px 8px;
-	border: 1px solid #bdc3c7;
-	border-radius: 4px;
-	font-size: 0.95rem;
-	transition: border-color 0.2s ease-in-out;
-}
-input.cell-input:focus, select.cell-input:focus {
-	border-color: #2980b9;
-	outline: none;
-	box-shadow: 0 0 6px #2980b9aa;
-}
-
-.new-entry {
-	background-color: #dff0d8;
-	font-weight: 600;
-}
-.new-entry td {
-	padding-top: 14px;
-	padding-bottom: 14px;
-}
-
-.save-new {
-	background-color: #27ae60;
-	border: none;
-	color: white;
-	padding: 8px 14px;
-	cursor: pointer;
-	border-radius: 4px;
-	font-weight: 700;
-	font-size: 1rem;
-	transition: background-color 0.3s ease;
-	width: 100%;
-}
-
-.save-new:hover {
-	background-color: #219150;
-}
-
-/* Disabled Zustand */
-.save-new:disabled {
-	background-color: #95a5a6; /* Hellgrau */
-	cursor: not-allowed;
-	color: #ecf0f1; /* Heller Text */
-	opacity: 0.7;
-	pointer-events: none; /* Deaktiviert alle Pointer-Events */
-}
-
-/* Hover deaktivieren, wenn disabled */
-.save-new:disabled:hover {
-	background-color: #95a5a6; /* bleibt grau */
-}
-
-@media (max-width: 768px) {
-	body {
-		margin: 1em;
-	}
-	table.edit-table, thead tr, tbody tr, th, td {
-		display: block;
-		width: 100%;
-	}
-	thead tr {
-		display: none;
-	}
-	tbody tr {
-		margin-bottom: 1.5em;
-		border-radius: 8px;
-		box-shadow: 0 1px 5px rgba(0,0,0,0.1);
-		background: white;
-		padding: 1em;
-	}
-	tbody tr td {
-		border: none;
-		padding: 8px 4px;
-		position: relative;
-		padding-left: 50%;
-	}
-	tbody tr td::before {
-		position: absolute;
-		top: 8px;
-		left: 10px;
-		width: 45%;
-		white-space: nowrap;
-		font-weight: 600;
-		color: #7f8c8d;
-		content: attr(data-label);
-	}
-	button.save-new {
-		width: 100%;
-	}
-}
-
-.delete-entry {
-	background-color: #e74c3c; /* kräftiges Rot */
-	color: white;
-	border: none;
-	padding: 5px 10px;
-	font-size: 0.9em;
-	cursor: pointer;
-	border-radius: 3px;
-	transition: background-color 0.3s ease;
-}
-
-.delete-entry:hover {
-	background-color: #c0392b; /* dunkleres Rot beim Hover */
-}
-
-.delete-entry:active {
-	background-color: #992d22; /* noch dunkler beim Klicken */
-}
-
-select, input[type="checkbox"] {
-	cursor: pointer;
-}
-
-button {
-	padding: 4px 10px;
-	cursor: pointer;
-}
-
-.tabs {
-	display: flex;
-	border-bottom: 1px solid #ccc;
-	margin-bottom: 10px;
-}
-
-.tab-button {
-	padding: 10px 20px;
-	cursor: pointer;
-	border: 1px solid #ccc;
-	border-bottom: none;
-	background-color: #f0f0f0;
-	margin-right: 5px;
-	border-top-left-radius: 5px;
-	border-top-right-radius: 5px;
-}
-
-.tab-button.active {
-	background-color: #ffffff;
-	font-weight: bold;
-}
-
-.tab-content {
-	display: none;
-	border: 1px solid #ccc;
-	padding: 15px;
-	background-color: #ffffff;
-}
-
-.tab-content.active {
-	display: block;
-}
-
-ul {
-	padding-left: 20px;
-}
 

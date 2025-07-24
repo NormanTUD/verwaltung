@@ -1498,6 +1498,10 @@ def gui_edit(handler_name):
     finally:
         handler.session.close()
 
+@app.route('/floorplan')
+def home():
+    return render_template('floorplan.html')
+
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
 
