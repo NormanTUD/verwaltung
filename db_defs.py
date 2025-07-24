@@ -279,4 +279,5 @@ class RoomLayout(Base):
 
     __table_args__ = (
         UniqueConstraint("room_id", name="uq_room_id"),
+        UniqueConstraint("room_id", "x", "y", "width", "height", name="uq_room_id_x_y_width_height"),
     )

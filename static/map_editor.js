@@ -1,3 +1,7 @@
+// TODO: Building-ID aus Gebäudeliste erstellen
+
+var building_id = 1;
+
 function getCallerInfo() {
     const stack = new Error().stack;
     const callerLine = stack.split("\n")[3]?.trim() || "unknown"; // [0]=Error, [1]=getCallerInfo, [2]=log, [3]=Aufrufer
@@ -42,18 +46,21 @@ function push_to_rooms (room) {
 	rooms.push(room)
 }
 
-function save_room (room) {
-	fetch("/api/save_map", {
+function save_room(room) {
+	room.building_id = building_id;
+	fetch("/api/save_or_update_room", {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json"
 		},
-		body: JSON.stringify([room])  // API erwartet Liste!
+		body: JSON.stringify(room) // Kein Array mehr – nur ein Objekt!
 	})
 	.then(response => response.json())
 	.then(data => {
 		if (data.status === "success") {
-			log("Raum erfolgreich gespeichert: " + newRoom.name);
+			const savedName = data.room_name || room.name;
+			const savedId = data.room_id !== undefined ? ` (ID: ${data.room_id})` : "";
+			console.log("Raum erfolgreich gespeichert:", savedName + savedId);
 		} else {
 			console.error("Fehler beim Speichern:", data.error || data);
 		}
@@ -62,7 +69,6 @@ function save_room (room) {
 		console.error("API Fehler:", error);
 	});
 }
-
 
 // Helpers (jQuery-Version)
 function createElement(tag, cls, parent) {
