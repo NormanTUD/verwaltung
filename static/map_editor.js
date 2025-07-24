@@ -101,10 +101,11 @@ function isInside(a, b) {
 
 
 
-function delete_room(e, ask = true, this_room = global_room) {
+function delete_room(e, ask = true, this_room) {
     if (e !== undefined && e !== null) {
         e.stopPropagation();
     }
+    if (!this_room) return; // Falls kein Raum übergeben wurde, nichts tun
 
     if (ask && confirmDelete(`Raum "${this_room.name || this_room.id}" löschen?`) || ask == false) {
         warn(`Raum gelöscht: ${this_room.name || this_room.id}`);
@@ -112,11 +113,10 @@ function delete_room(e, ask = true, this_room = global_room) {
         if (selectedRoomId === this_room.id) {
             selectedRoomId = null;
         }
-
         updateOutput();
         renderAll();
     } else {
-        log(`NOT DELETING: ${room}`)
+        log(`NOT DELETING: ${this_room}`)
     }
 }
 
@@ -165,7 +165,9 @@ function createRoomElement(room) {
     // Löschen-Button
     const $delBtn = $('<div class="delete-btn" title="Raum löschen">×</div>')
         .appendTo($el)
-        .on('click', delete_room);
+        .on('click', function(e) {
+            delete_room(e, true, room); // <-- Das aktuelle Raum-Objekt übergeben!
+        });
 
     // Drag/Resize
     enableDragResize($el, 'room', room);
