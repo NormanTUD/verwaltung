@@ -1510,7 +1510,6 @@ def save_or_update_room():
     if not isinstance(data, dict):
         return jsonify({"error": "Expected a JSON object"}), 400
 
-    # Required fields
     name = data.get("name")
     building_id = data.get("building_id")
     x = data.get("x")
@@ -1519,6 +1518,7 @@ def save_or_update_room():
     height = data.get("height")
     room_id = data.get("id")
     old_name = data.get("old_name")
+    floor = data.get("floor")
 
     if not name or not isinstance(name, str):
         return jsonify({"error": "Missing or invalid 'name'"}), 400
@@ -1526,43 +1526,40 @@ def save_or_update_room():
     if not all(isinstance(v, (int, float)) for v in [x, y, width, height]):
         return jsonify({"error": "Invalid or missing layout data"}), 400
 
+    if floor is not None and not isinstance(floor, int):
+        return jsonify({"error": "Invalid floor – must be an integer"}), 400
+
     session = Session()
 
     try:
         room = None
 
-        # First: Try finding by ID
         if room_id:
             room = session.query(Room).filter(Room.id == room_id).one_or_none()
-
-        # Second: Try finding by old name (and building ID if provided)
         elif old_name:
             query = session.query(Room).filter(Room.name == old_name)
             if building_id is not None:
                 query = query.filter(Room.building_id == building_id)
             room = query.one_or_none()
 
-        # Third: Try finding by new name + building ID (idempotency)
         if not room:
             query = session.query(Room).filter(Room.name == name)
             if building_id is not None:
                 query = query.filter(Room.building_id == building_id)
             room = query.one_or_none()
 
-        # If not found, create Room
         if room is None:
             if building_id is None:
                 return jsonify({"error": "Cannot create room without 'building_id'"}), 400
-            room = Room(name=name, building_id=building_id)
+            room = Room(name=name, building_id=building_id, floor=floor)
             session.add(room)
-            session.flush()  # Make sure room.id is available
-
+            session.flush()
         else:
-            # Update name if needed
             if room.name != name:
                 room.name = name
+            if floor is not None:
+                room.floor = floor
 
-        # Now update or create the RoomLayout
         if room.layout:
             room.layout.x = x
             room.layout.y = y
@@ -1583,6 +1580,7 @@ def save_or_update_room():
             "status": "success",
             "room_id": room.id,
             "room_name": room.name,
+            "floor": room.floor,
             "layout": {
                 "x": x,
                 "y": y,

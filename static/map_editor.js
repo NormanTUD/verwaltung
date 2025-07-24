@@ -1,5 +1,6 @@
 // TODO: Building-ID aus Gebäudeliste erstellen
 
+var floor = 7;
 var building_id = 1;
 
 function getCallerInfo() {
@@ -48,6 +49,7 @@ function push_to_rooms (room) {
 
 function save_room(room) {
 	room.building_id = building_id;
+	room.floor = floor;
 	fetch("/api/save_or_update_room", {
 		method: "POST",
 		headers: {

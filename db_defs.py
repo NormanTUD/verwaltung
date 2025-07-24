@@ -153,6 +153,7 @@ class Room(Base):
     person_links = relationship("PersonToRoom", back_populates="room", cascade="all, delete")
     transponder_links = relationship("TransponderToRoom", back_populates="room", cascade="all, delete")
     layout = relationship("RoomLayout", back_populates="room", uselist=False, cascade="all, delete")
+    guid = Column(Text)
 
     __table_args__ = (
         UniqueConstraint("building_id", "name", name="uq_room_per_building"),
