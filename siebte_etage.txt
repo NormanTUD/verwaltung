@@ -4,328 +4,375 @@
     "x": 30,
     "y": 28,
     "width": 277,
-    "height": 365
+    "height": 365,
+    "guid": "a261ebb4-7058-470d-8e87-82d49a985575"
   },
   {
     "name": "764",
     "x": 324,
     "y": 29,
     "width": 136,
-    "height": 365
+    "height": 365,
+    "guid": "cc8a228d-922b-481e-8a87-6cf1861c8ef3"
   },
   {
     "name": "760",
     "x": 468,
     "y": 29,
     "width": 288,
-    "height": 366
+    "height": 366,
+    "guid": "87478c83-1ea3-4bec-a17f-6124ae97d7bf"
   },
   {
     "name": "758",
     "x": 759,
     "y": 31,
     "width": 434,
-    "height": 366
+    "height": 366,
+    "guid": "f3b066c4-20f1-46cc-bca6-04ddf288d698"
   },
   {
     "name": "TR2",
     "x": 1202,
     "y": 27,
     "width": 437,
-    "height": 369
+    "height": 369,
+    "guid": "1549eaed-49cf-4d75-a148-fa9d300d861e"
   },
   {
     "name": "752",
     "x": 1642,
     "y": 27,
     "width": 142,
-    "height": 369
+    "height": 369,
+    "guid": "97a7d492-d2eb-4fe5-a399-b215c76ed5f8"
   },
   {
     "name": "744",
     "x": 1790,
     "y": 28,
     "width": 580,
-    "height": 367
+    "height": 367,
+    "guid": "cc105369-6289-48bc-95c7-d3d44a4b0717"
   },
   {
     "name": "742",
     "x": 2379,
     "y": 31,
     "width": 284,
-    "height": 363
+    "height": 363,
+    "guid": "1a8a07ed-6ecc-4c50-b1fc-bedd3e0a7643"
   },
   {
     "name": "738",
     "x": 2685,
     "y": 28,
     "width": 285,
-    "height": 368
+    "height": 368,
+    "guid": "ef063ca1-e3bc-45c2-b888-2bcb8b62addf"
   },
   {
     "name": "736",
     "x": 2976,
     "y": 29,
     "width": 138,
-    "height": 369
+    "height": 369,
+    "guid": "8021a7d2-54de-4503-a1fc-34dc4ef9744d"
   },
   {
     "name": "730A",
     "x": 3125,
     "y": 27,
     "width": 139,
-    "height": 369
+    "height": 369,
+    "guid": "6eddc120-8e0c-440d-82e2-d13b24c0a7e0"
   },
   {
     "name": "730",
     "x": 3271,
     "y": 28,
     "width": 284,
-    "height": 370
+    "height": 370,
+    "guid": "963bd266-1c00-455e-99a3-761f08e6e80d"
   },
   {
     "name": "726",
     "x": 3565,
     "y": 29,
     "width": 283,
-    "height": 365
+    "height": 365,
+    "guid": "b4b963d1-2f56-4328-81c7-a14a53576b8b"
   },
   {
     "name": "722",
     "x": 3859,
     "y": 29,
     "width": 288,
-    "height": 368
+    "height": 368,
+    "guid": "7b7a53f2-8242-4fab-978b-6b43258a205d"
   },
   {
     "name": "722A",
     "x": 4152,
     "y": 27,
     "width": 286,
-    "height": 246
+    "height": 246,
+    "guid": "4dadca27-46cd-456e-8e18-57e7fc153c2e"
   },
   {
     "name": "TR3",
     "x": 4155,
     "y": 278,
     "width": 284,
-    "height": 118
+    "height": 118,
+    "guid": "6cb54c3f-cfbb-4131-873a-4562d0f352a6"
   },
   {
     "name": "TR1",
     "x": 4448,
     "y": 28,
     "width": 286,
-    "height": 367
+    "height": 367,
+    "guid": "f11a4391-3602-4ab8-b118-7e42aaf3f1d7"
   },
   {
     "name": "714",
     "x": 4742,
     "y": 29,
     "width": 281,
-    "height": 368
+    "height": 368,
+    "guid": "273e6dac-7840-482a-8205-4d42e714bccb"
   },
   {
     "name": "710A",
     "x": 5033,
     "y": 26,
     "width": 143,
-    "height": 372
+    "height": 372,
+    "guid": "81b58895-d6fb-4b4c-8f16-f7b926cfbd46"
   },
   {
     "name": "710",
     "x": 5180,
     "y": 29,
     "width": 143,
-    "height": 368
+    "height": 368,
+    "guid": "e1f2f422-8cbc-4816-a800-859d870fad1a"
   },
   {
     "name": "706",
     "x": 5329,
     "y": 28,
     "width": 284,
-    "height": 371
+    "height": 371,
+    "guid": "4e18d018-de1e-4266-9770-86ccab9835d1"
   },
   {
     "name": "702",
     "x": 5621,
     "y": 29,
     "width": 287,
-    "height": 368
+    "height": 368,
+    "guid": "80a20bac-0e8c-44f6-aced-b18210477219"
   },
   {
     "name": "701",
     "x": 5624,
     "y": 540,
     "width": 282,
-    "height": 367
+    "height": 367,
+    "guid": "d872e723-224d-4b3a-972a-3d419aa34d16"
   },
   {
     "name": "703",
     "x": 5534,
     "y": 540,
     "width": 81,
-    "height": 207
+    "height": 207,
+    "guid": "000947bc-657b-4d9d-ab53-39a7fcf7e406"
   },
   {
     "name": "705",
     "x": 5475,
     "y": 757,
     "width": 138,
-    "height": 140
+    "height": 140,
+    "guid": "038c6356-205c-45ab-99c7-bbc1f4ea2580"
   },
   {
     "name": "707A",
     "x": 5330,
     "y": 668,
     "width": 136,
-    "height": 239
+    "height": 239,
+    "guid": "f036aee8-6487-4149-8201-01c2b6b94166"
   },
   {
     "name": "707",
     "x": 5331,
     "y": 543,
     "width": 132,
-    "height": 120
+    "height": 120,
+    "guid": "d6b6b602-9cbd-4337-93fc-b5b452ea49f5"
   },
   {
     "name": "709",
     "x": 5032,
     "y": 541,
     "width": 291,
-    "height": 370
+    "height": 370,
+    "guid": "95e2329f-0902-4394-80c1-6bd6a2a1603c"
   },
   {
     "name": "713",
     "x": 4738,
     "y": 543,
     "width": 287,
-    "height": 365
+    "height": 365,
+    "guid": "1d119897-317e-4799-befa-f9f204e9027c"
   },
   {
     "name": "717",
     "x": 4590,
     "y": 544,
     "width": 140,
-    "height": 365
+    "height": 365,
+    "guid": "83110c00-2e43-4cd8-a6c7-cb23cb008cda"
   },
   {
     "name": "Aufzug",
     "x": 4015,
     "y": 547,
     "width": 570,
-    "height": 363
+    "height": 363,
+    "guid": "326aacb7-9b06-4371-a7ae-3208256333d3"
   },
   {
     "name": "719",
     "x": 3711,
     "y": 540,
     "width": 294,
-    "height": 367
+    "height": 367,
+    "guid": "b92a3b3a-bcd0-4c78-9a51-6cd7d7515b5f"
   },
   {
     "name": "723",
     "x": 3274,
     "y": 539,
     "width": 431,
-    "height": 370
+    "height": 370,
+    "guid": "93028348-b530-4e72-a697-684f962d6cd1"
   },
   {
     "name": "729",
     "x": 2976,
     "y": 539,
     "width": 290,
-    "height": 369
+    "height": 369,
+    "guid": "652b9083-7733-4fd2-a0e8-e8e80190504f"
   },
   {
     "name": "733",
     "x": 2685,
     "y": 539,
     "width": 287,
-    "height": 369
+    "height": 369,
+    "guid": "5bd88f48-fa7e-4178-bdcb-f68eb1b3ec8e"
   },
   {
     "name": "WC",
     "x": 2375,
     "y": 532,
     "width": 297,
-    "height": 379
+    "height": 379,
+    "guid": "5d403d15-fec5-4f91-964c-1ad79e2f92ab"
   },
   {
     "name": "743A",
     "x": 2230,
     "y": 621,
     "width": 138,
-    "height": 287
+    "height": 287,
+    "guid": "cec2a952-ca7f-4df9-aff8-c5c70ce5714a"
   },
   {
     "name": "743",
     "x": 2229,
     "y": 539,
     "width": 138,
-    "height": 76
+    "height": 76,
+    "guid": "22015eb3-9b33-4f7a-988f-48a888ee26ea"
   },
   {
     "name": "743B",
     "x": 2088,
     "y": 543,
     "width": 133,
-    "height": 367
+    "height": 367,
+    "guid": "a65863a9-23dd-4408-8c51-a8c9eb05650b"
   },
   {
     "name": "745",
     "x": 1644,
     "y": 543,
     "width": 432,
-    "height": 367
+    "height": 367,
+    "guid": "8892d634-d260-4fa9-87a0-5a767884a752"
   },
   {
     "name": "747",
     "x": 1203,
     "y": 538,
     "width": 440,
-    "height": 372
+    "height": 372,
+    "guid": "344a4d8e-2329-4d56-aacc-9f86d5902787"
   },
   {
     "name": "757",
     "x": 616,
     "y": 541,
     "width": 581,
-    "height": 366
+    "height": 366,
+    "guid": "6a3cd35f-e47e-4357-bf66-c5e834f7e52e"
   },
   {
     "name": "763",
     "x": 526,
     "y": 529,
     "width": 84,
-    "height": 218
+    "height": 218,
+    "guid": "2c5fb05d-b034-4c04-80f2-5aed21f6f7ed"
   },
   {
     "name": "765",
     "x": 465,
     "y": 757,
     "width": 146,
-    "height": 153
+    "height": 153,
+    "guid": "25445b06-ef1e-4cce-8307-15448140d872"
   },
   {
     "name": "767",
     "x": 324,
     "y": 542,
     "width": 137,
-    "height": 365
+    "height": 365,
+    "guid": "fc6ebad3-8548-4065-a1a7-4720889163a4"
   },
   {
     "name": "769",
     "x": 30,
     "y": 542,
     "width": 282,
-    "height": 366
+    "height": 366,
+    "guid": "43ab6eaf-4e53-4d8f-a46a-e8e91111fd89"
   },
   {
     "name": "",
     "x": 31,
     "y": 405,
     "width": 185,
-    "height": 127
+    "height": 127,
+    "guid": "be9e76c5-2b9e-46bc-84f3-40a4885691ba"
   }
 ]
