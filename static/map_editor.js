@@ -38,6 +38,31 @@ let roomCounter = 1;
 
 const output = document.getElementById('output');
 
+function push_to_rooms (room) {
+	rooms.push(room)
+}
+
+function save_room (room) {
+	fetch("/api/save_map", {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json"
+		},
+		body: JSON.stringify([room])  // API erwartet Liste!
+	})
+	.then(response => response.json())
+	.then(data => {
+		if (data.status === "success") {
+			log("Raum erfolgreich gespeichert: " + newRoom.name);
+		} else {
+			console.error("Fehler beim Speichern:", data.error || data);
+		}
+	})
+	.catch(error => {
+		console.error("API Fehler:", error);
+	});
+}
+
 
 // Helpers (jQuery-Version)
 function createElement(tag, cls, parent) {
@@ -175,33 +200,38 @@ function createRoomElement(room) {
         })
 	.on('input', function () {
 		room.name = $(this).val();
-		debug(`Raumname geändert: ${room.name}`);
-		focusedRoomCaret = this.selectionStart;
+		if(room.name) {
+			debug(`Raumname geändert: ${room.name}`);
 
-		clearTimeout(roomNameUpdateTimeout);
+			save_room(room);
 
-		roomNameUpdateTimeout = setTimeout(() => {
-			fetch("/api/update_room_name", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json"
-				},
-				body: JSON.stringify({
-					id: room.id?.replace(/^r/, "") || null,  // falls IDs "r123" sind, entferne Prefix
-					new_name: room.name,
-					building_id: room.building_id || null
+			focusedRoomCaret = this.selectionStart;
+
+			clearTimeout(roomNameUpdateTimeout);
+
+			roomNameUpdateTimeout = setTimeout(() => {
+				fetch("/api/update_room_name", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json"
+					},
+					body: JSON.stringify({
+						id: room.id?.replace(/^r/, "") || null,  // falls IDs "r123" sind, entferne Prefix
+						new_name: room.name,
+						building_id: room.building_id || null
+					})
 				})
-			})
-				.then(response => response.json())
-				.then(data => {
-					if (data.status !== "success") {
-						console.error("Fehler beim Aktualisieren des Raumnamens:", data.error || data);
-					}
-				})
-				.catch(error => {
-					console.error("API-Fehler beim Namens-Update:", error);
-				});
-		}, 300); // debounce 300ms
+					.then(response => response.json())
+					.then(data => {
+						if (data.status !== "success") {
+							console.error("Fehler beim Aktualisieren des Raumnamens:", data.error || data);
+						}
+					})
+					.catch(error => {
+						console.error("API-Fehler beim Namens-Update:", error);
+					});
+			}, 300); // debounce 300ms
+		}
 	})
         .on('blur', function () {
             focusedRoomId = null;
@@ -539,7 +569,7 @@ $(window).on('mouseup', function (e) {
                 width: drawingRoom.width,
                 height: drawingRoom.height
             };
-            rooms.push(newRoom);
+            push_to_rooms(newRoom);
             selectedRoomId = newRoom.id;
             log(`Neuer Raum erstellt: ID=${newRoom.id}, Position=(${newRoom.x},${newRoom.y}), Größe=(${newRoom.width}x${newRoom.height})`);
 
@@ -706,29 +736,7 @@ function import_text() {
             height: this_room.height
         };
 
-        rooms.push(newRoom);
-	    log("fetching api");
-
-	    fetch("/api/save_map", {
-		    method: "POST",
-		    headers: {
-			    "Content-Type": "application/json"
-		    },
-		    body: JSON.stringify([newRoom])  // API erwartet Liste!
-	    })
-	    .then(response => response.json())
-	    .then(data => {
-		    if (data.status === "success") {
-			    log("Raum erfolgreich gespeichert: " + newRoom.name);
-		    } else {
-			    console.error("Fehler beim Speichern:", data.error || data);
-		    }
-	    })
-	    .catch(error => {
-		    console.error("API Fehler:", error);
-	    });
-
-	    log("done fetching api");
+        push_to_rooms(newRoom);
 
         removeTempRects();
         renderAll();

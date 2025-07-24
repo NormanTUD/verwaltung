@@ -1503,48 +1503,97 @@ def home():
     return render_template('floorplan.html')
 
 
-@app.route("/api/save_map", methods=["POST"])
-def save_map():
+@app.route("/api/save_or_update_room", methods=["POST"])
+def save_or_update_room():
     data = request.get_json()
 
-    if not isinstance(data, list):
-        return jsonify({"error": "Expected list of room layout objects"}), 400
+    if not isinstance(data, dict):
+        return jsonify({"error": "Expected a JSON object"}), 400
+
+    # Required fields
+    name = data.get("name")
+    building_id = data.get("building_id")
+    x = data.get("x")
+    y = data.get("y")
+    width = data.get("width")
+    height = data.get("height")
+    room_id = data.get("id")
+    old_name = data.get("old_name")
+
+    if not name or not isinstance(name, str):
+        return jsonify({"error": "Missing or invalid 'name'"}), 400
+
+    if not all(isinstance(v, (int, float)) for v in [x, y, width, height]):
+        return jsonify({"error": "Invalid or missing layout data"}), 400
 
     session = Session()
 
     try:
-        for item in data:
-            name = item.get("name")
-            x = item.get("x")
-            y = item.get("y")
-            width = item.get("width")
-            height = item.get("height")
+        room = None
 
-            if not all(isinstance(v, (int, float)) for v in [x, y, width, height]) or not isinstance(name, str):
-                return jsonify({"error": f"Invalid data format in item: {item}"}), 400
+        # First: Try finding by ID
+        if room_id:
+            room = session.query(Room).filter(Room.id == room_id).one_or_none()
 
-            room = session.query(Room).filter(Room.name == name).one_or_none()
+        # Second: Try finding by old name (and building ID if provided)
+        elif old_name:
+            query = session.query(Room).filter(Room.name == old_name)
+            if building_id is not None:
+                query = query.filter(Room.building_id == building_id)
+            room = query.one_or_none()
 
-            if room is None:
-                return jsonify({"error": f"Room with name '{name}' not found"}), 404
+        # Third: Try finding by new name + building ID (idempotency)
+        if not room:
+            query = session.query(Room).filter(Room.name == name)
+            if building_id is not None:
+                query = query.filter(Room.building_id == building_id)
+            room = query.one_or_none()
 
-            if room.layout:
-                room.layout.x = x
-                room.layout.y = y
-                room.layout.width = width
-                room.layout.height = height
-            else:
-                layout = RoomLayout(
-                    room=room,
-                    x=x,
-                    y=y,
-                    width=width,
-                    height=height
-                )
-                session.add(layout)
+        # If not found, create Room
+        if room is None:
+            if building_id is None:
+                return jsonify({"error": "Cannot create room without 'building_id'"}), 400
+            room = Room(name=name, building_id=building_id)
+            session.add(room)
+            session.flush()  # Make sure room.id is available
+
+        else:
+            # Update name if needed
+            if room.name != name:
+                room.name = name
+
+        # Now update or create the RoomLayout
+        if room.layout:
+            room.layout.x = x
+            room.layout.y = y
+            room.layout.width = width
+            room.layout.height = height
+        else:
+            layout = RoomLayout(
+                room_id=room.id,
+                x=x,
+                y=y,
+                width=width,
+                height=height
+            )
+            session.add(layout)
 
         session.commit()
-        return jsonify({"status": "success"}), 200
+        return jsonify({
+            "status": "success",
+            "room_id": room.id,
+            "room_name": room.name,
+            "layout": {
+                "x": x,
+                "y": y,
+                "width": width,
+                "height": height
+            }
+        }), 200
+
+    except IntegrityError as e:
+        session.rollback()
+        return jsonify({"error": "Database integrity error", "details": str(e)}), 409
 
     except SQLAlchemyError as e:
         session.rollback()
@@ -1552,7 +1601,6 @@ def save_map():
 
     finally:
         session.close()
-
 
 @app.route("/api/delete_room", methods=["POST"])
 def delete_room():
@@ -1592,46 +1640,6 @@ def delete_room():
     finally:
         session.close()
 
-@app.route("/api/update_room_name", methods=["POST"])
-def update_room_name():
-    data = request.get_json()
-
-    old_name = data.get("old_name")
-    new_name = data.get("new_name")
-    room_id = data.get("id")
-    building_id = data.get("building_id")
-
-    if not new_name or (not old_name and not room_id):
-        return jsonify({"error": "Missing 'new_name' and 'id' or 'old_name'"}), 400
-
-    session = Session()
-
-    try:
-        query = session.query(Room)
-
-        if room_id:
-            query = query.filter(Room.id == room_id)
-        elif old_name:
-            query = query.filter(Room.name == old_name)
-            if building_id is not None:
-                query = query.filter(Room.building_id == building_id)
-
-        room = query.one_or_none()
-
-        if room is None:
-            return jsonify({"error": "Room not found"}), 404
-
-        room.name = new_name
-        session.commit()
-
-        return jsonify({"status": "success", "room_id": room.id, "new_name": room.name}), 200
-
-    except SQLAlchemyError as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-
-    finally:
-        session.close()
 
 if __name__ == "__main__":
     insert_tu_dresden_buildings()

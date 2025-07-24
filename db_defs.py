@@ -276,3 +276,7 @@ class RoomLayout(Base):
     height = Column(Integer, nullable=False)
 
     room = relationship("Room", back_populates="layout")
+
+    __table_args__ = (
+        UniqueConstraint("room_id", name="uq_room_id"),
+    )
