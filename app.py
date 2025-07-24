@@ -1510,7 +1510,7 @@ def save_map():
     if not isinstance(data, list):
         return jsonify({"error": "Expected list of room layout objects"}), 400
 
-    session = SessionLocal()
+    session = Session()
 
     try:
         for item in data:
@@ -1567,7 +1567,7 @@ def delete_room():
     if not isinstance(name, str):
         return jsonify({"error": "Missing or invalid 'name' field"}), 400
 
-    session = SessionLocal()
+    session = Session()
 
     try:
         query = session.query(Room).filter(Room.name == name)
@@ -1604,7 +1604,7 @@ def update_room_name():
     if not new_name or (not old_name and not room_id):
         return jsonify({"error": "Missing 'new_name' and 'id' or 'old_name'"}), 400
 
-    session = SessionLocal()
+    session = Session()
 
     try:
         query = session.query(Room)
