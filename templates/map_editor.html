@@ -1,33 +1,57 @@
 <!DOCTYPE html>
 <html lang="de">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>Raum- und Snapzone Editor</title>
-		<link rel="stylesheet" href="static/style.css">
-		<link rel="stylesheet" href="static/map_editor.css">
-	</head>
-	<body>
-		<a href="/aggregate/">← zurück</a>
-		<div id="controls">
-			<button id="draw-room-btn">Raum zeichnen</button>
-			<button id="draw-snapzone-btn" disabled>Snapzone zeichnen</button>
-			<select id="snapzone-type-select" disabled>
-				<option value="laptop">Laptop</option>
-				<option value="stuhl">Stuhl</option>
-				<option value="tisch">Tisch</option>
-			</select>
-			<button id="cancel-draw-btn" disabled>Abbrechen</button>
-		</div>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Raum- und Snapzone Editor</title>
+<link rel="stylesheet" type="text/css" href="static/map_editor.css">
+<link rel="shortcut icon" href="static/favicon.ico" type="image/x-icon">
 
-		<div id="container">
-			<img id="floorplan" src="/static/sechste_etage.png" alt="Etagenplan">
-			<div id="overlay"></div>
-		</div>
+<script src="static/jquery.js" crossorigin="anonymous"></script>
+</head>
+<body>
 
-		<pre id="output">// Räume und Snapzones werden hier angezeigt</pre>
 
-		<script src="static/map_editor.js"></script>
-	</body>
+
+  <div id="containerContainer">
+    <img id="backgroundImage" src="/static/sechste_etage.png" alt="Etagenplan">
+    <div id="container">
+    </div>
+  </div>
+
+<pre id="output">// Räume und Snapzones werden hier angezeigt</pre>
+
+
+  <script>
+    const img = document.getElementById('backgroundImage');
+    const container = document.getElementById('container');
+
+    img.onload = function () {
+      container.style.width = img.naturalWidth + 'px';
+      container.style.height = img.naturalHeight + 'px';
+    };
+  </script>
+
+<textarea id="import" onkeyup="import_text()" style="min-width: 500px; min-height: 500px">
+[
+  {
+    "name": "668",
+    "x": 27,
+    "y": 45,
+    "width": 276,
+    "height": 353
+  },
+  {
+    "name": "",
+    "x": 312,
+    "y": 45,
+    "width": 133,
+    "height": 353
+  }
+]
+</textarea>
+
+<script src="static/map_editor.js"></script>
+
+</body>
 </html>
-
