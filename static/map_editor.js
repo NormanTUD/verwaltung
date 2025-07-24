@@ -3,6 +3,36 @@
 var floor = 7;
 var building_id = 1;
 
+function createGUID() {
+	function getRandomHexDigit() {
+		return Math.floor(Math.random() * 16).toString(16);
+	}
+
+	function getRandomHexDigits(count) {
+		var digits = '';
+		var i = 0;
+		while (i < count) {
+			digits += getRandomHexDigit();
+			i++;
+		}
+		return digits;
+	}
+
+	function getRandomYDigit() {
+		var y = Math.floor(Math.random() * 4) + 8; // 8, 9, A, or B
+		return y.toString(16);
+	}
+
+	var part1 = getRandomHexDigits(8);
+	var part2 = getRandomHexDigits(4);
+	var part3 = '4' + getRandomHexDigits(3); // version 4
+	var part4 = getRandomYDigit() + getRandomHexDigits(3); // variant
+	var part5 = getRandomHexDigits(12);
+
+	var guuid = part1 + '-' + part2 + '-' + part3 + '-' + part4 + '-' + part5;
+	return guuid;
+}
+
 function getCallerInfo() {
     const stack = new Error().stack;
     const callerLine = stack.split("\n")[3]?.trim() || "unknown"; // [0]=Error, [1]=getCallerInfo, [2]=log, [3]=Aufrufer
@@ -45,6 +75,12 @@ const output = document.getElementById('output');
 
 function push_to_rooms (room) {
 	rooms.push(room)
+}
+
+function save_rooms() {
+	for (var i = 0; i < rooms.length; i++) {
+		save_room(rooms[i]);
+	}
 }
 
 function save_room(room) {
@@ -188,8 +224,6 @@ function createRoomElement(room) {
     });
     $el.attr('data-id', room.id);
 
-	let roomNameUpdateTimeout = null;
-
     // Name-Eingabe
     const $nameInput = $('<input type="text" class="name-input" title="Raumname">')
         .val(room.name)
@@ -214,31 +248,6 @@ function createRoomElement(room) {
 			save_room(room);
 
 			focusedRoomCaret = this.selectionStart;
-
-			clearTimeout(roomNameUpdateTimeout);
-
-			roomNameUpdateTimeout = setTimeout(() => {
-				fetch("/api/update_room_name", {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json"
-					},
-					body: JSON.stringify({
-						id: room.id?.replace(/^r/, "") || null,  // falls IDs "r123" sind, entferne Prefix
-						new_name: room.name,
-						building_id: room.building_id || null
-					})
-				})
-					.then(response => response.json())
-					.then(data => {
-						if (data.status !== "success") {
-							console.error("Fehler beim Aktualisieren des Raumnamens:", data.error || data);
-						}
-					})
-					.catch(error => {
-						console.error("API-Fehler beim Namens-Update:", error);
-					});
-			}, 300); // debounce 300ms
 		}
 	})
         .on('blur', function () {
@@ -575,7 +584,8 @@ $(window).on('mouseup', function (e) {
                 x: drawingRoom.x,
                 y: drawingRoom.y,
                 width: drawingRoom.width,
-                height: drawingRoom.height
+                height: drawingRoom.height,
+		guid: createGUID()
             };
             push_to_rooms(newRoom);
             selectedRoomId = newRoom.id;
@@ -741,7 +751,8 @@ function import_text() {
             x: this_room.x,
             y: this_room.y,
             width: this_room.width,
-            height: this_room.height
+            height: this_room.height,
+		guid: createGUID()
         };
 
         push_to_rooms(newRoom);

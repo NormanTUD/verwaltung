@@ -157,6 +157,7 @@ class Room(Base):
 
     __table_args__ = (
         UniqueConstraint("building_id", "name", name="uq_room_per_building"),
+        UniqueConstraint("guid", name="uq_guid"),
     )
 
 class PersonToRoom(Base):
