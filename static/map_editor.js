@@ -391,7 +391,7 @@ $(document).on('mouseup.dragResize', function (e) {
 function cancel_drag(e) {
     // Nur Escape-Taste oder Mouseup außerhalb von Input-Feldern
     if (e.type === 'keydown' && e.key === 'Escape') {
-        log("cancel_drag, event:", e)
+        //log("cancel_drag, event:", e)
         if (window.dragData || window.resizeData) {
             log('Drag/Resize beendet (Escape gedrückt)');
         }
@@ -400,7 +400,7 @@ function cancel_drag(e) {
     }
     
     if (e.type === 'mouseup') {
-        log("cancel_drag, event:", e)
+        //log("cancel_drag, event:", e)
         // Wenn aktuell ein Input-Feld den Fokus hat, nichts tun!
         if (document.activeElement && document.activeElement.tagName === "INPUT") return;
         window.dragData = null;
@@ -484,7 +484,7 @@ $(container).on('mousedown', function (e) {
     if(e.target.id == "container") {
         const pos = getMousePos(e);
         drawingRoom = { x: pos.x, y: pos.y, width: 0, height: 0 };
-        log(`Start drawing room at (${pos.x}, ${pos.y})`);
+        //log(`Start drawing room at (${pos.x}, ${pos.y})`);
         drawTempRect('room', drawingRoom);
     }
 });
@@ -495,7 +495,7 @@ $(container).on('mousemove', function (e) {
         const pos = getMousePos(e);
         drawingRoom.width = Math.max(1, pos.x - drawingRoom.x);
         drawingRoom.height = Math.max(1, pos.y - drawingRoom.y);
-        debug(`Drawing room resize to width: ${drawingRoom.width}, height: ${drawingRoom.height}, drawingRoom:`, drawingRoom);
+        //debug(`Drawing room resize to width: ${drawingRoom.width}, height: ${drawingRoom.height}, drawingRoom:`, drawingRoom);
         drawTempRect('room', drawingRoom);
     }
 });
@@ -628,7 +628,7 @@ function import_text() {
     var text = $("#import").val()
 
     if (text.match(/^\s*$/)) {
-        error("#import: textfeld ist leer oder besteht nur aus leerzeichen");
+        //error("#import: textfeld ist leer oder besteht nur aus leerzeichen");
         return;
     }
 
@@ -680,6 +680,7 @@ function import_text() {
         };
 
         rooms.push(newRoom);
+	    log("fetching api");
 
 	    fetch("/api/save_map", {
 		    method: "POST",
@@ -700,6 +701,7 @@ function import_text() {
 		    console.error("API Fehler:", error);
 	    });
 
+	    log("done fetching api");
 
         removeTempRects();
         renderAll();

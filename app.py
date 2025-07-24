@@ -1592,6 +1592,47 @@ def delete_room():
     finally:
         session.close()
 
+@app.route("/api/update_room_name", methods=["POST"])
+def update_room_name():
+    data = request.get_json()
+
+    old_name = data.get("old_name")
+    new_name = data.get("new_name")
+    room_id = data.get("id")
+    building_id = data.get("building_id")
+
+    if not new_name or (not old_name and not room_id):
+        return jsonify({"error": "Missing 'new_name' and 'id' or 'old_name'"}), 400
+
+    session = SessionLocal()
+
+    try:
+        query = session.query(Room)
+
+        if room_id:
+            query = query.filter(Room.id == room_id)
+        elif old_name:
+            query = query.filter(Room.name == old_name)
+            if building_id is not None:
+                query = query.filter(Room.building_id == building_id)
+
+        room = query.one_or_none()
+
+        if room is None:
+            return jsonify({"error": "Room not found"}), 404
+
+        room.name = new_name
+        session.commit()
+
+        return jsonify({"status": "success", "room_id": room.id, "new_name": room.name}), 200
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        session.close()
+
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
 
