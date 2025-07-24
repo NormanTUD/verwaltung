@@ -20,7 +20,7 @@ html, body {
     box-shadow: 0 0 5px rgba(0,0,0,0.3);
     box-sizing: border-box;
     overflow: visible;
-    z-index: 100;
+    z-index: 1;
 }
 .room-label {
     position: absolute; top: 5px; left: 5px;
@@ -30,36 +30,7 @@ html, body {
     position: absolute; bottom: 5px; left: 5px;
     font-size: 14px; color: #333; z-index: 200; pointer-events: none;
 }
-/* Snapping Zone kleiner und mit leicht transparentem hellgrauem Hintergrund + dünner Rahmen */
-.snapzone {
-    position: absolute;
-    width: 30px; 
-    height: 30px;
-    border: 1px solid rgba(200, 200, 200, 0.8); /* dünner, hellgrauer Rahmen */
-    background: rgba(220, 220, 220, 0.3); /* leicht transparent */
-    border-radius: 6px;
-    z-index: 150;
-    pointer-events: none;
-    box-sizing: border-box;
-}
-/* Position der Snapzones im Raum: Laptop oben links, Stuhl unten rechts */
-.snapzone.laptop {
-    top: 15px;
-    left: 15px;
-}
-.snapzone.stuhl {
-    bottom: 15px;
-    right: 15px;
-}
-.object {
-    position: absolute;
-    width: 40px;
-    height: 40px;
-    cursor: grab;
-    user-select: none;
-    z-index: 300;
-    transition: left 0.15s ease, top 0.15s ease;
-}
+
 #addPersonBtn {
     position: fixed;
     bottom: 20px; left: 240px;
@@ -84,18 +55,7 @@ html, body {
     display: none;
     width: 200px;
 }
-#addBtn {
-    position: fixed;
-    bottom: 20px; left: 20px;
-    z-index: 9999;
-    padding: 10px 15px;
-    background: #007bff;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    width: 200px;
-}
+
 #shapeSelector {
     position: fixed;
     bottom: 70px;
@@ -108,15 +68,45 @@ html, body {
     display: none;
     width: 200px;
 }
-
-.snapzone {
-  border-radius: 6px;
-  border: 1px solid rgba(0,0,0,0.2);
-  transition: box-shadow 0.3s ease;
-  
-  /* Wichtig für Snapping: */
-  pointer-events: none;
-  
-  /* Farben mit Transparenz, damit man sie sieht */
-  background-color: rgba(0, 0, 255, 0.2);
+#addBtn {
+    position: fixed;
+    bottom: 20px; left: 20px;
+    z-index: 9999;
+    padding: 10px 15px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 200px;
 }
+
+
+#objectForm {
+    position: fixed;
+    bottom: 70px;       /* bleibt gleich */
+    left: 20px;         /* gleiche left-Position wie #addBtn */
+    z-index: 8000;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 5px 10px;
+    display: none;
+    width: 200px;
+}
+
+
+#shapeSelector {
+    position: fixed;
+    bottom: 70px;
+    left: 20px;
+    z-index: 9999;
+    background: rgb(255, 255, 255);
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 5px 10px;
+    display: none;
+    width: 200px;
+}
+
+
