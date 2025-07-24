@@ -1502,6 +1502,96 @@ def gui_edit(handler_name):
 def home():
     return render_template('floorplan.html')
 
+
+@app.route("/api/save_map", methods=["POST"])
+def save_map():
+    data = request.get_json()
+
+    if not isinstance(data, list):
+        return jsonify({"error": "Expected list of room layout objects"}), 400
+
+    session = SessionLocal()
+
+    try:
+        for item in data:
+            name = item.get("name")
+            x = item.get("x")
+            y = item.get("y")
+            width = item.get("width")
+            height = item.get("height")
+
+            if not all(isinstance(v, (int, float)) for v in [x, y, width, height]) or not isinstance(name, str):
+                return jsonify({"error": f"Invalid data format in item: {item}"}), 400
+
+            room = session.query(Room).filter(Room.name == name).one_or_none()
+
+            if room is None:
+                return jsonify({"error": f"Room with name '{name}' not found"}), 404
+
+            if room.layout:
+                room.layout.x = x
+                room.layout.y = y
+                room.layout.width = width
+                room.layout.height = height
+            else:
+                layout = RoomLayout(
+                    room=room,
+                    x=x,
+                    y=y,
+                    width=width,
+                    height=height
+                )
+                session.add(layout)
+
+        session.commit()
+        return jsonify({"status": "success"}), 200
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        session.close()
+
+
+@app.route("/api/delete_room", methods=["POST"])
+def delete_room():
+    data = request.get_json()
+
+    if not isinstance(data, dict):
+        return jsonify({"error": "Expected JSON object"}), 400
+
+    name = data.get("name")
+    building_id = data.get("building_id")
+
+    if not isinstance(name, str):
+        return jsonify({"error": "Missing or invalid 'name' field"}), 400
+
+    session = SessionLocal()
+
+    try:
+        query = session.query(Room).filter(Room.name == name)
+
+        if building_id is not None:
+            query = query.filter(Room.building_id == building_id)
+
+        room = query.one_or_none()
+
+        if room is None:
+            return jsonify({"error": f"Room with name '{name}' not found"}), 404
+
+        session.delete(room)
+        session.commit()
+
+        return jsonify({"status": f"Room '{name}' deleted successfully"}), 200
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        session.close()
+
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
 

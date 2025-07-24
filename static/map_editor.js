@@ -115,6 +115,27 @@ function delete_room(e, ask = true, this_room) {
         }
         updateOutput();
         renderAll();
+
+
+	fetch("/api/delete_room", {
+	    method: "POST",
+	    headers: {
+		"Content-Type": "application/json"
+	    },
+	    body: JSON.stringify({ name: this_room.name })
+	})
+	.then(response => response.json())
+	.then(data => {
+	    if (data.status) {
+		log("Raum gelöscht aus DB: " + this_room.name);
+	    } else {
+		console.error("Fehler beim Löschen:", data.error || data);
+	    }
+	})
+	.catch(error => {
+	    console.error("API Fehler beim Löschen:", error);
+	});
+
     } else {
         log(`NOT DELETING: ${this_room}`)
     }
@@ -659,6 +680,26 @@ function import_text() {
         };
 
         rooms.push(newRoom);
+
+	    fetch("/api/save_map", {
+		    method: "POST",
+		    headers: {
+			    "Content-Type": "application/json"
+		    },
+		    body: JSON.stringify([newRoom])  // API erwartet Liste!
+	    })
+		    .then(response => response.json())
+		    .then(data => {
+			    if (data.status === "success") {
+				    log("Raum erfolgreich gespeichert: " + newRoom.name);
+			    } else {
+				    console.error("Fehler beim Speichern:", data.error || data);
+			    }
+		    })
+		    .catch(error => {
+			    console.error("API Fehler:", error);
+		    });
+
 
         removeTempRects();
         renderAll();
