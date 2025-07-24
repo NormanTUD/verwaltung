@@ -155,6 +155,8 @@ function createRoomElement(room) {
     });
     $el.attr('data-id', room.id);
 
+	let roomNameUpdateTimeout = null;
+
     // Name-Eingabe
     const $nameInput = $('<input type="text" class="name-input" title="Raumname">')
         .val(room.name)
@@ -171,11 +173,36 @@ function createRoomElement(room) {
             if (!focusedRoomId) focusedRoomId = room.id;
             if (!focusedRoomCaret) focusedRoomCaret = this.selectionStart;
         })
-        .on('input', function () {
-            room.name = $(this).val();
-            debug(`Raumname geändert: ${room.name}`);
-            focusedRoomCaret = this.selectionStart;
-        })
+	.on('input', function () {
+		room.name = $(this).val();
+		debug(`Raumname geändert: ${room.name}`);
+		focusedRoomCaret = this.selectionStart;
+
+		clearTimeout(roomNameUpdateTimeout);
+
+		roomNameUpdateTimeout = setTimeout(() => {
+			fetch("/api/update_room_name", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify({
+					id: room.id?.replace(/^r/, "") || null,  // falls IDs "r123" sind, entferne Prefix
+					new_name: room.name,
+					building_id: room.building_id || null
+				})
+			})
+				.then(response => response.json())
+				.then(data => {
+					if (data.status !== "success") {
+						console.error("Fehler beim Aktualisieren des Raumnamens:", data.error || data);
+					}
+				})
+				.catch(error => {
+					console.error("API-Fehler beim Namens-Update:", error);
+				});
+		}, 300); // debounce 300ms
+	})
         .on('blur', function () {
             focusedRoomId = null;
             focusedRoomCaret = null;
