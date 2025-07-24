@@ -3,6 +3,36 @@
 var building_id = 1;
 var floor = 7;
 
+function loadFloorplan(buildingId, floor) {
+	if (typeof buildingId !== "number" || typeof floor !== "number") {
+		console.error("loadFloorplan: buildingId und floor müssen Zahlen sein");
+		return;
+	}
+
+	var url = "/get_floorplan?building_id=" + encodeURIComponent(buildingId) + "&etage=" + encodeURIComponent(floor);
+
+	fetch(url)
+		.then(function (response) {
+			if (!response.ok) {
+				throw new Error("Serverantwort war nicht OK: " + response.status + " " + response.statusText);
+			}
+			return response.json();
+		})
+		.then(function (data) {
+			if (!Array.isArray(data)) {
+				throw new Error("Antwort ist kein Array: " + JSON.stringify(data));
+			}
+
+			rooms = data;
+
+			renderAll();
+			updateOutput();
+		})
+		.catch(function (error) {
+			console.error("Fehler beim Laden des Floorplans:", error);
+		});
+}
+
 function createGUID() {
 	function getRandomHexDigit() {
 		return Math.floor(Math.random() * 16).toString(16);
@@ -794,9 +824,5 @@ function isMouseOutsideRooms(event, container, rooms) {
 
     return true; // Maus ist außerhalb aller Räume
 }
-
-renderAll();
-updateOutput();
-import_text()
 
 loadFloorplan(building_id, floor);
