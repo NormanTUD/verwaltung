@@ -1876,8 +1876,8 @@ def get_person_database():
         result = []
         for person in persons:
             result.append({
-                "vorname": person.first_name or "",
-                "nachname": person.last_name or "",
+                "first_name": person.first_name or "",
+                "last_name": person.last_name or "",
                 "alter": 0,                  # Placeholder – muss ergänzt werden
                 "rolle": "Unbekannt",        # Placeholder – ggf. aus Professorship/Abteilung ableiten?
                 "etage": 0,                  # Placeholder – ggf. aus room/office Info ableiten?

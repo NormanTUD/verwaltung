@@ -410,7 +410,7 @@ function populateExistingPersonSelect() {
   personDatabase.forEach((person, index) => {
     const option = document.createElement("option");
     option.value = index;
-    option.textContent = `${person.vorname} ${person.nachname} (${person.rolle})`;
+    option.textContent = `${person.first_name} ${person.last_name} (${person.rolle})`;
     existingPersonSelect.appendChild(option);
   });
 }
