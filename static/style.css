@@ -244,3 +244,19 @@ ul {
 	padding-left: 20px;
 }
 
+.floorplan_back_Btn {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    position: relative;
+    background-color: #007bff;
+    z-index: 9999;
+    color: white;
+    top: 20px;
+    left: 20px;
+	border: none;
+  	outline: none; /* nur wenn du den Fokusrahmen wirklich nicht willst */
+  	padding: 0;
+}

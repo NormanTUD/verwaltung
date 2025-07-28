@@ -162,6 +162,9 @@ html, body {
     color: white;
     top: 20px;
     left: 20px;
+    border: none;
+  	outline: none; /* nur wenn du den Fokusrahmen wirklich nicht willst */
+  	padding: 0;
 }
 
 
