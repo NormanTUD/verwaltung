@@ -277,7 +277,32 @@ function makeDraggable(el) {
     updateCounter(newRoom);
     console.log(`Added element to new room: ${newRoom.el.dataset.name}`, el);
 
+    var attributes = JSON.parse(el.dataset.attributes || "{}");
 
+    // Daten, die gesendet werden sollen (z.B. attributes plus Raum)
+    const payload = {
+      room: newRoom.el.dataset.name,
+      person: attributes
+    };
+
+    fetch("/api/save_person_to_room", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)  // Payload als JSON-String schicken
+    })
+    .then(response => {
+      if (!response.ok) throw new Error("Netzwerkantwort war nicht OK");
+      return response.json(); // falls JSON als Antwort erwartet wird
+    })
+    .then(data => {
+      console.log("Erfolgreich gespeichert:", data);
+    })
+    .catch(error => {
+      console.error("Fehler beim Speichern:", error);
+    });
+    
     //save_person_to_raum();
   }
 
@@ -529,6 +554,8 @@ function createPersonCircle(attributes) {
 function createCircleElement(attributes) {
   const circle = document.createElement("div");
   circle.classList.add("person-circle");
+
+  circle.dataset.attributes = JSON.stringify(attributes);
 
   // Nur das Bild anzeigen, keine weiteren Infos!
   circle.innerHTML = `
