@@ -1509,89 +1509,22 @@ def save_or_update_room():
     if not isinstance(data, dict):
         return jsonify({"error": "Expected a JSON object"}), 400
 
-    name = data.get("name")
-    building_id = data.get("building_id")
-    x = data.get("x")
-    y = data.get("y")
-    width = data.get("width")
-    height = data.get("height")
-    room_id = data.get("id")
-    old_name = data.get("old_name")
-    floor = data.get("floor")
-    guid = data.get("guid")
-
-    if not name or not isinstance(name, str):
-        return jsonify({"error": "Missing or invalid 'name'"}), 400
-
-    if not all(isinstance(v, (int, float)) for v in [x, y, width, height]):
-        return jsonify({"error": "Invalid or missing layout data"}), 400
-
-    if floor is not None and not isinstance(floor, int):
-        return jsonify({"error": "Invalid floor – must be an integer"}), 400
-
-    if guid is not None and not isinstance(guid, str):
-        return jsonify({"error": "Invalid 'guid' – must be a string"}), 400
+    try:
+        validated = _save_room_validate_input(data)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     session = Session()
-
     with session.no_autoflush:
         try:
-            room = None
-
-            # 1. Suche zuerst nach GUID
-            if guid:
-                room = session.query(Room).filter(Room.guid == guid).one_or_none()
-
-            # 2. Falls keine GUID oder nichts gefunden: fallback auf ID oder Name
-            if room is None and room_id:
-                room = session.query(Room).filter(Room.id == room_id).one_or_none()
-
-            if room is None and old_name:
-                query = session.query(Room).filter(Room.name == old_name)
-                if building_id is not None:
-                    query = query.filter(Room.building_id == building_id)
-                room = query.one_or_none()
+            room = _save_room_find_existing(session, validated)
 
             if room is None:
-                query = session.query(Room).filter(Room.name == name)
-                if building_id is not None:
-                    query = query.filter(Room.building_id == building_id)
-                room = query.one_or_none()
-
-            if room is None:
-                if building_id is None:
-                    return jsonify({"error": "Cannot create room without 'building_id'"}), 400
-                room = Room(
-                    name=name,
-                    building_id=building_id,
-                    floor=floor,
-                    guid=guid if guid else str(uuid.uuid4())
-                )
-                session.add(room)
-                session.flush()
+                room = _save_room_create(session, validated)
             else:
-                if name != room.name:
-                    room.name = name
-                if floor is not None:
-                    room.floor = floor
-                if guid and room.guid != guid:
-                    room.guid = guid  # update existing guid if needed
+                _save_room_update_fields(room, validated)
 
-            if room.layout:
-                room.layout.x = x
-                room.layout.y = y
-                room.layout.width = width
-                room.layout.height = height
-            else:
-                layout = RoomLayout(
-                    room_id=room.id,
-                    x=x,
-                    y=y,
-                    width=width,
-                    height=height
-                )
-                session.add(layout)
-
+            _save_room_set_layout(session, room, validated)
             session.commit()
 
             return jsonify({
@@ -1601,23 +1534,112 @@ def save_or_update_room():
                 "guid": room.guid,
                 "floor": room.floor,
                 "layout": {
-                    "x": x,
-                    "y": y,
-                    "width": width,
-                    "height": height
+                    "x": validated["x"],
+                    "y": validated["y"],
+                    "width": validated["width"],
+                    "height": validated["height"]
                 }
             }), 200
 
         except IntegrityError as e:
             session.rollback()
             return jsonify({"error": "Database integrity error", "details": str(e)}), 409
-
         except SQLAlchemyError as e:
             session.rollback()
             return jsonify({"error": str(e)}), 500
-
         finally:
             session.close()
+
+def _save_room_validate_input(data):
+    name = data.get("name")
+    if not name or not isinstance(name, str):
+        raise ValueError("Missing or invalid 'name'")
+
+    for key in ["x", "y", "width", "height"]:
+        if not isinstance(data.get(key), (int, float)):
+            raise ValueError("Invalid or missing layout data")
+
+    floor = data.get("floor")
+    if floor is not None and not isinstance(floor, int):
+        raise ValueError("Invalid floor – must be an integer")
+
+    guid = data.get("guid")
+    if guid is not None and not isinstance(guid, str):
+        raise ValueError("Invalid 'guid' – must be a string")
+
+    return {
+        "name": name,
+        "building_id": data.get("building_id"),
+        "x": data["x"],
+        "y": data["y"],
+        "width": data["width"],
+        "height": data["height"],
+        "id": data.get("id"),
+        "old_name": data.get("old_name"),
+        "floor": floor,
+        "guid": guid
+    }
+
+def _save_room_find_existing(session, v):
+    for lookup in [
+        lambda: session.query(Room).filter_by(guid=v["guid"]).one_or_none() if v["guid"] else None,
+        lambda: session.query(Room).filter_by(id=v["id"]).one_or_none() if v["id"] else None,
+        lambda: _save_room_query_by_name(session, v["old_name"], v["building_id"]) if v["old_name"] else None,
+        lambda: _save_room_query_by_name(session, v["name"], v["building_id"])
+    ]:
+        room = lookup()
+        if room:
+            return room
+    return None
+
+def _save_room_query_by_name(session, name, building_id):
+    q = session.query(Room).filter(Room.name == name)
+    if building_id is not None:
+        q = q.filter(Room.building_id == building_id)
+    return q.one_or_none()
+
+def _save_room_create(session, v):
+    if v["building_id"] is None:
+        raise ValueError("Cannot create room without 'building_id'")
+    room = Room(
+        name=v["name"],
+        building_id=v["building_id"],
+        floor=v["floor"],
+        guid=v["guid"] or str(uuid.uuid4())
+    )
+    session.add(room)
+    try:
+        session.flush()
+    except IntegrityError:
+        session.rollback()
+        room = _save_room_query_by_name(session, v["name"], v["building_id"])
+        if not room:
+            raise
+    return room
+
+def _save_room_update_fields(room, v):
+    if v["name"] != room.name:
+        room.name = v["name"]
+    if v["floor"] is not None:
+        room.floor = v["floor"]
+    if v["guid"] and room.guid != v["guid"]:
+        room.guid = v["guid"]
+
+def _save_room_set_layout(session, room, v):
+    if room.layout:
+        room.layout.x = v["x"]
+        room.layout.y = v["y"]
+        room.layout.width = v["width"]
+        room.layout.height = v["height"]
+    else:
+        layout = RoomLayout(
+            room_id=room.id,
+            x=v["x"],
+            y=v["y"],
+            width=v["width"],
+            height=v["height"]
+        )
+        session.add(layout)
 
 @app.route("/get_floorplan", methods=["GET"])
 def get_floorplan():

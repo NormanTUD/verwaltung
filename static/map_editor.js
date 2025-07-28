@@ -107,24 +107,27 @@ function push_to_rooms (room) {
 	rooms.push(room)
 }
 
-function save_rooms() {
+async function save_rooms() {
 	for (var i = 0; i < rooms.length; i++) {
-		save_room(rooms[i]);
+		await save_room(rooms[i]);
 	}
 }
 
-function save_room(room) {
+async function save_room(room) {
 	room.building_id = building_id;
 	room.floor = floor;
-	fetch("/api/save_or_update_room", {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json"
-		},
-		body: JSON.stringify(room) // Kein Array mehr – nur ein Objekt!
-	})
-	.then(response => response.json())
-	.then(data => {
+
+	try {
+		const response = await fetch("/api/save_or_update_room", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json"
+			},
+			body: JSON.stringify(room) // Kein Array mehr – nur ein Objekt!
+		});
+
+		const data = await response.json();
+
 		if (data.status === "success") {
 			const savedName = data.room_name || room.name;
 			const savedId = data.room_id !== undefined ? ` (ID: ${data.room_id})` : "";
@@ -132,10 +135,9 @@ function save_room(room) {
 		} else {
 			console.error("Fehler beim Speichern:", data.error || data);
 		}
-	})
-	.catch(error => {
+	} catch (error) {
 		console.error("API Fehler:", error);
-	});
+	}
 }
 
 // Helpers (jQuery-Version)
@@ -201,6 +203,7 @@ function isInside(a, b) {
 
 
 function delete_room(e, ask = true, this_room) {
+    console.trace();
     if (e !== undefined && e !== null) {
         e.stopPropagation();
     }
@@ -241,7 +244,7 @@ function delete_room(e, ask = true, this_room) {
 }
 
 // Raum erstellen
-function createRoomElement(room) {
+async function createRoomElement(room) {
     //log(`Raum-Element wird erstellt:`, room);
     const $el = $('<div class="room"></div>').appendTo($('#container'));
     $el.css({
@@ -295,14 +298,14 @@ function createRoomElement(room) {
         });
 
     // Drag/Resize
-    enableDragResize($el, 'room', room);
+    await enableDragResize($el, 'room', room);
     //debug('Drag/Resize für Raum aktiviert');
 
     return $el[0];
 }
 
 
-function getResizeEdge(e, rect) {
+async function getResizeEdge(e, rect) {
     try {
         if (!e || !rect) {
             error('getResizeEdge: Event or rect is undefined');
@@ -340,7 +343,7 @@ function getResizeEdge(e, rect) {
             log('No resize edge detected');
             return null;
         } else {
-		save_rooms();
+		await save_rooms();
 	}
 
         log(`Final resize edge string: "${edge}"`);
@@ -378,8 +381,8 @@ function getMouseRelativeToContainer(event) {
     };
 }
 
-function enableDragResize($el, type, obj, parentRoom = null) {
-    $el.on('mousedown', function (e) {
+async function enableDragResize($el, type, obj, parentRoom = null) {
+    $el.on('mousedown', async function (e) {
         // Hole das geklickte Raum-Element nach oben (letztes Kind im Container)
         container.appendChild(this);
 
@@ -400,7 +403,7 @@ function enableDragResize($el, type, obj, parentRoom = null) {
             e.preventDefault();
 
             const rect = this.getBoundingClientRect();
-            const edge = getResizeEdge(e, rect);
+            const edge = await getResizeEdge(e, rect);
             const start = getMouseRelativeToContainer(e);
 
             window.dragData = null;
@@ -687,16 +690,18 @@ function removeTempRects() {
     });
 }
 
-function renderAll() {
+async function renderAll() {
     container.innerHTML = '';
 
     // Räume nach ID sortieren (höchste ID zuletzt)
-    rooms
+    await rooms
         .slice()
         .sort((a, b) => a.id.localeCompare(b.id))
-        .forEach(room => {
-            const el = createRoomElement(room);
-            if (!el) return;
+        .forEach(room => async () => {
+            const el = await createRoomElement(room);
+            if (!el) {
+                return;
+            }
             container.appendChild(el);
         });
 
@@ -709,7 +714,7 @@ function startDrawRoom(e) {
 }
 
 // Deselect room on container click
-container.addEventListener('click', e => {
+container.addEventListener('click', async e => {
     // Wenn ein Input-Feld geklickt wurde, NICHT rendern!
     if (e.target && e.target.classList.contains('name-input')) return;
 
@@ -720,10 +725,10 @@ container.addEventListener('click', e => {
         log(`Container geklickt: Kein Raum selektiert`)
         startDrawRoom(e);
     }
-    renderAll();
+    await renderAll();
 });
 
-function import_text() {
+async function import_text() {
     if (!$("#import").length) {
         error("#import element nicht gefunden");
         return;
@@ -732,7 +737,6 @@ function import_text() {
     var text = $("#import").val()
 
     if (text.match(/^\s*$/)) {
-        //error("#import: textfeld ist leer oder besteht nur aus leerzeichen");
         return;
     }
 
@@ -749,7 +753,7 @@ function import_text() {
         var this_room = parsed[i];
 
         if (rooms.some(room => room.name === this_room.name)) {
-            delete_room(null, false, this_room);
+            //delete_room(null, false, this_room);
 
             document.querySelectorAll('.room').forEach(roomEl => {
                 const input = roomEl.querySelector('.name-input');
@@ -781,15 +785,17 @@ function import_text() {
             y: this_room.y,
             width: this_room.width,
             height: this_room.height,
-		guid: createGUID()
+            guid: createGUID()
         };
 
         push_to_rooms(newRoom);
+        await save_room(newRoom); // <-- Warten bis Raum gespeichert ist
 
         removeTempRects();
-        renderAll();
+        await renderAll(); // <-- Warten bis alles gerendert ist
         updateOutput();
     }
+    console.log("Aktuelle Räume nach Import:", rooms);
 }
 
 document.addEventListener('mousemove', (event) => {
@@ -826,3 +832,4 @@ function isMouseOutsideRooms(event, container, rooms) {
 }
 
 loadFloorplan(building_id, floor);
+window.import_text = import_text;
