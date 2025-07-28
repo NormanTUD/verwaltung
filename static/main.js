@@ -333,10 +333,11 @@ const confirmPersonBtn = document.getElementById("confirmPersonBtn");
 const existingPersonSelect = document.getElementById("existingPersonSelect");
 
 const personSchema = [
-  { label: "Vorname", key: "vorname", type: "string" },
-  { label: "Nachname", key: "nachname", type: "string" },
-  { label: "Alter", key: "alter", type: "integer" },
-  { label: "Rolle", key: "rolle", type: "string" }
+  { label: "Vorname", key: "first_name", type: "string" },
+  { label: "Nachname", key: "last_name", type: "string" },
+  { label: "Titel", key: "title", type: "string" },
+  { label: "Kommentar", key: "comment", type: "string" },
+  { label: "Bild-URL", key: "image_url", type: "string" }
 ];
 
 // Hilfsfunktion: Formular generieren
@@ -345,15 +346,13 @@ function generateForm(schema, formElement) {
 
   schema.forEach(field => {
     const label = document.createElement("label");
-    label.textContent = field.label + ": ";
+    label.textContent = field.label;
 
     const input = document.createElement("input");
+    input.type = "text";
     input.name = field.key;
-    input.type = field.type === "integer" ? "number" : "text";
-    input.required = true;
-
-    label.appendChild(input);
     formElement.appendChild(label);
+    formElement.appendChild(input);
     formElement.appendChild(document.createElement("br"));
   });
 }
@@ -440,44 +439,35 @@ function handleSelectMode() {
 
 function handleCreateMode() {
   const formData = new FormData(dynamicForm);
-  const newPerson = collectPersonData(formData);
-
-  if (!newPerson) {
-    console.error("Neue Person konnte nicht erstellt werden – Felder unvollständig.");
-    return;
+  const newPerson = {};
+  for (const field of personSchema) {
+    let value = formData.get(field.key);
+    if (!value) {
+      alert(`Bitte das Feld "${field.label}" ausfüllen.`);
+      return;
+    }
+    newPerson[field.key] = value;
   }
-
-  personDatabase.push(newPerson);
-  console.log("Neue Person zur Datenbank hinzugefügt:", newPerson);
-
+  savePersonToDatabase(newPerson);
   createPersonCircle(newPerson);
 }
 
-function collectPersonData(formData) {
-  const newPerson = {};
-
-  for (const field of personSchema) {
-    let value = formData.get(field.key);
-
-    if (!value) {
-      alert(`Bitte das Feld "${field.label}" ausfüllen.`);
-      console.warn(`Fehlendes Feld: ${field.key}`);
-      return null;
+async function savePersonToDatabase(newPerson) {
+  try {
+    const response = await fetch('/api/add_person', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newPerson)
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      console.error('Fehler beim Speichern:', result.error);
+      return;
     }
-
-    if (field.type === "integer") {
-      value = parseInt(value, 10);
-      if (isNaN(value)) {
-        console.warn(`Ungültige Ganzzahl für Feld ${field.key}:`, value);
-        return null;
-      }
-    }
-
-    newPerson[field.key] = value;
+    console.log('Person erfolgreich gespeichert:', result);
+  } catch (error) {
+    console.error('Netzwerkfehler:', error);
   }
-
-  console.log("Daten für neue Person gesammelt:", newPerson);
-  return newPerson;
 }
 
 function resetForm() {
@@ -495,6 +485,39 @@ function createPersonCircle(attributes) {
   addCircleToFloorplan(circle);
   makeDraggable(circle);
   setupContextMenu(circle, attributes);
+
+  async function savePersonToDatabase(newPerson) {
+  try {
+    const response = await fetch('/api/add_or_update_person', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newPerson)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Fehler beim Speichern:', errorData.error);
+      return;
+    }
+
+    const result = await response.json();
+    console.log('Person erfolgreich gespeichert:', result.message);
+  } catch (error) {
+    console.error('Netzwerkfehler:', error);
+  }
+}
+
+  // TODO: 
+  /*
+      savePersonToDatabase(newPerson) erstellen, JS funktion in dieser Datei
+      -> Ruft /api/add_or_update_person auf
+      -> Speichert die Person in der Datenbank
+      In der app.py:
+      @app.route('/api/add_or_update_person', methods=['POST'])
+      def add_or_update_person():
+      -> Nimmt JSON-Daten entgegen
+      -> Speichert oder aktualisiert die Person in der Datenbank
+  */
 }
 
 function createCircleElement(attributes) {
@@ -613,16 +636,12 @@ function my_escape(str) {
 
 
 function setCircleContent(circle, attributes) {
-  try {
-    circle.innerHTML = `
-      <img src="https://scads.ai/wp-content/uploads/Bicanski_Andrej-_500x500-400x400.jpg" style="max-width: 64px; max-height: 64px;" />
-      <strong>${my_escape(attributes.vorname)} ${my_escape(attributes.nachname)}</strong><br>
-      Alter: ${my_escape(attributes.alter)}<br>
-      Rolle: ${my_escape(attributes.rolle)}
-    `;
-  } catch (error) {
-    console.error("Fehler beim Setzen des Inhalts für den Kreis:", error);
-  }
+  circle.innerHTML = `
+    <img src="${attributes.image_url || 'https://scads.ai/wp-content/uploads/Bicanski_Andrej-_500x500-400x400.jpg'}" style="max-width: 64px; max-height: 64px; border-radius: 50%;" />
+    <strong>${my_escape(attributes.first_name)} ${my_escape(attributes.last_name)}</strong><br>
+    <span>${my_escape(attributes.title)}</span><br>
+    <span>${my_escape(attributes.comment)}</span>
+  `;
 }
 
 function addCircleToFloorplan(circle) {

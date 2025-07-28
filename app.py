@@ -1728,7 +1728,57 @@ def delete_room():
     finally:
         session.close()
 
+@app.route('/api/add_or_update_person', methods=['POST'])
+def add_or_update_person():
+    data = request.json
+    vorname = data.get('vorname')
+    nachname = data.get('nachname')
+    alter = data.get('alter')
+    rolle = data.get('rolle')
 
+    if not vorname or not nachname or alter is None:
+        return jsonify({'error': 'Vorname, Nachname und Alter sind Pflichtfelder'}), 400
+
+    db = get_db()
+    cursor = db.cursor()
+
+    cursor.execute('SELECT id FROM person WHERE vorname=? AND nachname=?', (vorname, nachname))
+    row = cursor.fetchone()
+
+    if row:
+        person_id = row['id']
+        cursor.execute('UPDATE person SET alter=?, rolle=? WHERE id=?', (alter, rolle, person_id))
+    else:
+        cursor.execute('INSERT INTO person (vorname, nachname, alter, rolle) VALUES (?, ?, ?, ?)', (vorname, nachname, alter, rolle))
+
+    db.commit()
+    return jsonify({'message': 'Person gespeichert'}), 200
+
+@app.route("/api/add_person", methods=["POST"])
+def add_person():
+    data = request.get_json()
+    required_fields = ["first_name", "last_name", "title", "comment", "image_url"]
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Missing field: {field}"}), 400
+
+    session = Session()
+    try:
+        person = Person(
+            first_name=data["first_name"],
+            last_name=data["last_name"],
+            title=data["title"],
+            comment=data["comment"],
+            image_url=data["image_url"]
+        )
+        session.add(person)
+        session.commit()
+        return jsonify({"status": "success", "person_id": person.id}), 200
+    except Exception as e:
+        session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
 
