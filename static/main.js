@@ -349,10 +349,26 @@ function makeDraggable(el) {
   });
 }
 // Globale Personendatenbank
-const personDatabase = [
-  { vorname: "Max", nachname: "Mustermann", alter: 30, rolle: "Entwickler", etage: 7 },
-  { vorname: "Anna", nachname: "Müller", alter: 25, rolle: "Designer", etage: 6 }
-];
+let personDatabase = [];
+
+async function loadPersonDatabase() {
+  try {
+    const response = await fetch("/api/get_person_database");
+    if (!response.ok) {
+      throw new Error("Fehler beim Laden der Personendaten");
+    }
+
+    const data = await response.json();
+    personDatabase = data;
+
+    console.log("✅ Personendaten erfolgreich geladen:", personDatabase);
+    return personDatabase; // optional: Rückgabe, falls du die Daten weiterverwenden willst
+  } catch (error) {
+    console.error("❌ Fehler beim Laden der Personendaten:", error);
+    return [];
+  }
+}
+
 
 const addPersonBtn = document.getElementById("addPersonBtn");
 const personForm = document.getElementById("personForm");

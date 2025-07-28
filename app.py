@@ -1868,6 +1868,27 @@ def save_person_to_room():
         session.close()
 
 
+@app.route("/api/get_person_database", methods=["GET"])
+def get_person_database():
+    try:
+        session = Session()
+        persons = session.query(Person).all()
+
+        result = []
+        for person in persons:
+            result.append({
+                "vorname": person.first_name or "",
+                "nachname": person.last_name or "",
+                "alter": 0,               # Placeholder – muss ergänzt werden
+                "rolle": "Unbekannt",     # Placeholder – ggf. aus Professorship/Abteilung ableiten?
+                "etage": 0                # Placeholder – ggf. aus room/office Info ableiten?
+            })
+
+        return jsonify(result), 200
+    except Exception as e:
+        print(f"❌ Fehler bei /api/get_person_database: {e}")
+        return jsonify({"error": "Fehler beim Abrufen der Personen"}), 500
+
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
 
