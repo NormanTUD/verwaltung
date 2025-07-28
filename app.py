@@ -946,6 +946,17 @@ def map_editor():
 def run_wizard():
     return _wizard_internal("transponder")
 
+import datetime
+
+def convert_value(field, value):
+    if value is None:
+        return None
+    if field.get("type") == "date":
+        return datetime.datetime.strptime(value, "%Y-%m-%d").date()
+    if field.get("type") == "datetime-local":
+        return datetime.datetime.strptime(value, "%Y-%m-%dT%H:%M")
+    return value
+
 def _wizard_internal(name):
     config = WIZARDS.get(name)
     if not config:
@@ -968,9 +979,10 @@ def _wizard_internal(name):
         try:
             main_model = config["model"]
             main_data = {
-                f["name"]: request.form.get(f["name"], "").strip() or None
+                f["name"]: convert_value(f, request.form.get(f["name"], "").strip() or None)
                 for f in config["fields"]
             }
+
 
             if any(f.get("required") and not main_data[f["name"]] for f in config["fields"]):
                 raise ValueError("Pflichtfelder fehlen.")
