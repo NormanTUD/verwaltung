@@ -11,7 +11,6 @@
 <button id="addBtn">➕ Objekt hinzufügen</button>
 <button id="addPersonBtn">➕ Person hinzufügen</button>
 
-
 <div id="personForm" style="display:none; margin-top: 20px;">
   <label>
     <input type="radio" name="mode" value="select" checked>
@@ -29,12 +28,10 @@
   <form id="dynamicPersonForm" style="margin-top: 10px; display:none;"></form>
 
   <button id="confirmPersonBtn">Bestätigen</button>
+  <button id="cancelPersonBtn" type="button">Abbrechen</button>
 </div>
 
-
-
-
-<div id="shapeSelector">
+<div id="shapeSelector" style="display:none;">
   <label>
     Form wählen:
     <select id="shapeSelect">
@@ -42,7 +39,8 @@
       <option value="stuhl">Stuhl</option>
     </select>
   </label>
-  <button id="confirmAddBtn">✔ Hinzufügen</button>
+  <button id="confirmAddBtn">Bestätigen</button>
+  <button id="cancelAddBtn" type="button">Abbrechen</button>
 </div>
 
 <div id="objectForm">
