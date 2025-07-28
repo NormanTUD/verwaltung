@@ -521,24 +521,19 @@ function createPersonCircle(attributes) {
 }
 
 function createCircleElement(attributes) {
-  try {
-    const circle = document.createElement("div");
-    circle.classList.add("person-circle");
-    Object.assign(circle.style, getCircleStyles());
+  const circle = document.createElement("div");
+  circle.classList.add("person-circle");
+  Object.assign(circle.style, getCircleStyles());
 
-    // Wichtig: erst Content setzen, damit Größe bekannt ist
-    setCircleContent(circle, attributes);
+  // Nur das Bild anzeigen!
+  circle.innerHTML = `
+    <img src="${attributes.image_url}" style="max-width: 64px; max-height: 64px; border-radius: 50%;" />
+  `;
 
-    // Jetzt die Position setzen, damit es in der Mitte vom aktuellen Viewport ist
-    setCirclePosition(circle);
-
-    return circle;
-  } catch (error) {
-    console.error("Fehler beim Erzeugen des Kreises:", error);
-  }
+  setCirclePosition(circle);
+  return circle;
 }
 
-// Gibt die aktuelle Scroll-Position zurück (x und y)
 function getScrollPosition() {
   return {
     x: window.scrollX || window.pageXOffset,
@@ -546,7 +541,6 @@ function getScrollPosition() {
   };
 }
 
-// Gibt die aktuelle Größe des Viewports zurück
 function getViewportSize() {
   return {
     width: window.innerWidth,
@@ -554,7 +548,6 @@ function getViewportSize() {
   };
 }
 
-// Berechnet die Mitte des Viewports relativ zum Dokument (inkl. Scroll)
 function getViewportCenterPosition() {
   const scroll = getScrollPosition();
   const viewport = getViewportSize();
@@ -565,7 +558,6 @@ function getViewportCenterPosition() {
   };
 }
 
-// Setzt die Position des Elements auf die Mitte des Viewports
 function setCirclePosition(circle) {
   const center = getViewportCenterPosition();
 
@@ -698,21 +690,20 @@ function positionContextMenuAbsolute(circle, menu) {
 
 
 function buildContextMenu(attributes) {
-  try {
-    const menu = document.createElement("div");
-    menu.className = "context-menu";
-    Object.assign(menu.style, getContextMenuStyles());
+  const menu = document.createElement("div");
+  menu.className = "context-menu";
+  Object.assign(menu.style, getContextMenuStyles());
 
-    menu.innerHTML = `
-      <div><strong>${attributes.vorname} ${attributes.nachname}</strong></div>
-      <div>Alter: ${attributes.alter}</div>
-      <div>Rolle: ${attributes.rolle}</div>
-    `;
+  // Alle Felder anzeigen
+  menu.innerHTML = `
+    <div><strong>Vorname:</strong> ${my_escape(attributes.first_name)}</div>
+    <div><strong>Nachname:</strong> ${my_escape(attributes.last_name)}</div>
+    <div><strong>Titel:</strong> ${my_escape(attributes.title)}</div>
+    <div><strong>Kommentar:</strong> ${my_escape(attributes.comment)}</div>
+    <div><strong>Bild-URL:</strong> <a href="${my_escape(attributes.image_url)}" target="_blank">${my_escape(attributes.image_url)}</a></div>
+  `;
 
-    return menu;
-  } catch (error) {
-    console.error("Fehler beim Erstellen des Kontextmenüs:", error);
-  }
+  return menu;
 }
 
 function getContextMenuStyles() {
