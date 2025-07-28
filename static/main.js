@@ -347,13 +347,16 @@ function generateForm(schema, formElement) {
   schema.forEach(field => {
     const label = document.createElement("label");
     label.textContent = field.label;
+    label.style.display = "block"; // Label als Block, damit das Input darunter steht
 
     const input = document.createElement("input");
     input.type = "text";
     input.name = field.key;
+    input.style.display = "block"; // Input als Block, damit es unter dem Label steht
+    input.style.marginBottom = "10px"; // Abstand nach unten
+
     formElement.appendChild(label);
     formElement.appendChild(input);
-    formElement.appendChild(document.createElement("br"));
   });
 }
 
