@@ -694,16 +694,12 @@ async function renderAll() {
     container.innerHTML = '';
 
     // Räume nach ID sortieren (höchste ID zuletzt)
-    await rooms
-        .slice()
-        .sort((a, b) => a.id.localeCompare(b.id))
-        .forEach(room => async () => {
-            const el = await createRoomElement(room);
-            if (!el) {
-                return;
-            }
-            container.appendChild(el);
-        });
+    const sortedRooms = rooms.slice().sort((a, b) => a.id.localeCompare(b.id));
+    for (const room of sortedRooms) {
+        const el = await createRoomElement(room);
+        if (!el) continue;
+        container.appendChild(el);
+    }
 
     updateOutput();
     // Fokus wiederherstellen ...
@@ -785,17 +781,18 @@ async function import_text() {
             y: this_room.y,
             width: this_room.width,
             height: this_room.height,
-            guid: createGUID()
+            guid: this_room.guid ? this_room.guid : createGUID() // <-- guid übernehmen!
         };
 
         push_to_rooms(newRoom);
-        await save_room(newRoom); // <-- Warten bis Raum gespeichert ist
-
-        removeTempRects();
-        await renderAll(); // <-- Warten bis alles gerendert ist
-        updateOutput();
+        await save_room(newRoom);
     }
-    console.log("Aktuelle Räume nach Import:", rooms);
+
+    // Nach dem Import: Räume aus DB neu laden und rendern!
+    await new Promise(resolve => {
+        loadFloorplan(building_id, floor);
+        setTimeout(resolve, 500); // Kurze Pause, damit DB speichern durch ist
+    });
 }
 
 document.addEventListener('mousemove', (event) => {
