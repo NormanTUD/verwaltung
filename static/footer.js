@@ -1,10 +1,14 @@
-document.getElementById('backLink').addEventListener('click', function(event) {
-    event.preventDefault(); // href erstmal verhindern
+var backlink = document.getElementById('backLink');
 
-    if (window.history.length > 1) {
-        history.back();
-    } else {
-        // Keine History, dann href öffnen
-        window.location.href = this.href;
-    }
-});
+if(backlink) {
+	backlink.addEventListener('click', function(event) {
+	    event.preventDefault(); // href erstmal verhindern
+
+	    if (window.history.length > 1) {
+		history.back();
+	    } else {
+		// Keine History, dann href öffnen
+		window.location.href = this.href;
+	    }
+	});
+}
