@@ -1893,6 +1893,7 @@ def get_person_database():
                 "etage": 0,                  # Placeholder – ggf. aus room/office Info ableiten?
                 "image_url": person.image_url or ""  # Hier wird das Bild hinzugefügt
             })
+            
 
         return jsonify(result), 200
     except Exception as e:
