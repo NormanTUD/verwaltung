@@ -1227,7 +1227,6 @@ def get_person_metadata(person_id: int) -> dict:
             "title": person.title,
             "first_name": person.first_name,
             "last_name": person.last_name,
-            "created_at": person.created_at,
             "comment": person.comment,
             "image_url": person.image_url,
 
