@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="../static/style.css">
 </head>
 <body>
-    <a href="/">← zurück</a>
+    <a href="/" id="backLink">← zurück</a>
     <h2>{{ table_name|capitalize }}</h2>
 
 {% if missing_data_messages %}
@@ -55,5 +55,6 @@
     <script>
         {{ javascript_code|safe }}
     </script>
+    <script src="/static/footer.js"></script>
 </body>
 </html>

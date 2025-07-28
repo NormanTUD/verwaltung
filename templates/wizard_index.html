@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="../static/style.css">
 </head>
 <body>
-    <a href="/">← zurück</a>
+    <a href="/" id="backLink">← zurück</a>
     <h1>Verfügbare Wizards</h1>
     <ul class="list-group">
         {% for route in wizard_routes %}
@@ -17,5 +17,6 @@
             <li class="list-group-item text-muted">Keine Wizards gefunden.</li>
         {% endfor %}
     </ul>
+    <script src="/static/footer.js"></script>
 </body>
 </html>
