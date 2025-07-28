@@ -798,3 +798,7 @@ cancelPersonBtn.addEventListener("click", () => {
   dynamicForm.innerHTML = "";
   dynamicForm.style.display = "none";
 });
+
+document.addEventListener("DOMContentLoaded", function() {
+  loadPersonDatabase();
+});
