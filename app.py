@@ -7,6 +7,7 @@ import subprocess
 from datetime import date
 from copy import deepcopy
 import csv
+import uuid
 
 try:
     import venv
@@ -1899,6 +1900,48 @@ def get_person_database():
     except Exception as e:
         print(f"❌ Fehler bei /api/get_person_database: {e}")
         return jsonify({"error": "Fehler beim Abrufen der Personen"}), 500
+    
+@app.route("/api/get_room_id")
+def get_room_id():
+    session = Session()
+    building_name = request.args.get("building_name")
+    room_name = request.args.get("room_name")
+
+    if not building_name or not room_name:
+        return jsonify({"error": "Missing building_name or room_name parameter"}), 400
+
+    try:
+        # Gebäude suchen oder anlegen
+        building = session.query(Building).filter_by(name=building_name).first()
+        if not building:
+            building = Building(name=building_name, building_number="", abkuerzung="")
+            session.add(building)
+            session.commit()
+
+        # Raum suchen oder anlegen
+        room = (
+            session.query(Room)
+            .filter_by(building_id=building.id, name=room_name)
+            .first()
+        )
+        if not room:
+            new_guid = str(uuid.uuid4())
+            room = Room(
+                building_id=building.id,
+                name=room_name,
+                floor=0,
+                guid=new_guid,
+            )
+            db.session.add(room)
+            db.session.commit()
+
+        return jsonify({"room_id": room.id})
+
+    except SQLAlchemyError as e:
+        # Optionale Logging-Ausgabe
+        print(f"DB error: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+    
 
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
