@@ -1932,8 +1932,8 @@ def get_room_id():
                 floor=0,
                 guid=new_guid,
             )
-            db.session.add(room)
-            db.session.commit()
+            session.add(room)
+            session.commit()
 
         return jsonify({"room_id": room.id})
 
