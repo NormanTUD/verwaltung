@@ -1800,6 +1800,74 @@ def add_person():
     finally:
         session.close()
 
+
+@app.route("/api/save_person_to_room", methods=["POST"])
+def save_person_to_room():
+    data = request.get_json()
+    
+    if not data or "room" not in data or "person" not in data:
+        return jsonify({"error": "Missing 'room' or 'person' in request body"}), 400
+
+    room_name = data["room"]
+    person_data = data["person"]
+    required_fields = ["first_name", "last_name", "title", "comment", "image_url"]
+
+    for field in required_fields:
+        if field not in person_data:
+            return jsonify({"error": f"Missing field in person data: {field}"}), 400
+
+    session = Session()
+    try:
+        # 1. Person suchen oder anlegen
+        person = session.query(Person).filter_by(
+            first_name=person_data["first_name"],
+            last_name=person_data["last_name"],
+            title=person_data["title"]
+        ).first()
+
+        if not person:
+            person = Person(
+                first_name=person_data["first_name"],
+                last_name=person_data["last_name"],
+                title=person_data["title"],
+                comment=person_data["comment"],
+                image_url=person_data["image_url"]
+            )
+            session.add(person)
+            session.flush()
+
+        # 2. Raum finden
+        room = session.query(Room).filter_by(name=room_name).first()
+        if not room:
+            return jsonify({"error": f"Room '{room_name}' not found"}), 404
+
+        # 3. Vorherige Raum-Zuordnung(en) für diese Person löschen
+        session.query(PersonToRoom).filter_by(person_id=person.id).delete()
+
+        # 4. Neue Verbindung anlegen
+        link = PersonToRoom(person_id=person.id, room_id=room.id)
+        session.add(link)
+
+        session.commit()
+        return jsonify({
+            "status": "updated",
+            "person_id": person.id,
+            "room_id": room.id,
+            "link_id": link.id
+        }), 200
+
+    except IntegrityError as e:
+        session.rollback()
+        return jsonify({"error": "Database integrity error", "details": str(e)}), 500
+
+    except Exception as e:
+        session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        session.close()
+
+
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
 
