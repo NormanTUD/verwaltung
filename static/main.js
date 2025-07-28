@@ -738,67 +738,20 @@ function positionContextMenu(circle, menu) {
 }
 
 const addBtn = document.getElementById("addBtn");
-const shapeSelector = document.getElementById("shapeSelector");
-const shapeSelect = document.getElementById("shapeSelect");
-const confirmAddBtn = document.getElementById("confirmAddBtn");
+const objectForm = document.getElementById("objectForm");
+const cancelObjectBtn = document.getElementById("cancelObjectBtn");
 
 addBtn.addEventListener("click", () => {
-  shapeSelector.style.display = "block";
-});
-confirmAddBtn.addEventListener("click", () => {
-  selectedShape = shapeSelect.value;
-  createObject(selectedShape);
-  shapeSelector.style.display = "none";
+  objectForm.style.display = "block";
 });
 
-document.addEventListener("DOMContentLoaded", () => {
-  const shapeSelector = document.getElementById("shapeSelector");
-  const shapeSelect = document.getElementById("shapeSelect");
-  const confirmAddBtn = document.getElementById("confirmAddBtn");
-
-  const objectForm = document.getElementById("objectForm");
-  const saveOptionsBtn = document.getElementById("saveOptionsBtn");
-  const addBtn = document.getElementById("addBtn");
-
-  addBtn.addEventListener("click", () => {
-    shapeSelector.style.display = "block";
-    objectForm.style.display = "none"; // Optionsfenster schließen, falls offen
-  });
-
-  confirmAddBtn.addEventListener("click", () => {
-    const selectedShape = shapeSelect.value;
-
-    createObject(selectedShape);
-
-    shapeSelector.style.display = "none"; // Auswahlfenster schließen
-
-    objectForm.style.display = "block";   // Optionsfenster öffnen
-  });
-
-  saveOptionsBtn.addEventListener("click", () => {
-    const option1 = document.getElementById("option1").value;
-    const option2 = document.getElementById("option2").value;
-    const option3 = document.getElementById("option3").value;
-    const option4 = document.getElementById("option4").value;
-
-    console.log("Option 1:", option1);
-    console.log("Option 2:", option2);
-    console.log("Option 3:", option3);
-    console.log("Option 4:", option4);
-
-    objectForm.style.display = "none"; // Optionsfenster schließen
-
-    // Eingabefelder leeren
-    document.getElementById("option1").value = "";
-    document.getElementById("option2").value = "";
-    document.getElementById("option3").value = "";
-    document.getElementById("option4").value = "";
-  });
-
-  // Dummy-Funktion zum Erstellen eines Objekts (bitte ersetzen)
-  function createObject(shape) {
-    console.log("Objekt erstellen:", shape);
-  }
+cancelObjectBtn.addEventListener("click", () => {
+  objectForm.style.display = "none";
+  // Optional: Felder leeren
+  document.getElementById("option1").value = "";
+  document.getElementById("option2").value = "";
+  document.getElementById("option3").value = "";
+  document.getElementById("option4").value = "";
 });
 
 // Initial
