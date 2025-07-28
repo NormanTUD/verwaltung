@@ -758,14 +758,9 @@ cancelObjectBtn.addEventListener("click", () => {
 loadFloorplan(building_id, floor);
 
 const cancelPersonBtn = document.getElementById("cancelPersonBtn");
-const cancelAddBtn = document.getElementById("cancelAddBtn");
 
 cancelPersonBtn.addEventListener("click", () => {
   personForm.style.display = "none";
   dynamicForm.innerHTML = "";
   dynamicForm.style.display = "none";
-});
-
-cancelAddBtn.addEventListener("click", () => {
-  shapeSelector.style.display = "none";
 });
