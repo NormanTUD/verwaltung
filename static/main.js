@@ -275,7 +275,10 @@ function makeDraggable(el) {
     newRoom.objects.push(el);
     el.dataset.room = newRoom.el.dataset.name;
     updateCounter(newRoom);
-    console.log(`Added element to new room: ${newRoom.el.dataset.name}`);
+    console.log(`Added element to new room: ${newRoom.el.dataset.name}`, el);
+
+
+    //save_person_to_raum();
   }
 
   function stopDragging() {

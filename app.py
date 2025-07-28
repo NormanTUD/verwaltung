@@ -54,6 +54,7 @@ try:
     from markupsafe import escape
     import html
     from sqlalchemy import Date, DateTime
+    import sqlalchemy
     import cryptography
     import aiosqlite
     import datetime
@@ -1774,11 +1775,31 @@ def add_person():
         session.add(person)
         session.commit()
         return jsonify({"status": "success", "person_id": person.id}), 200
+
+    except sqlalchemy.exc.IntegrityError as e:
+        session.rollback()
+        # Wenn UNIQUE constraint verletzt wurde, Person suchen und ID zurückgeben
+        if "UNIQUE constraint failed" in str(e.orig):
+            existing_person = session.query(Person).filter_by(
+                first_name=data["first_name"],
+                last_name=data["last_name"],
+                title=data["title"]
+            ).first()
+            if existing_person:
+                return jsonify({"status": "exists", "person_id": existing_person.id}), 200
+            else:
+                # Falls keine Person gefunden wird, obwohl Constraint Fehler da war
+                return jsonify({"error": "Integrity error, but person not found"}), 500
+        else:
+            return jsonify({"error": str(e)}), 500
+
     except Exception as e:
         session.rollback()
         return jsonify({"error": str(e)}), 500
+
     finally:
         session.close()
+
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
 
