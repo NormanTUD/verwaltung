@@ -523,11 +523,10 @@ function createPersonCircle(attributes) {
 function createCircleElement(attributes) {
   const circle = document.createElement("div");
   circle.classList.add("person-circle");
-  Object.assign(circle.style, getCircleStyles());
 
-  // Nur das Bild anzeigen!
+  // Nur das Bild anzeigen, keine weiteren Infos!
   circle.innerHTML = `
-    <img src="${attributes.image_url}" style="max-width: 64px; max-height: 64px; border-radius: 50%;" />
+    <img src="${attributes.image_url}" alt="Personenbild" />
   `;
 
   setCirclePosition(circle);

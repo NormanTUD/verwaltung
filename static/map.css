@@ -117,19 +117,21 @@ html, body {
     background: #eaf4ff;
     box-shadow: 0 0 8px rgba(0,0,0,0.15);
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
     position: absolute;
     cursor: grab;
     z-index: 1000;
-    font-size: 13px;
-    padding: 6px;
+    padding: 0;
     text-align: center;
+    overflow: hidden; /* Wichtig: Bild bleibt im Kreis */
 }
 .person-circle img {
+    width: 80px;
+    height: 80px;
     border-radius: 50%;
-    margin-bottom: 4px;
+    object-fit: cover;
+    display: block;
 }
 
 .context-menu {
