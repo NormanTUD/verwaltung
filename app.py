@@ -1800,37 +1800,40 @@ def add_person():
     finally:
         session.close()
 
-
 @app.route("/api/save_person_to_room", methods=["POST"])
 def save_person_to_room():
     data = request.get_json()
     
     if not data or "room" not in data or "person" not in data:
-        return jsonify({"error": "Missing 'room' or 'person' in request body"}), 400
+        return jsonify({"error": "Request body must include both 'room' and 'person' fields"}), 400
 
     room_name = data["room"]
     person_data = data["person"]
-    required_fields = ["first_name", "last_name", "title", "comment", "image_url"]
+    required_fields = ["first_name", "last_name", "image_url"]
 
     for field in required_fields:
         if field not in person_data:
-            return jsonify({"error": f"Missing field in person data: {field}"}), 400
+            return jsonify({"error": f"Missing required field in person data: '{field}'"}), 400
 
     session = Session()
     try:
+        # Optional-Felder sicher auslesen
+        title = person_data.get("title")
+        comment = person_data.get("comment")
+
         # 1. Person suchen oder anlegen
         person = session.query(Person).filter_by(
             first_name=person_data["first_name"],
             last_name=person_data["last_name"],
-            title=person_data["title"]
+            title=title
         ).first()
 
         if not person:
             person = Person(
                 first_name=person_data["first_name"],
                 last_name=person_data["last_name"],
-                title=person_data["title"],
-                comment=person_data["comment"],
+                title=title,
+                comment=comment,
                 image_url=person_data["image_url"]
             )
             session.add(person)
@@ -1858,14 +1861,21 @@ def save_person_to_room():
 
     except IntegrityError as e:
         session.rollback()
-        return jsonify({"error": "Database integrity error", "details": str(e)}), 500
+        return jsonify({
+            "error": "Database integrity error",
+            "details": str(e)
+        }), 500
 
     except Exception as e:
         session.rollback()
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "error": "Unexpected server error",
+            "details": str(e)
+        }), 500
 
     finally:
         session.close()
+
         
 @app.route("/api/get_person_database", methods=["GET"])
 def get_person_database():
