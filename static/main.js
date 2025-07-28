@@ -537,18 +537,6 @@ function createPersonCircle(attributes) {
     console.error('Netzwerkfehler:', error);
   }
 }
-
-  // TODO: 
-  /*
-      savePersonToDatabase(newPerson) erstellen, JS funktion in dieser Datei
-      -> Ruft /api/add_or_update_person auf
-      -> Speichert die Person in der Datenbank
-      In der app.py:
-      @app.route('/api/add_or_update_person', methods=['POST'])
-      def add_or_update_person():
-      -> Nimmt JSON-Daten entgegen
-      -> Speichert oder aktualisiert die Person in der Datenbank
-  */
 }
 
 function createCircleElement(attributes) {
