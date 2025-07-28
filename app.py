@@ -1866,8 +1866,7 @@ def save_person_to_room():
 
     finally:
         session.close()
-
-
+        
 @app.route("/api/get_person_database", methods=["GET"])
 def get_person_database():
     try:
@@ -1879,9 +1878,10 @@ def get_person_database():
             result.append({
                 "vorname": person.first_name or "",
                 "nachname": person.last_name or "",
-                "alter": 0,               # Placeholder – muss ergänzt werden
-                "rolle": "Unbekannt",     # Placeholder – ggf. aus Professorship/Abteilung ableiten?
-                "etage": 0                # Placeholder – ggf. aus room/office Info ableiten?
+                "alter": 0,                  # Placeholder – muss ergänzt werden
+                "rolle": "Unbekannt",        # Placeholder – ggf. aus Professorship/Abteilung ableiten?
+                "etage": 0,                  # Placeholder – ggf. aus room/office Info ableiten?
+                "image_url": person.image_url or ""  # Hier wird das Bild hinzugefügt
             })
 
         return jsonify(result), 200
