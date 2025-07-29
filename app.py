@@ -142,6 +142,14 @@ WIZARDS = {
             {"name": "name", "type": "text", "label": "Name", "required": True},
             {"name": "abteilungsleiter_id", "type": "number", "label": "Abteilungsleiter (Person-ID)"},
         ],
+    },
+    "professorship": {
+        "title": "Professur erstellen",
+        "model": Professorship,
+        "fields": [
+            {"name": "kostenstelle_id", "type": "number", "label": "Kostenstelle-ID"},
+            {"name": "name", "type": "text", "label": "Name", "required": True},
+        ],
     }
 }
 
@@ -1249,6 +1257,10 @@ def map_editor():
 @app.route("/wizard/transponder", methods=["GET", "POST"])
 def run_wizard_transponder():
     return _wizard_internal("transponder")
+
+@app.route("/wizard/professorship", methods=["GET", "POST"])
+def run_wizard_professorship():
+    return _wizard_internal("professorship")
 
 @app.route("/wizard/abteilung", methods=["GET", "POST"])
 def run_wizard_abteilung():
