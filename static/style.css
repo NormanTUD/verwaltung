@@ -267,3 +267,19 @@ ul {
 	font-size: 0.95rem;
 	transition: border-color 0.2s ease-in-out;
 }
+
+
+th, td {
+	padding: 12px 15px;
+	border-bottom: 1px solid #ddd;
+	text-align: left;
+}
+
+th {
+	background-color: #0077cc;
+	color: white;
+}
+
+tr:nth-child(even) {
+	background-color: #f9f9f9;
+}
