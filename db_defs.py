@@ -4,6 +4,8 @@ from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.inspection import inspect
 from sqlalchemy.exc import NoInspectionAvailable
 from sqlalchemy.orm import declarative_base, relationship, Session, class_mapper, RelationshipProperty, aliased, joinedload
+from flask_login import UserMixin
+from flask_sqlalchemy import SQLAlchemy
 
 class CustomBase:
     def to_dict(self, recursive=False):
@@ -22,6 +24,12 @@ class CustomBase:
             return {}
 
 Base = declarative_base(cls=CustomBase)
+
+class User(UserMixin, Base):
+    __tablename__ = "user"
+    id = Column(Integer, primary_key=True)
+    username = Column(String(150), unique=True)
+    password = Column(String(150))
 
 class Person(Base):
     __tablename__ = "person"

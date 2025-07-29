@@ -21,11 +21,13 @@ from pathlib import Path
 VENV_PATH = Path.home() / ".verwaltung_venv"
 PYTHON_BIN = VENV_PATH / ("Scripts" if platform.system() == "Windows" else "bin") / ("python.exe" if platform.system() == "Windows" else "python")
 
+pip_install_modules = [PYTHON_BIN, "-m", "pip", "install", "-q", "--upgrade", "flask", "sqlalchemy", "pypdf", "cryptography", "aiosqlite", "pillow", "flask_login", "flask_sqlalchemy"]
+
 def create_and_setup_venv():
     print(f"Creating virtualenv at {VENV_PATH}")
     venv.create(VENV_PATH, with_pip=True)
     subprocess.check_call([PYTHON_BIN, "-m", "pip", "install", "--upgrade", "pip"])
-    subprocess.check_call([PYTHON_BIN, "-m", "pip", "install", "--upgrade", "flask", "sqlalchemy", "pypdf", "cryptography", "aiosqlite", "pillow"])
+    subprocess.check_call(pip_install_modules)
 
 def restart_with_venv():
     try:
@@ -62,13 +64,16 @@ try:
     from PIL import Image
     import datetime
 
+    from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+    from werkzeug.security import generate_password_hash, check_password_hash
+
     from db_interface import *
 except ModuleNotFoundError:
     if not VENV_PATH.exists():
         create_and_setup_venv()
     else:
         try:
-            subprocess.check_call([PYTHON_BIN, "-m", "pip", "install", "-q", "--upgrade", "flask", "sqlalchemy", "pypdf", "cryptography", "aiosqlite", "pillow"])
+            subprocess.check_call(pip_install_modules)
         except subprocess.CalledProcessError:
             shutil.rmtree(VENV_PATH)
             create_and_setup_venv()
@@ -80,6 +85,13 @@ except ModuleNotFoundError:
         sys.exit(0)
 
 app = Flask(__name__)
+
+app.config['SECRET_KEY'] = 'geheim'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+
 engine = create_engine("sqlite:///database.db")
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
@@ -319,6 +331,44 @@ def insert_tu_dresden_buildings ():
 
     parse_buildings_csv(csv_input)
 
+
+@login_manager.user_loader
+def load_user(user_id):
+    session = Session()
+    return session.query(User).get(int(user_id))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    session = Session()
+    if request.method == 'POST':
+        user = session.query(User).filter_by(username=request.form['username']).first()
+        if user and check_password_hash(user.password, request.form['password']):
+            login_user(user)
+            return redirect(url_for('dashboard'))
+        flash('Login failed')
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    session = Session()
+    if request.method == 'POST':
+        hashed_pw = generate_password_hash(request.form['password'], method='pbkdf2:sha256')
+        new_user = User(username=request.form['username'], password=hashed_pw)
+        session.add(new_user)
+        session.commit()
+        return redirect(url_for('login'))
+    return render_template('register.html')
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    return f'Hello, {current_user.username}!'
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
 
 def is_valid_email(email):
     return bool(EMAIL_REGEX.match(email.strip()))
@@ -831,8 +881,6 @@ def aggregate_inventory_view():
             }
             rows.append(row)
 
-        # Für Filter: Alle User (Owner und Issuer) holen (vereinfachend hier alle Personen)
-        # Du kannst ggf. nur Owner oder Issuer spezifisch holen, falls nötig
         people_query = session.query(Person).order_by(Person.last_name, Person.first_name).all()
         people = [{"id": p.id, "name": f"{p.first_name} {p.last_name}"} for p in people_query]
 
