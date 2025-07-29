@@ -1308,12 +1308,12 @@ def convert_datetime_value(field, value):
         return datetime.datetime.strptime(value, "%Y-%m-%dT%H:%M")
     return value
 
+
 def _wizard_internal(name):
     config = WIZARDS.get(name)
     if not config:
         abort(404)
 
-    # JSON-sichere Version ohne nicht-serialisierbare Objekte
     def get_json_safe_config(config):
         safe = deepcopy(config)
         for sub in safe.get("subforms", []):
@@ -1325,28 +1325,32 @@ def _wizard_internal(name):
     session = Session()
     success = False
     error = None
-
+    form_data = {}  # Zum Wiederbefüllen der Form
+    
     if request.method == "POST":
         try:
             main_model = config["model"]
+            # Hauptdaten aus dem Formular lesen
             main_data = {
                 f["name"]: convert_datetime_value(f, request.form.get(f["name"], "").strip() or None)
                 for f in config["fields"]
             }
-
-            if any(f.get("required") and not main_data[f["name"]] for f in config["fields"]):
-                raise ValueError(f"Pflichtfelder fehlen: {', '.join(f['name'] for f in config['fields'] if f.get('required') and not main_data[f['name']])}")
-
+            
+            # Pflichtfelder prüfen
+            missing = [f['name'] for f in config['fields'] if f.get('required') and not main_data[f['name']]]
+            if missing:
+                raise ValueError(f"Pflichtfelder fehlen: {', '.join(missing)}")
+            
             main_instance = main_model(**main_data)
             session.add(main_instance)
             session.flush()
-
+            
             for sub in config.get("subforms", []):
                 model = sub["model"]
                 foreign_key = sub["foreign_key"]
                 field_names = [f["name"] for f in sub["fields"]]
                 data_lists = {f: request.form.getlist(f + "[]") for f in field_names}
-
+                
                 for i in range(max(len(l) for l in data_lists.values())):
                     entry = {
                         f: data_lists[f][i].strip() if i < len(data_lists[f]) else None
@@ -1355,17 +1359,34 @@ def _wizard_internal(name):
                     if any(entry.values()):
                         entry[foreign_key] = main_instance.id
                         session.add(model(**entry))
-
+            
             session.commit()
             success = True
-
+        
+        except IntegrityError as e:
+            session.rollback()
+            # Hier kannst du die eigentliche Fehlermeldung aus e.orig oder e.args parsen, je nach DB-Backend
+            error = "Ein Datenbank-Integritätsfehler ist aufgetreten: " + str(e.orig)  
+            
+            # Formulardaten zum Wiederbefüllen speichern
+            form_data = request.form.to_dict(flat=False)  
+            
         except Exception as e:
             session.rollback()
             error = str(e)
+            form_data = request.form.to_dict(flat=False)
+        
         finally:
             session.close()
 
-    return render_template("wizard.html", config=config, config_json=get_json_safe_config(config), success=success, error=error)
+    return render_template(
+        "wizard.html",
+        config=config,
+        config_json=get_json_safe_config(config),
+        success=success,
+        error=error,
+        form_data=form_data,  # Übergib die Daten ans Template
+    )
 
 def get_abteilung_metadata(abteilung_id: int) -> dict:
     session = Session()
