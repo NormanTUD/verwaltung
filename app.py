@@ -417,7 +417,7 @@ def column_label(table, col):
 
 @app.route("/")
 def index():
-    tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ != "user"]
+    tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]
 
     wizard_routes = []
     for rule in app.url_map.iter_rules():
@@ -698,7 +698,7 @@ def load_static_file(path):
 
 @app.route("/table/<table_name>")
 def table_view(table_name):
-    if table_name == "user":
+    if table_name in ["role", "user"]:
         abort(404, description="Tabelle darf nicht angezeigt werden")
 
     session = Session()
