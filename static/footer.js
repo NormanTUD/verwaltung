@@ -36,9 +36,9 @@ function replace_id_fields_with_proper_fields() {
         }
     };
     /*
-
     names['issuer_id'] = names['person_id'];
     names['owner_id'] = names['person_id'];
+    */
 
     for (var name of Object.keys(names)) {
         var elements = $('input[name="' + name + '[]"]');
