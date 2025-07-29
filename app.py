@@ -92,6 +92,8 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
 login_manager = LoginManager()
 login_manager.init_app(app)
 
+login_manager.login_view = 'login'
+
 engine = create_engine("sqlite:///database.db")
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
