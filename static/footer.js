@@ -215,7 +215,7 @@ function replaceFieldsForElement(element, name, config) {
 		i++;
 	}
 
-	//$element.hide();
+	$element.hide();
 
 	// Direkt nach Erzeugung einmal initial updaten (für Textfelder oder Select mit sofort ausgewähltem Wert)
 	onInputChange();
