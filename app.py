@@ -1953,7 +1953,7 @@ def get_room_id():
         print(f"DB error: {e}")
         return jsonify({"error": "Internal server error"}), 500
     
-@api.route('/api/get_building_names', methods=['GET'])
+@app.route('/api/get_building_names', methods=['GET'])
 def get_building_names():
     session = Session()
     
