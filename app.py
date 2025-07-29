@@ -2442,6 +2442,12 @@ def get_abteilung_names():
     result = get_names(session, Object, Object.id, [Object.name])
     return jsonify(result)
 
+@app.route('/api/get_professorship_names', methods=['GET'])
+def get_professorship_names():
+    session = Session()
+    result = get_names(session, Professorship, Professorship.id, [Professorship.name])
+    return jsonify(result)
+
 @app.route('/api/get_object_names', methods=['GET'])
 def get_object_names():
     session = Session()

@@ -63,9 +63,19 @@ function getNamesConfig() {
 			},
 			label: "Objekt"
 		},
-		abteilungs_id: {
+		professorship_id: {
 			fields: {
-				abteilungs_id: {
+				professorship_id: {
+					name: "Professorship",
+					type: "select",
+					options_url_id_dict: "/api/get_professorship_names"
+				}
+			},
+			label: "Professorship"
+		},
+		abteilung_id: {
+			fields: {
+				abteilung_id: {
 					name: "Abteilung",
 					type: "select",
 					options_url_id_dict: "/api/get_abteilung_names"
