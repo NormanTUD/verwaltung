@@ -595,20 +595,19 @@ function getViewportCenterPosition() {
 }
 
 function setCirclePosition(circle) {
-  // Stelle sicher, dass es zum Viewport gehört
-  circle.style.position = "fixed";
+  const center = getViewportCenterPosition();
 
-  const width = 50;   // oder circle.offsetWidth, falls schon gemessen
-  const height = 50;
+  // Damit es funktioniert, brauchen wir position: absolute oder fixed
+  circle.style.position = "absolute";
 
-  const x = window.innerWidth / 2 - width / 2;
-  const y = window.innerHeight / 2 - height / 2;
+  // Kreis zentrieren: Oben und Links sind die Koordinaten der Mitte minus halb so breit/hoch wie das Element
+  const rect = circle.getBoundingClientRect();
+  const width = rect.width || 50;  // Falls noch kein Width, Beispiel 50px
+  const height = rect.height || 50;
 
-  circle.style.left = `${x}px`;
-  circle.style.top = `${y}px`;
+  circle.style.left = `${center.x - width / 2}px`;
+  circle.style.top = `${center.y - height / 2}px`;
 }
-
-
 
 
 function getCircleStyles() {

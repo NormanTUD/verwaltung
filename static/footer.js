@@ -111,13 +111,32 @@ function createInputField(fieldConfig, fieldName, onOptionsLoaded) {
 	}
 }
 
-function updateHiddenFieldValue(config, hiddenElement, form) {
+function updateHiddenFieldValue(config, hiddenElement, form, triggeredBy = null) {
 	var params = {};
 
-	for (var key in config.fields) {
-		var val = form.find('[name="' + key + '"]').val();
-		params[key] = val;
+	if(triggeredBy) {
+		var $triggeredBy = $(triggeredBy);
+
+		var $children = $triggeredBy.parent().find(".auto_generated_field")
+
+		$children.each(function () {
+			var $field = $(this);
+			var name = $field.attr("name");
+
+			// Sicherheit: Nur verarbeiten, wenn "name" vorhanden ist
+			if (typeof name !== "undefined" && name !== null) {
+				var val = $field.val();
+				params[name] = val;
+			}
+		});
+	} else {
+		for (var key in config.fields) {
+			var val = form.find('[name="' + key + '"]').val();
+			params[key] = val;
+		}
 	}
+
+	//log("updating ", hiddenElement, " to ", params, ", triggered by: ", triggeredBy);
 
 	if (config.url) {
 		var newUrl = config.url.replace(/\{(\w+)\}/g, function(match, p1) {
@@ -187,10 +206,7 @@ function replaceFieldsForElement(element, name, config) {
 		input.on('input change', (function(hiddenElement) {
 			return function() {
 				var form = $(this).closest('form');
-				console.log("Event triggered on input:", this);
-				console.log("Closest form:", form);
-				console.log("Updating hidden element:", hiddenElement);
-				updateHiddenFieldValue(config, hiddenElement, form);
+				updateHiddenFieldValue(config, hiddenElement, form, this);
 			};
 		})($element));
 
@@ -199,7 +215,7 @@ function replaceFieldsForElement(element, name, config) {
 		i++;
 	}
 
-	//$element.hide();
+	$element.hide();
 
 	// Direkt nach Erzeugung einmal initial updaten (für Textfelder oder Select mit sofort ausgewähltem Wert)
 	onInputChange();

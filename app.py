@@ -1,4 +1,5 @@
 import sys
+import traceback
 import re
 import platform
 import shutil
@@ -1918,8 +1919,14 @@ def get_room_id():
     building_name = request.args.get("building_name")
     room_name = request.args.get("room_name")
 
-    if not building_name or not room_name:
-        return jsonify({"error": "Missing building_name or room_name parameter"}), 400
+    if not building_name and not room_name:
+        return jsonify({"error": "Missing parameters: building_name and room_name"}), 400
+
+    if not building_name:
+        return jsonify({"error": "Missing parameter: building_name"}), 400
+
+    if not room_name:
+        return jsonify({"error": "Missing parameter: room_name"}), 400
 
     try:
         # Gebäude suchen oder anlegen

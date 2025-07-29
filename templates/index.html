@@ -24,7 +24,12 @@
     </div>
 
     <div id="tab-aggregate" class="tab-content">
-        <a href="/aggregate">Aggregierte Ansichten</a>
+	    <ul>
+		    <!-- Hier kannst du später beliebig weitere Aggregate‑Links ergänzen -->
+		    <li><a href="{{ url_for('aggregate_inventory_view') }}">Inventar</a></li>
+		    <li><a href="{{ url_for('aggregate_transponder_view') }}">Ausgegebene Transponder</a></li>
+	    </ul>
+
     </div>
 
     <div id="tab-tables" class="tab-content">
