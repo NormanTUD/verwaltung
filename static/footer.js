@@ -208,7 +208,6 @@ function replaceFieldsForElement(element, name, config) {
 			return function() {
 				var form = $(this).closest('form');
 				updateHiddenFieldValue(config, hiddenElement, form, this);
-				toastr.info("Raum gefunden/eingetragen");
 			};
 		})($element));
 

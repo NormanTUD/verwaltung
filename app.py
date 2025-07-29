@@ -178,6 +178,14 @@ WIZARDS = {
             {"name": "abteilung_id", "type": "number", "label": "Abteilungs-ID"},
         ],
     },
+    "person_to_abteilung": {
+        "title": "Person zu Abteilung zuordnen",
+        "model": PersonToAbteilung,
+        "fields": [
+            {"name": "person_id", "type": "number", "label": "Person-ID", "required": True},
+            {"name": "abteilung_id", "type": "number", "label": "Abteilung-ID", "required": True},
+        ],
+    },
     "object": {
         "title": "Objekt erstellen",
         "model": Object,
