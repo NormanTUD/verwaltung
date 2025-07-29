@@ -23,7 +23,7 @@ from pathlib import Path
 VENV_PATH = Path.home() / ".verwaltung_venv"
 PYTHON_BIN = VENV_PATH / ("Scripts" if platform.system() == "Windows" else "bin") / ("python.exe" if platform.system() == "Windows" else "python")
 
-pip_install_modules = [PYTHON_BIN, "-m", "pip", "install", "-q", "--upgrade", "flask", "sqlalchemy", "pypdf", "cryptography", "aiosqlite", "pillow", "flask_login", "flask_sqlalchemy"]
+pip_install_modules = [PYTHON_BIN, "-m", "pip", "install", "-q", "--upgrade", "flask", "sqlalchemy", "pypdf", "cryptography", "aiosqlite", "pillow", "flask_login", "flask_sqlalchemy", "sqlalchemy_schemadisplay"]
 
 def create_and_setup_venv():
     print(f"Creating virtualenv at {VENV_PATH}")
@@ -64,6 +64,7 @@ try:
     import sqlalchemy
     import cryptography
     import aiosqlite
+    from sqlalchemy_schemadisplay import create_schema_graph
     from PIL import Image
     import datetime
 
@@ -2465,6 +2466,11 @@ def get_names(session, model, id_field, name_fields):
 
     return result
 
+@app.route('/schema')
+def schema():
+    graph = create_schema_graph(engine=engine, metadata=Base.metadata)
+    graph.write_png('/tmp/schema.png')
+    return send_file('/tmp/schema.png', mimetype='image/png')
 
 @app.route('/api/get_person_names', methods=['GET'])
 def get_person_names():
