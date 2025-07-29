@@ -983,9 +983,8 @@ def _wizard_internal(name):
                 for f in config["fields"]
             }
 
-
             if any(f.get("required") and not main_data[f["name"]] for f in config["fields"]):
-                raise ValueError("Pflichtfelder fehlen.")
+                raise ValueError(f"Pflichtfelder fehlen: {', '.join(f['name'] for f in config['fields'] if f.get('required') and not main_data[f['name']])}")
 
             main_instance = main_model(**main_data)
             session.add(main_instance)
@@ -1964,12 +1963,15 @@ def get_building_names():
 @app.route('/api/get_person_names', methods=['GET'])
 def get_person_names():
     session = Session()
-    
-    people = session.query(Person.first_name, Person.last_name).all()
-    names = [f"{p.first_name} {p.last_name}".strip() for p in people if p.first_name or p.last_name]
-    names = sorted(names)
-    
-    return jsonify(names)
+
+    people = session.query(Person.id, Person.first_name, Person.last_name).all()
+    result = {
+        p.id: f"{p.first_name or ''} {p.last_name or ''}".strip()
+        for p in people
+        if p.first_name or p.last_name
+    }
+
+    return jsonify(result)
 
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
