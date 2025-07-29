@@ -1,5 +1,5 @@
 from typing import Optional, Dict, Any, Type, List
-from sqlalchemy import (create_engine, Column, Integer, String, Text, ForeignKey, Date, Float, TIMESTAMP, UniqueConstraint)
+from sqlalchemy import (create_engine, Column, Integer, String, Text, ForeignKey, Date, Float, TIMESTAMP, UniqueConstraint, Table)
 from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.inspection import inspect
 from sqlalchemy.exc import NoInspectionAvailable
@@ -30,6 +30,30 @@ class User(UserMixin, Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(150), unique=True)
     password = Column(String(150))
+    role = Column(String(50))
+
+    user_roles = Table(
+        'user_roles', Base.metadata,
+        Column('user_id', Integer, ForeignKey('user.id')),
+        Column('role_id', Integer, ForeignKey('role.id'))
+    )
+
+    roles = relationship(
+        "Role",
+        secondary=user_roles,
+        back_populates="users"
+    )
+
+class Role(Base):
+    __tablename__ = 'role'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), unique=True)
+
+    users = relationship(
+        "User",
+        secondary=User.user_roles,  # oder: 'user_roles' falls global definiert
+        back_populates="roles"
+    )
 
 class Person(Base):
     __tablename__ = "person"

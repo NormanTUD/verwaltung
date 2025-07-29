@@ -9,6 +9,7 @@ from datetime import date
 from copy import deepcopy
 import csv
 import uuid
+from functools import wraps
 
 try:
     import venv
@@ -146,6 +147,17 @@ HANDLER_MAP = {
 }
 
 EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.role != 'admin':
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
+
+def is_admin(user):
+    return any(role.name == 'admin' for role in user.roles)
 
 def parse_buildings_csv(csv_text):
     session = Session()
@@ -401,6 +413,12 @@ def index():
     wizard_routes = sorted(wizard_routes)
 
     return render_template("index.html", tables=tables, wizard_routes=wizard_routes)
+
+@app.route('/admin')
+@login_required
+@admin_required
+def admin_panel():
+    return "Hallo Admin!"
 
 @app.route('/favicon.ico')
 def favicon():
