@@ -24,63 +24,65 @@ function replace_id_fields_with_proper_fields () {
     };
 
     for (var name of Object.keys(names)) {
-        var element = $('input[name="' + name + '[]"]');
-        var url = names[name].url;
+        var elements = $('input[name="' + name + '[]"]');
 
-        log(element);
+        for (var k = 0; k < elements.length; k++) {
+            var element = $(elements[k]);
+            var url = names[name].url;
 
-        $(element).parent().find("label").text(names[name].label);
+            $(element).parent().find("label").text(names[name].label);
 
-        if(!$(element).is(":visible")) {
-            log("Element is not visible, skipping field replacement.");
-            continue; // Element is not visible, skip this field
-        }
-
-        var i = 0;
-
-        for (var field in names[name].fields) {
-            var fieldName = names[name].fields[field];
-            var input = $('<input>', {
-                type: 'text',
-                class: 'auto_generated_field',
-                name: field,
-                placeholder: fieldName
-            });
-
-            if (i === 0) {
-                element.before($("<br>"));
+            if(!$(element).is(":visible")) {
+                log("Element is not visible, skipping field replacement.");
+                continue;
             }
 
-            element.before(input);
+            var i = 0;
 
-            input.on('input', function() {
-                var params = {};
-
-                for (var field of Object.keys(names[name].fields)) {
-                    var value = $(this).closest('form').find('input[name="' + field + '"]').val();
-                    params[field] = value;
-                }
-                var queryString = $.param(params);
-                var newUrl = url.replace(/\{(\w+)\}/g, function(match, p1) {
-                    return params[p1] || '';
+            for (var field in names[name].fields) {
+                var fieldName = names[name].fields[field];
+                var input = $('<input>', {
+                    type: 'text',
+                    class: 'auto_generated_field',
+                    name: field,
+                    placeholder: fieldName
                 });
-                log(newUrl);
 
-                $.get(newUrl, function(data) {
-                    log(data);
-                    if (data && data.room_id) {
-                        element.val(data.room_id);
-                    }
-                }).fail(function() {
-                    log("Fehler beim Abrufen der Raum-ID");
-                    element.val('');
+                if (i === 0) {
+                    element.before($("<br>"));
                 }
-                );
-            });
 
-            $(element).hide();
+                element.before(input);
 
-            i++;
+                input.on('input', function() {
+                    var params = {};
+
+                    for (var field of Object.keys(names[name].fields)) {
+                        var value = $(this).closest('form').find('input[name="' + field + '"]').val();
+                        params[field] = value;
+                    }
+                    var queryString = $.param(params);
+                    var newUrl = url.replace(/\{(\w+)\}/g, function(match, p1) {
+                        return params[p1] || '';
+                    });
+                    log(newUrl);
+
+                    $.get(newUrl, function(data) {
+                        log(data);
+                        if (data && data.room_id) {
+                            element.val(data.room_id);
+                        }
+                    }).fail(function() {
+                        log("Fehler beim Abrufen der Raum-ID");
+                        element.val('');
+                    }
+                    );
+                });
+
+                $(element).hide();
+
+                i++;
+            }
         }
     }
 }
