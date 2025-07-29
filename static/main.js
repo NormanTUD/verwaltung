@@ -595,19 +595,20 @@ function getViewportCenterPosition() {
 }
 
 function setCirclePosition(circle) {
-  const center = getViewportCenterPosition();
+  // Stelle sicher, dass es zum Viewport gehört
+  circle.style.position = "fixed";
 
-  // Damit es funktioniert, brauchen wir position: absolute oder fixed
-  circle.style.position = "absolute";
+  const width = 50;   // oder circle.offsetWidth, falls schon gemessen
+  const height = 50;
 
-  // Kreis zentrieren: Oben und Links sind die Koordinaten der Mitte minus halb so breit/hoch wie das Element
-  const rect = circle.getBoundingClientRect();
-  const width = rect.width || 50;  // Falls noch kein Width, Beispiel 50px
-  const height = rect.height || 50;
+  const x = window.innerWidth / 2 - width / 2;
+  const y = window.innerHeight / 2 - height / 2;
 
-  circle.style.left = `${center.x - width / 2}px`;
-  circle.style.top = `${center.y - height / 2}px`;
+  circle.style.left = `${x}px`;
+  circle.style.top = `${y}px`;
 }
+
+
 
 
 function getCircleStyles() {
@@ -730,17 +731,21 @@ function buildContextMenu(attributes) {
   menu.className = "context-menu";
   Object.assign(menu.style, getContextMenuStyles());
 
-  // Alle Felder anzeigen
+  // Hauptinfos
   menu.innerHTML = `
     <div><strong>Vorname:</strong> ${my_escape(attributes.first_name)}</div>
     <div><strong>Nachname:</strong> ${my_escape(attributes.last_name)}</div>
     <div><strong>Titel:</strong> ${my_escape(attributes.title)}</div>
     <div><strong>Kommentar:</strong> ${my_escape(attributes.comment)}</div>
     <div><strong>Bild-URL:</strong> <a href="${my_escape(attributes.image_url)}" target="_blank">${my_escape(attributes.image_url)}</a></div>
+    <hr>
+    <div><strong>Inventar:</strong></div>
+    <ul class="question-list"></ul>
   `;
 
   return menu;
 }
+
 
 function getContextMenuStyles() {
   return {
@@ -787,6 +792,186 @@ cancelObjectBtn.addEventListener("click", () => {
   document.getElementById("option3").value = "";
   document.getElementById("option4").value = "";
 });
+
+
+
+
+
+
+
+
+
+
+
+ function getInputValue(id) {
+  const input = document.getElementById(id);
+  console.log(`getInputValue: id=${id}, element found? ${input !== null}`);
+  if (!input) return null;
+  return input.value.trim();
+}
+
+function getAllOptions() {
+  const options = {
+    option1: getInputValue("option1"),
+    option2: getInputValue("option2"),
+    option3: getInputValue("option3"),
+    option4: getInputValue("option4")
+  };
+  console.log("getAllOptions:", options);
+  return options;
+}
+
+function createOptionsDiv(options) {
+  console.log("createOptionsDiv mit Optionen:", options);
+  const div = document.createElement("div");
+  div.className = "optionContainer";
+  div.style.position = "absolute";
+  div.style.cursor = "grab";
+  div.style.visibility = "hidden";
+
+  div.dataset.attributes = JSON.stringify(options);
+  div.dataset.room = "";
+
+  div.innerHTML = `
+    <p><strong>Option 1:</strong> ${options.option1}</p>
+    <p><strong>Option 2:</strong> ${options.option2}</p>
+    <p><strong>Option 3:</strong> ${options.option3}</p>
+    <p><strong>Option 4:</strong> ${options.option4}</p>
+  `;
+
+  // Temporär anhängen, um die Größe zu messen
+  document.body.appendChild(div);
+  const { offsetWidth: width, offsetHeight: height } = div;
+  document.body.removeChild(div);
+
+  // Position im Viewport (Mitte vom Fenster)
+  const centerXInViewport = window.innerWidth / 2;
+  const centerYInViewport = window.innerHeight / 2;
+
+  // Umrechnen in Koordinaten relativ zum floorplan
+  const floorplanRect = floorplan.getBoundingClientRect();
+  const x = centerXInViewport - floorplanRect.left - width / 2;
+  const y = centerYInViewport - floorplanRect.top - height / 2;
+
+  div.style.left = `${x}px`;
+  div.style.top = `${y}px`;
+  div.style.visibility = "visible";
+
+  floorplan.appendChild(div);
+  makeDraggable(div);
+
+  return div;
+}
+
+
+
+
+
+function appendToContainer(div, containerId = "generatedObjectsContainer") {
+  const container = document.getElementById(containerId);
+  console.log(`appendToContainer: Container mit ID '${containerId}' gefunden? ${container !== null}`);
+  if (!container) {
+    console.error(`FEHLER: Container mit ID '${containerId}' nicht gefunden!`);
+    return;
+  }
+  container.appendChild(div);
+  console.log("appendToContainer: Div hinzugefügt");
+}
+
+function clearFormFields() {
+  ["option1", "option2", "option3", "option4"].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.value = "";
+      console.log(`clearFormFields: Feld '${id}' geleert`);
+    } else {
+      console.warn(`clearFormFields: Feld '${id}' nicht gefunden`);
+    }
+  });
+}
+
+function hideForm() {
+  const form = document.getElementById("objectForm");
+  if (form) {
+    form.style.display = "none";
+    console.log("hideForm: Formular ausgeblendet");
+  } else {
+    console.warn("hideForm: Formular mit ID 'objectForm' nicht gefunden");
+  }
+}
+
+function showForm() {
+  const form = document.getElementById("objectForm");
+  if (form) {
+    form.style.display = "block";
+    console.log("showForm: Formular angezeigt");
+  } else {
+    console.warn("showForm: Formular mit ID 'objectForm' nicht gefunden");
+  }
+}
+
+function handleSave() {
+  console.log("handleSave: Start");
+  const options = getAllOptions();
+  const newDiv = createOptionsDiv(options);
+  appendToContainer(newDiv);
+  clearFormFields();
+  hideForm();
+  console.log("handleSave: Fertig");
+}
+
+function setupEventListeners() {
+  const saveBtn = document.getElementById("saveOptionsBtn");
+  const cancelBtn = document.getElementById("cancelObjectBtn");
+
+  if (saveBtn) {
+    saveBtn.addEventListener("click", handleSave);
+    console.log("setupEventListeners: Listener für Speichern gesetzt");
+  } else {
+    console.error("setupEventListeners: Button 'saveOptionsBtn' nicht gefunden");
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", hideForm);
+    console.log("setupEventListeners: Listener für Abbrechen gesetzt");
+  } else {
+    console.error("setupEventListeners: Button 'cancelObjectBtn' nicht gefunden");
+  }
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  console.log("DOM vollständig geladen");
+  setupEventListeners();
+
+  // Automatisch div mit aktuellen Eingaben erstellen, falls vorhanden
+  const options = getAllOptions();
+  
+  // Prüfen, ob mindestens ein Eingabefeld ausgefüllt ist
+  if (Object.values(options).some(value => value)) {
+    const newDiv = createOptionsDiv(options);
+    appendToContainer(newDiv);
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // Initial
 loadFloorplan(building_id, floor);

@@ -168,3 +168,26 @@ html, body {
 }
 
 
+
+
+
+
+
+
+
+
+
+.optionContainer {
+  position: absolute;
+  top: 50px;         /* kannst du anpassen */
+  left: 50px;        /* kannst du anpassen */
+  background-color: rgba(255, 255, 255, 0.9); /* halbtransparent weiß */
+  border: 1px solid #333;
+  padding: 10px;
+  width: 200px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  z-index: 1000;     /* wichtig, damit es über dem Floorplan liegt */
+  border-radius: 4px;
+}
+
+
