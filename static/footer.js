@@ -1,4 +1,6 @@
-const log = console.log;
+if (!("log" in window)) {
+    window.log = console.log;
+}
 
 var backlink = $("#backLink");
 if (backlink.length) {
