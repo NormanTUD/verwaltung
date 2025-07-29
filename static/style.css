@@ -245,20 +245,18 @@ ul {
 }
 
 .floorplan_back_Btn {
-    width: 35px;
-    height: 35px;
-    border-radius: 50%;
-    object-fit: cover;
-    display: block;
-    position: relative;
-    background-color: #007bff;
-    z-index: 9999;
-    color: white;
-    top: 20px;
-    left: 20px;
+	width: 35px;
+	height: 35px;
+	border-radius: 50%;
+	object-fit: cover;
+	display: block;
+	position: relative;
+	background-color: #007bff;
+	z-index: 9999;
+	color: white;
 	border: none;
-  	outline: none; /* nur wenn du den Fokusrahmen wirklich nicht willst */
-  	padding: 0;
+	outline: none; /* nur wenn du den Fokusrahmen wirklich nicht willst */
+	padding: 0;
 }
 
 .auto_generated_field {
