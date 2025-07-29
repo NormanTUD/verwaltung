@@ -1009,12 +1009,21 @@ def map_editor():
 
     image_url = f"static/floorplans/b{building_id}_f{floor}.png"
 
+    image_width = 1
+    image_height = 1
+
+    try:
+        with Image.open(image_path) as img:
+            image_width, image_height = img.size
+    except Exception as e:
+        print(f"Error trying to get image width and height for {image_url}")
+
     return render_template(
         "map_editor.html",
         floorplans={},
         image_url=image_url,
-        image_width=100,
-        image_height=100,
+        image_width=image_width,
+        image_height=image_height,
         building_id=building_id,
         floor=floor,
         building_map=building_map,
