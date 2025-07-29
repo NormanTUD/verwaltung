@@ -2439,13 +2439,19 @@ def get_kostenstelle_names():
 @app.route('/api/get_abteilung_names', methods=['GET'])
 def get_abteilung_names():
     session = Session()
-    result = get_names(session, Object, Object.id, [Object.name])
+    result = get_names(session, Abteilung, Abteilung.id, [Abteilung.name])
     return jsonify(result)
 
 @app.route('/api/get_professorship_names', methods=['GET'])
 def get_professorship_names():
     session = Session()
     result = get_names(session, Professorship, Professorship.id, [Professorship.name])
+    return jsonify(result)
+
+@app.route('/api/get_category_names', methods=['GET'])
+def get_category_names():
+    session = Session()
+    result = get_names(session, Category, Category.id, [Category.name])
     return jsonify(result)
 
 @app.route('/api/get_object_names', methods=['GET'])

@@ -63,6 +63,16 @@ function getNamesConfig() {
 			},
 			label: "Objekt"
 		},
+		category_id: {
+			fields: {
+				category_id: {
+					name: "Kategorie",
+					type: "select",
+					options_url_id_dict: "/api/get_category_names"
+				}
+			},
+			label: "Kategorie"
+		},
 		professorship_id: {
 			fields: {
 				professorship_id: {
