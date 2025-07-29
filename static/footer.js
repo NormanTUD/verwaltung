@@ -30,18 +30,15 @@ function replace_id_fields_with_proper_fields() {
             },
             label: "Gebäude+Raum",
             url: "/api/get_room_id?building_name={building_name}&room_name={room_name}"
-        }
-        /*,
+        },
         person_id: {
-            ...
+            // URL für Select: /api/get_person_names
         }
-            */
     };
     /*
 
     names['issuer_id'] = names['person_id'];
     names['owner_id'] = names['person_id'];
-*/
 
     for (var name of Object.keys(names)) {
         var elements = $('input[name="' + name + '[]"]');
