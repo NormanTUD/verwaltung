@@ -36,7 +36,7 @@
     <script src="/static/jquery.min.js"></script>
     <script src="/static/toastr.min.js"></script>
     <script>
-        const SUBFORMS = {{ config_json.subforms | tojson }};
+        const SUBFORMS = {{ config_json.subforms or [] | tojson }};
         function createSubformHTML(subform) {
             let html = '<div class="subform-entry border rounded p-2 mb-2">';
             for (let f of subform.fields) {

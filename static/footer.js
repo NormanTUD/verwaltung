@@ -47,6 +47,7 @@ function getNamesConfig() {
 
 	names['issuer_id'] = names['person_id'];
 	names['owner_id'] = names['person_id'];
+	names['abteilungsleiter_id'] = names['person_id'];
 
 	return names;
 }

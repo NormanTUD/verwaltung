@@ -111,29 +111,37 @@ FK_DISPLAY_COLUMNS = {
     "person": ["title", "first_name", "last_name"]
 }
 
-WIZARDS = {}
-
-WIZARDS["transponder"] = {
-    "title": "Transponder erstellen",
-    "model": Transponder,
-    "fields": [
-        {"name": "issuer_id", "type": "number", "label": "Ausgeber", "required": True},
-        {"name": "owner_id", "type": "number", "label": "Besitzer"},
-        {"name": "serial_number", "type": "text", "label": "Seriennummer"},
-        {"name": "got_date", "type": "date", "label": "Ausgabedatum"},
-        {"name": "return_date", "type": "date", "label": "Rückgabedatum"},
-    ],
-    "subforms": [
-        {
-            "name": "room_links",
-            "label": "Zugeordnete Räume",
-            "model": TransponderToRoom,
-            "foreign_key": "transponder_id",
-            "fields": [
-                {"name": "room_id", "type": "number", "label": "Raum-ID"},
-            ]
-        }
-    ]
+WIZARDS = {
+    "transponder": {
+        "title": "Transponder erstellen",
+        "model": Transponder,
+        "fields": [
+            {"name": "issuer_id", "type": "number", "label": "Ausgeber", "required": True},
+            {"name": "owner_id", "type": "number", "label": "Besitzer"},
+            {"name": "serial_number", "type": "text", "label": "Seriennummer"},
+            {"name": "got_date", "type": "date", "label": "Ausgabedatum"},
+            {"name": "return_date", "type": "date", "label": "Rückgabedatum"},
+        ],
+        "subforms": [
+            {
+                "name": "room_links",
+                "label": "Zugeordnete Räume",
+                "model": TransponderToRoom,
+                "foreign_key": "transponder_id",
+                "fields": [
+                    {"name": "room_id", "type": "number", "label": "Raum-ID"},
+                ]
+            }
+        ]
+    },
+    "abteilung": {
+        "title": "Abteilung erstellen",
+        "model": Abteilung,
+        "fields": [
+            {"name": "name", "type": "text", "label": "Name", "required": True},
+            {"name": "abteilungsleiter_id", "type": "number", "label": "Abteilungsleiter (Person-ID)"},
+        ],
+    }
 }
 
 HANDLER_MAP = {
@@ -1238,8 +1246,12 @@ def map_editor():
     )
 
 @app.route("/wizard/transponder", methods=["GET", "POST"])
-def run_wizard():
+def run_transponder_wizard():
     return _wizard_internal("transponder")
+
+@app.route("/wizard/abteilung", methods=["GET", "POST"])
+def run_abteilung_wizard():
+    return _wizard_internal("abteilung")
 
 import datetime
 
