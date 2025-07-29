@@ -6,6 +6,7 @@ import shutil
 import os
 import subprocess
 from datetime import date
+import datetime
 from copy import deepcopy
 import csv
 import uuid
@@ -1246,16 +1247,14 @@ def map_editor():
     )
 
 @app.route("/wizard/transponder", methods=["GET", "POST"])
-def run_transponder_wizard():
+def run_wizard_transponder():
     return _wizard_internal("transponder")
 
 @app.route("/wizard/abteilung", methods=["GET", "POST"])
-def run_abteilung_wizard():
+def run_wizard_abteilung():
     return _wizard_internal("abteilung")
 
-import datetime
-
-def convert_value(field, value):
+def convert_datetime_value(field, value):
     if value is None:
         return None
     if field.get("type") == "date":
@@ -1286,7 +1285,7 @@ def _wizard_internal(name):
         try:
             main_model = config["model"]
             main_data = {
-                f["name"]: convert_value(f, request.form.get(f["name"], "").strip() or None)
+                f["name"]: convert_datetime_value(f, request.form.get(f["name"], "").strip() or None)
                 for f in config["fields"]
             }
 
