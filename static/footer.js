@@ -203,10 +203,11 @@ function replaceFieldsForElement(element, name, config) {
 		$element.before(input);
 		inputs.push(input);
 
-		input.on('input change', (function(hiddenElement) {
+		input.on('blur', (function(hiddenElement) {
 			return function() {
 				var form = $(this).closest('form');
 				updateHiddenFieldValue(config, hiddenElement, form, this);
+				toastr.info("Raum gefunden/eingetragen");
 			};
 		})($element));
 
