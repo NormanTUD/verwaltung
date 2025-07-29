@@ -943,6 +943,8 @@ def wizard_person():
 
 @app.route("/map-editor")
 def map_editor():
+    session = Session()
+
     building_id_param = request.args.get("building_id")
     floor_param = request.args.get("floor")
 
@@ -963,6 +965,16 @@ def map_editor():
             except Exception:
                 continue
 
+    building_names = {}
+    try:
+        building_ids = list(building_map.keys())
+        if building_ids:
+            buildings = session.query(Building).filter(Building.id.in_(building_ids)).all()
+            for building in buildings:
+                building_names[building.id] = building.name
+    except Exception as e:
+        return f"Error loading building names: {str(e)}", 500
+
     # Kein Gebäude oder Floor gewählt → Auswahlseite rendern
     if building_id_param is None or floor_param is None:
         return render_template(
@@ -972,6 +984,7 @@ def map_editor():
             image_width=None,
             image_height=None,
             building_id=None,
+            building_names=building_names,
             floor=None,
             building_map=building_map
         )
@@ -994,15 +1007,18 @@ def map_editor():
     except Exception as e:
         return f"Error opening image: {str(e)}", 500
 
+    image_url = f"static/floorplans/b{building_id}_f{floor}.png"
+
     return render_template(
         "map_editor.html",
         floorplans={},
-        image_url=f"/static/floorplans/{filename}",
-        image_width=width,
-        image_height=height,
+        image_url=image_url,
+        image_width=100,
+        image_height=100,
         building_id=building_id,
         floor=floor,
-        building_map=building_map
+        building_map=building_map,
+        building_names=building_names
     )
 
 @app.route("/wizard/transponder", methods=["GET", "POST"])

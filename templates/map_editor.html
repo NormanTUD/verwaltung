@@ -19,10 +19,11 @@
 				<option value="">-- Bitte wählen --</option>
 				{% for b_id in building_map.keys()|sort %}
 				<option value="{{ b_id }}" {% if building_id == b_id %}selected{% endif %}>
-				{{ b_id }}
+				{{ building_names.get(b_id, "Unbekanntes Gebäude") }}
 				</option>
 				{% endfor %}
 			</select>
+
 
 			<label for="floorSelect">Etage:</label>
 			<select id="floorSelect" {% if not floor %}disabled{% endif %}>
@@ -100,6 +101,51 @@
 			if (buildingSelect.value && floorSelect.value) {
 				goBtn.disabled = false;
 			}
+
+			function getUrlParams() {
+				let params = {};
+				let query = window.location.search.substring(1);
+				let pairs = query.split("&");
+				for (let i = 0; i < pairs.length; i++) {
+					let pair = pairs[i].split("=");
+					let key = decodeURIComponent(pair[0]);
+					let value = decodeURIComponent(pair[1] || "");
+					params[key] = value;
+				}
+				return params;
+			}
+
+			window.addEventListener("DOMContentLoaded", function () {
+				let params = getUrlParams();
+
+				let buildingSelect = document.getElementById("buildingSelect");
+				let floorSelect = document.getElementById("floorSelect");
+
+				if (params.building_id) {
+					let val = params.building_id;
+					for (let i = 0; i < buildingSelect.options.length; i++) {
+						if (buildingSelect.options[i].value === val) {
+							buildingSelect.selectedIndex = i;
+							break;
+						}
+					}
+				}
+
+				if (params.floor) {
+					let val = params.floor;
+					for (let i = 0; i < floorSelect.options.length; i++) {
+						if (floorSelect.options[i].value === val) {
+							floorSelect.selectedIndex = i;
+							break;
+						}
+					}
+				}
+
+				// Optional: Floor-Select aktivieren, wenn Building gesetzt ist
+				if (params.building_id && floorSelect.disabled) {
+					floorSelect.disabled = false;
+				}
+			});
 		</script>
 
 		<textarea id="import" onkeyup="import_text()" style="min-width: 500px; min-height: 500px">
