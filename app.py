@@ -1292,7 +1292,7 @@ def map_editor():
 @app.route("/wizard/<wizard_name>", methods=["GET", "POST"])
 def run_wizard(wizard_name):
     allowed = set(WIZARDS.keys())
-    # Falls "person" nicht im Dict, aber erlaubt sein soll:
+
     allowed.add("person")
 
     if wizard_name not in allowed:
