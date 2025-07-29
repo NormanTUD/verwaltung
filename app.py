@@ -944,7 +944,7 @@ def wizard_person():
 @app.route("/map-editor")
 def map_editor():
     building_id_param = request.args.get("building_id")
-    floor_param = request.args.get("etage")
+    floor_param = request.args.get("floor")
 
     floorplan_dir = os.path.join("static", "floorplans")
 
@@ -963,7 +963,7 @@ def map_editor():
             except Exception:
                 continue
 
-    # Kein Gebäude oder Etage gewählt → Auswahlseite rendern
+    # Kein Gebäude oder Floor gewählt → Auswahlseite rendern
     if building_id_param is None or floor_param is None:
         return render_template(
             "map_editor.html",
@@ -980,7 +980,7 @@ def map_editor():
         building_id = int(building_id_param)
         floor = int(floor_param)
     except ValueError:
-        return "Invalid 'building_id' or 'etage' – must be integers", 400
+        return "Invalid 'building_id' or 'floor' – must be integers", 400
 
     filename = f"b{building_id}_f{floor}.png"
     image_path = os.path.join(floorplan_dir, filename)
@@ -1576,16 +1576,16 @@ def gui_edit(handler_name):
 @app.route('/floorplan')
 def home():
     building_id_param = request.args.get("building_id")
-    floor_param = request.args.get("etage")
+    floor_param = request.args.get("floor")
 
     try:
         building_id = int(building_id_param) if building_id_param is not None else None
         floor = int(floor_param) if floor_param is not None else None
     except ValueError:
-        return "Invalid 'building_id' or 'etage' – must be integers", 400
+        return "Invalid 'building_id' or 'floor' – must be integers", 400
 
     if building_id is None or floor is None:
-        return "Missing 'building_id' or 'etage' in query string", 400
+        return "Missing 'building_id' or 'floor' in query string", 400
 
     filename = f"b{building_id}_f{floor}.png"
     image_path = os.path.join("static", "floorplans", filename)
@@ -1750,16 +1750,16 @@ def _save_room_set_layout(session, room, v):
 @app.route("/get_floorplan", methods=["GET"])
 def get_floorplan():
     building_id_param = request.args.get("building_id")
-    floor_param = request.args.get("etage")
+    floor_param = request.args.get("floor")
 
     try:
         building_id = int(building_id_param) if building_id_param is not None else None
         floor = int(floor_param) if floor_param is not None else None
     except ValueError:
-        return jsonify({"error": "Invalid 'building_id' or 'etage' – must be integers"}), 400
+        return jsonify({"error": "Invalid 'building_id' or 'floor' – must be integers"}), 400
 
     if building_id is None or floor is None:
-        return jsonify({"error": "Both 'building_id' and 'etage' parameters are required"}), 400
+        return jsonify({"error": "Both 'building_id' and 'floor' parameters are required"}), 400
 
     session = Session()
     try:
@@ -1995,7 +1995,7 @@ def get_person_database():
                 "last_name": person.last_name or "",
                 "alter": 0,                  # Placeholder – muss ergänzt werden
                 "rolle": "Unbekannt",        # Placeholder – ggf. aus Professorship/Abteilung ableiten?
-                "etage": 0,                  # Placeholder – ggf. aus room/office Info ableiten?
+                "floor": 0,                  # Placeholder – ggf. aus room/office Info ableiten?
                 "image_url": person.image_url or ""  # Hier wird das Bild hinzugefügt
             })
             

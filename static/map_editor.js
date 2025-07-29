@@ -1,7 +1,29 @@
 // TODO: Building-ID aus Gebäudeliste erstellen
 
-var building_id = 1;
-var floor = 7;
+let params;
+
+try {
+	params = new URLSearchParams(window.location.search);
+} catch (error) {
+	console.error("Fehler beim Parsen der URL:", error);
+	params = new URLSearchParams(); // Leeres Fallback
+}
+
+let building_id_str = params.get("building_id");
+let floor_str = params.get("floor");
+
+let building_id = parseInt(building_id_str, 10);
+let floor = parseInt(floor_str, 10);
+
+if (isNaN(building_id)) {
+	console.error("Kein gültiger 'building_id' Parameter gefunden:", building_id_str);
+	building_id = 0; // Standardwert oder Fehlerbehandlung
+}
+
+if (isNaN(floor)) {
+	console.error("Kein gültiger 'floor' Parameter gefunden:", floor_str);
+	floor = 0; // Standardwert oder Fehlerbehandlung
+}
 
 function loadFloorplan(buildingId, floor) {
 	if (typeof buildingId !== "number" || typeof floor !== "number") {
@@ -9,7 +31,7 @@ function loadFloorplan(buildingId, floor) {
 		return;
 	}
 
-	var url = "/get_floorplan?building_id=" + encodeURIComponent(buildingId) + "&etage=" + encodeURIComponent(floor);
+	var url = "/get_floorplan?building_id=" + encodeURIComponent(buildingId) + "&floor=" + encodeURIComponent(floor);
 
 	fetch(url)
 		.then(function (response) {
