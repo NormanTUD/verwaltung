@@ -42,6 +42,15 @@ function getNamesConfig() {
 					options_url_id_dict: "/api/get_person_names"
 				},
 			}
+		},
+		object_id: {
+			fields: {
+				object_id: {
+					name: "Objekt",
+					type: "select",
+					options_url_id_dict: "/api/get_objekt_ids"
+				}
+			}
 		}
 	};
 

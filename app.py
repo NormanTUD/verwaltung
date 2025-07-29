@@ -2398,17 +2398,43 @@ def get_building_names():
     names = [b.name for b in buildings if b.name]
     return jsonify(names)
 
+def get_names(session, model, id_field, name_fields):
+    """
+    Generische Funktion, um Namen aus einem Modell abzufragen.
+
+    :param session: DB-Session
+    :param model: SQLAlchemy-Modellklasse (z.B. Person, Object)
+    :param id_field: Feld für die ID (z.B. Person.id)
+    :param name_fields: Liste von Feldern, aus denen der Name zusammengesetzt wird (z.B. [Person.first_name, Person.last_name])
+    :return: dict {id: name}
+    """
+    query_fields = [id_field] + name_fields
+    records = session.query(*query_fields).all()
+
+    result = {}
+    for r in records:
+        id_val = getattr(r, id_field.key)
+        # Namen zusammensetzen und whitespace trimmen
+        name_parts = [getattr(r, f.key) or '' for f in name_fields]
+        name = " ".join(name_parts).strip()
+
+        if name:  # nur mit Namen hinzufügen
+            result[id_val] = name
+
+    return result
+
+
 @app.route('/api/get_person_names', methods=['GET'])
 def get_person_names():
     session = Session()
+    result = get_names(session, Person, Person.id, [Person.first_name, Person.last_name])
+    return jsonify(result)
 
-    people = session.query(Person.id, Person.first_name, Person.last_name).all()
-    result = {
-        p.id: f"{p.first_name or ''} {p.last_name or ''}".strip()
-        for p in people
-        if p.first_name or p.last_name
-    }
 
+@app.route('/api/get_object_names', methods=['GET'])
+def get_object_names():
+    session = Session()
+    result = get_names(session, Object, Object.id, [Object.name])
     return jsonify(result)
 
 if __name__ == "__main__":
