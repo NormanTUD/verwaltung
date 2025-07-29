@@ -50,7 +50,7 @@ def restart_with_venv():
 
 try:
     from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash
-    from sqlalchemy import create_engine, inspect
+    from sqlalchemy import create_engine, inspect, Date, DateTime, text
     from sqlalchemy.orm import sessionmaker, joinedload, Session
     from sqlalchemy.orm.exc import NoResultFound
     from sqlalchemy.exc import SQLAlchemyError
@@ -60,7 +60,6 @@ try:
     import io
     from markupsafe import escape
     import html
-    from sqlalchemy import Date, DateTime
     import sqlalchemy
     import cryptography
     import aiosqlite
@@ -2507,6 +2506,55 @@ def get_object_names():
     session = Session()
     result = get_names(session, Object, Object.id, [Object.name])
     return jsonify(result)
+
+
+@app.route('/db_info')
+def db_info():
+    inspector = inspect(engine)
+    conn = engine.connect()
+
+    tables = []
+    relationships = []
+
+    for table_name in inspector.get_table_names():
+        columns = inspector.get_columns(table_name)
+        indexes = inspector.get_indexes(table_name)
+        pks = inspector.get_pk_constraint(table_name).get('constrained_columns', [])
+        fks = inspector.get_foreign_keys(table_name)
+        count = conn.execute(text(f'SELECT COUNT(*) FROM "{table_name}"')).scalar()
+
+        tables.append({
+            'name': table_name,
+            'columns': columns,
+            'indexes': indexes,
+            'pks': pks,
+            'fks': fks,
+            'num_columns': len(columns),
+            'num_rows': count
+        })
+
+        for fk in fks:
+            relationships.append((table_name, fk['referred_table']))
+
+    # Mermaid ER Diagram
+    def make_mermaid(tables, relationships):
+        lines = ['erDiagram']
+        for t in tables:
+            lines.append(f'  {t["name"]} {{')
+            for col in t['columns']:
+                col_type = str(col["type"]).split('(')[0]
+                nullable = '' if col["nullable"] else ' NOT NULL'
+                lines.append(f'    {col_type} {col["name"]}{nullable}')
+            lines.append('  }')
+
+        for src, target in relationships:
+            lines.append('  ' + src + ' }|--|| ' + target + ' : FK')
+
+        return "\n".join(lines)
+
+    mermaid = make_mermaid(tables, relationships)
+
+    return render_template('db_info.html', tables=tables, mermaid=mermaid)
 
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
