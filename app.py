@@ -1308,19 +1308,18 @@ def convert_datetime_value(field, value):
         return datetime.datetime.strptime(value, "%Y-%m-%dT%H:%M")
     return value
 
+def get_json_safe_config(config):
+    safe = deepcopy(config)
+    for sub in safe.get("subforms", []):
+        sub.pop("model", None)
+        sub.pop("foreign_key", None)
+    safe.pop("model", None)
+    return safe
 
 def _wizard_internal(name):
     config = WIZARDS.get(name)
     if not config:
         abort(404)
-
-    def get_json_safe_config(config):
-        safe = deepcopy(config)
-        for sub in safe.get("subforms", []):
-            sub.pop("model", None)
-            sub.pop("foreign_key", None)
-        safe.pop("model", None)
-        return safe
 
     session = Session()
     success = False
@@ -1385,7 +1384,7 @@ def _wizard_internal(name):
         config_json=get_json_safe_config(config),
         success=success,
         error=error,
-        form_data=get_json_safe_config(form_data)
+        form_data=form_data
     )
 
 def get_abteilung_metadata(abteilung_id: int) -> dict:
