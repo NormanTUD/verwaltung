@@ -15,16 +15,6 @@ let floor_str = params.get("floor");
 let building_id = parseInt(building_id_str, 10);
 let floor = parseInt(floor_str, 10);
 
-if (isNaN(building_id)) {
-	console.error("Kein gültiger 'building_id' Parameter gefunden:", building_id_str);
-	building_id = 0; // Standardwert oder Fehlerbehandlung
-}
-
-if (isNaN(floor)) {
-	console.error("Kein gültiger 'floor' Parameter gefunden:", floor_str);
-	floor = 0; // Standardwert oder Fehlerbehandlung
-}
-
 function loadFloorplan(buildingId, floor) {
 	if (typeof buildingId !== "number" || typeof floor !== "number") {
 		console.error("loadFloorplan: buildingId und floor müssen Zahlen sein");
@@ -850,5 +840,7 @@ function isMouseOutsideRooms(event, container, rooms) {
     return true; // Maus ist außerhalb aller Räume
 }
 
-loadFloorplan(building_id, floor);
+if(!isNaN(building_id) && !isNaN(floor)) {
+	loadFloorplan(building_id, floor);
+}
 window.import_text = import_text;
