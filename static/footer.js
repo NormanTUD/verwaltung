@@ -13,6 +13,7 @@ if (backlink) {
         }
     });
 }
+
 function getNamesConfig() {
     var names = {
         room_id: {
@@ -56,7 +57,7 @@ function getElementsByName(name) {
     return elements;
 }
 
-function createInputField(fieldConfig, fieldName) {
+function createInputField(fieldConfig, fieldName, onOptionsLoaded) {
     if (fieldConfig.type === "select") {
         var select = $('<select>', {
             class: 'auto_generated_field',
@@ -81,8 +82,20 @@ function createInputField(fieldConfig, fieldName) {
                     }));
                 }
             }
+
+            // Automatisch ersten Wert auswählen und callback ausführen
+            if (select.children().length > 0) {
+                select.val(select.children().first().val());
+            }
+
+            if (typeof onOptionsLoaded === "function") {
+                onOptionsLoaded(select);
+            }
         }).fail(function() {
             log("Fehler beim Laden der Optionen für " + fieldName);
+            if (typeof onOptionsLoaded === "function") {
+                onOptionsLoaded(select);
+            }
         });
 
         return select;
@@ -96,81 +109,127 @@ function createInputField(fieldConfig, fieldName) {
     }
 }
 
-function updateHiddenFieldValue(config, element, urlTemplate) {
-    var form = element.closest('form');
+function updateHiddenFieldValue(config, hiddenElement, form) {
+    console.log("=== updateHiddenFieldValue START ===");
+    console.log("Hidden Element:", hiddenElement);
+    console.log("Config:", config);
+    console.log("Form:", form);
+
     var params = {};
 
     for (var key in config.fields) {
         var val = form.find('[name="' + key + '"]').val();
         params[key] = val;
+        console.log(`Param ${key} = ${val}`);
     }
 
-    if (urlTemplate) {
-        var newUrl = urlTemplate.replace(/\{(\w+)\}/g, function(match, p1) {
+    if (config.url) {
+        var newUrl = config.url.replace(/\{(\w+)\}/g, function(match, p1) {
             return encodeURIComponent(params[p1] || '');
         });
 
-        log(newUrl);
+        console.log("Constructed URL:", newUrl);
 
         $.get(newUrl, function(data) {
-            log(data);
+            console.log("AJAX response data:", data);
             if (data && data.room_id) {
-                element.val(data.room_id);
+                console.log("Setting hidden field to room_id:", data.room_id);
+                hiddenElement.val(data.room_id);
+            } else if (data && data.person_id) {
+                console.log("Setting hidden field to person_id:", data.person_id);
+                hiddenElement.val(data.person_id);
+            } else {
+                console.log("No valid ID found in response, clearing hidden field");
+                hiddenElement.val('');
             }
         }).fail(function() {
-            log("Fehler beim Abrufen der Raum-ID");
-            element.val('');
+            console.log("AJAX request failed");
+            hiddenElement.val('');
         });
     } else {
-        // For cases without a urlTemplate, set the hidden field directly from the current input
-        // Use first field in fields or a suitable fallback?
         var firstField = Object.keys(config.fields)[0];
-        element.val(params[firstField] || '');
+        console.log(`No URL, setting hidden field from first input (${firstField}):`, params[firstField]);
+        hiddenElement.val(params[firstField] || '');
     }
+    console.log("=== updateHiddenFieldValue END ===");
 }
 
-function replaceFieldsForElement(element, name, config) {
-    $(element).parent().find("label").text(config.label);
 
-    if (!$(element).is(":visible")) {
+function replaceFieldsForElement(element, name, config) {
+    var $element = $(element);
+    var $parentLabel = $element.parent().find("label");
+    if ($parentLabel.length > 0) {
+        $parentLabel.text(config.label);
+    }
+
+    if (!$element.is(":visible")) {
         log("Element is not visible, skipping field replacement.");
         return;
     }
 
+    var form = $element.closest('form');
+
+    var inputs = [];
     var i = 0;
-    for (var fieldName in config.fields) {
-        var fieldConfig = config.fields[fieldName];
-        var input = createInputField(fieldConfig, fieldName);
+
+    // Die Funktion hier nutzt closure, damit für jedes Feld der korrekte $element referenziert wird
+    function onInputChange() {
+        updateHiddenFieldValue(config, $element, form);
+    }
+
+    for (let fieldName in config.fields) {
+        let fieldConfig = config.fields[fieldName];
+
+        // Callback gibt select-Element weiter, damit wir nach Laden der Optionen das Hiddenfeld updaten können
+        let input = createInputField(fieldConfig, fieldName, function(selectElement) {
+            // WICHTIG: nach dem Laden der Optionen immer updaten (für select)
+            onInputChange();
+        });
 
         if (i === 0) {
-            $(element).before($("<br>"));
+            $element.before($("<br>"));
         }
 
-        $(element).before(input);
+        $element.before(input);
+        inputs.push(input);
 
-        input.on('input change', function() {
-            updateHiddenFieldValue(config, $(element), config.url);
-        });
+        // Event-Handler mit "let" Scope, damit Closure auf das richtige Input und Hiddenfeld zeigt
+        input.on('input change', (function(hiddenElement) {
+            return function() {
+                var form = $(this).closest('form');
+                console.log("Event triggered on input:", this);
+                console.log("Closest form:", form);
+                console.log("Updating hidden element:", hiddenElement);
+                updateHiddenFieldValue(config, hiddenElement, form);
+            };
+        })($element));
+
+
 
         i++;
     }
 
-    $(element).hide();
+    //$element.hide();
+
+    // Direkt nach Erzeugung einmal initial updaten (für Textfelder oder Select mit sofort ausgewähltem Wert)
+    onInputChange();
 }
 
 function replace_id_fields_with_proper_fields() {
     var names = getNamesConfig();
 
-    for (var name of Object.keys(names)) {
+    for (let name of Object.keys(names)) {
         var elements = getElementsByName(name);
 
-        for (var k = 0; k < elements.length; k++) {
-            var element = $(elements[k]);
-            var config = names[name];
+        // Wichtig: jedes element separat mit eigenem Kontext behandeln
+        for (let k = 0; k < elements.length; k++) {
+            let element = $(elements[k]);
+            let config = names[name];
             replaceFieldsForElement(element, name, config);
         }
     }
 }
+
 
 $( document ).ready(function() {
     replace_id_fields_with_proper_fields();
