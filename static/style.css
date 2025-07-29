@@ -260,3 +260,12 @@ ul {
   	outline: none; /* nur wenn du den Fokusrahmen wirklich nicht willst */
   	padding: 0;
 }
+
+.auto_generated_field {
+	width: 50%;
+	padding: 6px 8px;
+	border: 1px solid #bdc3c7;
+	border-radius: 4px;
+	font-size: 0.95rem;
+	transition: border-color 0.2s ease-in-out;
+}

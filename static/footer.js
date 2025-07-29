@@ -37,6 +37,7 @@ function replace_id_fields_with_proper_fields () {
             var fieldName = names[name].fields[field];
             var input = $('<input>', {
                 type: 'text',
+                class: 'auto_generated_field',
                 name: field,
                 placeholder: fieldName
             });
