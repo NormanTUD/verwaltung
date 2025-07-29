@@ -110,25 +110,17 @@ function createInputField(fieldConfig, fieldName, onOptionsLoaded) {
 }
 
 function updateHiddenFieldValue(config, hiddenElement, form) {
-	console.log("=== updateHiddenFieldValue START ===");
-	console.log("Hidden Element:", hiddenElement);
-	console.log("Config:", config);
-	console.log("Form:", form);
-
 	var params = {};
 
 	for (var key in config.fields) {
 		var val = form.find('[name="' + key + '"]').val();
 		params[key] = val;
-		console.log(`Param ${key} = ${val}`);
 	}
 
 	if (config.url) {
 		var newUrl = config.url.replace(/\{(\w+)\}/g, function(match, p1) {
 			return encodeURIComponent(params[p1] || '');
 		});
-
-		console.log("Constructed URL:", newUrl);
 
 		$.get(newUrl, function(data) {
 			console.log("AJAX response data:", data);
@@ -148,10 +140,8 @@ function updateHiddenFieldValue(config, hiddenElement, form) {
 		});
 	} else {
 		var firstField = Object.keys(config.fields)[0];
-		console.log(`No URL, setting hidden field from first input (${firstField}):`, params[firstField]);
 		hiddenElement.val(params[firstField] || '');
 	}
-	console.log("=== updateHiddenFieldValue END ===");
 }
 
 
@@ -174,7 +164,6 @@ function replaceFieldsForElement(element, name, config) {
 	var inputs = [];
 	var i = 0;
 
-	// Die Funktion hier nutzt closure, damit für jedes Feld der korrekte $element referenziert wird
 	function onInputChange() {
 		updateHiddenFieldValue(config, $element, form);
 	}
@@ -182,9 +171,7 @@ function replaceFieldsForElement(element, name, config) {
 	for (let fieldName in config.fields) {
 		let fieldConfig = config.fields[fieldName];
 
-		// Callback gibt select-Element weiter, damit wir nach Laden der Optionen das Hiddenfeld updaten können
 		let input = createInputField(fieldConfig, fieldName, function(selectElement) {
-			// WICHTIG: nach dem Laden der Optionen immer updaten (für select)
 			onInputChange();
 		});
 
@@ -195,7 +182,6 @@ function replaceFieldsForElement(element, name, config) {
 		$element.before(input);
 		inputs.push(input);
 
-		// Event-Handler mit "let" Scope, damit Closure auf das richtige Input und Hiddenfeld zeigt
 		input.on('input change', (function(hiddenElement) {
 			return function() {
 				var form = $(this).closest('form');
