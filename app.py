@@ -102,6 +102,7 @@ WIZARDS["transponder"] = {
         {"name": "owner_id", "type": "number", "label": "Besitzer-ID"},
         {"name": "serial_number", "type": "text", "label": "Seriennummer"},
         {"name": "got_date", "type": "date", "label": "Ausgabedatum"},
+        {"name": "return_date", "type": "date", "label": "Rückgabedatum"},
     ],
     "subforms": [
         {
