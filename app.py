@@ -51,6 +51,7 @@ try:
     from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash
     from sqlalchemy import create_engine, inspect
     from sqlalchemy.orm import sessionmaker, joinedload, Session
+    from sqlalchemy.orm.exc import NoResultFound
     from sqlalchemy.exc import SQLAlchemyError
     from db_defs import *
     from pypdf import PdfReader, PdfWriter
@@ -151,13 +152,10 @@ EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.role != 'admin':
+        if not current_user.is_authenticated or not any(r.name == 'admin' for r in current_user.roles):
             abort(403)
         return f(*args, **kwargs)
     return decorated_function
-
-def is_admin(user):
-    return any(role.name == 'admin' for role in user.roles)
 
 def parse_buildings_csv(csv_text):
     session = Session()
@@ -373,16 +371,31 @@ def register():
         # Check if user already exists
         existing_user = session.query(User).filter_by(username=username).first()
         if existing_user:
-            # Username taken: return error message or flash message
             return render_template('register.html', error='Username already taken.')
 
-        # Otherwise create user
+        # Hash password
         hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
         new_user = User(username=username, password=hashed_pw)
+
+        # Check if this is the first user
+        user_count = session.query(User).count()
+        if user_count == 0:
+            # Try to get or create admin role
+            try:
+                admin_role = session.query(Role).filter_by(name='admin').one()
+            except NoResultFound:
+                admin_role = Role(name='admin')
+                session.add(admin_role)
+                session.commit()
+
+            # Assign admin role to the new user
+            new_user.roles.append(admin_role)
+            new_user.role = 'admin'  # optional if you're still using this field
+
         session.add(new_user)
         session.commit()
         return redirect(url_for('login'))
-    
+
     return render_template('register.html')
 
 @app.route('/dashboard')
