@@ -427,11 +427,89 @@ def index():
 
     return render_template("index.html", tables=tables, wizard_routes=wizard_routes)
 
-@app.route('/admin')
+@app.route('/admin', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def admin_panel():
-    return "Hallo Admin!"
+    session = Session()
+
+    users = session.query(User).all()
+    roles = session.query(Role).all()
+
+    # Hinzufügen eines neuen Benutzers
+    if request.method == 'POST' and 'new_username' in request.form:
+        username = request.form['new_username']
+        password = request.form['new_password']
+        role_id = request.form.get('new_role')
+
+        if session.query(User).filter_by(username=username).first():
+            flash('Benutzername existiert bereits.')
+        else:
+            hashed = generate_password_hash(password)
+            user = User(username=username, password=hashed)
+            if role_id:
+                role = session.query(Role).get(int(role_id))
+                if role:
+                    user.roles.append(role)
+            session.add(user)
+            session.commit()
+            flash('Benutzer hinzugefügt.')
+
+        return redirect(url_for('admin_panel'))
+
+    return render_template('admin_panel.html', users=users, roles=roles)
+
+@app.route('/admin/delete/<int:user_id>')
+@login_required
+@admin_required
+def delete_user(user_id):
+    session = Session()
+    user = session.query(User).get(user_id)
+
+    if not user:
+        flash("Benutzer nicht gefunden.")
+    else:
+        session.delete(user)
+        session.commit()
+        flash("Benutzer gelöscht.")
+
+    return redirect(url_for('admin_panel'))
+
+@app.route('/admin/update/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def update_user(user_id):
+    session = Session()
+
+    user = session.query(User).get(user_id)
+    if not user:
+        flash("Benutzer nicht gefunden.")
+        return redirect(url_for('admin_panel'))
+
+    # Benutzername ändern
+    new_username = request.form.get('username')
+    if new_username and new_username != user.username:
+        if session.query(User).filter(User.username == new_username, User.id != user.id).first():
+            flash("Benutzername existiert bereits.")
+            return redirect(url_for('admin_panel'))
+        user.username = new_username
+
+    # Passwort ändern
+    new_password = request.form.get('new_password')
+    if new_password:
+        user.password = generate_password_hash(new_password)
+
+    # Rolle ändern
+    new_role_id = request.form.get('role_id')
+    user.roles.clear()  # Alle bisherigen Rollen entfernen
+    if new_role_id:
+        role = session.query(Role).get(int(new_role_id))
+        if role:
+            user.roles.append(role)
+
+    session.commit()
+    flash("Benutzer aktualisiert.")
+    return redirect(url_for('admin_panel'))
 
 @app.route('/favicon.ico')
 def favicon():
