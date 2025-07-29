@@ -177,6 +177,15 @@ WIZARDS = {
             {"name": "professorship_id", "type": "number", "label": "Professur-ID"},
             {"name": "abteilung_id", "type": "number", "label": "Abteilungs-ID"},
         ],
+    },
+    "object": {
+        "title": "Objekt erstellen",
+        "model": Object,
+        "fields": [
+            {"name": "name", "type": "text", "label": "Name", "required": True},
+            {"name": "price", "type": "number", "label": "Preis"},
+            {"name": "category_id", "type": "number", "label": "Kategorie-ID"},
+        ],
     }
 }
 
