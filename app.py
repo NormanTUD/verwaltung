@@ -150,6 +150,33 @@ WIZARDS = {
             {"name": "kostenstelle_id", "type": "number", "label": "Kostenstelle-ID"},
             {"name": "name", "type": "text", "label": "Name", "required": True},
         ],
+    },
+    "kostenstelle": {
+        "title": "Kostenstelle erstellen",
+        "model": Kostenstelle,
+        "fields": [
+            {"name": "name", "type": "text", "label": "Name", "required": True},
+        ],
+    },
+    "inventory": {
+        "title": "Inventar erstellen",
+        "model": Inventory,
+        "fields": [
+            {"name": "owner_id", "type": "number", "label": "Besitzer (Person-ID)"},
+            {"name": "object_id", "type": "number", "label": "Objekt-ID", "required": True},
+            {"name": "issuer_id", "type": "number", "label": "Ausgeber (Person-ID)"},
+            {"name": "acquisition_date", "type": "date", "label": "Anschaffungsdatum"},
+            {"name": "got_date", "type": "date", "label": "Erhalten am"},
+            {"name": "return_date", "type": "date", "label": "Rückgabedatum"},
+            {"name": "serial_number", "type": "text", "label": "Seriennummer"},
+            {"name": "kostenstelle_id", "type": "number", "label": "Kostenstelle-ID"},
+            {"name": "anlagennummer", "type": "text", "label": "Anlagennummer"},
+            {"name": "comment", "type": "textarea", "label": "Kommentar"},
+            {"name": "price", "type": "number", "label": "Preis"},
+            {"name": "raum_id", "type": "number", "label": "Raum-ID"},
+            {"name": "professorship_id", "type": "number", "label": "Professur-ID"},
+            {"name": "abteilung_id", "type": "number", "label": "Abteilungs-ID"},
+        ],
     }
 }
 
