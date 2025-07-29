@@ -58,6 +58,8 @@
                 const sub = SUBFORMS.find(s => s.name === name);
                 const container = $(`.subform-container[data-name="${name}"]`);
                 container.append(createSubformHTML(sub));
+
+                replace_id_fields_with_proper_fields();
             });
 
             $(document).on('click', '.remove-subform-btn', function() {
