@@ -946,18 +946,43 @@ def map_editor():
     building_id_param = request.args.get("building_id")
     floor_param = request.args.get("etage")
 
+    floorplan_dir = os.path.join("static", "floorplans")
+
+    # Alle vorhandenen floorplans einlesen
+    available_floorplans = []
+    for filename in os.listdir(floorplan_dir):
+        if filename.startswith("b") and "_f" in filename and filename.endswith(".png"):
+            try:
+                parts = filename.removeprefix("b").removesuffix(".png").split("_f")
+                b_id = int(parts[0])
+                f = int(parts[1])
+                available_floorplans.append({
+                    "building_id": b_id,
+                    "floor": f,
+                    "filename": filename
+                })
+            except Exception:
+                continue
+
+    # Wenn keine Parameter gegeben → Auswahlseite rendern
+    if building_id_param is None or floor_param is None:
+        return render_template(
+            "map_selector.html",
+            floorplans=available_floorplans
+        )
+
+    # Parameter parsen
     try:
-        building_id = int(building_id_param) if building_id_param is not None else None
-        floor = int(floor_param) if floor_param is not None else None
+        building_id = int(building_id_param)
+        floor = int(floor_param)
     except ValueError:
         return "Invalid 'building_id' or 'etage' – must be integers", 400
 
-    if building_id is None or floor is None:
-        return "Missing 'building_id' or 'etage' in query string", 400
-
+    # Dateiname bestimmen
     filename = f"b{building_id}_f{floor}.png"
-    image_path = os.path.join("static", "floorplans", filename)
+    image_path = os.path.join(floorplan_dir, filename)
 
+    # Bild prüfen
     if not os.path.exists(image_path):
         return f"Image not found: {filename}", 404
 
@@ -967,6 +992,7 @@ def map_editor():
     except Exception as e:
         return f"Error opening image: {str(e)}", 500
 
+    # Map-Editor-Seite rendern
     return render_template(
         "map_editor.html",
         image_url=f"/static/floorplans/{filename}",
