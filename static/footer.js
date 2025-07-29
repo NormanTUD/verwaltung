@@ -30,17 +30,25 @@ function replace_id_fields_with_proper_fields() {
             },
             label: "Gebäude+Raum",
             url: "/api/get_room_id?building_name={building_name}&room_name={room_name}"
-        },
+        }
+        /*,
         person_id: {
             ...
         }
+            */
     };
+    /*
 
     names['issuer_id'] = names['person_id'];
     names['owner_id'] = names['person_id'];
+*/
 
     for (var name of Object.keys(names)) {
         var elements = $('input[name="' + name + '[]"]');
+
+        if(elements.length === 0) {
+            elements = $('input[name="' + name + '"]');
+        }
 
         for (var k = 0; k < elements.length; k++) {
             var element = $(elements[k]);
