@@ -1953,6 +1953,13 @@ def get_room_id():
         print(f"DB error: {e}")
         return jsonify({"error": "Internal server error"}), 500
     
+@api.route('/api/get_building_names', methods=['GET'])
+def get_building_names():
+    session = Session()
+    
+    buildings = session.query(Building.name).order_by(Building.name).all()
+    names = [b.name for b in buildings if b.name]
+    return jsonify(names)
 
 if __name__ == "__main__":
     insert_tu_dresden_buildings()

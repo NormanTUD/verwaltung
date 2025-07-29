@@ -13,13 +13,19 @@ if (backlink) {
         }
     });
 }
-
-function replace_id_fields_with_proper_fields () {
+function replace_id_fields_with_proper_fields() {
     var names = {
         room_id: {
             fields: {
-                "building_name": "Gebäudename",
-                "room_name": "Raumname"
+                "building_name": {
+                    name: "Gebäudename",
+                    type: "select",
+                    options_url: "/api/get_building_names"
+                },
+                "room_name": {
+                    name: "Raumname",
+                    type: "text"
+                }
             },
             label: "Gebäude+Raum",
             url: "/api/get_room_id?building_name={building_name}&room_name={room_name}"
@@ -31,25 +37,49 @@ function replace_id_fields_with_proper_fields () {
 
         for (var k = 0; k < elements.length; k++) {
             var element = $(elements[k]);
-            var url = names[name].url;
+            var config = names[name];
+            var url = config.url;
 
-            $(element).parent().find("label").text(names[name].label);
+            $(element).parent().find("label").text(config.label);
 
-            if(!$(element).is(":visible")) {
+            if (!$(element).is(":visible")) {
                 log("Element is not visible, skipping field replacement.");
                 continue;
             }
 
             var i = 0;
 
-            for (var field in names[name].fields) {
-                var fieldName = names[name].fields[field];
-                var input = $('<input>', {
-                    type: 'text',
-                    class: 'auto_generated_field',
-                    name: field,
-                    placeholder: fieldName
-                });
+            for (var field in config.fields) {
+                var fieldConfig = config.fields[field];
+                var input;
+
+                if (fieldConfig.type === "select") {
+                    input = $('<select>', {
+                        class: 'auto_generated_field',
+                        name: field
+                    });
+
+                    // Lade Optionen via AJAX
+                    $.get(fieldConfig.options_url, function(data) {
+                        if (Array.isArray(data)) {
+                            for (var option of data) {
+                                input.append($('<option>', {
+                                    value: option,
+                                    text: option
+                                }));
+                            }
+                        }
+                    }).fail(function() {
+                        log("Fehler beim Laden der Optionen für " + field);
+                    });
+                } else {
+                    input = $('<input>', {
+                        type: 'text',
+                        class: 'auto_generated_field',
+                        name: field,
+                        placeholder: fieldConfig.name
+                    });
+                }
 
                 if (i === 0) {
                     element.before($("<br>"));
@@ -57,17 +87,19 @@ function replace_id_fields_with_proper_fields () {
 
                 element.before(input);
 
-                input.on('input', function() {
+                input.on('input change', function() {
                     var params = {};
+                    var form = $(this).closest('form');
 
-                    for (var field of Object.keys(names[name].fields)) {
-                        var value = $(this).closest('form').find('input[name="' + field + '"]').val();
-                        params[field] = value;
+                    for (var key in config.fields) {
+                        var val = form.find('[name="' + key + '"]').val();
+                        params[key] = val;
                     }
-                    var queryString = $.param(params);
+
                     var newUrl = url.replace(/\{(\w+)\}/g, function(match, p1) {
-                        return params[p1] || '';
+                        return encodeURIComponent(params[p1] || '');
                     });
+
                     log(newUrl);
 
                     $.get(newUrl, function(data) {
@@ -78,14 +110,13 @@ function replace_id_fields_with_proper_fields () {
                     }).fail(function() {
                         log("Fehler beim Abrufen der Raum-ID");
                         element.val('');
-                    }
-                    );
+                    });
                 });
-
-                $(element).hide();
 
                 i++;
             }
+
+            $(element).hide();
         }
     }
 }
