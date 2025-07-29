@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 const log = console.log;
 
 document.getElementById('backLink').addEventListener('click', function(event) {
@@ -75,19 +74,3 @@ function replace_id_fields_with_proper_fields () {
 $( document ).ready(function() {
     replace_id_fields_with_proper_fields();
 });
-=======
-var backlink = document.getElementById('backLink');
-
-if(backlink) {
-	backlink.addEventListener('click', function(event) {
-	    event.preventDefault(); // href erstmal verhindern
-
-	    if (window.history.length > 1) {
-		history.back();
-	    } else {
-		// Keine History, dann href öffnen
-		window.location.href = this.href;
-	    }
-	});
-}
->>>>>>> 9db132359a7c426fffa9cad2a306a1a2103ef14d
