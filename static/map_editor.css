@@ -112,7 +112,6 @@
     border-radius: 50%;
     object-fit: cover;
     display: block;
-    position: fixed;
     background-color: #007bff;
     z-index: 9999;
     color: white;
