@@ -43,14 +43,35 @@ function getNamesConfig() {
 				},
 			}
 		},
-		object_id: {
+		kostenstelle_id: {
 			fields: {
-				object_id: {
+				kostenstelle_id: {
 					name: "Objekt",
 					type: "select",
-					options_url_id_dict: "/api/get_objekt_ids"
+					options_url_id_dict: "/api/get_kostenstelle_names"
 				}
-			}
+			},
+			label: "Kostenstelle"
+		},
+		object_id: {
+			fields: {
+				"object_id": {
+					name: "Objekt",
+					type: "select",
+					options_url_id_dict: "/api/get_object_names"
+				}
+			},
+			label: "Objekt"
+		},
+		abteilungs_id: {
+			fields: {
+				abteilungs_id: {
+					name: "Abteilung",
+					type: "select",
+					options_url_id_dict: "/api/get_abteilung_names"
+				}
+			},
+			label: "Abteilung"
 		}
 	};
 

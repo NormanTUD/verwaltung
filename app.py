@@ -173,7 +173,7 @@ WIZARDS = {
             {"name": "anlagennummer", "type": "text", "label": "Anlagennummer"},
             {"name": "comment", "type": "textarea", "label": "Kommentar"},
             {"name": "price", "type": "number", "label": "Preis"},
-            {"name": "raum_id", "type": "number", "label": "Raum-ID"},
+            {"name": "room_id", "type": "number", "label": "Raum-ID"},
             {"name": "professorship_id", "type": "number", "label": "Professur-ID"},
             {"name": "abteilung_id", "type": "number", "label": "Abteilungs-ID"},
         ],
@@ -2430,6 +2430,17 @@ def get_person_names():
     result = get_names(session, Person, Person.id, [Person.first_name, Person.last_name])
     return jsonify(result)
 
+@app.route('/api/get_kostenstelle_names', methods=['GET'])
+def get_kostenstelle_names():
+    session = Session()
+    result = get_names(session, Kostenstelle, Kostenstelle.id, [Kostenstelle.name])
+    return jsonify(result)
+
+@app.route('/api/get_abteilung_names', methods=['GET'])
+def get_abteilung_names():
+    session = Session()
+    result = get_names(session, Object, Object.id, [Object.name])
+    return jsonify(result)
 
 @app.route('/api/get_object_names', methods=['GET'])
 def get_object_names():
