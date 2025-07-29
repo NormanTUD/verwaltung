@@ -1599,38 +1599,88 @@ def gui_edit(handler_name):
         handler.session.close()
 
 @app.route('/floorplan')
-def home():
+def floorplan():
+    session = Session()
+
     building_id_param = request.args.get("building_id")
     floor_param = request.args.get("floor")
 
+    building_id = None
+    floor = None
+
+    # Versuche ints aus Parametern zu machen
     try:
-        building_id = int(building_id_param) if building_id_param is not None else None
-        floor = int(floor_param) if floor_param is not None else None
+        if building_id_param is not None:
+            building_id = int(building_id_param)
+        if floor_param is not None:
+            floor = int(floor_param)
     except ValueError:
         return "Invalid 'building_id' or 'floor' – must be integers", 400
 
-    if building_id is None or floor is None:
-        return "Missing 'building_id' or 'floor' in query string", 400
+    # Lade alle verfügbaren Gebäude & Etagen
+    floorplan_dir = os.path.join("static", "floorplans")
+    building_map = {}
 
+    for filename in os.listdir(floorplan_dir):
+        if filename.startswith("b") and "_f" in filename and filename.endswith(".png"):
+            try:
+                parts = filename.removeprefix("b").removesuffix(".png").split("_f")
+                b_id = int(parts[0])
+                f = int(parts[1])
+                if b_id not in building_map:
+                    building_map[b_id] = []
+                building_map[b_id].append(f)
+            except Exception:
+                continue
+
+    # Gebäude-Namen aus DB laden
+    building_names = {}
+    try:
+        building_ids = list(building_map.keys())
+        if building_ids:
+            buildings = session.query(Building).filter(Building.id.in_(building_ids)).all()
+            for building in buildings:
+                building_names[building.id] = building.name
+    except Exception as e:
+        return f"Error loading building names: {str(e)}", 500
+
+    # Wenn Gebäude oder Etage fehlen, einfach das Template mit Auswahlfeldern rendern (ohne Floorplan-Bild)
+    if building_id is None or floor is None:
+        return render_template(
+            "floorplan.html",
+            image_url=None,
+            image_width=None,
+            image_height=None,
+            building_id=building_id,
+            floor=floor,
+            building_map=building_map,
+            building_names=building_names
+        )
+
+    # Prüfe, ob Bild existiert
     filename = f"b{building_id}_f{floor}.png"
     image_path = os.path.join("static", "floorplans", filename)
 
     if not os.path.exists(image_path):
         return f"Image not found: {filename}", 404
 
+    # Bildgröße ermitteln
     try:
         with Image.open(image_path) as img:
             width, height = img.size
     except Exception as e:
         return f"Error opening image: {str(e)}", 500
 
+    # Template mit Bild rendern
     return render_template(
         "floorplan.html",
         image_url=f"/static/floorplans/{filename}",
         image_width=width,
         image_height=height,
         building_id=building_id,
-        floor=floor
+        floor=floor,
+        building_map=building_map,
+        building_names=building_names
     )
 
 @app.route("/api/save_or_update_room", methods=["POST"])
