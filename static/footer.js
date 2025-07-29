@@ -116,9 +116,19 @@ function updateHiddenFieldValue(config, hiddenElement, form, triggeredBy = null)
 
 	if(triggeredBy) {
 		var $triggeredBy = $(triggeredBy);
-		var val = $triggeredBy.val();
-		var name = $triggeredBy.attr("name");
-		params[name] = val;
+
+		var $children = $triggeredBy.parent().find(".auto_generated_field")
+
+		$children.each(function () {
+			var $field = $(this);
+			var name = $field.attr("name");
+
+			// Sicherheit: Nur verarbeiten, wenn "name" vorhanden ist
+			if (typeof name !== "undefined" && name !== null) {
+				var val = $field.val();
+				params[name] = val;
+			}
+		});
 	} else {
 		for (var key in config.fields) {
 			var val = form.find('[name="' + key + '"]').val();
