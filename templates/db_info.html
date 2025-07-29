@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Database Info</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+    <style>
+        body { font-family: sans-serif; padding: 2em; }
+        h2 { margin-top: 2em; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 2em; }
+        th, td { border: 1px solid #ccc; padding: 5px; }
+        pre { background: #f9f9f9; padding: 1em; overflow: auto; }
+    </style>
+</head>
+<body>
+    <h1>Datenbankübersicht</h1>
+
+    <div class="mermaid">
+        {{ mermaid }}
+    </div>
+
+    {% for table in tables %}
+        <h2>{{ table.name }}</h2>
+        <p><strong>Zeilen:</strong> {{ table.num_rows }} &nbsp;&nbsp; 
+           <strong>Spalten:</strong> {{ table.num_columns }} &nbsp;&nbsp;
+           <strong>Primary Keys:</strong> {{ table.pks | join(', ') }}</p>
+
+        <table>
+            <tr>
+                <th>Name</th>
+                <th>Typ</th>
+                <th>Nullable</th>
+                <th>Default</th>
+                <th>Unique</th>
+                <th>Indexed</th>
+                <th>Foreign Key</th>
+            </tr>
+            {% for col in table.columns %}
+                <tr>
+                    <td>{{ col.name }}</td>
+                    <td>{{ col.type }}</td>
+                    <td>{{ col.nullable }}</td>
+                    <td>{{ col.default }}</td>
+                    <td>
+                        {% if col.name in table.indexes | map(attribute='column_names') | sum(start=[]) %}
+                            Ja
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if col.name in table.pks %}PK {% endif %}
+                        {% for fk in table.fks %}
+                            {% if col.name in fk.constrained_columns %}
+                                → {{ fk.referred_table }}.{{ fk.referred_columns | join(', ') }}
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% endfor %}
+</body>
+</html>
