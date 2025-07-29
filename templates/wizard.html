@@ -14,10 +14,12 @@
         {% for field in config.fields %}
         <div class="mb-3">
             <label class="form-label">{{ field.label }}</label>
+            {# Wert aus form_data holen, falls vorhanden #}
+            {% set value = form_data[field.name][0] if form_data and field.name in form_data else '' %}
             {% if field.type == 'textarea' %}
-            <textarea class="form-control" name="{{ field.name }}" {% if field.required %}required{% endif %}></textarea>
+            <textarea class="form-control" name="{{ field.name }}" {% if field.required %}required{% endif %}>{{ value }}</textarea>
             {% else %}
-            <input type="{{ field.type }}" class="form-control" name="{{ field.name }}" {% if field.required %}required{% endif %}>
+            <input type="{{ field.type }}" class="form-control" name="{{ field.name }}" value="{{ value }}" {% if field.required %}required{% endif %}>
             {% endif %}
         </div>
         {% endfor %}
@@ -37,10 +39,23 @@
     <script src="/static/toastr.min.js"></script>
     <script>
         const SUBFORMS = {{ config_json.subforms or [] | tojson }};
-        function createSubformHTML(subform) {
+	const formData = {{ form_data | tojson }};
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // subform HTML mit optionalen Werten für die Felder
+        function createSubformHTML(subform, values = {}) {
             let html = '<div class="subform-entry border rounded p-2 mb-2">';
             for (let f of subform.fields) {
-                html += `<div class="mb-2"><label>${f.label}</label><input class="form-control" name="${f.name}[]" type="${f.type || 'text'}"></div>`;
+                let val = values[f.name] || '';
+                html += `<div class="mb-2"><label>${escapeHtml(f.label)}</label><input class="form-control" name="${escapeHtml(f.name)}[]" type="${f.type || 'text'}" value="${escapeHtml(val)}"></div>`;
             }
             html += '<button type="button" class="btn btn-danger btn-sm remove-subform-btn">Entfernen</button>';
             html += '</div>';
@@ -48,9 +63,34 @@
         }
 
         $(document).ready(function() {
+            // Subform-Daten aus formData zusammensuchen und HTML erzeugen
             for (let sub of SUBFORMS) {
                 const container = $(`.subform-container[data-name="${sub.name}"]`);
-                container.append(createSubformHTML(sub));
+                let entriesCount = 0;
+
+                // Subform-Felder haben Namen wie fieldname[]
+                // Finde max. Anzahl der Einträge
+                let fieldNames = sub.fields.map(f => f.name + '[]');
+                let maxEntries = 0;
+                for (let fn of fieldNames) {
+                    if (formData[fn]) {
+                        maxEntries = Math.max(maxEntries, formData[fn].length);
+                    }
+                }
+
+                for (let i = 0; i < maxEntries; i++) {
+                    let values = {};
+                    for (let f of sub.fields) {
+                        let key = f.name + '[]';
+                        values[f.name] = (formData[key] && formData[key][i]) ? formData[key][i] : '';
+                    }
+                    container.append(createSubformHTML(sub, values));
+                    entriesCount++;
+                }
+
+                if (entriesCount === 0) {
+                    container.append(createSubformHTML(sub));
+                }
             }
 
             $('.add-subform-btn').on('click', function() {
@@ -59,17 +99,25 @@
                 const container = $(`.subform-container[data-name="${name}"]`);
                 container.append(createSubformHTML(sub));
 
-                replace_id_fields_with_proper_fields();
+                if (typeof replace_id_fields_with_proper_fields === "function") {
+                    replace_id_fields_with_proper_fields();
+                }
             });
 
             $(document).on('click', '.remove-subform-btn', function() {
                 $(this).closest('.subform-entry').remove();
             });
 
-            const success = {{ success | tojson }};
-            const error = {{ error | tojson }};
-            if (success) toastr.success("Erfolgreich gespeichert.");
-            if (error) toastr.error("Fehler: " + error);
+            const success_msg = {{ success | tojson }};
+            const error_msg = {{ error | tojson }};
+
+            if (success_msg) {
+                toastr.success(success_msg);
+            }
+
+            if (error_msg) {
+                toastr.error("Fehler: " + error_msg);
+            }
         });
     </script>
 

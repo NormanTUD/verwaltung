@@ -1385,7 +1385,7 @@ def _wizard_internal(name):
         config_json=get_json_safe_config(config),
         success=success,
         error=error,
-        form_data=form_data,  # Übergib die Daten ans Template
+        form_data=get_json_safe_config(form_data)
     )
 
 def get_abteilung_metadata(abteilung_id: int) -> dict:
