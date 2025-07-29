@@ -41,7 +41,7 @@
 			function decodeHtmlEntities(text) {
 				var textarea = document.createElement('textarea');
 				textarea.innerHTML = text;
-				return textarea.value;
+				return decodeURIComponent(textarea.value);
 			}
 
 			const rawSubforms = "{{ config_json.subforms or [] | tojson | urlencode }}";
