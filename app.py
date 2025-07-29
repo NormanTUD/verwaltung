@@ -352,11 +352,22 @@ def login():
 def register():
     session = Session()
     if request.method == 'POST':
-        hashed_pw = generate_password_hash(request.form['password'], method='pbkdf2:sha256')
-        new_user = User(username=request.form['username'], password=hashed_pw)
+        username = request.form['username']
+        password = request.form['password']
+
+        # Check if user already exists
+        existing_user = session.query(User).filter_by(username=username).first()
+        if existing_user:
+            # Username taken: return error message or flash message
+            return render_template('register.html', error='Username already taken.')
+
+        # Otherwise create user
+        hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
+        new_user = User(username=username, password=hashed_pw)
         session.add(new_user)
         session.commit()
         return redirect(url_for('login'))
+    
     return render_template('register.html')
 
 @app.route('/dashboard')
