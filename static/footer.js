@@ -1,6 +1,6 @@
 const log = console.log;
 
-var backlink = document.querySelector('.backlink');
+var backlink = document.getElementById('#backLink');
 if (backlink) {
 	backlink.addEventListener('click', function(event) {
 		event.preventDefault(); // href erstmal verhindern
