@@ -13,6 +13,7 @@ if (backlink) {
         }
     });
 }
+
 function replace_id_fields_with_proper_fields() {
     var names = {
         room_id: {
@@ -59,19 +60,21 @@ function replace_id_fields_with_proper_fields() {
                         name: field
                     });
 
-                    // Lade Optionen via AJAX
-                    $.get(fieldConfig.options_url, function(data) {
-                        if (Array.isArray(data)) {
-                            for (var option of data) {
-                                input.append($('<option>', {
-                                    value: option,
-                                    text: option
-                                }));
+                    // ⬇️ Lokale Kopie für korrekte Referenzierung im Callback
+                    (function(selectElement, optionsUrl, fieldName) {
+                        $.get(optionsUrl, function(data) {
+                            if (Array.isArray(data)) {
+                                for (var option of data) {
+                                    selectElement.append($('<option>', {
+                                        value: option,
+                                        text: option
+                                    }));
+                                }
                             }
-                        }
-                    }).fail(function() {
-                        log("Fehler beim Laden der Optionen für " + field);
-                    });
+                        }).fail(function() {
+                            log("Fehler beim Laden der Optionen für " + fieldName);
+                        });
+                    })(input, fieldConfig.options_url, field);  // <-- lokale Kopie
                 } else {
                     input = $('<input>', {
                         type: 'text',
@@ -87,6 +90,7 @@ function replace_id_fields_with_proper_fields() {
 
                 element.before(input);
 
+                // Event-Handler: auch für 'change', weil select kein 'input' auslöst
                 input.on('input change', function() {
                     var params = {};
                     var form = $(this).closest('form');
