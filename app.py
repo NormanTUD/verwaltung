@@ -98,8 +98,8 @@ WIZARDS["transponder"] = {
     "title": "Transponder erstellen",
     "model": Transponder,
     "fields": [
-        {"name": "issuer_id", "type": "number", "label": "Ausgeber-ID", "required": True},
-        {"name": "owner_id", "type": "number", "label": "Besitzer-ID"},
+        {"name": "issuer_id", "type": "number", "label": "Ausgeber", "required": True},
+        {"name": "owner_id", "type": "number", "label": "Besitzer"},
         {"name": "serial_number", "type": "text", "label": "Seriennummer"},
         {"name": "got_date", "type": "date", "label": "Ausgabedatum"},
         {"name": "return_date", "type": "date", "label": "Rückgabedatum"},

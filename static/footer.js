@@ -39,8 +39,7 @@ function getNamesConfig() {
 					type: "select",
 					options_url_id_dict: "/api/get_person_names"
 				},
-			},
-			label: "Person",
+			}
 		}
 	};
 
@@ -158,9 +157,11 @@ function updateHiddenFieldValue(config, hiddenElement, form) {
 
 function replaceFieldsForElement(element, name, config) {
 	var $element = $(element);
-	var $parentLabel = $element.parent().find("label");
-	if ($parentLabel.length > 0) {
-		$parentLabel.text(config.label);
+	if(Object.keys(config).includes("label")) {
+		var $parentLabel = $element.parent().find("label");
+		if ($parentLabel.length > 0) {
+			$parentLabel.text(config.label);
+		}
 	}
 
 	if (!$element.is(":visible")) {
