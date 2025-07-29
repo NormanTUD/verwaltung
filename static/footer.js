@@ -31,6 +31,8 @@ function replace_id_fields_with_proper_fields () {
 
         log(element);
 
+        var i = 0;
+
         for (var field in names[name].fields) {
             var fieldName = names[name].fields[field];
             var input = $('<input>', {
@@ -38,6 +40,10 @@ function replace_id_fields_with_proper_fields () {
                 name: field,
                 placeholder: fieldName
             });
+
+            if (i === 0) {
+                element.before($("<br>"));
+            }
 
             element.before(input);
 
@@ -67,6 +73,8 @@ function replace_id_fields_with_proper_fields () {
             });
 
             $(element).hide();
+
+            i++;
         }
     }
 }
