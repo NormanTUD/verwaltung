@@ -2471,7 +2471,7 @@ def get_professorship_names():
 @app.route('/api/get_category_names', methods=['GET'])
 def get_category_names():
     session = Session()
-    result = get_names(session, Category, Category.id, [Category.name])
+    result = get_names(session, ObjectCategory, ObjectCategory.id, [ObjectCategory.name])
     return jsonify(result)
 
 @app.route('/api/get_object_names', methods=['GET'])
