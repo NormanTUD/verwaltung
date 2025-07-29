@@ -1961,6 +1961,16 @@ def get_building_names():
     names = [b.name for b in buildings if b.name]
     return jsonify(names)
 
+@app.route('/api/get_person_names', methods=['GET'])
+def get_person_names():
+    session = Session()
+    
+    people = session.query(Person.first_name, Person.last_name).all()
+    names = [f"{p.first_name} {p.last_name}".strip() for p in people if p.first_name or p.last_name]
+    names = sorted(names)
+    
+    return jsonify(names)
+
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
 
