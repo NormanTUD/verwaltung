@@ -1,56 +1,63 @@
 <!DOCTYPE html>
 <html lang="de">
-<head>
-  <meta charset="UTF-8" />
-  <title>Virtueller Raumplan mit Zoom, Pan und Snapping</title>
-  <link rel="stylesheet" href="static/map.css">
-  <link rel="shortcut icon" href="static/favicon.ico" type="image/x-icon">
-  <script src="/static/jquery.min.js"></script>
+	<head>
+		<meta charset="UTF-8" />
+		<title>Virtueller Raumplan mit Zoom, Pan und Snapping</title>
+		<link rel="stylesheet" href="static/map.css">
+		<link rel="shortcut icon" href="static/favicon.ico" type="image/x-icon">
+		<script src="/static/jquery.min.js"></script>
 
-</head>
-<body>
+	</head>
+	<body>
 
-<button id="addBtn">➕ Objekt hinzufügen</button>
-<button id="addPersonBtn">➕ Person hinzufügen</button>
-<button id="backLink" class="floorplan_back_Btn">ᐊ</button>
+		<button id="addBtn">➕ Objekt hinzufügen</button>
+		<button id="addPersonBtn">➕ Person hinzufügen</button>
+		<button id="backLink" class="floorplan_back_Btn">ᐊ</button>
 
-<div id="personForm" style="display:none; margin-top: 20px;">
-  <label>
-    <input type="radio" name="mode" value="select" checked>
-    Bestehende Person auswählen
-  </label>
-  <label>
-    <input type="radio" name="mode" value="new">
-    Neue Person anlegen
-  </label>
+		<div id="personForm" style="display:none; margin-top: 20px;">
+			<label>
+				<input type="radio" name="mode" value="select" checked>
+				Bestehende Person auswählen
+			</label>
+			<label>
+				<input type="radio" name="mode" value="new">
+				Neue Person anlegen
+			</label>
 
-  <div id="selectPersonArea" style="margin-top: 10px;">
-    <select id="existingPersonSelect"></select>
-  </div>
+			<div id="selectPersonArea" style="margin-top: 10px;">
+				<select id="existingPersonSelect"></select>
+			</div>
 
-  <form id="dynamicPersonForm" style="margin-top: 10px; display:none;"></form>
+			<form id="dynamicPersonForm" style="margin-top: 10px; display:none;"></form>
 
-  <button id="confirmPersonBtn">Bestätigen</button>
-  <button id="cancelPersonBtn" type="button">Abbrechen</button>
-</div>
+			<button id="confirmPersonBtn">Bestätigen</button>
+			<button id="cancelPersonBtn" type="button">Abbrechen</button>
+		</div>
 
-<div id="objectForm" style="display:none;">
-  <label>Option 1:<br><input type="text" id="option1"></label><br>
-  <label>Option 2:<br><input type="text" id="option2"></label><br>
-  <label>Option 3:<br><input type="text" id="option3"></label><br>
-  <label>Option 4:<br><input type="text" id="option4"></label><br>
-  <button id="saveOptionsBtn">Speichern</button>
-  <button id="cancelObjectBtn" type="button">Abbrechen</button>
-</div>
+		<div id="objectForm" style="display:none;">
+			<label>Option 1:<br><input type="text" id="option1"></label><br>
+			<label>Option 2:<br><input type="text" id="option2"></label><br>
+			<label>Option 3:<br><input type="text" id="option3"></label><br>
+			<label>Option 4:<br><input type="text" id="option4"></label><br>
+			<button id="saveOptionsBtn">Speichern</button>
+			<button id="cancelObjectBtn" type="button">Abbrechen</button>
+		</div>
 
-<div id="viewport">
-  <div id="floorplan" style="background: url('static/siebte_etage.png'); width: 5733px; height: 916px"></div>
-  <div id="generatedObjectsContainer"></div>
-</div>
+		<div id="viewport">
+			{% if image_url and image_width and image_height %}
+				<div id="floorplan"
+				     style="background: url('{{ image_url }}'); width: {{ image_width }}px; height: {{ image_height }}px;">
+				</div>
+			{% else %}
+				<p>Kein gültiger Gebäudeplan gefunden.</p>
+			{% endif %}
+
+			<div id="generatedObjectsContainer"></div>
+		</div>
 
 
 
-<script src="static/main.js"></script>
-<script src="/static/footer.js"></script>
-</body>
+		<script src="static/main.js"></script>
+		<script src="/static/footer.js"></script>
+	</body>
 </html>

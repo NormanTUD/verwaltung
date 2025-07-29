@@ -25,7 +25,7 @@ def create_and_setup_venv():
     print(f"Creating virtualenv at {VENV_PATH}")
     venv.create(VENV_PATH, with_pip=True)
     subprocess.check_call([PYTHON_BIN, "-m", "pip", "install", "--upgrade", "pip"])
-    subprocess.check_call([PYTHON_BIN, "-m", "pip", "install", "--upgrade", "flask", "sqlalchemy", "pypdf", "cryptography", "aiosqlite"])
+    subprocess.check_call([PYTHON_BIN, "-m", "pip", "install", "--upgrade", "flask", "sqlalchemy", "pypdf", "cryptography", "aiosqlite", "pillow"])
 
 def restart_with_venv():
     try:
@@ -59,6 +59,7 @@ try:
     import sqlalchemy
     import cryptography
     import aiosqlite
+    from PIL import Image
     import datetime
 
     from db_interface import *
@@ -67,7 +68,7 @@ except ModuleNotFoundError:
         create_and_setup_venv()
     else:
         try:
-            subprocess.check_call([PYTHON_BIN, "-m", "pip", "install", "-q", "--upgrade", "flask", "sqlalchemy", "pypdf", "cryptography", "aiosqlite"])
+            subprocess.check_call([PYTHON_BIN, "-m", "pip", "install", "-q", "--upgrade", "flask", "sqlalchemy", "pypdf", "cryptography", "aiosqlite", "pillow"])
         except subprocess.CalledProcessError:
             shutil.rmtree(VENV_PATH)
             create_and_setup_venv()
@@ -942,7 +943,38 @@ def wizard_person():
 
 @app.route("/map-editor")
 def map_editor():
-    return render_template("map_editor.html")
+    building_id_param = request.args.get("building_id")
+    floor_param = request.args.get("etage")
+
+    try:
+        building_id = int(building_id_param) if building_id_param is not None else None
+        floor = int(floor_param) if floor_param is not None else None
+    except ValueError:
+        return "Invalid 'building_id' or 'etage' – must be integers", 400
+
+    if building_id is None or floor is None:
+        return "Missing 'building_id' or 'etage' in query string", 400
+
+    filename = f"b{building_id}_f{floor}.png"
+    image_path = os.path.join("static", "floorplans", filename)
+
+    if not os.path.exists(image_path):
+        return f"Image not found: {filename}", 404
+
+    try:
+        with Image.open(image_path) as img:
+            width, height = img.size
+    except Exception as e:
+        return f"Error opening image: {str(e)}", 500
+
+    return render_template(
+        "map_editor.html",
+        image_url=f"/static/floorplans/{filename}",
+        image_width=width,
+        image_height=height,
+        building_id=building_id,
+        floor=floor
+    )
 
 @app.route("/wizard/transponder", methods=["GET", "POST"])
 def run_wizard():
@@ -1514,7 +1546,38 @@ def gui_edit(handler_name):
 
 @app.route('/floorplan')
 def home():
-    return render_template('floorplan.html')
+    building_id_param = request.args.get("building_id")
+    floor_param = request.args.get("etage")
+
+    try:
+        building_id = int(building_id_param) if building_id_param is not None else None
+        floor = int(floor_param) if floor_param is not None else None
+    except ValueError:
+        return "Invalid 'building_id' or 'etage' – must be integers", 400
+
+    if building_id is None or floor is None:
+        return "Missing 'building_id' or 'etage' in query string", 400
+
+    filename = f"b{building_id}_f{floor}.png"
+    image_path = os.path.join("static", "floorplans", filename)
+
+    if not os.path.exists(image_path):
+        return f"Image not found: {filename}", 404
+
+    try:
+        with Image.open(image_path) as img:
+            width, height = img.size
+    except Exception as e:
+        return f"Error opening image: {str(e)}", 500
+
+    return render_template(
+        "floorplan.html",
+        image_url=f"/static/floorplans/{filename}",
+        image_width=width,
+        image_height=height,
+        building_id=building_id,
+        floor=floor
+    )
 
 @app.route("/api/save_or_update_room", methods=["POST"])
 def save_or_update_room():

@@ -1,41 +1,46 @@
 <!DOCTYPE html>
 <html lang="de">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Raum- und Snapzone Editor</title>
-<link rel="stylesheet" type="text/css" href="static/map_editor.css">
-<link rel="shortcut icon" href="static/favicon.ico" type="image/x-icon">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Raum- und Snapzone Editor</title>
+		<link rel="stylesheet" type="text/css" href="static/map_editor.css">
+		<link rel="shortcut icon" href="static/favicon.ico" type="image/x-icon">
 
-<script src="static/jquery.js" crossorigin="anonymous"></script>
-</head>
-<body>
+		<script src="static/jquery.js" crossorigin="anonymous"></script>
+	</head>
+	<body>
 
-<button id="backLink" class="floorplan_back_Btn">ᐊ</button>
+		<button id="backLink" class="floorplan_back_Btn">ᐊ</button>
 
-  <div id="containerContainer">
-    <img id="backgroundImage" src="/static/siebte_etage.png" alt="Etagenplan">
-    <div id="container">
-    </div>
-  </div>
+		<div id="containerContainer">
+			<img id="backgroundImage"
+			     src="{{ image_url }}"
+			     alt="Etagenplan"
+			     width="{{ image_width }}"
+			     height="{{ image_height }}">
 
-<pre id="output">// Räume und Snapzones werden hier angezeigt</pre>
+			<div id="container">
+			</div>
+		</div>
+
+		<pre id="output">// Räume und Snapzones werden hier angezeigt</pre>
 
 
-  <script>
-    const img = document.getElementById('backgroundImage');
-    const container = document.getElementById('container');
+		<script>
+			const img = document.getElementById('backgroundImage');
+			const container = document.getElementById('container');
 
-    img.onload = function () {
-      container.style.width = img.naturalWidth + 'px';
-      container.style.height = img.naturalHeight + 'px';
-    };
-  </script>
+			img.onload = function () {
+				container.style.width = img.naturalWidth + 'px';
+				container.style.height = img.naturalHeight + 'px';
+			};
+		</script>
 
-<textarea id="import" onkeyup="import_text()" style="min-width: 500px; min-height: 500px">
-</textarea>
+		<textarea id="import" onkeyup="import_text()" style="min-width: 500px; min-height: 500px">
+		</textarea>
 
-<script src="static/map_editor.js"></script>
-<script src="/static/footer.js"></script>
-</body>
+		<script src="static/map_editor.js"></script>
+		<script src="/static/footer.js"></script>
+	</body>
 </html>

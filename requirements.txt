@@ -3,3 +3,4 @@ sqlalchemy
 pypdf
 cryptography
 aiosqlite
+pillow
