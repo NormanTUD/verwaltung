@@ -24,12 +24,17 @@ function replace_id_fields_with_proper_fields () {
     };
 
     for (var name of Object.keys(names)) {
-        console.log(name);
         var element = $('input[name="' + name + '[]"]');
         var url = names[name].url;
-        console.log(url);
 
         log(element);
+
+        $(element).parent().find("label").text(names[name].label);
+
+        if(!$(element).is(":visible")) {
+            log("Element is not visible, skipping field replacement.");
+            continue; // Element is not visible, skip this field
+        }
 
         var i = 0;
 
