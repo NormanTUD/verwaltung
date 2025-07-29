@@ -315,3 +315,29 @@ class RoomLayout(Base):
         UniqueConstraint("room_id", name="uq_room_id"),
         UniqueConstraint("room_id", "x", "y", "width", "height", name="uq_room_id_x_y_width_height"),
     )
+
+class Loan(Base):
+    __tablename__ = "loan"
+    id = Column(Integer, primary_key=True)
+    person_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
+    issuer_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
+    loan_date = Column(Date)
+    return_date = Column(Date)
+    comment = Column(Text)
+
+    person = relationship("Person", foreign_keys=[person_id], lazy="joined")
+    issuer = relationship("Person", foreign_keys=[issuer_id], lazy="joined")
+    objects = relationship("ObjectToLoan", back_populates="loan", cascade="all, delete")
+
+class ObjectToLoan(Base):
+    __tablename__ = "object_to_loan"
+    id = Column(Integer, primary_key=True)
+    loan_id = Column(Integer, ForeignKey("loan.id", ondelete="CASCADE"))
+    object_id = Column(Integer, ForeignKey("object.id", ondelete="SET NULL"))
+    object = relationship("Object", lazy="joined")
+    loan = relationship("Loan", back_populates="objects")
+
+    __table_args__ = (
+        UniqueConstraint("loan_id", "object_id", name="uq_loan_object"),
+    )
+

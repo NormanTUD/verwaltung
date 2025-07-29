@@ -194,7 +194,29 @@ WIZARDS = {
             {"name": "price", "type": "number", "label": "Preis"},
             {"name": "category_id", "type": "number", "label": "Kategorie-ID"},
         ],
-    }
+    },
+    "loan": {
+        "title": "Leihgabe erstellen",
+        "model": Loan,
+        "fields": [
+            {"name": "person_id", "type": "number", "label": "Empfänger (Person-ID)", "required": True},
+            {"name": "issuer_id", "type": "number", "label": "Ausgeber (Person-ID)"},
+            {"name": "loan_date", "type": "date", "label": "Ausleihdatum"},
+            {"name": "return_date", "type": "date", "label": "Rückgabedatum"},
+            {"name": "comment", "type": "textarea", "label": "Kommentar"},
+        ],
+        "subforms": [
+            {
+                "name": "objects",
+                "label": "Verliehene Objekte",
+                "model": ObjectToLoan,
+                "foreign_key": "loan_id",
+                "fields": [
+                    {"name": "object_id", "type": "number", "label": "Objekt-ID"},
+                ]
+            }
+        ]
+    },
 }
 
 HANDLER_MAP = {
