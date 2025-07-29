@@ -635,7 +635,7 @@ function getCircleStyles() {
 function setCirclePosition(circle) {
   const viewport = getViewportSize();
 
-  circle.style.position = "fixed"; // FIXED statt ABSOLUTE
+  circle.style.position = "relative"; // FIXED statt ABSOLUTE
 
   const rect = circle.getBoundingClientRect();
   const width = rect.width || 50;
