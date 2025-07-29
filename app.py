@@ -948,41 +948,43 @@ def map_editor():
 
     floorplan_dir = os.path.join("static", "floorplans")
 
-    # Alle vorhandenen floorplans einlesen
-    available_floorplans = []
+    # floorplans als Struktur: { building_id: [floor1, floor2, ...] }
+    building_map = {}
+
     for filename in os.listdir(floorplan_dir):
         if filename.startswith("b") and "_f" in filename and filename.endswith(".png"):
             try:
                 parts = filename.removeprefix("b").removesuffix(".png").split("_f")
                 b_id = int(parts[0])
                 f = int(parts[1])
-                available_floorplans.append({
-                    "building_id": b_id,
-                    "floor": f,
-                    "filename": filename
-                })
+                if b_id not in building_map:
+                    building_map[b_id] = []
+                building_map[b_id].append(f)
             except Exception:
                 continue
 
-    # Wenn keine Parameter gegeben → Auswahlseite rendern
+    # Kein Gebäude oder Etage gewählt → Auswahlseite rendern
     if building_id_param is None or floor_param is None:
         return render_template(
-            "map_selector.html",
-            floorplans=available_floorplans
+            "map_editor.html",
+            floorplans={},
+            image_url=None,
+            image_width=None,
+            image_height=None,
+            building_id=None,
+            floor=None,
+            building_map=building_map
         )
 
-    # Parameter parsen
     try:
         building_id = int(building_id_param)
         floor = int(floor_param)
     except ValueError:
         return "Invalid 'building_id' or 'etage' – must be integers", 400
 
-    # Dateiname bestimmen
     filename = f"b{building_id}_f{floor}.png"
     image_path = os.path.join(floorplan_dir, filename)
 
-    # Bild prüfen
     if not os.path.exists(image_path):
         return f"Image not found: {filename}", 404
 
@@ -992,14 +994,15 @@ def map_editor():
     except Exception as e:
         return f"Error opening image: {str(e)}", 500
 
-    # Map-Editor-Seite rendern
     return render_template(
         "map_editor.html",
+        floorplans={},
         image_url=f"/static/floorplans/{filename}",
         image_width=width,
         image_height=height,
         building_id=building_id,
-        floor=floor
+        floor=floor,
+        building_map=building_map
     )
 
 @app.route("/wizard/transponder", methods=["GET", "POST"])

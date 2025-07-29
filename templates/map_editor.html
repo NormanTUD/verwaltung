@@ -13,6 +13,31 @@
 
 		<button id="backLink" class="floorplan_back_Btn">ᐊ</button>
 
+		<div id="selector-container">
+			<label for="buildingSelect">Gebäude:</label>
+			<select id="buildingSelect">
+				<option value="">-- Bitte wählen --</option>
+				{% for b_id in building_map.keys()|sort %}
+				<option value="{{ b_id }}" {% if building_id == b_id %}selected{% endif %}>
+				{{ b_id }}
+				</option>
+				{% endfor %}
+			</select>
+
+			<label for="floorSelect">Etage:</label>
+			<select id="floorSelect" {% if not floor %}disabled{% endif %}>
+				<option value="">-- Bitte wählen --</option>
+				{% if building_id %}
+				{% for f in building_map[building_id]|sort %}
+				<option value="{{ f }}" {% if floor == f %}selected{% endif %}>{{ f }}</option>
+				{% endfor %}
+				{% endif %}
+			</select>
+
+			<button id="goBtn" disabled>Los</button>
+		</div>
+
+
 		<div id="containerContainer">
 			<img id="backgroundImage"
 			     src="{{ image_url }}"
@@ -35,6 +60,46 @@
 				container.style.width = img.naturalWidth + 'px';
 				container.style.height = img.naturalHeight + 'px';
 			};
+
+			const buildingMap = {{ building_map | tojson }};
+			const buildingSelect = document.getElementById("buildingSelect");
+			const floorSelect = document.getElementById("floorSelect");
+			const goBtn = document.getElementById("goBtn");
+
+			function updateFloorOptions() {
+				const building = buildingSelect.value;
+				floorSelect.innerHTML = '<option value="">-- Bitte wählen --</option>';
+				floorSelect.disabled = true;
+				goBtn.disabled = true;
+
+				if (building && buildingMap[building]) {
+					buildingMap[building].sort((a, b) => a - b).forEach(floor => {
+						const opt = document.createElement("option");
+						opt.value = floor;
+						opt.textContent = floor;
+						floorSelect.appendChild(opt);
+					});
+					floorSelect.disabled = false;
+				}
+			}
+
+			buildingSelect.addEventListener("change", updateFloorOptions);
+			floorSelect.addEventListener("change", () => {
+				goBtn.disabled = floorSelect.value === "";
+			});
+
+			goBtn.addEventListener("click", () => {
+				const b = buildingSelect.value;
+				const f = floorSelect.value;
+				if (b && f) {
+					window.location.href = `/map-editor?building_id=${b}&etage=${f}`;
+				}
+			});
+
+			// Initial aktivieren, falls beide gesetzt
+			if (buildingSelect.value && floorSelect.value) {
+				goBtn.disabled = false;
+			}
 		</script>
 
 		<textarea id="import" onkeyup="import_text()" style="min-width: 500px; min-height: 500px">
