@@ -436,11 +436,12 @@ def column_label(table, col):
 def index():
     tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]
 
-    wizard_routes = []
-    for rule in app.url_map.iter_rules():
-        if rule.rule.startswith("/wizard") and rule.rule != "/wizard":
-            wizard_routes.append(rule.rule)
-    wizard_routes = sorted(wizard_routes)
+    # wizard_routes aus den keys von WIZARDS + eventuell "person"
+    wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
+    wizard_routes.append("/wizard/person")
+    wizard_routes = sorted(set(wizard_routes))
+
+    print(wizard_routes)
 
     return render_template("index.html", tables=tables, wizard_routes=wizard_routes)
 
@@ -1050,16 +1051,6 @@ def aggregate_inventory_view():
         if session:
             session.close()
 
-
-@app.route("/wizard")
-def wizard_index():
-    wizard_routes = []
-    for rule in app.url_map.iter_rules():
-        if rule.rule.startswith("/wizard") and rule.rule != "/wizard":
-            wizard_routes.append(rule.rule)
-    wizard_routes = sorted(wizard_routes)
-    return render_template("wizard_index.html", wizard_routes=wizard_routes)
-
 @app.route("/wizard/person", methods=["GET", "POST"])
 def wizard_person():
     session = Session()
@@ -1254,17 +1245,15 @@ def map_editor():
         building_names=building_names
     )
 
-@app.route("/wizard/transponder", methods=["GET", "POST"])
-def run_wizard_transponder():
-    return _wizard_internal("transponder")
+@app.route("/wizard/<wizard_name>", methods=["GET", "POST"])
+def run_wizard(wizard_name):
+    allowed = set(WIZARDS.keys())
+    # Falls "person" nicht im Dict, aber erlaubt sein soll:
+    allowed.add("person")
 
-@app.route("/wizard/professorship", methods=["GET", "POST"])
-def run_wizard_professorship():
-    return _wizard_internal("professorship")
-
-@app.route("/wizard/abteilung", methods=["GET", "POST"])
-def run_wizard_abteilung():
-    return _wizard_internal("abteilung")
+    if wizard_name not in allowed:
+        abort(404)
+    return _wizard_internal(wizard_name)
 
 def convert_datetime_value(field, value):
     if value is None:
