@@ -268,6 +268,7 @@ def initialize_db_data():
                 print(f"  - Verarbeite Professur: {prof['name']} mit Kostenstelle '{prof['kostenstelle_name']}'")
                 kostenstelle_obj = session.query(Kostenstelle).filter_by(name=prof["kostenstelle_name"]).first()
                 if kostenstelle_obj is None:
+                    session.close()
                     raise ValueError(f"Kostenstelle '{prof['kostenstelle_name']}' nicht gefunden für Professur '{prof['name']}'")
                 obj = Professorship(name=prof["name"], kostenstelle_id=kostenstelle_obj.id)
                 session.add(obj)
@@ -308,9 +309,8 @@ def initialize_db_data():
     except Exception as e:
         session.rollback()
         print(f"Allgemeiner Fehler beim Initialisieren der DB-Daten: {str(e)}")
-    finally:
-        session.close()
-        print("Datenbank-Session geschlossen.")
+
+    session.close()
 
 def admin_required(f):
     @wraps(f)
@@ -1343,6 +1343,7 @@ def wizard_person():
 
                 if email_val:
                     if not is_valid_email(email_val):
+                        session.close()
                         raise ValueError(f"Ungültige Email-Adresse: {email_val}")
                     valid_emails.append(email_val)
 
