@@ -2498,6 +2498,8 @@ def get_object_names():
 
 
 @app.route('/db_info')
+@login_required
+@admin_required
 def db_info():
     inspector = inspect(engine)
     conn = engine.connect()
