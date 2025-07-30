@@ -3045,6 +3045,7 @@ def search():
         is_admin = True
 
     if is_admin:
+        tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]
         for table in tables:
             if query in table.lower():
                 results.append({
