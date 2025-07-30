@@ -52,7 +52,7 @@ try:
     from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash
     from sqlalchemy import create_engine, inspect, Date, DateTime, text, func
     from sqlalchemy.orm import sessionmaker, joinedload, Session
-    from sqlalchemy.orm.exc import NoResultFound
+    from sqlalchemy.orm.exc import NoResultFound, DetachedInstanceError
     from sqlalchemy.exc import SQLAlchemyError
     from db_defs import *
     from pypdf import PdfReader, PdfWriter
@@ -498,6 +498,14 @@ def is_valid_email(email):
 def column_label(table, col):
     return COLUMN_LABELS.get(f"{table}.{col}", col.replace("_id", "").replace("_", " ").capitalize())
 
+
+def load_user(user_id):
+    try:
+        return db.session.query(User).options(joinedload(User.roles)).get(user_id)
+    except Exception as e:
+        print("User load error:", e)
+        return None
+
 @app.context_processor
 def inject_sidebar_data():
     tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]
@@ -505,8 +513,17 @@ def inject_sidebar_data():
     wizard_routes.append("/wizard/person")
     wizard_routes = sorted(set(wizard_routes))
 
+    print("AAAAAAAAAAAAAAA")
     is_authenticated = current_user.is_authenticated
-    is_admin = is_authenticated and any(r.name == 'admin' for r in current_user.roles)
+
+    is_admin = False
+    if is_authenticated:
+        try:
+            is_admin = any(r.name == 'admin' for r in current_user.roles)
+        except DetachedInstanceError:
+            print("DetachedInstanceError: current_user is not bound to session")
+
+    print("AAAAAAAAAAAAAAA")
 
     return dict(
         tables=tables,
@@ -1385,11 +1402,13 @@ def get_json_safe_config(config):
     return safe
 
 def _wizard_internal(name):
+    session = Session()
+
     config = WIZARDS.get(name)
     if not config:
+        session.close()
         abort(404)
 
-    session = Session()
     success = False
     error = None
     form_data = {}  # Zum Wiederbefüllen der Form
@@ -1444,7 +1463,6 @@ def _wizard_internal(name):
             error = str(e)
             form_data = request.form.to_dict(flat=False)
         
-
     session.close()
 
     return render_template(
