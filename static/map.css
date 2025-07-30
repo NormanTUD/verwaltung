@@ -44,23 +44,23 @@ html, body {
 }
 #personForm {
     position: fixed;
-    bottom: 70px;
-    left: 240px;
+    top: 80px;
+    left: 410px;
     z-index: 9999;
     background: white;
     border: 1px solid #ccc;
     border-radius: 6px;
     padding: 5px 10px;
     display: none;
-    width: 200px;
+    width: 335px;
 }
 
 #shapeSelector {
     position: fixed;
-    bottom: 70px;
+    top: 80px;
     left: 20px;
     z-index: 9999;
-    background: white;
+    background: rgb(189, 41, 41);
     border: 1px solid #ccc;
     border-radius: 6px;
     padding: 5px 10px;
@@ -82,15 +82,15 @@ html, body {
 
 #objectForm {
     position: fixed;
-    bottom: 70px;       /* bleibt gleich */
-    left: 20px;         /* gleiche left-Position wie #addBtn */
+    top: 100px;       /* bleibt gleich */
+    left: 267.5px;         /* gleiche left-Position wie #addBtn */
     z-index: 8000;
     background: white;
     border: 1px solid #ccc;
     border-radius: 6px;
     padding: 5px 10px;
     display: none;
-    width: 200px;
+    width: 220px;
 }
 
 
