@@ -47,17 +47,21 @@
 					<li><a href="{{ url_for('aggregate_inventory_view') }}" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == url_for('aggregate_inventory_view') %}bg-gray-700{% endif %}">Inventar</a></li>
 					<li><a href="{{ url_for('aggregate_transponder_view') }}" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == url_for('aggregate_transponder_view') %}bg-gray-700{% endif %}">Transponder</a></li>
 
-					<li class="mt-4 text-sm text-gray-400 uppercase">📋 Tabellen</li>
-					{% for table in tables %}
-					<li>
-						<a href="{{ url_for('table_view', table_name=table) }}" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == url_for('table_view', table_name=table) %}bg-gray-700{% endif %}">
-							{{ table.capitalize() }}
-						</a>
-					</li>
-					{% endfor %}
+					{% if is_admin %}
+						<li class="mt-4 text-sm text-gray-400 uppercase">📋 Tabellen</li>
+						{% for table in tables %}
+						<li>
+							<a href="{{ url_for('table_view', table_name=table) }}" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == url_for('table_view', table_name=table) %}bg-gray-700{% endif %}">
+								{{ table.capitalize() }}
+							</a>
+						</li>
+						{% endfor %}
+					{% endif %}
 
 					<li class="mt-4 text-sm text-gray-400 uppercase">🗺️ Karten</li>
-					<li><a href="/map-editor" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == '/map-editor' %}bg-gray-700{% endif %}">Map-Editor</a></li>
+					{% if is_admin %}
+						<li><a href="/map-editor" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == '/map-editor' %}bg-gray-700{% endif %}">Map-Editor</a></li>
+					{% endif %}
 					<li><a href="/floorplan" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == '/floorplan' %}bg-gray-700{% endif %}">Floorplan</a></li>
 				</ul>
 			</nav>
