@@ -219,17 +219,6 @@ WIZARDS = {
     },
 }
 
-HANDLER_MAP = {
-    "person": PersonWithContactHandler,
-    "abteilung": AbteilungHandler,
-    "person_abteilung": PersonToAbteilungHandler,
-    "building": BuildingHandler,
-    "room": RoomHandler,
-    "person_room": PersonToRoomHandler,
-    "transponder": TransponderHandler,
-    "transponder_room": TransponderToRoomHandler,
-}
-
 EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 
 def admin_required(f):
@@ -1823,25 +1812,6 @@ def transponder_rueckgabe():
         flash(f"Fehler bei Rückgabe: {str(e)}", "danger")
 
     return redirect(url_for("transponder.transponder_form"))
-
-def get_handler_instance(handler_name):
-    handler_class = HANDLER_MAP.get(handler_name)
-    if not handler_class:
-        return None, f"Unbekannter Handler: {handler_name}"
-    session = Session()
-    return handler_class(session), None
-
-@app.route("/user_edit/")
-def user_edit_index():
-    # Liste aller Handlernamen als Links anzeigen
-    handler_names = list(HANDLER_MAP.keys())
-
-    # Einfaches HTML mit Links generieren
-    html = "<h1>Verfügbare Handler</h1><ul>"
-    for name in handler_names:
-        html += f'<li><a href="/user_edit/{name}">{name}</a></li>'
-    html += "</ul>"
-    return html
 
 @app.route("/user_edit/<handler_name>", methods=["GET", "POST"])
 def gui_edit(handler_name):
