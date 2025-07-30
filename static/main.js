@@ -503,6 +503,7 @@ if(addPersonBtn) {
 	  personForm.style.display = "block";
 	  populateExistingPersonSelect();
 	  updateFormMode();
+	applyInvertFilterToElements(theme)
 	});
 }
 
@@ -624,6 +625,7 @@ function createPersonCircle(attributes) {
     console.error('Netzwerkfehler:', error);
   }
 }
+applyInvertFilterToElements(theme)
 }
 
 function createCircleElement(attributes) {
@@ -772,6 +774,8 @@ function toggleContextMenu(circle, attributes) {
     floorplan.appendChild(menu);
 
     updateContextMenuInventory(circle);
+
+	  applyInvertFilterToElements(theme)
 
     console.log("Kontextmenü angezeigt:", attributes);
   } catch (error) {
