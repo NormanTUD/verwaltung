@@ -355,6 +355,8 @@ function makeDraggable(el) {
         // snapObjectToZone(el, rooms[el.dataset.room]); ← AUCH WEG!
       }
     }
+    checkIfObjectOnPerson(el);
+
   }
 
 
@@ -973,6 +975,39 @@ window.addEventListener("DOMContentLoaded", () => {
     appendToContainer(newDiv);
   }
 });
+
+
+
+
+
+function checkIfObjectOnPerson(el) {
+  const objRect = el.getBoundingClientRect();
+  const objCenterX = objRect.left + objRect.width / 2;
+  const objCenterY = objRect.top + objRect.height / 2;
+
+  const personEls = document.querySelectorAll('.person-circle');
+  let found = false;
+
+  personEls.forEach(person => {
+    const personRect = person.getBoundingClientRect();
+    if (
+      objCenterX >= personRect.left &&
+      objCenterX <= personRect.right &&
+      objCenterY >= personRect.top &&
+      objCenterY <= personRect.bottom
+    ) {
+      found = true;
+      const attributes = JSON.parse(person.dataset.attributes || "{}");
+      const fullName = `${attributes.first_name || ""} ${attributes.last_name || ""}`.trim();
+      console.log(`✅ Objekt befindet sich auf Person: ${fullName}`);
+    }
+  });
+
+  if (!found) {
+    console.log("❌ Objekt befindet sich auf keiner Person.");
+  }
+}
+
 
 
 
