@@ -56,6 +56,7 @@
 					{% endfor %}
 
 					<li class="mt-4 text-sm text-gray-400 uppercase">📦 Aggregate</li>
+					<li><a href="{{ url_for('aggregate_persons_view') }}" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == url_for('aggregate_persons_view') %}bg-gray-700{% endif %}">Personen</a></li>
 					<li><a href="{{ url_for('aggregate_inventory_view') }}" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == url_for('aggregate_inventory_view') %}bg-gray-700{% endif %}">Inventar</a></li>
 					<li><a href="{{ url_for('aggregate_transponder_view') }}" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == url_for('aggregate_transponder_view') %}bg-gray-700{% endif %}">Transponder</a></li>
 
