@@ -487,6 +487,14 @@ def is_valid_email(email):
 def column_label(table, col):
     return COLUMN_LABELS.get(f"{table}.{col}", col.replace("_id", "").replace("_", " ").capitalize())
 
+@app.context_processor
+def inject_sidebar_data():
+    tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]
+    wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
+    wizard_routes.append("/wizard/person")
+    wizard_routes = sorted(set(wizard_routes))
+    return dict(tables=tables, wizard_routes=wizard_routes)
+
 @app.route("/")
 def index():
     tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]

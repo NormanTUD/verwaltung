@@ -2,21 +2,6 @@ if (!("log" in window)) {
     window.log = console.log;
 }
 
-var backlink = $("#backLink");
-if (backlink.length) {
-	backlink = $("#backLink")[0];
-	backlink.addEventListener('click', function(event) {
-		event.preventDefault(); // href erstmal verhindern
-
-		if (window.history.length > 1) {
-			history.back();
-		} else {
-			// Keine History, dann href öffnen
-			window.location.href = this.href;
-		}
-	});
-}
-
 function getNamesConfig() {
 	var names = {
 		room_id: {
