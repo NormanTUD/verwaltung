@@ -766,11 +766,11 @@ function toggleContextMenu(circle, attributes) {
   try {
     removeExistingContextMenus();
 
-    const menu = buildContextMenu(attributes);
+    // Wichtig: circle mitgeben
+    const menu = buildContextMenu(attributes, circle);
     positionContextMenuAbsolute(circle, menu);
     floorplan.appendChild(menu);
 
-    // Kontextmenü-Inventar direkt auffüllen
     updateContextMenuInventory(circle);
 
     console.log("Kontextmenü angezeigt:", attributes);
@@ -778,6 +778,7 @@ function toggleContextMenu(circle, attributes) {
     console.error("Fehler beim Umschalten des Kontextmenüs:", error);
   }
 }
+
 
 
 function removeExistingContextMenus() {
@@ -801,33 +802,88 @@ function positionContextMenuAbsolute(circle, menu) {
 
 
 
-function buildContextMenu(attributes) {
+function buildContextMenu(attributes, personEl) {
   const menu = document.createElement("div");
-  menu.className = "context-menu";
-  Object.assign(menu.style, getContextMenuStyles());
+  menu.classList.add("context-menu");
 
-  // Hauptinfos
+  // Styles anwenden
+  const styles = getContextMenuStyles();
+  Object.assign(menu.style, styles);
+
+  // Grundstruktur mit allen Attributen
   menu.innerHTML = `
-    <div><strong>Vorname:</strong> ${my_escape(attributes.first_name)}</div>
-    <div><strong>Nachname:</strong> ${my_escape(attributes.last_name)}</div>
-    <div><strong>Titel:</strong> ${my_escape(attributes.title)}</div>
-    <div><strong>Kommentar:</strong> ${my_escape(attributes.comment)}</div>
-    <div><strong>Bild-URL:</strong> <a href="${my_escape(attributes.image_url)}" target="_blank">${my_escape(attributes.image_url)}</a></div>
+    <div><strong>Vorname:</strong> ${my_escape(attributes.first_name || "")}</div>
+    <div><strong>Nachname:</strong> ${my_escape(attributes.last_name || "")}</div>
+    <div><strong>Titel:</strong> ${my_escape(attributes.title || "")}</div>
+    <div><strong>Kommentar:</strong> ${my_escape(attributes.comment || "")}</div>
+    <div><strong>Bild-URL:</strong> <a href="${my_escape(attributes.image_url || "#")}" target="_blank">${my_escape(attributes.image_url || "")}</a></div>
     <hr>
     <div><strong>Inventar:</strong></div>
-    <ul class="question-list"></ul>
+    <ul class="question-list" style="list-style:none; padding-left:0; margin:0;"></ul>
   `;
-  const list = menu.querySelector(".question-list");
-if (attributes.inventory && Array.isArray(attributes.inventory)) {
-  attributes.inventory.forEach((item, index) => {
+
+  const inventory = attributes.inventory || [];
+  const ul = menu.querySelector("ul.question-list");
+
+  if (inventory.length === 0) {
     const li = document.createElement("li");
-    li.textContent = `📦 ${item.option1 || "Unbenannt"} (${index + 1})`;
-    list.appendChild(li);
-  });
-}
+    li.textContent = "Inventar ist leer";
+    ul.appendChild(li);
+  } else {
+    inventory.forEach((item, index) => {
+      const li = document.createElement("li");
+      li.style.display = "flex";
+      li.style.justifyContent = "space-between";
+      li.style.alignItems = "center";
+      li.style.padding = "2px 4px";
+      li.style.borderBottom = "1px solid #eee";
+
+      // Item-Beschreibung als Text (z.B. alle Werte als String)
+      const text = document.createElement("span");
+      text.textContent = Object.values(item).join(", ");
+
+      // Lösch-Kreuz-Button
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "✖";
+      deleteBtn.title = "Objekt entfernen";
+      deleteBtn.style.cursor = "pointer";
+      deleteBtn.style.border = "none";
+      deleteBtn.style.background = "transparent";
+      deleteBtn.style.color = "#900";
+      deleteBtn.style.fontWeight = "bold";
+      deleteBtn.style.fontSize = "14px";
+      deleteBtn.style.padding = "0 4px";
+
+      deleteBtn.addEventListener("click", (e) => {
+        e.stopPropagation(); // Verhindert das Schließen des Menüs o.Ä.
+        if (!personEl) {
+          console.error("Kein personEl vorhanden zum Entfernen");
+          return;
+        }
+        console.log(`🔴 Lösche Item Index ${index} aus Inventar von Person`, personEl);
+
+        removeObjectFromInventory(personEl, index);
+
+        // Kontextmenü neu bauen, da sich Inventar geändert hat
+        removeExistingContextMenus();
+        toggleContextMenu(personEl, JSON.parse(personEl.dataset.attributes));
+      });
+
+      li.appendChild(text);
+      li.appendChild(deleteBtn);
+      ul.appendChild(li);
+    });
+  }
 
   return menu;
 }
+
+
+
+
+
+
+
 
 
 function getContextMenuStyles() {
@@ -1043,14 +1099,12 @@ window.addEventListener("DOMContentLoaded", () => {
 
 
 function checkIfObjectOnPerson(el) {
+  console.log("🚧 Überprüfe, ob 'el' das Zielobjekt ist oder eine Person:");
 
-console.log("🚧 Überprüfe, ob 'el' das Zielobjekt ist oder eine Person:");
-
-if (el.classList.contains("person-circle")) {
-  console.warn("⚠️ Das verschobene Element ist eine Person! Es sollte kein Person-Element entfernt werden.");
-  return;
-}
-
+  if (el.classList.contains("person-circle")) {
+    console.warn("⚠️ Das verschobene Element ist eine Person! Es sollte kein Person-Element entfernt werden.");
+    return;
+  }
 
   const objRect = el.getBoundingClientRect();
   const objCenterX = objRect.left + objRect.width / 2;
@@ -1075,52 +1129,33 @@ if (el.classList.contains("person-circle")) {
     if (hit) {
       found = true;
 
+      // Objekt zum Inventar hinzufügen
       const attributes = JSON.parse(person.dataset.attributes || "{}");
-      const fullName = `${attributes.first_name || ""} ${attributes.last_name || ""}`.trim();
-      console.log(`✅ Objekt befindet sich auf Person: ${fullName}`);
-
-      const objectOptions = JSON.parse(el.dataset.attributes || "{}");
 
       if (!attributes.inventory) {
         attributes.inventory = [];
       }
 
-      // Objekt zum Inventar hinzufügen
+      const objectOptions = JSON.parse(el.dataset.attributes || "{}");
       attributes.inventory.push(objectOptions);
       person.dataset.attributes = JSON.stringify(attributes);
 
       console.log("📦 Objekt zum Inventar hinzugefügt:", objectOptions);
 
-
-      // 1. Objekt-Daten auslesen
-      const objectDataRaw = el.dataset.attributes;
-      console.log("📦 Daten im Objekt:", objectDataRaw);
-
-      if (!objectDataRaw) {
-        console.error("❌ Kein dataset.attributes gefunden im Objekt");
-        return;
-      }
-
-      const objectData = JSON.parse(objectDataRaw);
-      console.log("✅ Geparstes Objekt:", objectData);
-
-      // 2. Objekt aus DOM entfernen
+      // Objekt aus DOM entfernen (Objekt verschwindet vom Floorplan)
       el.remove();
       console.log("🗑️ Objekt wurde aus DOM entfernt");
 
-      // 3. Inventar der Person aktualisieren
-      let inventory = [];
+      // Optional: dataset.inventory auch aktualisieren, falls du es nutzt
       try {
-        inventory = JSON.parse(person.dataset.inventory || "[]");
+        let inventory = JSON.parse(person.dataset.inventory || "[]");
+        inventory.push(objectOptions);
+        person.dataset.inventory = JSON.stringify(inventory);
       } catch (err) {
         console.warn("⚠️ Fehler beim Parsen von inventory, setze auf leer");
       }
 
-      inventory.push(objectData);
-      person.dataset.inventory = JSON.stringify(inventory);
-      console.log("🧰 Neues Inventar gespeichert:", person.dataset.inventory);
-
-      // 4. Kontextmenü updaten (falls offen)
+      // Kontextmenü updaten (falls offen)
       updateContextMenuInventory(person);
 
       return;
@@ -1134,7 +1169,8 @@ if (el.classList.contains("person-circle")) {
 
 
 
-function updateContextMenuInventory(person) {
+
+function updateContextMenuInventory(personEl) {
   const menu = document.querySelector(".context-menu");
   if (!menu) {
     console.log("ℹ️ Kein Kontextmenü offen, Inventar wird nicht angezeigt.");
@@ -1147,34 +1183,129 @@ function updateContextMenuInventory(person) {
     return;
   }
 
-  let inventory = [];
+  let attributes = {};
   try {
-    inventory = JSON.parse(person.dataset.inventory || "[]");
+    attributes = JSON.parse(personEl.dataset.attributes || "{}");
   } catch (err) {
-    console.error("❌ Fehler beim Parsen des Inventars:", err);
+    console.error("❌ Fehler beim Parsen der Personen-Attribute:", err);
     return;
   }
 
-  console.log("📦 Aktualisiere Kontextmenü mit Inventar:", inventory);
+  const inventory = attributes.inventory || [];
   ul.innerHTML = "";
 
-  inventory.forEach((item, index) => {
+  if (inventory.length === 0) {
     const li = document.createElement("li");
-    li.className = "inventory-item";
-    li.style.cursor = "pointer";
-    li.innerHTML = `
-      <div><strong>${my_escape(item.option1)}</strong></div>
-      <small>${my_escape(item.option2)}</small>
-    `;
-
-    // Drag aus Inventar auf Floorplan
-    li.addEventListener("click", () => {
-      const restoredDiv = createOptionsDiv(item);
-      appendToContainer(restoredDiv);
-    });
-
+    li.textContent = "Inventar ist leer";
     ul.appendChild(li);
-  });
+  } else {
+    inventory.forEach((item, index) => {
+      const li = document.createElement("li");
+      li.style.display = "flex";
+      li.style.justifyContent = "space-between";
+      li.style.alignItems = "center";
+      li.style.padding = "2px 4px";
+      li.style.borderBottom = "1px solid #eee";
+
+      const text = document.createElement("span");
+      text.textContent = Object.values(item).join(", ");
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "✖";
+      deleteBtn.title = "Objekt entfernen";
+      deleteBtn.style.cursor = "pointer";
+      deleteBtn.style.border = "none";
+      deleteBtn.style.background = "transparent";
+      deleteBtn.style.color = "#900";
+      deleteBtn.style.fontWeight = "bold";
+      deleteBtn.style.fontSize = "14px";
+      deleteBtn.style.padding = "0 4px";
+
+      deleteBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        removeObjectFromInventory(personEl, index);
+        updateContextMenuInventory(personEl);
+      });
+
+      li.appendChild(text);
+      li.appendChild(deleteBtn);
+      ul.appendChild(li);
+    });
+  }
+}
+
+
+
+
+
+function removeObjectFromInventory(personEl, itemIndex) {
+  // Person-Attribute parsen
+  let attributes = {};
+  try {
+    attributes = JSON.parse(personEl.dataset.attributes || "{}");
+  } catch {
+    console.error("Fehler beim Parsen der Personen-Attribute");
+    return;
+  }
+
+  if (!attributes.inventory || !Array.isArray(attributes.inventory)) {
+    console.warn("Kein Inventar gefunden");
+    return;
+  }
+
+  // Objekt aus dem Inventar entfernen
+  const removedItem = attributes.inventory.splice(itemIndex, 1)[0];
+
+  // Attribute aktualisieren
+  personEl.dataset.attributes = JSON.stringify(attributes);
+
+  // Falls personEl.dataset.inventory separat gepflegt wird:
+  try {
+    let inv = JSON.parse(personEl.dataset.inventory || "[]");
+    inv.splice(itemIndex, 1);
+    personEl.dataset.inventory = JSON.stringify(inv);
+  } catch {
+    console.warn("Fehler beim Parsen von dataset.inventory");
+  }
+
+  // Neues DOM-Element für das entfernte Objekt erstellen
+  const newObjEl = createObjectElement(removedItem);
+
+  // Floorplan-Container holen (aus deinem ersten Code)
+  const floorplan = document.querySelector("#floorplan"); // Annahme
+
+  if (!floorplan) {
+    console.error("Floorplan-Container nicht gefunden");
+    return;
+  }
+
+  // Neues Objekt an den Floorplan anhängen
+  floorplan.appendChild(newObjEl);
+
+  console.log("Objekt wurde aus Inventar entfernt und auf Floorplan gehängt:", removedItem);
+
+  // Falls Kontextmenü offen ist, aktualisiere es
+  updateContextMenuInventory(personEl);
+}
+
+
+function createObjectElement(objectAttributes) {
+  const el = document.createElement("div");
+  el.className = "object-item"; // Oder wie deine Objekte heißen
+  el.dataset.attributes = JSON.stringify(objectAttributes);
+
+  // Optional: Name anzeigen oder anderes Markup
+  el.textContent = objectAttributes.option1 || "Unbenannt";
+
+  // Positionieren (z.B. oben links im Floorplan)
+  el.style.position = "absolute";
+  el.style.left = "10px";
+  el.style.top = "10px";
+
+  // Falls draggable, hier Draggables initialisieren
+  // initDraggable(el);
+
+  return el;
 }
 
 
