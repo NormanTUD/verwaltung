@@ -1268,45 +1268,22 @@ function removeObjectFromInventory(personEl, itemIndex) {
     console.warn("Fehler beim Parsen von dataset.inventory");
   }
 
-  // Neues DOM-Element für das entfernte Objekt erstellen
-  const newObjEl = createObjectElement(removedItem);
+  // Neues Objekt-Element erzeugen (wie beim normalen Erstellen)
+  const newObjEl = createOptionsDiv(removedItem);
 
-  // Floorplan-Container holen (aus deinem ersten Code)
-  const floorplan = document.querySelector("#floorplan"); // Annahme
+  // An richtigen Container anhängen
+  appendToContainer(newObjEl);
 
-  if (!floorplan) {
-    console.error("Floorplan-Container nicht gefunden");
-    return;
-  }
+  console.log("✅ Objekt wurde aus Inventar entfernt und neu erstellt auf dem Floorplan:", removedItem);
 
-  // Neues Objekt an den Floorplan anhängen
-  floorplan.appendChild(newObjEl);
-
-  console.log("Objekt wurde aus Inventar entfernt und auf Floorplan gehängt:", removedItem);
-
-  // Falls Kontextmenü offen ist, aktualisiere es
+  // Kontextmenü aktualisieren
   updateContextMenuInventory(personEl);
 }
 
 
-function createObjectElement(objectAttributes) {
-  const el = document.createElement("div");
-  el.className = "object-item"; // Oder wie deine Objekte heißen
-  el.dataset.attributes = JSON.stringify(objectAttributes);
 
-  // Optional: Name anzeigen oder anderes Markup
-  el.textContent = objectAttributes.option1 || "Unbenannt";
 
-  // Positionieren (z.B. oben links im Floorplan)
-  el.style.position = "absolute";
-  el.style.left = "10px";
-  el.style.top = "10px";
 
-  // Falls draggable, hier Draggables initialisieren
-  // initDraggable(el);
-
-  return el;
-}
 
 
 
