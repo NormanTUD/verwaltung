@@ -118,65 +118,6 @@ function createRoomElement(data) {
 	return room;
 }
 
-
-
-
-
-
-function checkObjectRoomAssignment(el) {
-	if (!el.dataset.room) {
-		console.error("Fehler: Objekt hat kein zugewiesenes room-Dataset.");
-		return false;
-	}
-	if (!rooms[el.dataset.room]) {
-		console.error(`Fehler: Raum '${el.dataset.room}' existiert nicht in rooms.`);
-		return false;
-	}
-	console.log(`Objekt ist Raum '${el.dataset.room}' zugewiesen.`);
-	return true;
-}
-
-function checkDragEventListeners(el) {
-	// Da wir keine einfache API haben, um das direkt zu prüfen,
-	// machen wir einen kleinen Test: simulieren wir einen mousedown-Event
-	// und checken, ob startDragging ausgeführt wird.  
-	// (Alternative: Eventlistener speichern und prüfen, oder ein Flag)
-
-	console.warn("Prüfung der Eventlistener kann nur indirekt erfolgen.");
-	// Tipp: Bei Problemen das Drag-Verhalten beobachten.
-}
-
-function checkElementStyles(el) {
-	const style = window.getComputedStyle(el);
-	if (style.position !== "absolute") {
-		console.error(`Fehler: Objekt-Position ist '${style.position}', sollte 'absolute' sein.`);
-	} else {
-		console.log("Objekt hat korrekte CSS-Position: absolute.");
-	}
-	if (style.pointerEvents === "none") {
-		console.error("Fehler: pointer-events ist 'none', Objekt kann keine Mausereignisse erhalten.");
-	}
-	if (style.display === "none") {
-		console.error("Fehler: Objekt hat display:none, ist also nicht sichtbar.");
-	}
-}
-
-function checkParentInDOM(el) {
-	if (!el.parentElement) {
-		console.error("Fehler: Objekt hat kein Parent-Element im DOM.");
-		return false;
-	}
-	if (!floorplan.contains(el)) {
-		console.error("Fehler: Objekt ist nicht (mehr) im floorplan enthalten.");
-		return false;
-	}
-	console.log("Objekt ist korrekt im floorplan enthalten.");
-	return true;
-}
-
-
-
-
 function updateZIndex(obj, room) {
 	obj.style.zIndex = 300;
 }
@@ -533,6 +474,26 @@ function resetForm() {
 	console.log("Formular zurückgesetzt.");
 }
 
+async function savePersonToDatabase(newPerson) {
+	try {
+		const response = await fetch('/api/add_or_update_person', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(newPerson)
+		});
+
+		if (!response.ok) {
+			const errorData = await response.json();
+			console.error('Fehler beim Speichern:', errorData.error);
+			return;
+		}
+
+		const result = await response.json();
+		console.log('Person erfolgreich gespeichert:', result.message);
+	} catch (error) {
+		console.error('Netzwerkfehler:', error);
+	}
+}
 
 
 // Erstelle Person-Kreis und hänge an Floorplan an
@@ -541,27 +502,7 @@ function createPersonCircle(attributes) {
 	addCircleToFloorplan(circle);
 	makeDraggable(circle);
 	setupContextMenu(circle, attributes);
-
-	async function savePersonToDatabase(newPerson) {
-		try {
-			const response = await fetch('/api/add_or_update_person', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(newPerson)
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json();
-				console.error('Fehler beim Speichern:', errorData.error);
-				return;
-			}
-
-			const result = await response.json();
-			console.log('Person erfolgreich gespeichert:', result.message);
-		} catch (error) {
-			console.error('Netzwerkfehler:', error);
-		}
-	}
+	//add_or_update_person(attributes);
 	applyInvertFilterToElements(theme)
 }
 
@@ -596,20 +537,6 @@ function createCircleElement(attributes, position = null) {
 	setCirclePosition(circle, position);
 
 	return circle;
-}
-
-function getScrollPosition() {
-	return {
-		x: window.scrollX || window.pageXOffset,
-		y: window.scrollY || window.pageYOffset,
-	};
-}
-
-function getViewportSize() {
-	return {
-		width: window.innerWidth,
-		height: window.innerHeight,
-	};
 }
 
 function getViewportCenterPosition() {
@@ -694,31 +621,6 @@ function setCirclePosition(circle, position = null) {
 	}
 }
 
-function getCircleStyles() {
-	return {
-		width: "80px",
-		height: "80px",
-		borderRadius: "50%",
-		border: "2px solid #333",
-		display: "flex",
-		flexDirection: "column",
-		justifyContent: "center",
-		alignItems: "center",
-		margin: "0",
-		backgroundColor: "#f0f0f0",
-		boxShadow: "0 0 5px rgba(0,0,0,0.3)",
-		fontFamily: "Arial, sans-serif",
-		textAlign: "center",
-		padding: "10px",
-		position: "absolute",
-		cursor: "grab",
-		zIndex: 10
-	};
-}
-
-
-
-
 function my_escape(str) {
 	if (typeof str !== 'string') {
 		str = String(str ?? ''); // Konvertiert null/undefined zu leerem String
@@ -735,15 +637,6 @@ function my_escape(str) {
 	});
 }
 
-
-function setCircleContent(circle, attributes) {
-	circle.innerHTML = `
-    <img src="${attributes.image_url || 'https://scads.ai/wp-content/uploads/Bicanski_Andrej-_500x500-400x400.jpg'}" style="max-width: 64px; max-height: 64px; border-radius: 50%;" />
-    <strong>${my_escape(attributes.first_name)} ${my_escape(attributes.last_name)}</strong><br>
-    <span>${my_escape(attributes.title)}</span><br>
-    <span>${my_escape(attributes.comment)}</span>
-  `;
-}
 
 function addCircleToFloorplan(circle) {
 	try {
