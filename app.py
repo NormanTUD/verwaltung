@@ -906,6 +906,8 @@ def get_fk_options(session, fk_columns):
     return fk_options
 
 def generate_input_field(col, value=None, row_id=None, fk_options=None, table_name=""):
+    col_after_dot = col.name
+
     try:
         input_name = f"{table_name}_{row_id or 'new'}_{col.name}"
         val = "" if value is None else html.escape(str(value))
@@ -921,19 +923,20 @@ def generate_input_field(col, value=None, row_id=None, fk_options=None, table_na
             return f'<select name="{html.escape(input_name)}" class="cell-input">{options_html}</select>', True
 
         col_type_str = str(col.type).upper()
-        if "INTEGER" in col_type_str:
-            return f'<input type="number" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
-        if "FLOAT" in col_type_str or "DECIMAL" in col_type_str or "NUMERIC" in col_type_str:
-            return f'<input type="number" step="any" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
-        if "TEXT" in col_type_str or "VARCHAR" in col_type_str or "CHAR" in col_type_str:
-            return f'<input type="text" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
-        if "DATE" in col_type_str:
-            return f'<input type="date" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
 
-        return f'<input type="text" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
+        if "INTEGER" in col_type_str:
+            return f'<input placeholder="{col_after_dot}" type="number" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
+        if "FLOAT" in col_type_str or "DECIMAL" in col_type_str or "NUMERIC" in col_type_str:
+            return f'<input placeholder="{col_after_dot}" type="number" step="any" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
+        if "TEXT" in col_type_str or "VARCHAR" in col_type_str or "CHAR" in col_type_str:
+            return f'<input placeholder="{col_after_dot}" type="text" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
+        if "DATE" in col_type_str:
+            return f'<input placeholder="{col_after_dot}" type="date" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
+
+        return f'<input placeholder="{col_after_dot}" type="text" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
     except Exception as e:
         app.logger.error(f"Fehler beim Generieren des Input-Feldes für Spalte {col.name}: {e}")
-        return f'<input type="text" name="{html.escape(input_name)}" value="" class="cell-input">', True
+        return f'<input placeholder="{col_after_dot}" type="text" name="{html.escape(input_name)}" value="" class="cell-input">', True
 
 def get_column_label(table_name, column_name):
     # Hier deine Logik für die Label-Erzeugung
