@@ -339,21 +339,23 @@ def is_admin_user(session=None) -> bool:
         session.close()
         return False
 
+from flask import render_template
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated:
             print("admin_required: User is not authenticated")
-            abort(403)
+            return render_template("admin_required.html"), 403
 
         session = Session()
         try:
             if not is_admin_user(session):
                 print("admin_required: User is not admin")
-                abort(403)
+                return render_template("admin_required.html"), 403
         except Exception as e:
             print(f"admin_required: got an error: {e}")
-            abort(403)
+            return render_template("admin_required.html"), 403
         finally:
             session.close()
 
