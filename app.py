@@ -1093,10 +1093,16 @@ def add_entry(table_name):
                 setattr(obj, field, datetime.datetime.fromisoformat(val))
             else:
                 setattr(obj, field, val)
+
         session.add(obj)
         session.commit()
         session.close()
         return jsonify(success=True)
+    except IntegrityError as e:
+        session.rollback()
+        session.close()
+        # Du kannst die Fehlermeldung hier anpassen, z.B. auf Deutsch:
+        return jsonify(success=False, error="Ein Eintrag mit diesen Werten existiert bereits oder eine Einschränkung wurde verletzt.")
     except Exception as e:
         session.rollback()
         session.close()
