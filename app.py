@@ -312,37 +312,50 @@ def initialize_db_data():
 
     session.close()
 
+def is_admin_user(session=None) -> bool:
+    if not current_user.is_authenticated:
+        return False
+
+    close_session = False
+    if session is None:
+        session = Session()
+        close_session = True
+
+    try:
+        user = session.query(User).options(joinedload(User.roles)).filter_by(id=current_user.id).one_or_none()
+        if user is None:
+            print(f"is_admin_user: user {current_user.id} not found")
+            return False
+
+        roles = [role.name for role in user.roles]
+        print(f"is_admin_user: roles of user {current_user.id}: {roles}")
+        return 'admin' in roles
+    except Exception as e:
+        print(f"is_admin_user: error: {e}")
+        return False
+    finally:
+        if close_session:
+            session.close()
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        session = Session()
-
         if not current_user.is_authenticated:
             print("admin_required: User is not authenticated")
-            session.close()
             abort(403)
 
+        session = Session()
         try:
-            # Nutzer mit Rollen aus DB nachladen (vermeidet DetachedInstanceError)
-            user = session(User).query.options(joinedload(User.roles)).get(current_user.id)
-            if user is None:
-                print("admin_required: User is None")
-                session.close()
-                abort(403)
-            if not any(role.name == 'admin' for role in user.roles):
-                print(f"admin_required: user.roles ({', '.join(user.roles)}) does not contain admin")
-                session.close()
+            if not is_admin_user(session):
+                print("admin_required: User is not admin")
                 abort(403)
         except Exception as e:
-            # optional: log error here
             print(f"admin_required: got an error: {e}")
-            session.close()
             abort(403)
-
-        session.close()
+        finally:
+            session.close()
 
         return f(*args, **kwargs)
-
     return decorated_function
 
 def parse_buildings_csv(csv_text):
@@ -679,33 +692,35 @@ def index():
 def admin_panel():
     session = Session()
 
-    users = session.query(User).all()
-    roles = session.query(Role).all()
+    try:
+        if request.method == 'POST' and 'new_username' in request.form:
+            username = request.form['new_username']
+            password = request.form['new_password']
+            role_id = request.form.get('new_role')
 
-    # Hinzufügen eines neuen Benutzers
-    if request.method == 'POST' and 'new_username' in request.form:
-        username = request.form['new_username']
-        password = request.form['new_password']
-        role_id = request.form.get('new_role')
+            if session.query(User).filter_by(username=username).first():
+                flash('Benutzername existiert bereits.')
+            else:
+                hashed = generate_password_hash(password)
+                user = User(username=username, password=hashed)
+                if role_id:
+                    role = session.query(Role).get(int(role_id))
+                    if role:
+                        user.roles.append(role)
+                session.add(user)
+                session.commit()
+                flash('Benutzer hinzugefügt.')
 
-        if session.query(User).filter_by(username=username).first():
-            flash('Benutzername existiert bereits.')
-        else:
-            hashed = generate_password_hash(password)
-            user = User(username=username, password=hashed)
-            if role_id:
-                role = session.query(Role).get(int(role_id))
-                if role:
-                    user.roles.append(role)
-            session.add(user)
-            session.commit()
-            flash('Benutzer hinzugefügt.')
+            return redirect(url_for('admin_panel'))
 
+        # WICHTIG: Rollen eager-laden, um DetachedInstanceError zu vermeiden
+        users = session.query(User).options(joinedload(User.roles)).all()
+        roles = session.query(Role).all()
+
+        return render_template('admin_panel.html', users=users, roles=roles)
+
+    finally:
         session.close()
-        return redirect(url_for('admin_panel'))
-
-    session.close()
-    return render_template('admin_panel.html', users=users, roles=roles)
 
 @app.route('/admin/delete/<int:user_id>')
 @login_required
