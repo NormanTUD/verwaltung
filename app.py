@@ -1563,8 +1563,6 @@ def generate_fields_for_schluesselausgabe_from_metadata(
         value = ""
 
         if name == "Text1":
-            # Hier wird die Abteilung eingetragen, wenn vorhanden,
-            # ansonsten wie gehabt der Vorname des Issuers
             if abteilung and "name" in abteilung:
                 value = abteilung["name"]
 
@@ -1575,40 +1573,64 @@ def generate_fields_for_schluesselausgabe_from_metadata(
 
         elif name == "Text4":
             value = extract_contact_string(issuer)
+
         elif name == "Text5":
             value = abteilung.get("name", "") if abteilung else ""
+
         elif name == "Text7":
             value = owner.get("last_name", "") + ", " + owner.get("first_name", "") if owner else ""
+
         elif name == "Text8":
             value = extract_contact_string(owner)
 
         elif name.startswith("GebäudeRow"):
             index = int(name.replace("GebäudeRow", "")) - 1
-            if 0 <= index < len(transponder.get("rooms", [])):
-                building = transponder["rooms"][index].get("building")
+            rooms = transponder.get("rooms", [])
+            if 0 <= index < len(rooms):
+                building = rooms[index].get("building")
                 if building:
                     value = building.get("name", "")
+
         elif name.startswith("RaumRow"):
             index = int(name.replace("RaumRow", "")) - 1
-            if 0 <= index < len(transponder.get("rooms", [])):
-                value = transponder["rooms"][index].get("name", "")
-        elif name.startswith("SerienNrSchlüsselNrRow1"):
-            if transponder.get("serial_number"):
-                value = transponder["serial_number"]
-        elif name.startswith("AnzahlRow1"):
-            value = "1"
+            rooms = transponder.get("rooms", [])
+            if 0 <= index < len(rooms):
+                value = rooms[index].get("name", "")
+
+        elif name.startswith("SerienNrSchlüsselNrRow"):
+            index = int(name.replace("SerienNrSchlüsselNrRow", "")) - 1
+            rooms = transponder.get("rooms", [])
+            if 0 <= index < len(rooms):
+                room = rooms[index]
+                has_building = room.get("building", {}).get("name")
+                has_room = room.get("name")
+                if has_building and has_room and transponder.get("serial_number"):
+                    value = transponder["serial_number"]
+
+        elif name.startswith("AnzahlRow"):
+            index = int(name.replace("AnzahlRow", "")) - 1
+            rooms = transponder.get("rooms", [])
+            if 0 <= index < len(rooms):
+                room = rooms[index]
+                has_building = room.get("building", {}).get("name")
+                has_room = room.get("name")
+                if has_building and has_room:
+                    value = "1"
 
         elif name == "Datum Übergebende:r":
             if transponder.get("got_date"):
                 value = transponder["got_date"].strftime("%d.%m.%Y")
+
         elif name == "Datum Übernehmende:r":
             if transponder.get("return_date"):
                 value = transponder["return_date"].strftime("%d.%m.%Y")
+
         elif name == "Weitere Anmerkungen":
             if transponder.get("comment"):
                 value = transponder["comment"]
 
         data[name] = value
+
 
     return data
 
