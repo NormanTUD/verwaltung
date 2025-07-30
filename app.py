@@ -50,7 +50,7 @@ def restart_with_venv():
 
 try:
     from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash
-    from sqlalchemy import create_engine, inspect, Date, DateTime, text
+    from sqlalchemy import create_engine, inspect, Date, DateTime, text, func
     from sqlalchemy.orm import sessionmaker, joinedload, Session
     from sqlalchemy.orm.exc import NoResultFound
     from sqlalchemy.exc import SQLAlchemyError
@@ -2546,6 +2546,125 @@ def db_info():
     mermaid = make_mermaid(tables, relationships)
 
     return render_template('db_info.html', tables=tables, mermaid=mermaid)
+
+
+
+@app.route("/data_overview", methods=["GET"])
+def data_overview():
+    session: Session = Session()
+    try:
+        # Benutzer pro Rolle
+        users_by_role_raw = (
+            session.query(Role.name, func.count(User.id))
+            .join(Role.users)
+            .group_by(Role.name)
+            .all()
+        )
+        users_by_role: Dict[str, int] = {
+            role: count for role, count in users_by_role_raw
+        }
+
+        # Personen pro Raum
+        persons_by_room_raw = (
+            session.query(Room.name, func.count(PersonToRoom.person_id))
+            .join(PersonToRoom, PersonToRoom.room_id == Room.id)
+            .group_by(Room.name)
+            .all()
+        )
+        persons_by_room: Dict[str, int] = {
+            room: count for room, count in persons_by_room_raw
+        }
+
+        # Inventarobjekte nach Kategorie
+        inventory_by_category_raw = (
+            session.query(ObjectCategory.name, func.count(Inventory.id))
+            .join(Object, Object.category_id == ObjectCategory.id)
+            .join(Inventory, Inventory.object_id == Object.id)
+            .group_by(ObjectCategory.name)
+            .all()
+        )
+        inventory_by_category: Dict[str, int] = {
+            category: count for category, count in inventory_by_category_raw
+        }
+
+        # Personen pro Abteilung
+        persons_by_abteilung_raw = (
+            session.query(Abteilung.name, func.count(PersonToAbteilung.person_id))
+            .join(PersonToAbteilung, PersonToAbteilung.abteilung_id == Abteilung.id)
+            .group_by(Abteilung.name)
+            .all()
+        )
+        persons_by_abteilung: Dict[str, int] = {
+            abteilung: count for abteilung, count in persons_by_abteilung_raw
+        }
+
+        # Personen pro Professur
+        persons_by_professorship_raw = (
+            session.query(Professorship.name, func.count(ProfessorshipToPerson.person_id))
+            .join(ProfessorshipToPerson, ProfessorshipToPerson.professorship_id == Professorship.id)
+            .group_by(Professorship.name)
+            .all()
+        )
+        persons_by_professorship: Dict[str, int] = {
+            professorship: count for professorship, count in persons_by_professorship_raw
+        }
+
+        # Räume pro Gebäude
+        rooms_by_building_raw = (
+            session.query(Building.name, func.count(Room.id))
+            .join(Room, Room.building_id == Building.id)
+            .group_by(Building.name)
+            .all()
+        )
+        rooms_by_building: Dict[str, int] = {
+            building: count for building, count in rooms_by_building_raw
+        }
+
+        # Raumverteilung pro Etage
+        floor_distribution_raw = (
+            session.query(Room.floor, func.count(Room.id))
+            .group_by(Room.floor)
+            .all()
+        )
+        floor_distribution: Dict[str, int] = {
+            str(floor): count for floor, count in floor_distribution_raw
+        }
+
+        # Kontakte pro Person
+        contacts_per_person_raw = (
+            session.query(Person.id, func.count(PersonContact.id))
+            .join(PersonContact, PersonContact.person_id == Person.id)
+            .group_by(Person.id)
+            .all()
+        )
+        contacts_per_person: Dict[str, int] = {
+            f"Person #{pid}": count for pid, count in contacts_per_person_raw
+        }
+
+        # Wie viele Personen sind Abteilungsleiter?
+        abteilungsleiter_count = (
+            session.query(func.count(Abteilung.abteilungsleiter_id.distinct()))
+            .filter(Abteilung.abteilungsleiter_id != None)
+            .scalar()
+        )
+
+        return jsonify({
+            "users_by_role": users_by_role,
+            "persons_by_room": persons_by_room,
+            "inventory_by_category": inventory_by_category,
+            "persons_by_abteilung": persons_by_abteilung,
+            "persons_by_professorship": persons_by_professorship,
+            "rooms_by_building": rooms_by_building,
+            "floor_distribution": floor_distribution,
+            "contacts_per_person": contacts_per_person,
+            "abteilungsleiter_count": abteilungsleiter_count
+        })
+
+    except Exception as e:
+        print(f"❌ Fehler in /data_overview: {e}")
+        return jsonify({"error": "Interner Serverfehler"}), 500
+    finally:
+        session.close()
 
 if __name__ == "__main__":
     insert_tu_dresden_buildings()

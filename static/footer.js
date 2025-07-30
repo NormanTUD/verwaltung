@@ -277,4 +277,21 @@ function replace_id_fields_with_proper_fields() {
 
 $( document ).ready(function() {
 	replace_id_fields_with_proper_fields();
+	
+    $('.module-toggle').on('change', function () {
+      var target = $(this).data('target');
+      if ($(this).is(':checked')) {
+        $(target).slideDown(200);
+      } else {
+        $(target).slideUp(200);
+      }
+    });
+
+    // Initialstatus erzwingen
+    $('.module-toggle').each(function () {
+      var target = $(this).data('target');
+      if (!$(this).is(':checked')) {
+        $(target).hide();
+      }
+    });
 });
