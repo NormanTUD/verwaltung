@@ -233,8 +233,10 @@ def parse_buildings_csv(csv_text):
     session = Session()
 
     if not isinstance(csv_text, str):
+        session.close()
         raise TypeError("csv_text muss ein String sein")
     if not csv_text.strip():
+        session.close()
         raise ValueError("csv_text ist leer")
 
     csv_io = io.StringIO(csv_text)
@@ -267,6 +269,8 @@ def parse_buildings_csv(csv_text):
 
         handler = BuildingHandler(session)
         handler.insert_data(building_insert)
+
+    session.close()
 
 def insert_tu_dresden_buildings ():
     csv_input = '''gebaeude_name,abkuerzung
@@ -420,7 +424,9 @@ def insert_tu_dresden_buildings ():
 @login_manager.user_loader
 def load_user(user_id):
     session = Session()
-    return session.query(User).get(int(user_id))
+    ret = session.query(User).get(int(user_id))
+    session.close()
+    return ret
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -429,8 +435,10 @@ def login():
         user = session.query(User).filter_by(username=request.form['username']).first()
         if user and check_password_hash(user.password, request.form['password']):
             login_user(user)
+            session.close()
             return redirect(url_for('index'))
         flash('Login failed')
+    session.close()
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -443,6 +451,7 @@ def register():
         # Check if user already exists
         existing_user = session.query(User).filter_by(username=username).first()
         if existing_user:
+            session.close()
             return render_template('register.html', error='Username already taken.')
 
         # Hash password
@@ -466,8 +475,10 @@ def register():
 
         session.add(new_user)
         session.commit()
+        session.close()
         return redirect(url_for('login'))
 
+    session.close()
     return render_template('register.html')
 
 @app.route('/dashboard')
@@ -545,8 +556,10 @@ def admin_panel():
             session.commit()
             flash('Benutzer hinzugefügt.')
 
+        session.close()
         return redirect(url_for('admin_panel'))
 
+    session.close()
     return render_template('admin_panel.html', users=users, roles=roles)
 
 @app.route('/admin/delete/<int:user_id>')
@@ -562,6 +575,8 @@ def delete_user(user_id):
         session.delete(user)
         session.commit()
         flash("Benutzer gelöscht.")
+
+    session.close()
 
     return redirect(url_for('admin_panel'))
 
@@ -2425,6 +2440,9 @@ def get_building_names():
     
     buildings = session.query(Building.name).order_by(Building.name).all()
     names = [b.name for b in buildings if b.name]
+
+    session.close()
+
     return jsonify(names)
 
 def get_names(session, model, id_field, name_fields):
@@ -2464,36 +2482,42 @@ def schema():
 def get_person_names():
     session = Session()
     result = get_names(session, Person, Person.id, [Person.first_name, Person.last_name])
+    session.close()
     return jsonify(result)
 
 @app.route('/api/get_kostenstelle_names', methods=['GET'])
 def get_kostenstelle_names():
     session = Session()
     result = get_names(session, Kostenstelle, Kostenstelle.id, [Kostenstelle.name])
+    session.close()
     return jsonify(result)
 
 @app.route('/api/get_abteilung_names', methods=['GET'])
 def get_abteilung_names():
     session = Session()
     result = get_names(session, Abteilung, Abteilung.id, [Abteilung.name])
+    session.close()
     return jsonify(result)
 
 @app.route('/api/get_professorship_names', methods=['GET'])
 def get_professorship_names():
     session = Session()
     result = get_names(session, Professorship, Professorship.id, [Professorship.name])
+    session.close()
     return jsonify(result)
 
 @app.route('/api/get_category_names', methods=['GET'])
 def get_category_names():
     session = Session()
     result = get_names(session, ObjectCategory, ObjectCategory.id, [ObjectCategory.name])
+    session.close()
     return jsonify(result)
 
 @app.route('/api/get_object_names', methods=['GET'])
 def get_object_names():
     session = Session()
     result = get_names(session, Object, Object.id, [Object.name])
+    session.close()
     return jsonify(result)
 
 
