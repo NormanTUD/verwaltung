@@ -94,6 +94,8 @@
 	$(document).ready(function () {
 		$('#add-contact-btn').on('click', function () {
 			$('#contacts-container').append(createContactRow());
+
+			applyInvertFilterToElements(theme);
 		});
 
 		$('#contacts-container').on('click', '.remove-contact-btn', function () {
