@@ -2941,29 +2941,37 @@ def get_person_room_data():
             Room.floor == floor
         ).all()
 
-        person_data = []
+        # Dictionary zum Sammeln der Personen und ihrer Räume
+        person_dict_map = {}
+
         for room in rooms:
+            room_info = room.to_dict()
+            layout_info = room.layout.to_dict() if room.layout else {}
+
             for ptr in room.person_links:
                 person = ptr.person
+                person_id = person.id
 
-                person_dict = person.to_dict()
-                contacts = [c.to_dict() for c in person.contacts]
-                room_dict = room.to_dict()
-                layout_dict = room.layout.to_dict() if room.layout else {}
+                if person_id not in person_dict_map:
+                    # Person noch nicht drin -> neuen Eintrag mit Person und leeren Raum-Liste anlegen
+                    person_dict_map[person_id] = {
+                        "person": person.to_dict(),
+                        "contacts": [c.to_dict() for c in person.contacts],
+                        "rooms": []
+                    }
 
-                person_data.append({
-                    "person": person_dict,
-                    "contacts": contacts,
-                    "rooms": [
-                        {
-                            "room": room_dict,
-                            "layout": layout_dict
-                        }
-                    ]
+                # Raum + Layout an die Raum-Liste der Person anhängen
+                person_dict_map[person_id]["rooms"].append({
+                    "room": room_info,
+                    "layout": layout_info
                 })
 
         session.close()
-        return jsonify(person_data)
+
+        # Ergebnis ist nur die Liste der Personen mit deren gesammelten Räumen
+        result = list(person_dict_map.values())
+
+        return jsonify(result)
 
     except Exception as e:
         print(f"❌ Fehler in /api/get_person_room_data: {e}")

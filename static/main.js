@@ -628,6 +628,25 @@ function createPersonCircle(attributes) {
 	applyInvertFilterToElements(theme)
 }
 
+function getPersonRoomDataSync(buildingId, floor) {
+	var xhr = new XMLHttpRequest();
+	var url = "/api/get_person_room_data?building_id=" + encodeURIComponent(buildingId) + "&floor=" + encodeURIComponent(floor);
+	xhr.open("GET", url, false); // synchron
+	try {
+		xhr.send(null);
+		if (xhr.status === 200) {
+			return JSON.parse(xhr.responseText);
+		} else {
+			console.error("HTTP-Fehler:", xhr.status);
+			return null;
+		}
+	} catch (e) {
+		console.error("XHR-Fehler:", e);
+		return null;
+	}
+}
+
+
 function createCircleElement(attributes, position=null) {
 	log(attributes);
 	const circle = document.createElement("div");
