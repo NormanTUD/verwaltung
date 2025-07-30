@@ -504,6 +504,7 @@ if(addPersonBtn) {
 		populateExistingPersonSelect();
 		updateFormMode();
 		applyInvertFilterToElements(theme)
+    cancelBtnFunction()
 	});
 }
 
@@ -913,14 +914,16 @@ if(addBtn) {
 	});
 }
 
-cancelObjectBtn.addEventListener("click", () => {
+function cancelBtnFunction() {
 	objectForm.style.display = "none";
 	// Optional: Felder leeren
 	document.getElementById("option1").value = "";
 	document.getElementById("option2").value = "";
 	document.getElementById("option3").value = "";
 	document.getElementById("option4").value = "";
-});
+}
+
+cancelObjectBtn.addEventListener("click", cancelBtnFunction);
 
 
 
