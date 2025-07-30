@@ -50,9 +50,9 @@ def restart_with_venv():
 
 try:
     from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash
-    from sqlalchemy import create_engine, inspect, Date, DateTime, text
+    from sqlalchemy import create_engine, inspect, Date, DateTime, text, func
     from sqlalchemy.orm import sessionmaker, joinedload, Session
-    from sqlalchemy.orm.exc import NoResultFound
+    from sqlalchemy.orm.exc import NoResultFound, DetachedInstanceError
     from sqlalchemy.exc import SQLAlchemyError
     from db_defs import *
     from pypdf import PdfReader, PdfWriter
@@ -224,17 +224,31 @@ EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or not any(r.name == 'admin' for r in current_user.roles):
+        if not current_user.is_authenticated:
             abort(403)
-        return f(*args, **kwargs)
-    return decorated_function
 
+        try:
+            # Nutzer mit Rollen aus DB nachladen (vermeidet DetachedInstanceError)
+            user = db.session.query(User).options(joinedload(User.roles)).get(current_user.id)
+            if user is None:
+                abort(403)
+            if not any(role.name == 'admin' for role in user.roles):
+                abort(403)
+        except Exception as e:
+            # optional: log error here
+            abort(403)
+
+        return f(*args, **kwargs)
+
+    return decorated_function
 def parse_buildings_csv(csv_text):
     session = Session()
 
     if not isinstance(csv_text, str):
+        session.close()
         raise TypeError("csv_text muss ein String sein")
     if not csv_text.strip():
+        session.close()
         raise ValueError("csv_text ist leer")
 
     csv_io = io.StringIO(csv_text)
@@ -267,6 +281,8 @@ def parse_buildings_csv(csv_text):
 
         handler = BuildingHandler(session)
         handler.insert_data(building_insert)
+
+    session.close()
 
 def insert_tu_dresden_buildings ():
     csv_input = '''gebaeude_name,abkuerzung
@@ -420,7 +436,9 @@ def insert_tu_dresden_buildings ():
 @login_manager.user_loader
 def load_user(user_id):
     session = Session()
-    return session.query(User).get(int(user_id))
+    ret = session.query(User).get(int(user_id))
+    session.close()
+    return ret
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -429,8 +447,10 @@ def login():
         user = session.query(User).filter_by(username=request.form['username']).first()
         if user and check_password_hash(user.password, request.form['password']):
             login_user(user)
+            session.close()
             return redirect(url_for('index'))
         flash('Login failed')
+    session.close()
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -443,6 +463,7 @@ def register():
         # Check if user already exists
         existing_user = session.query(User).filter_by(username=username).first()
         if existing_user:
+            session.close()
             return render_template('register.html', error='Username already taken.')
 
         # Hash password
@@ -466,8 +487,10 @@ def register():
 
         session.add(new_user)
         session.commit()
+        session.close()
         return redirect(url_for('login'))
 
+    session.close()
     return render_template('register.html')
 
 @app.route('/dashboard')
@@ -487,6 +510,14 @@ def is_valid_email(email):
 def column_label(table, col):
     return COLUMN_LABELS.get(f"{table}.{col}", col.replace("_id", "").replace("_", " ").capitalize())
 
+
+def load_user(user_id):
+    try:
+        return db.session.query(User).options(joinedload(User.roles)).get(user_id)
+    except Exception as e:
+        print("User load error:", e)
+        return None
+
 @app.context_processor
 def inject_sidebar_data():
     tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]
@@ -495,7 +526,13 @@ def inject_sidebar_data():
     wizard_routes = sorted(set(wizard_routes))
 
     is_authenticated = current_user.is_authenticated
-    is_admin = is_authenticated and any(r.name == 'admin' for r in current_user.roles)
+
+    is_admin = False
+    if is_authenticated:
+        try:
+            is_admin = any(r.name == 'admin' for r in current_user.roles)
+        except DetachedInstanceError:
+            print("DetachedInstanceError: current_user is not bound to session")
 
     return dict(
         tables=tables,
@@ -545,8 +582,10 @@ def admin_panel():
             session.commit()
             flash('Benutzer hinzugefügt.')
 
+        session.close()
         return redirect(url_for('admin_panel'))
 
+    session.close()
     return render_template('admin_panel.html', users=users, roles=roles)
 
 @app.route('/admin/delete/<int:user_id>')
@@ -563,6 +602,8 @@ def delete_user(user_id):
         session.commit()
         flash("Benutzer gelöscht.")
 
+    session.close()
+
     return redirect(url_for('admin_panel'))
 
 @app.route('/admin/update/<int:user_id>', methods=['POST'])
@@ -574,6 +615,7 @@ def update_user(user_id):
     user = session.query(User).get(user_id)
     if not user:
         flash("Benutzer nicht gefunden.")
+        session.close()
         return redirect(url_for('admin_panel'))
 
     # Benutzername ändern
@@ -581,6 +623,7 @@ def update_user(user_id):
     if new_username and new_username != user.username:
         if session.query(User).filter(User.username == new_username, User.id != user.id).first():
             flash("Benutzername existiert bereits.")
+            session.close()
             return redirect(url_for('admin_panel'))
         user.username = new_username
 
@@ -599,6 +642,7 @@ def update_user(user_id):
 
     session.commit()
     flash("Benutzer aktualisiert.")
+    session.close()
     return redirect(url_for('admin_panel'))
 
 @app.route('/favicon.ico')
@@ -794,6 +838,7 @@ def table_view(table_name):
     session = Session()
     cls = get_model_class_by_tablename(table_name)
     if cls is None:
+        session.close()
         abort(404, description="Tabelle nicht gefunden")
 
     column_labels, row_html, new_entry_inputs, row_ids, table_has_missing_inputs = prepare_table_data(session, cls, table_name)
@@ -808,6 +853,8 @@ def table_view(table_name):
         missing_data_messages.append(
             '<div class="warning">⚠️ Fehlende Eingabeoptionen für Tabelle</div>'
         )
+
+    session.close()
 
     return render_template(
         "table_view.html",
@@ -824,6 +871,7 @@ def add_entry(table_name):
     session = Session()
     cls = next((c for c in Base.__subclasses__() if c.__tablename__ == table_name), None)
     if not cls:
+        session.close()
         return jsonify(success=False, error="Tabelle nicht gefunden")
     try:
         obj = cls()
@@ -843,9 +891,11 @@ def add_entry(table_name):
                 setattr(obj, field, val)
         session.add(obj)
         session.commit()
+        session.close()
         return jsonify(success=True)
     except Exception as e:
         session.rollback()
+        session.close()
         return jsonify(success=False, error=str(e))
 
 @app.route("/update/<table_name>", methods=["POST"])
@@ -853,6 +903,7 @@ def update_entry(table_name):
     session = Session()
     cls = next((c for c in Base.__subclasses__() if c.__tablename__ == table_name), None)
     if not cls:
+        session.close()
         return jsonify(success=False, error="Tabelle nicht gefunden")
     try:
         name = request.form.get("name")
@@ -879,9 +930,11 @@ def update_entry(table_name):
         else:
             setattr(obj, field, value)
         session.commit()
+        session.close()
         return jsonify(success=True)
     except Exception as e:
         session.rollback()
+        session.close()
         return jsonify(success=False, error=str(e))
 
 @app.route("/delete/<table_name>", methods=["POST"])
@@ -889,12 +942,14 @@ def delete_entry(table_name):
     session = Session()
     cls = next((c for c in Base.__subclasses__() if c.__tablename__ == table_name), None)
     if not cls:
+        session.close()
         return jsonify(success=False, error="Tabelle nicht gefunden")
 
     try:
         json_data = request.get_json()
 
         if not json_data or "id" not in json_data:
+            session.close()
             return jsonify(success=False, error="Keine ID angegeben")
 
         row_id = json_data["id"]
@@ -902,18 +957,22 @@ def delete_entry(table_name):
             try:
                 row_id = int(row_id)
             except ValueError:
+                session.close()
                 return jsonify(success=False, error="Ungültige ID")
 
         obj = session.query(cls).get(row_id)
         if not obj:
+            session.close()
             return jsonify(success=False, error="Datensatz nicht gefunden")
 
         session.delete(obj)
         session.commit()
+        session.close()
         return jsonify(success=True)
 
     except Exception as e:
         session.rollback()
+        session.close()
         return jsonify(success=False, error=str(e))
 
 
@@ -998,6 +1057,7 @@ def aggregate_transponder_view():
             "Ausgeber (Ausgegeben durch)": issuer_filter
         }
 
+        session.close()
         return render_template(
             "aggregate_view.html",
             title="Ausgegebene Transponder",
@@ -1015,6 +1075,7 @@ def aggregate_transponder_view():
 
     except Exception as e:
         app.logger.error(f"Fehler beim Laden der Transponder-Aggregatsansicht: {e}")
+        session.close()
         return render_template("error.html", message="Fehler beim Laden der Daten.")
 
 @app.route("/aggregate/inventory")
@@ -1103,6 +1164,7 @@ def aggregate_inventory_view():
         column_labels = list(rows[0].keys()) if rows else []
         row_data = [[escape(str(row[col])) for col in column_labels] for row in rows]
 
+        session.close()
         return render_template(
             "aggregate_view.html",
             title="Inventarübersicht",
@@ -1118,10 +1180,8 @@ def aggregate_inventory_view():
         )
     except Exception as e:
         app.logger.error(f"Fehler beim Laden der Inventar-Aggregatsansicht: {e}")
+        session.close()
         return render_template("error.html", message="Fehler beim Laden der Daten.")
-    finally:
-        if session:
-            session.close()
 
 @app.route("/wizard/person", methods=["GET", "POST"])
 def wizard_person():
@@ -1146,6 +1206,7 @@ def wizard_person():
             form_data["image_url"] = request.form.get("image_url", "").strip()
 
             if not form_data["first_name"] or not form_data["last_name"]:
+                session.close()
                 raise ValueError("Vorname und Nachname sind Pflichtfelder.")
 
             emails = request.form.getlist("email[]")
@@ -1186,6 +1247,7 @@ def wizard_person():
                     })
 
             if not valid_emails:
+                session.close()
                 raise ValueError("Mindestens eine gültige Email muss eingegeben werden.")
 
             # Speichern in DB
@@ -1223,9 +1285,7 @@ def wizard_person():
             session.rollback()
             error = str(e)
 
-        finally:
-            session.close()
-
+    session.close()
     return render_template("person_wizard.html", success=success, error=error, form_data=form_data)
 
 @app.route("/map-editor")
@@ -1260,10 +1320,12 @@ def map_editor():
             for building in buildings:
                 building_names[building.id] = building.name
     except Exception as e:
+        session.close()
         return f"Error loading building names: {str(e)}", 500
 
     # Kein Gebäude oder Floor gewählt → Auswahlseite rendern
     if building_id_param is None or floor_param is None:
+        session.close()
         return render_template(
             "map_editor.html",
             floorplans={},
@@ -1286,12 +1348,14 @@ def map_editor():
     image_path = os.path.join(floorplan_dir, filename)
 
     if not os.path.exists(image_path):
+        session.close()
         return f"Image not found: {filename}", 404
 
     try:
         with Image.open(image_path) as img:
             width, height = img.size
     except Exception as e:
+        session.close()
         return f"Error opening image: {str(e)}", 500
 
     image_url = f"static/floorplans/b{building_id}_f{floor}.png"
@@ -1304,6 +1368,8 @@ def map_editor():
             image_width, image_height = img.size
     except Exception as e:
         print(f"Error trying to get image width and height for {image_url}")
+
+    session.close()
 
     return render_template(
         "map_editor.html",
@@ -1345,11 +1411,13 @@ def get_json_safe_config(config):
     return safe
 
 def _wizard_internal(name):
+    session = Session()
+
     config = WIZARDS.get(name)
     if not config:
+        session.close()
         abort(404)
 
-    session = Session()
     success = False
     error = None
     form_data = {}  # Zum Wiederbefüllen der Form
@@ -1366,6 +1434,7 @@ def _wizard_internal(name):
             # Pflichtfelder prüfen
             missing = [f['name'] for f in config['fields'] if f.get('required') and not main_data[f['name']]]
             if missing:
+                session.close()
                 raise ValueError(f"Pflichtfelder fehlen: {', '.join(missing)}")
             
             main_instance = main_model(**main_data)
@@ -1403,8 +1472,7 @@ def _wizard_internal(name):
             error = str(e)
             form_data = request.form.to_dict(flat=False)
         
-        finally:
-            session.close()
+    session.close()
 
     return render_template(
         "wizard.html",
@@ -1420,6 +1488,7 @@ def get_abteilung_metadata(abteilung_id: int) -> dict:
     try:
         abteilung = session.query(Abteilung).filter(Abteilung.id == abteilung_id).one_or_none()
         if abteilung is None:
+            session.close()
             return None
 
         metadata = {
@@ -1448,12 +1517,12 @@ def get_abteilung_metadata(abteilung_id: int) -> dict:
                     "title": person.title
                 })
 
+        session.close()
         return metadata
 
     except SQLAlchemyError as e:
-        return {"error": str(e)}
-    finally:
         session.close()
+        return {"error": str(e)}
 
 
 def generate_fields_for_schluesselausgabe_from_metadata(
@@ -1481,8 +1550,15 @@ def generate_fields_for_schluesselausgabe_from_metadata(
         if not contacts:
             return ""
         contact = contacts[0]  # nur erster Eintrag
-        phone = contact.get("phone", "").strip()
-        email = contact.get("email", "").strip()
+        phone = ""
+        phone = contact.get("phone", "")
+        if phone:
+            phone = phone.strip()
+
+        email = ""
+        email = contact.get("email", "")
+        if email:
+            email = email.strip()
 
         if phone and email:
             return f"{phone} / {email}"
@@ -1499,8 +1575,6 @@ def generate_fields_for_schluesselausgabe_from_metadata(
         value = ""
 
         if name == "Text1":
-            # Hier wird die Abteilung eingetragen, wenn vorhanden,
-            # ansonsten wie gehabt der Vorname des Issuers
             if abteilung and "name" in abteilung:
                 value = abteilung["name"]
 
@@ -1511,35 +1585,58 @@ def generate_fields_for_schluesselausgabe_from_metadata(
 
         elif name == "Text4":
             value = extract_contact_string(issuer)
+
         elif name == "Text5":
             value = abteilung.get("name", "") if abteilung else ""
+
         elif name == "Text7":
             value = owner.get("last_name", "") + ", " + owner.get("first_name", "") if owner else ""
+
         elif name == "Text8":
             value = extract_contact_string(owner)
 
         elif name.startswith("GebäudeRow"):
             index = int(name.replace("GebäudeRow", "")) - 1
-            if 0 <= index < len(transponder.get("rooms", [])):
-                building = transponder["rooms"][index].get("building")
+            rooms = transponder.get("rooms", [])
+            if 0 <= index < len(rooms):
+                building = rooms[index].get("building")
                 if building:
                     value = building.get("name", "")
+
         elif name.startswith("RaumRow"):
             index = int(name.replace("RaumRow", "")) - 1
-            if 0 <= index < len(transponder.get("rooms", [])):
-                value = transponder["rooms"][index].get("name", "")
-        elif name.startswith("SerienNrSchlüsselNrRow1"):
-            if transponder.get("serial_number"):
-                value = transponder["serial_number"]
-        elif name.startswith("AnzahlRow1"):
-            value = "1"
+            rooms = transponder.get("rooms", [])
+            if 0 <= index < len(rooms):
+                value = rooms[index].get("name", "")
+
+        elif name.startswith("SerienNrSchlüsselNrRow"):
+            index = int(name.replace("SerienNrSchlüsselNrRow", "")) - 1
+            rooms = transponder.get("rooms", [])
+            if 0 <= index < len(rooms):
+                room = rooms[index]
+                has_building = room.get("building", {}).get("name")
+                has_room = room.get("name")
+                if has_building and has_room and transponder.get("serial_number"):
+                    value = transponder["serial_number"]
+
+        elif name.startswith("AnzahlRow"):
+            index = int(name.replace("AnzahlRow", "")) - 1
+            rooms = transponder.get("rooms", [])
+            if 0 <= index < len(rooms):
+                room = rooms[index]
+                has_building = room.get("building", {}).get("name")
+                has_room = room.get("name")
+                if has_building and has_room:
+                    value = "1"
 
         elif name == "Datum Übergebende:r":
             if transponder.get("got_date"):
                 value = transponder["got_date"].strftime("%d.%m.%Y")
+
         elif name == "Datum Übernehmende:r":
             if transponder.get("return_date"):
                 value = transponder["return_date"].strftime("%d.%m.%Y")
+
         elif name == "Weitere Anmerkungen":
             if transponder.get("comment"):
                 value = transponder["comment"]
@@ -1556,6 +1653,7 @@ def get_transponder_metadata(transponder_id: int) -> dict:
         transponder = session.query(Transponder).filter(Transponder.id == transponder_id).one_or_none()
 
         if transponder is None:
+            session.close()
             return None
 
         metadata = {
@@ -1606,9 +1704,13 @@ def get_transponder_metadata(transponder_id: int) -> dict:
 
             metadata["rooms"].append(room_data)
 
+        session.close()
+
         return metadata
 
     except SQLAlchemyError as e:
+        session.close()
+
         return {"error": str(e)}
 
 def get_person_metadata(person_id: int) -> dict:
@@ -1618,6 +1720,7 @@ def get_person_metadata(person_id: int) -> dict:
         person = session.query(Person).filter(Person.id == person_id).one_or_none()
 
         if person is None:
+            session.close()
             return {"error": f"No person found with id {person_id}"}
 
         metadata = {
@@ -1687,9 +1790,11 @@ def get_person_metadata(person_id: int) -> dict:
                 "title": getattr(prof, "title", None)
             })
 
+        session.close()
         return metadata
 
     except SQLAlchemyError as e:
+        session.close()
         return {"error": str(e)}
 
 def fill_pdf_form(template_path, data_dict):
@@ -1784,6 +1889,7 @@ def transponder_form():
         joinedload(Transponder.owner)
     ).order_by(Transponder.serial_number).all()
 
+    session.close()
     return render_template("transponder_form.html",
         config={"title": "Transponder-Ausgabe / Rückgabe"},
         persons=persons,
@@ -1809,6 +1915,7 @@ def transponder_ausgabe():
         session.session.rollback()
         flash(f"Fehler bei Ausgabe: {str(e)}", "danger")
 
+    session.close()
     return redirect(url_for("transponder.transponder_form"))
 
 @app.route("/transponder/rueckgabe", methods=["POST"])
@@ -1828,6 +1935,7 @@ def transponder_rueckgabe():
         session.rollback()
         flash(f"Fehler bei Rückgabe: {str(e)}", "danger")
 
+    session.close()
     return redirect(url_for("transponder.transponder_form"))
 
 @app.route("/user_edit/<handler_name>", methods=["GET", "POST"])
@@ -1907,6 +2015,7 @@ def floorplan():
         if floor_param is not None:
             floor = int(floor_param)
     except ValueError:
+        session.close()
         return "Invalid 'building_id' or 'floor' – must be integers", 400
 
     # Lade alle verfügbaren Gebäude & Etagen
@@ -1934,10 +2043,12 @@ def floorplan():
             for building in buildings:
                 building_names[building.id] = building.name
     except Exception as e:
+        session.close()
         return f"Error loading building names: {str(e)}", 500
 
     # Wenn Gebäude oder Etage fehlen, einfach das Template mit Auswahlfeldern rendern (ohne Floorplan-Bild)
     if building_id is None or floor is None:
+        session.close()
         return render_template(
             "floorplan.html",
             image_url=None,
@@ -1977,17 +2088,19 @@ def floorplan():
 
 @app.route("/api/save_or_update_room", methods=["POST"])
 def save_or_update_room():
+    session = Session()
     data = request.get_json()
 
     if not isinstance(data, dict):
+        session.close()
         return jsonify({"error": "Expected a JSON object"}), 400
 
     try:
         validated = _save_room_validate_input(data)
     except ValueError as e:
+        session.close()
         return jsonify({"error": str(e)}), 400
 
-    session = Session()
     with session.no_autoflush:
         try:
             room = _save_room_find_existing(session, validated)
@@ -2000,6 +2113,7 @@ def save_or_update_room():
             _save_room_set_layout(session, room, validated)
             session.commit()
 
+            session.close()
             return jsonify({
                 "status": "success",
                 "room_id": room.id,
@@ -2016,12 +2130,12 @@ def save_or_update_room():
 
         except IntegrityError as e:
             session.rollback()
+            session.close()
             return jsonify({"error": "Database integrity error", "details": str(e)}), 409
         except SQLAlchemyError as e:
             session.rollback()
-            return jsonify({"error": str(e)}), 500
-        finally:
             session.close()
+            return jsonify({"error": str(e)}), 500
 
 def _save_room_validate_input(data):
     name = data.get("name")
@@ -2116,6 +2230,8 @@ def _save_room_set_layout(session, room, v):
 
 @app.route("/get_floorplan", methods=["GET"])
 def get_floorplan():
+    session = Session()
+
     building_id_param = request.args.get("building_id")
     floor_param = request.args.get("floor")
 
@@ -2123,12 +2239,12 @@ def get_floorplan():
         building_id = int(building_id_param) if building_id_param is not None else None
         floor = int(floor_param) if floor_param is not None else None
     except ValueError:
+        session.close()
         return jsonify({"error": "Invalid 'building_id' or 'floor' – must be integers"}), 400
 
     if building_id is None or floor is None:
+        session.close()
         return jsonify({"error": "Both 'building_id' and 'floor' parameters are required"}), 400
-
-    session = Session()
     try:
         query = session.query(Room).join(RoomLayout).filter(
             Room.building_id == building_id,
@@ -2155,25 +2271,26 @@ def get_floorplan():
                 "floor": room.floor
             })
 
+        session.close()
         return jsonify(result), 200
 
     except SQLAlchemyError as e:
-        return jsonify({"error": str(e)}), 500
-
-    finally:
         session.close()
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/delete_room", methods=["POST"])
 def delete_room():
     data = request.get_json()
 
     if not isinstance(data, dict):
+        session.close()
         return jsonify({"error": "Expected JSON object"}), 400
 
     name = data.get("name")
     building_id = data.get("building_id")
 
     if not isinstance(name, str):
+        session.close()
         return jsonify({"error": "Missing or invalid 'name' field"}), 400
 
     session = Session()
@@ -2187,19 +2304,19 @@ def delete_room():
         room = query.one_or_none()
 
         if room is None:
+            session.close()
             return jsonify({"error": f"Room with name '{name}' not found"}), 404
 
         session.delete(room)
         session.commit()
 
+        session.close()
         return jsonify({"status": f"Room '{name}' deleted successfully"}), 200
 
     except SQLAlchemyError as e:
         session.rollback()
-        return jsonify({"error": str(e)}), 500
-
-    finally:
         session.close()
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/add_or_update_person', methods=['POST'])
 def add_or_update_person():
@@ -2233,6 +2350,7 @@ def add_person():
     required_fields = ["first_name", "last_name", "title", "comment", "image_url"]
     for field in required_fields:
         if field not in data:
+            session.close()
             return jsonify({"error": f"Missing field: {field}"}), 400
 
     session = Session()
@@ -2246,6 +2364,7 @@ def add_person():
         )
         session.add(person)
         session.commit()
+        session.close()
         return jsonify({"status": "success", "person_id": person.id}), 200
 
     except sqlalchemy.exc.IntegrityError as e:
@@ -2257,26 +2376,29 @@ def add_person():
                 last_name=data["last_name"],
                 title=data["title"]
             ).first()
+            session.close()
             if existing_person:
                 return jsonify({"status": "exists", "person_id": existing_person.id}), 200
             else:
                 # Falls keine Person gefunden wird, obwohl Constraint Fehler da war
                 return jsonify({"error": "Integrity error, but person not found"}), 500
         else:
+            session.close()
             return jsonify({"error": str(e)}), 500
 
     except Exception as e:
         session.rollback()
-        return jsonify({"error": str(e)}), 500
-
-    finally:
         session.close()
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/save_person_to_room", methods=["POST"])
 def save_person_to_room():
+    session = Session()
+
     data = request.get_json()
     
     if not data or "room" not in data or "person" not in data:
+        session.close()
         return jsonify({"error": "Request body must include both 'room' and 'person' fields"}), 400
 
     room_name = data["room"]
@@ -2285,9 +2407,9 @@ def save_person_to_room():
 
     for field in required_fields:
         if field not in person_data:
+            session.close()
             return jsonify({"error": f"Missing required field in person data: '{field}'"}), 400
 
-    session = Session()
     try:
         # Optional-Felder sicher auslesen
         title = person_data.get("title")
@@ -2314,6 +2436,7 @@ def save_person_to_room():
         # 2. Raum finden
         room = session.query(Room).filter_by(name=room_name).first()
         if not room:
+            session.close()
             return jsonify({"error": f"Room '{room_name}' not found"}), 404
 
         # 3. Vorherige Raum-Zuordnung(en) für diese Person löschen
@@ -2324,6 +2447,7 @@ def save_person_to_room():
         session.add(link)
 
         session.commit()
+        session.close()
         return jsonify({
             "status": "updated",
             "person_id": person.id,
@@ -2333,6 +2457,7 @@ def save_person_to_room():
 
     except IntegrityError as e:
         session.rollback()
+        session.close()
         return jsonify({
             "error": "Database integrity error",
             "details": str(e)
@@ -2340,13 +2465,11 @@ def save_person_to_room():
 
     except Exception as e:
         session.rollback()
+        session.close()
         return jsonify({
             "error": "Unexpected server error",
             "details": str(e)
         }), 500
-
-    finally:
-        session.close()
 
         
 @app.route("/api/get_person_database", methods=["GET"])
@@ -2367,9 +2490,11 @@ def get_person_database():
             })
             
 
+        session.close()
         return jsonify(result), 200
     except Exception as e:
         print(f"❌ Fehler bei /api/get_person_database: {e}")
+        session.close()
         return jsonify({"error": "Fehler beim Abrufen der Personen"}), 500
     
 @app.route("/api/get_room_id")
@@ -2379,12 +2504,15 @@ def get_room_id():
     room_name = request.args.get("room_name")
 
     if not building_name and not room_name:
+        session.close()
         return jsonify({"error": "Missing parameters: building_name and room_name"}), 400
 
     if not building_name:
+        session.close()
         return jsonify({"error": "Missing parameter: building_name"}), 400
 
     if not room_name:
+        session.close()
         return jsonify({"error": "Missing parameter: room_name"}), 400
 
     try:
@@ -2412,11 +2540,13 @@ def get_room_id():
             session.add(room)
             session.commit()
 
+        session.close()
         return jsonify({"room_id": room.id})
 
     except SQLAlchemyError as e:
         # Optionale Logging-Ausgabe
         print(f"DB error: {e}")
+        session.close()
         return jsonify({"error": "Internal server error"}), 500
     
 @app.route('/api/get_building_names', methods=['GET'])
@@ -2425,6 +2555,9 @@ def get_building_names():
     
     buildings = session.query(Building.name).order_by(Building.name).all()
     names = [b.name for b in buildings if b.name]
+
+    session.close()
+
     return jsonify(names)
 
 def get_names(session, model, id_field, name_fields):
@@ -2453,6 +2586,8 @@ def get_names(session, model, id_field, name_fields):
     return result
 
 @app.route('/schema')
+@login_required
+@admin_required
 def schema():
     graph = create_schema_graph(engine=engine, metadata=Base.metadata)
     graph.write_png('/tmp/schema.png')
@@ -2462,40 +2597,48 @@ def schema():
 def get_person_names():
     session = Session()
     result = get_names(session, Person, Person.id, [Person.first_name, Person.last_name])
+    session.close()
     return jsonify(result)
 
 @app.route('/api/get_kostenstelle_names', methods=['GET'])
 def get_kostenstelle_names():
     session = Session()
     result = get_names(session, Kostenstelle, Kostenstelle.id, [Kostenstelle.name])
+    session.close()
     return jsonify(result)
 
 @app.route('/api/get_abteilung_names', methods=['GET'])
 def get_abteilung_names():
     session = Session()
     result = get_names(session, Abteilung, Abteilung.id, [Abteilung.name])
+    session.close()
     return jsonify(result)
 
 @app.route('/api/get_professorship_names', methods=['GET'])
 def get_professorship_names():
     session = Session()
     result = get_names(session, Professorship, Professorship.id, [Professorship.name])
+    session.close()
     return jsonify(result)
 
 @app.route('/api/get_category_names', methods=['GET'])
 def get_category_names():
     session = Session()
     result = get_names(session, ObjectCategory, ObjectCategory.id, [ObjectCategory.name])
+    session.close()
     return jsonify(result)
 
 @app.route('/api/get_object_names', methods=['GET'])
 def get_object_names():
     session = Session()
     result = get_names(session, Object, Object.id, [Object.name])
+    session.close()
     return jsonify(result)
 
 
 @app.route('/db_info')
+@login_required
+@admin_required
 def db_info():
     inspector = inspect(engine)
     conn = engine.connect()
@@ -2542,6 +2685,125 @@ def db_info():
     mermaid = make_mermaid(tables, relationships)
 
     return render_template('db_info.html', tables=tables, mermaid=mermaid)
+
+
+
+@app.route("/data_overview", methods=["GET"])
+def data_overview():
+    session: Session = Session()
+    try:
+        # Benutzer pro Rolle
+        users_by_role_raw = (
+            session.query(Role.name, func.count(User.id))
+            .join(Role.users)
+            .group_by(Role.name)
+            .all()
+        )
+        users_by_role: Dict[str, int] = {
+            role: count for role, count in users_by_role_raw
+        }
+
+        # Personen pro Raum
+        persons_by_room_raw = (
+            session.query(Room.name, func.count(PersonToRoom.person_id))
+            .join(PersonToRoom, PersonToRoom.room_id == Room.id)
+            .group_by(Room.name)
+            .all()
+        )
+        persons_by_room: Dict[str, int] = {
+            room: count for room, count in persons_by_room_raw
+        }
+
+        # Inventarobjekte nach Kategorie
+        inventory_by_category_raw = (
+            session.query(ObjectCategory.name, func.count(Inventory.id))
+            .join(Object, Object.category_id == ObjectCategory.id)
+            .join(Inventory, Inventory.object_id == Object.id)
+            .group_by(ObjectCategory.name)
+            .all()
+        )
+        inventory_by_category: Dict[str, int] = {
+            category: count for category, count in inventory_by_category_raw
+        }
+
+        # Personen pro Abteilung
+        persons_by_abteilung_raw = (
+            session.query(Abteilung.name, func.count(PersonToAbteilung.person_id))
+            .join(PersonToAbteilung, PersonToAbteilung.abteilung_id == Abteilung.id)
+            .group_by(Abteilung.name)
+            .all()
+        )
+        persons_by_abteilung: Dict[str, int] = {
+            abteilung: count for abteilung, count in persons_by_abteilung_raw
+        }
+
+        # Personen pro Professur
+        persons_by_professorship_raw = (
+            session.query(Professorship.name, func.count(ProfessorshipToPerson.person_id))
+            .join(ProfessorshipToPerson, ProfessorshipToPerson.professorship_id == Professorship.id)
+            .group_by(Professorship.name)
+            .all()
+        )
+        persons_by_professorship: Dict[str, int] = {
+            professorship: count for professorship, count in persons_by_professorship_raw
+        }
+
+        # Räume pro Gebäude
+        rooms_by_building_raw = (
+            session.query(Building.name, func.count(Room.id))
+            .join(Room, Room.building_id == Building.id)
+            .group_by(Building.name)
+            .all()
+        )
+        rooms_by_building: Dict[str, int] = {
+            building: count for building, count in rooms_by_building_raw
+        }
+
+        # Raumverteilung pro Etage
+        floor_distribution_raw = (
+            session.query(Room.floor, func.count(Room.id))
+            .group_by(Room.floor)
+            .all()
+        )
+        floor_distribution: Dict[str, int] = {
+            str(floor): count for floor, count in floor_distribution_raw
+        }
+
+        # Kontakte pro Person
+        contacts_per_person_raw = (
+            session.query(Person.id, func.count(PersonContact.id))
+            .join(PersonContact, PersonContact.person_id == Person.id)
+            .group_by(Person.id)
+            .all()
+        )
+        contacts_per_person: Dict[str, int] = {
+            f"Person #{pid}": count for pid, count in contacts_per_person_raw
+        }
+
+        # Wie viele Personen sind Abteilungsleiter?
+        abteilungsleiter_count = (
+            session.query(func.count(Abteilung.abteilungsleiter_id.distinct()))
+            .filter(Abteilung.abteilungsleiter_id != None)
+            .scalar()
+        )
+
+        return jsonify({
+            "users_by_role": users_by_role,
+            "persons_by_room": persons_by_room,
+            "inventory_by_category": inventory_by_category,
+            "persons_by_abteilung": persons_by_abteilung,
+            "persons_by_professorship": persons_by_professorship,
+            "rooms_by_building": rooms_by_building,
+            "floor_distribution": floor_distribution,
+            "contacts_per_person": contacts_per_person,
+            "abteilungsleiter_count": abteilungsleiter_count
+        })
+
+    except Exception as e:
+        print(f"❌ Fehler in /data_overview: {e}")
+        return jsonify({"error": "Interner Serverfehler"}), 500
+    finally:
+        session.close()
 
 if __name__ == "__main__":
     insert_tu_dresden_buildings()

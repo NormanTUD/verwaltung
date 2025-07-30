@@ -155,11 +155,15 @@
 
 				if(mode === "dark") {
 					$("select").css("background-color", "1a202c");
-					$("input, textarea, select").css("border", "1px solid #3daee9");
+					$("input, textarea, select, button").css("border", "1px solid #3daee9");
+					$("#objectForm, #personForm").css("background-color", "black");
 				} else {
 					$("select").css("background-color", "unset");
-					$("input, textarea, select").css("border", "1px solid black");
+					$("input, textarea, select, button").css("border", "1px solid black");
+					$("#objectForm, #personForm").css("background-color", "white");
 				}
+
+				$(".delete-entry").css("background-color", "#e74c3c");
 			}
 
 			document.addEventListener('DOMContentLoaded', function () {

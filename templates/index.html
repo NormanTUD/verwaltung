@@ -1,45 +1,5 @@
 {% extends "layout.html" %}
-{% block title %}Übersicht{% endblock %}
+{% block title %}Datenvisualisierung erweitert{% endblock %}
 {% block content %}
-
-<h1 class="text-3xl font-bold mb-6">🗂️ Übersicht</h1>
-
-<!-- Wizards -->
-<section class="mb-8">
-    <h2 class="text-xl font-semibold mb-2">🧙 Wizards</h2>
-    <ul class="list-disc list-inside">
-        {% for route in wizard_routes %}
-            <li><a class="text-blue-500 hover:underline" href="{{ route }}">{{ route.replace('/wizard/', '').capitalize() }}</a></li>
-        {% endfor %}
-    </ul>
-</section>
-
-<!-- Aggregate -->
-<section class="mb-8">
-    <h2 class="text-xl font-semibold mb-2">📦 Aggregate</h2>
-    <ul class="list-disc list-inside">
-        <li><a class="text-blue-500 hover:underline" href="{{ url_for('aggregate_inventory_view') }}">Inventar</a></li>
-        <li><a class="text-blue-500 hover:underline" href="{{ url_for('aggregate_transponder_view') }}">Ausgegebene Transponder</a></li>
-    </ul>
-</section>
-
-<!-- Tabellen -->
-<section class="mb-8">
-    <h2 class="text-xl font-semibold mb-2">📋 Tabellen</h2>
-    <ul class="list-disc list-inside">
-        {% for table in tables %}
-            <li><a class="text-blue-500 hover:underline" href="{{ url_for('table_view', table_name=table) }}">{{ table.capitalize() }}</a></li>
-        {% endfor %}
-    </ul>
-</section>
-
-<!-- Karten -->
-<section class="mb-8">
-    <h2 class="text-xl font-semibold mb-2">🗺️ Karten & Editor</h2>
-    <ul class="list-disc list-inside">
-        <li><a class="text-blue-500 hover:underline" href="/map-editor">Map-Editor starten</a></li>
-        <li><a class="text-blue-500 hover:underline" href="/floorplan">Floorplan</a></li>
-    </ul>
-</section>
-
+Willkommen!
 {% endblock %}
