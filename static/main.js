@@ -635,9 +635,7 @@ function createCircleElement(attributes) {
 	circle.dataset.attributes = JSON.stringify(attributes);
 
 	// Nur das Bild anzeigen, keine weiteren Infos!
-	circle.innerHTML = `
-    <img src="${attributes.image_url}" alt="Personenbild" />
-  `;
+	circle.innerHTML = `<img src="${attributes.image_url}" alt="Personenbild" />`;
 
 	setCirclePosition(circle);
 	return circle;
