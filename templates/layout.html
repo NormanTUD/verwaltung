@@ -157,10 +157,14 @@
 					$("select").css("background-color", "1a202c");
 					$("input, textarea, select, button").css("border", "1px solid #3daee9");
 					$("#objectForm, #personForm").css("background-color", "black");
+					$(".optionContainer,.context-menu").css("color", "white").css("background-color", "black").css("filter", "invert(1)");
+					$(".person-circle>img").css("filter", "invert(1)")
 				} else {
 					$("select").css("background-color", "unset");
 					$("input, textarea, select, button").css("border", "1px solid black");
 					$("#objectForm, #personForm").css("background-color", "white");
+					$(".optionContainer,.context-menu").css("color", "black").css("background-color", "white").css("filter", "unset");
+					$(".person-circle>img").css("filter", "unset")
 				}
 
 				$(".delete-entry").css("background-color", "#e74c3c");
