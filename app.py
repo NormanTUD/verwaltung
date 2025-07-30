@@ -1190,10 +1190,88 @@ def delete_entry(table_name):
         session.close()
         return jsonify(success=False, error=str(e))
 
-@app.route("/aggregate/")
+@app.route("/aggregate/inventory")
 @login_required
-def aggregate_index():
-    return render_template("aggregate_index.html")  # Optional – nur als Startseite für Aggregates
+def aggregate_inventory_view():
+    session = None
+    try:
+        session = Session()
+
+        # Query-Parameter auslesen
+        show_only_unreturned = request.args.get("unreturned") == "1"
+        owner_filter = request.args.get("owner", type=int)
+        issuer_filter = request.args.get("issuer", type=int)
+
+        # Grundquery mit Joins
+        query = session.query(Inventory) \
+            .options(
+                joinedload(Inventory.owner),
+                joinedload(Inventory.issuer),
+                joinedload(Inventory.object).joinedload(Object.category),
+                joinedload(Inventory.kostenstelle),
+                joinedload(Inventory.abteilung),
+                joinedload(Inventory.professorship),
+                joinedload(Inventory.room)
+            )
+
+        # Filter anwenden
+        if show_only_unreturned:
+            query = query.filter(Inventory.return_date.is_(None))
+
+        if owner_filter:
+            query = query.filter(Inventory.owner_id == owner_filter)
+
+        if issuer_filter:
+            query = query.filter(Inventory.issuer_id == issuer_filter)
+
+        inventory_list = query.all()
+
+        rows = []
+        for inv in inventory_list:
+            row = {
+                "ID": inv.id,
+                "Seriennummer": inv.serial_number or "-",
+                "Objekt": inv.object.name if inv.object else "-",
+                "Kategorie": _get_category_name(inv.object.category) if inv.object else "-",
+                "Anlagennummer": inv.anlagennummer or "-",
+                "Ausgegeben an": _get_person_name(inv.owner),
+                "Ausgegeben durch": _get_person_name(inv.issuer),
+                "Ausgabedatum": inv.got_date.isoformat() if inv.got_date else "-",
+                "Rückgabedatum": inv.return_date.isoformat() if inv.return_date else "Nicht zurückgegeben",
+                "Raum": _create_room_name(inv.room),
+                "Abteilung": _get_abteilung_name(inv.abteilung),
+                "Professur": _get_professorship_name(inv.professorship),
+                "Kostenstelle": _get_kostenstelle_name(inv.kostenstelle),
+                "Preis": f"{inv.price:.2f} €" if inv.price is not None else "-",
+                "Kommentar": inv.comment or "-"
+            }
+            rows.append(row)
+
+        people_query = session.query(Person).order_by(Person.last_name, Person.first_name).all()
+        people = [{"id": p.id, "name": f"{p.first_name} {p.last_name}"} for p in people_query]
+
+        column_labels = list(rows[0].keys()) if rows else []
+        row_data = [[escape(str(row[col])) for col in column_labels] for row in rows]
+
+        session.close()
+        return render_template(
+            "aggregate_view.html",
+            title="Inventarübersicht",
+            column_labels=column_labels,
+            row_data=row_data,
+            filters={
+                "unreturned": show_only_unreturned,
+                "owner": owner_filter,
+                "issuer": issuer_filter,
+            },
+            people=people,
+            url_for_view=url_for("aggregate_inventory_view")
+        )
+    except Exception as e:
+        app.logger.error(f"Fehler beim Laden der Inventar-Aggregatsansicht: {e}")
+        session.close()
+        return render_template("error.html", message="Fehler beim Laden der Daten.")
+
 
 @app.route("/aggregate/transponder")
 @login_required
@@ -1314,87 +1392,6 @@ def _get_person_name(p):
 def _get_category_name(c):
     return c.name if c else "-"
 
-@app.route("/aggregate/inventory")
-@login_required
-def aggregate_inventory_view():
-    session = None
-    try:
-        session = Session()
-
-        # Query-Parameter auslesen
-        show_only_unreturned = request.args.get("unreturned") == "1"
-        owner_filter = request.args.get("owner", type=int)
-        issuer_filter = request.args.get("issuer", type=int)
-
-        # Grundquery mit Joins
-        query = session.query(Inventory) \
-            .options(
-                joinedload(Inventory.owner),
-                joinedload(Inventory.issuer),
-                joinedload(Inventory.object).joinedload(Object.category),
-                joinedload(Inventory.kostenstelle),
-                joinedload(Inventory.abteilung),
-                joinedload(Inventory.professorship),
-                joinedload(Inventory.room)
-            )
-
-        # Filter anwenden
-        if show_only_unreturned:
-            query = query.filter(Inventory.return_date.is_(None))
-
-        if owner_filter:
-            query = query.filter(Inventory.owner_id == owner_filter)
-
-        if issuer_filter:
-            query = query.filter(Inventory.issuer_id == issuer_filter)
-
-        inventory_list = query.all()
-
-        rows = []
-        for inv in inventory_list:
-            row = {
-                "ID": inv.id,
-                "Seriennummer": inv.serial_number or "-",
-                "Objekt": inv.object.name if inv.object else "-",
-                "Kategorie": _get_category_name(inv.object.category) if inv.object else "-",
-                "Anlagennummer": inv.anlagennummer or "-",
-                "Ausgegeben an": _get_person_name(inv.owner),
-                "Ausgegeben durch": _get_person_name(inv.issuer),
-                "Ausgabedatum": inv.got_date.isoformat() if inv.got_date else "-",
-                "Rückgabedatum": inv.return_date.isoformat() if inv.return_date else "Nicht zurückgegeben",
-                "Raum": _create_room_name(inv.room),
-                "Abteilung": _get_abteilung_name(inv.abteilung),
-                "Professur": _get_professorship_name(inv.professorship),
-                "Kostenstelle": _get_kostenstelle_name(inv.kostenstelle),
-                "Preis": f"{inv.price:.2f} €" if inv.price is not None else "-",
-                "Kommentar": inv.comment or "-"
-            }
-            rows.append(row)
-
-        people_query = session.query(Person).order_by(Person.last_name, Person.first_name).all()
-        people = [{"id": p.id, "name": f"{p.first_name} {p.last_name}"} for p in people_query]
-
-        column_labels = list(rows[0].keys()) if rows else []
-        row_data = [[escape(str(row[col])) for col in column_labels] for row in rows]
-
-        session.close()
-        return render_template(
-            "aggregate_view.html",
-            title="Inventarübersicht",
-            column_labels=column_labels,
-            row_data=row_data,
-            filters={
-                "unreturned": show_only_unreturned,
-                "owner": owner_filter,
-                "issuer": issuer_filter,
-            },
-            people=people,
-            url_for_view=url_for("aggregate_inventory_view")
-        )
-    except Exception as e:
-        app.logger.error(f"Fehler beim Laden der Inventar-Aggregatsansicht: {e}")
-        session.close()
-        return render_template("error.html", message="Fehler beim Laden der Daten.")
 
 @app.route("/wizard/person", methods=["GET", "POST"])
 @login_required
