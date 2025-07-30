@@ -1,14 +1,6 @@
-<!DOCTYPE html>
-<html lang="de">
-	<head>
-		<meta charset="utf-8">
-		<title>{{ title }}</title>
-		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<link href="../static/style.css" rel="stylesheet" />
-		<script src="../static/jquery.min.js"></script>
-	</head>
-	<body>
-		<button id="backLink" class="floorplan_back_Btn">ᐊ</button>
+{% extends "layout.html" %}
+{% block title %}Aggregat{% endblock %}
+{% block content %}
 		<h1>{{ title }}</h1>
 
 		<div class="filter-box">
@@ -72,3 +64,4 @@
 	<script src="/static/footer.js"></script>
 	</body>
 </html>
+{% endblock %}
