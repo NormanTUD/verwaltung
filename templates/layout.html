@@ -95,66 +95,111 @@
 			document.documentElement.classList.remove('no-js');
 
 			document.addEventListener('DOMContentLoaded', function () {
-			    const html = document.documentElement;
-			    const toast = document.getElementById('toast');
-			    const sidebar = document.getElementById('sidebar');
-			    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-			    const storedTheme = localStorage.getItem('theme');
-			    const toggleThemeBtn = document.getElementById('toggleThemeBtn');
-			    const logoutBtn = document.getElementById('logoutBtn');
+				try {
+					const html = document.documentElement;
+					const toast = document.getElementById('toast');
+					const sidebar = document.getElementById('sidebar');
+					const main = document.querySelector('main');
+					const toggleThemeBtn = document.getElementById('toggleThemeBtn');
+					const logoutBtn = document.getElementById('logoutBtn');
 
-			    sidebar.classList.remove('invisible');
-			    sidebar.classList.add('transition-transform', 'duration-300');
+					if (!main) {
+						console.error('Element <main> nicht gefunden.');
+						return;
+					}
+					if (!toggleThemeBtn) {
+						console.error('Button zum Umschalten des Themes (toggleThemeBtn) nicht gefunden.');
+						return;
+					}
+					if (!toast) {
+						console.error('Toast-Element nicht gefunden.');
+						return;
+					}
+					if (!sidebar) {
+						console.error('Sidebar nicht gefunden.');
+						// Weiter machen, da evtl. nicht kritisch
+					}
+					if (!logoutBtn) {
+						console.warn('Logout-Button nicht gefunden.');
+						// Weiter machen, falls kein Logout vorhanden
+					}
 
-			    function applyTheme(mode) {
-				if (mode === 'dark') {
-				    html.classList.add('dark');
-				    localStorage.setItem('theme', 'dark');
-				    updateThemeButtonIcon();
-				    showToast("🌙 Dark Mode aktiviert");
-				} else {
-				    html.classList.remove('dark');
-				    localStorage.setItem('theme', 'light');
-				    updateThemeButtonIcon();
-				    showToast("☀️ Light Mode aktiviert");
+					if (sidebar) {
+						sidebar.classList.remove('invisible');
+						sidebar.classList.add('transition-transform', 'duration-300');
+					}
+
+					// Setze Hintergrund-Klassen für <main> passend zum Theme
+					function applyMainBgClass(mode) {
+						if (mode === 'dark') {
+							main.classList.add('bg-gray-900', 'text-gray-100'); // Dunkler Hintergrund + helle Schrift
+							main.classList.remove('bg-white', 'text-gray-900');
+						} else {
+							main.classList.add('bg-white', 'text-gray-900'); // Heller Hintergrund + dunkle Schrift
+							main.classList.remove('bg-gray-900', 'text-gray-100');
+						}
+					}
+
+					function showToast(message) {
+						toast.textContent = message;
+						toast.classList.remove('hidden');
+						toast.style.opacity = '1';
+						setTimeout(() => {
+							toast.style.opacity = '0';
+							setTimeout(() => {
+								toast.classList.add('hidden');
+							}, 300);
+						}, 2500);
+					}
+
+					function updateThemeButtonIcon() {
+						const isDark = html.classList.contains('dark');
+						toggleThemeBtn.textContent = isDark ? "☀️ Light Mode" : "🌙 Dark Mode";
+					}
+
+					function applyTheme(mode) {
+						if (mode === 'dark') {
+							html.classList.add('dark');
+							localStorage.setItem('theme', 'dark');
+							applyMainBgClass('dark');
+							updateThemeButtonIcon();
+							showToast("🌙 Dark Mode aktiviert");
+						} else {
+							html.classList.remove('dark');
+							localStorage.setItem('theme', 'light');
+							applyMainBgClass('light');
+							updateThemeButtonIcon();
+							showToast("☀️ Light Mode aktiviert");
+						}
+					}
+
+					const storedTheme = localStorage.getItem('theme');
+					const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+					if (storedTheme) {
+						applyTheme(storedTheme);
+					} else if (prefersDark) {
+						applyTheme('dark');
+					} else {
+						applyTheme('light');
+					}
+
+					toggleThemeBtn.addEventListener('click', function () {
+						const isDark = html.classList.contains('dark');
+						applyTheme(isDark ? 'light' : 'dark');
+					});
+
+					if (logoutBtn) {
+						logoutBtn.addEventListener('click', function () {
+							showToast("🚪 Ausgeloggt");
+							// window.location.href = "/logout"; // Optional aktivieren
+						});
+					}
+				} catch (error) {
+					console.error('Fehler im Theme-Script:', error);
 				}
-			    }
-
-			    function updateThemeButtonIcon() {
-				const isDark = html.classList.contains('dark');
-				toggleThemeBtn.textContent = isDark ? "☀️ Light Mode" : "🌙 Dark Mode";
-			    }
-
-			    if (storedTheme) {
-				applyTheme(storedTheme);
-			    } else if (prefersDark) {
-				applyTheme('dark');
-			    } else {
-				applyTheme('light');
-			    }
-
-			    toggleThemeBtn.addEventListener('click', function () {
-				const isDark = html.classList.contains('dark');
-				applyTheme(isDark ? 'light' : 'dark');
-			    });
-
-			    logoutBtn.addEventListener('click', function () {
-				showToast("🚪 Ausgeloggt");
-				// window.location.href = "/logout";
-			    });
-
-			    function showToast(message) {
-				toast.textContent = message;
-				toast.classList.remove('hidden');
-				toast.style.opacity = '1';
-				setTimeout(() => {
-				    toast.style.opacity = '0';
-				    setTimeout(() => {
-					toast.classList.add('hidden');
-				    }, 300);
-				}, 2500);
-			    }
 			});
+
 		</script>
 
 		<script src="/static/footer.js" defer></script>
