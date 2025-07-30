@@ -911,6 +911,7 @@ const cancelObjectBtn = document.getElementById("cancelObjectBtn");
 if(addBtn) {
 	addBtn.addEventListener("click", () => {
 		objectForm.style.display = "block";
+    cancelpersonBtnFunction()
 	});
 }
 
@@ -1277,11 +1278,23 @@ loadFloorplan(building_id, floor);
 
 const cancelPersonBtn = document.getElementById("cancelPersonBtn");
 
-cancelPersonBtn.addEventListener("click", () => {
+cancelPersonBtn.addEventListener("click", cancelpersonBtnFunction);
+
+
+function cancelpersonBtnFunction() {
 	personForm.style.display = "none";
 	dynamicForm.innerHTML = "";
 	dynamicForm.style.display = "none";
-});
+}
+
+
+
+
+
+
+
+
+
 
 document.addEventListener("DOMContentLoaded", function() {
 	loadPersonDatabase();
