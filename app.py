@@ -3095,13 +3095,12 @@ def get_person_room_data():
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('404.html'), 404
-
 @app.route('/search')
 @login_required
 def search():
     session = Session()
 
-    query = request.args.get('q', '').lower()
+    query = request.args.get('q', '').lower().strip()
     results = []
 
     wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
@@ -3120,12 +3119,24 @@ def search():
         results.append({'label': '📦 Inventar', 'url': url_for('aggregate_inventory_view')})
     if 'transponder'.startswith(query):
         results.append({'label': '📦 Transponder', 'url': url_for('aggregate_transponder_view')})
+    if 'person'.startswith(query):
+        results.append({'label': '📦 Person', 'url': url_for('aggregate_person_view')})
 
-    # 🔍 Personensuche
-    people = session.query(Person).all()
+    # 🔍 Personensuche nach Name, Email, Telefon, Fax
+    people = session.query(Person).options(joinedload(Person.contacts)).all()
     for person in people:
-        name_parts = f"{person.title or ''} {person.first_name} {person.last_name}".strip().lower()
-        if query in name_parts:
+        full_name = f"{person.title or ''} {person.first_name} {person.last_name}".strip().lower()
+        matched = False
+
+        if query in full_name:
+            matched = True
+        else:
+            for contact in person.contacts:
+                if any(query in (getattr(contact, attr) or '').lower() for attr in ['email', 'phone', 'fax']):
+                    matched = True
+                    break
+
+        if matched:
             results.append({
                 'label': f'👤 {person.first_name} {person.last_name}',
                 'url': url_for('aggregate_persons_view', person_id=person.id)
