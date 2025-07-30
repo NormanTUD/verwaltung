@@ -209,32 +209,57 @@ function makeDraggable(el) {
   let dragOffsetX = 0;
   let dragOffsetY = 0;
 
-  function getElementCenterOffset(e, el) {
-    const elRect = el.getBoundingClientRect();
-    const offsetX = e.clientX - (elRect.left + elRect.width / 2);
-    const offsetY = e.clientY - (elRect.top + elRect.height / 2);
-    //console.log("Center offset:", { offsetX, offsetY });
-    return { offsetX, offsetY };
-  }
+function getElementMouseOffset(e, el) {
+  const elRect = el.getBoundingClientRect();
+  const offsetX = e.clientX - elRect.left;
+  const offsetY = e.clientY - elRect.top;
+  return { offsetX, offsetY };
+}
+
 
   function startDragging(e) {
     e.preventDefault();
+    
     dragging = true;
     el.style.cursor = "grabbing";
     console.log("Dragging started");
 
-    const offsets = getElementCenterOffset(e, el);
+    const offsets = getElementMouseOffset(e, el);
     dragOffsetX = offsets.offsetX;
     dragOffsetY = offsets.offsetY;
 
-    document.addEventListener("mousemove", onMouseMove);
+    log(`startDragging: Element mouse offset: ${dragOffsetX}, ${dragOffsetY}`);
+
+    log(e.target.offsetParent);
+
+    if(e.target.offsetParent.classList.contains("person-circle")) {
+      document.addEventListener("mousemove", onMouseMove);
+    } else {
+      document.addEventListener("mousemove", onMouseMoveViewport)
+    }
+    document.addEventListener("mousemove", onMouseMoveViewport);
     document.addEventListener("mouseup", onMouseUp);
   }
 
+
+  
+  function getMousePosRelativeToViewport(ev) {
+    const floorplanRect = $("#viewport")[0].getBoundingClientRect();
+
+    let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
+    let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
+
+    //console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
+    return { mouseX, mouseY };
+  }
+
+
   function getMousePosRelativeToFloorplan(ev) {
     const floorplanRect = floorplan.getBoundingClientRect();
-    let mouseX = ev.clientX - floorplanRect.left - el.offsetWidth / 2 - dragOffsetX;
-    let mouseY = ev.clientY - floorplanRect.top - el.offsetHeight / 2 - dragOffsetY;
+
+    let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
+    let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
+
     //console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
     return { mouseX, mouseY };
   }
@@ -257,11 +282,31 @@ function makeDraggable(el) {
     //console.log(`Element moved to (${x}, ${y})`);
   }
 
+  function onMouseMoveViewport(ev) {
+    if (!dragging) return;
+
+    const { mouseX, mouseY } = getMousePosRelativeToViewport(ev);
+
+    //log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
+
+    const { x, y } = scaleAndClampPosition(mouseX, mouseY);
+
+    //log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
+
+    moveElement(x, y);
+  }
+
   function onMouseMove(ev) {
     if (!dragging) return;
 
     const { mouseX, mouseY } = getMousePosRelativeToFloorplan(ev);
+
+    log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
+
     const { x, y } = scaleAndClampPosition(mouseX, mouseY);
+
+    log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
+
     moveElement(x, y);
   }
 
@@ -721,14 +766,20 @@ function toggleContextMenu(circle, attributes) {
   try {
     removeExistingContextMenus();
 
-    const menu = buildContextMenu(attributes);
+    // Wichtig: circle mitgeben
+    const menu = buildContextMenu(attributes, circle);
     positionContextMenuAbsolute(circle, menu);
-    floorplan.appendChild(menu); // WICHTIG: nicht circle.appendChild
+    floorplan.appendChild(menu);
+
+    updateContextMenuInventory(circle);
+
     console.log("Kontextmenü angezeigt:", attributes);
   } catch (error) {
     console.error("Fehler beim Umschalten des Kontextmenüs:", error);
   }
 }
+
+
 
 function removeExistingContextMenus() {
   const menus = document.querySelectorAll(".context-menu");
@@ -751,25 +802,88 @@ function positionContextMenuAbsolute(circle, menu) {
 
 
 
-function buildContextMenu(attributes) {
+function buildContextMenu(attributes, personEl) {
   const menu = document.createElement("div");
-  menu.className = "context-menu";
-  Object.assign(menu.style, getContextMenuStyles());
+  menu.classList.add("context-menu");
 
-  // Hauptinfos
+  // Styles anwenden
+  const styles = getContextMenuStyles();
+  Object.assign(menu.style, styles);
+
+  // Grundstruktur mit allen Attributen
   menu.innerHTML = `
-    <div><strong>Vorname:</strong> ${my_escape(attributes.first_name)}</div>
-    <div><strong>Nachname:</strong> ${my_escape(attributes.last_name)}</div>
-    <div><strong>Titel:</strong> ${my_escape(attributes.title)}</div>
-    <div><strong>Kommentar:</strong> ${my_escape(attributes.comment)}</div>
-    <div><strong>Bild-URL:</strong> <a href="${my_escape(attributes.image_url)}" target="_blank">${my_escape(attributes.image_url)}</a></div>
+    <div><strong>Vorname:</strong> ${my_escape(attributes.first_name || "")}</div>
+    <div><strong>Nachname:</strong> ${my_escape(attributes.last_name || "")}</div>
+    <div><strong>Titel:</strong> ${my_escape(attributes.title || "")}</div>
+    <div><strong>Kommentar:</strong> ${my_escape(attributes.comment || "")}</div>
+    <div><strong>Bild-URL:</strong> <a href="${my_escape(attributes.image_url || "#")}" target="_blank">${my_escape(attributes.image_url || "")}</a></div>
     <hr>
     <div><strong>Inventar:</strong></div>
-    <ul class="question-list"></ul>
+    <ul class="question-list" style="list-style:none; padding-left:0; margin:0;"></ul>
   `;
+
+  const inventory = attributes.inventory || [];
+  const ul = menu.querySelector("ul.question-list");
+
+  if (inventory.length === 0) {
+    const li = document.createElement("li");
+    li.textContent = "Inventar ist leer";
+    ul.appendChild(li);
+  } else {
+    inventory.forEach((item, index) => {
+      const li = document.createElement("li");
+      li.style.display = "flex";
+      li.style.justifyContent = "space-between";
+      li.style.alignItems = "center";
+      li.style.padding = "2px 4px";
+      li.style.borderBottom = "1px solid #eee";
+
+      // Item-Beschreibung als Text (z.B. alle Werte als String)
+      const text = document.createElement("span");
+      text.textContent = Object.values(item).join(", ");
+
+      // Lösch-Kreuz-Button
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "✖";
+      deleteBtn.title = "Objekt entfernen";
+      deleteBtn.style.cursor = "pointer";
+      deleteBtn.style.border = "none";
+      deleteBtn.style.background = "transparent";
+      deleteBtn.style.color = "#900";
+      deleteBtn.style.fontWeight = "bold";
+      deleteBtn.style.fontSize = "14px";
+      deleteBtn.style.padding = "0 4px";
+
+      deleteBtn.addEventListener("click", (e) => {
+        e.stopPropagation(); // Verhindert das Schließen des Menüs o.Ä.
+        if (!personEl) {
+          console.error("Kein personEl vorhanden zum Entfernen");
+          return;
+        }
+        console.log(`🔴 Lösche Item Index ${index} aus Inventar von Person`, personEl);
+
+        removeObjectFromInventory(personEl, index);
+
+        // Kontextmenü neu bauen, da sich Inventar geändert hat
+        removeExistingContextMenus();
+        toggleContextMenu(personEl, JSON.parse(personEl.dataset.attributes));
+      });
+
+      li.appendChild(text);
+      li.appendChild(deleteBtn);
+      ul.appendChild(li);
+    });
+  }
 
   return menu;
 }
+
+
+
+
+
+
+
 
 
 function getContextMenuStyles() {
@@ -985,25 +1099,66 @@ window.addEventListener("DOMContentLoaded", () => {
 
 
 function checkIfObjectOnPerson(el) {
+  console.log("🚧 Überprüfe, ob 'el' das Zielobjekt ist oder eine Person:");
+
+  if (el.classList.contains("person-circle")) {
+    console.warn("⚠️ Das verschobene Element ist eine Person! Es sollte kein Person-Element entfernt werden.");
+    return;
+  }
+
   const objRect = el.getBoundingClientRect();
   const objCenterX = objRect.left + objRect.width / 2;
   const objCenterY = objRect.top + objRect.height / 2;
+
+  console.log("🔍 Objekt-Mitte:", objCenterX, objCenterY);
 
   const personEls = document.querySelectorAll('.person-circle');
   let found = false;
 
   personEls.forEach(person => {
     const personRect = person.getBoundingClientRect();
-    if (
+
+    const hit =
       objCenterX >= personRect.left &&
       objCenterX <= personRect.right &&
       objCenterY >= personRect.top &&
-      objCenterY <= personRect.bottom
-    ) {
+      objCenterY <= personRect.bottom;
+
+    console.log(`👤 Prüfe Person ${person.id || "[kein ID]"}: Treffer?`, hit);
+
+    if (hit) {
       found = true;
+
+      // Objekt zum Inventar hinzufügen
       const attributes = JSON.parse(person.dataset.attributes || "{}");
-      const fullName = `${attributes.first_name || ""} ${attributes.last_name || ""}`.trim();
-      console.log(`✅ Objekt befindet sich auf Person: ${fullName}`);
+
+      if (!attributes.inventory) {
+        attributes.inventory = [];
+      }
+
+      const objectOptions = JSON.parse(el.dataset.attributes || "{}");
+      attributes.inventory.push(objectOptions);
+      person.dataset.attributes = JSON.stringify(attributes);
+
+      console.log("📦 Objekt zum Inventar hinzugefügt:", objectOptions);
+
+      // Objekt aus DOM entfernen (Objekt verschwindet vom Floorplan)
+      el.remove();
+      console.log("🗑️ Objekt wurde aus DOM entfernt");
+
+      // Optional: dataset.inventory auch aktualisieren, falls du es nutzt
+      try {
+        let inventory = JSON.parse(person.dataset.inventory || "[]");
+        inventory.push(objectOptions);
+        person.dataset.inventory = JSON.stringify(inventory);
+      } catch (err) {
+        console.warn("⚠️ Fehler beim Parsen von inventory, setze auf leer");
+      }
+
+      // Kontextmenü updaten (falls offen)
+      updateContextMenuInventory(person);
+
+      return;
     }
   });
 
@@ -1011,6 +1166,149 @@ function checkIfObjectOnPerson(el) {
     console.log("❌ Objekt befindet sich auf keiner Person.");
   }
 }
+
+
+
+
+function updateContextMenuInventory(personEl) {
+  const menu = document.querySelector(".context-menu");
+  if (!menu) {
+    console.log("ℹ️ Kein Kontextmenü offen, Inventar wird nicht angezeigt.");
+    return;
+  }
+
+  const ul = menu.querySelector(".question-list");
+  if (!ul) {
+    console.warn("❌ Keine <ul class='question-list'> im Menü gefunden.");
+    return;
+  }
+
+  let attributes = {};
+  try {
+    attributes = JSON.parse(personEl.dataset.attributes || "{}");
+  } catch (err) {
+    console.error("❌ Fehler beim Parsen der Personen-Attribute:", err);
+    return;
+  }
+
+  const inventory = attributes.inventory || [];
+  ul.innerHTML = "";
+
+  if (inventory.length === 0) {
+    const li = document.createElement("li");
+    li.textContent = "Inventar ist leer";
+    ul.appendChild(li);
+  } else {
+    inventory.forEach((item, index) => {
+      const li = document.createElement("li");
+      li.style.display = "flex";
+      li.style.justifyContent = "space-between";
+      li.style.alignItems = "center";
+      li.style.padding = "2px 4px";
+      li.style.borderBottom = "1px solid #eee";
+
+      const text = document.createElement("span");
+      text.textContent = Object.values(item).join(", ");
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "✖";
+      deleteBtn.title = "Objekt entfernen";
+      deleteBtn.style.cursor = "pointer";
+      deleteBtn.style.border = "none";
+      deleteBtn.style.background = "transparent";
+      deleteBtn.style.color = "#900";
+      deleteBtn.style.fontWeight = "bold";
+      deleteBtn.style.fontSize = "14px";
+      deleteBtn.style.padding = "0 4px";
+
+      deleteBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        removeObjectFromInventory(personEl, index);
+        updateContextMenuInventory(personEl);
+      });
+
+      li.appendChild(text);
+      li.appendChild(deleteBtn);
+      ul.appendChild(li);
+    });
+  }
+}
+
+
+
+
+
+function removeObjectFromInventory(personEl, itemIndex) {
+  // Person-Attribute parsen
+  let attributes = {};
+  try {
+    attributes = JSON.parse(personEl.dataset.attributes || "{}");
+  } catch {
+    console.error("Fehler beim Parsen der Personen-Attribute");
+    return;
+  }
+
+  if (!attributes.inventory || !Array.isArray(attributes.inventory)) {
+    console.warn("Kein Inventar gefunden");
+    return;
+  }
+
+  // Objekt aus dem Inventar entfernen
+  const removedItem = attributes.inventory.splice(itemIndex, 1)[0];
+
+  // Attribute aktualisieren
+  personEl.dataset.attributes = JSON.stringify(attributes);
+
+  // Falls personEl.dataset.inventory separat gepflegt wird:
+  try {
+    let inv = JSON.parse(personEl.dataset.inventory || "[]");
+    inv.splice(itemIndex, 1);
+    personEl.dataset.inventory = JSON.stringify(inv);
+  } catch {
+    console.warn("Fehler beim Parsen von dataset.inventory");
+  }
+
+  // Neues DOM-Element für das entfernte Objekt erstellen
+  const newObjEl = createObjectElement(removedItem);
+
+  // Floorplan-Container holen (aus deinem ersten Code)
+  const floorplan = document.querySelector("#floorplan"); // Annahme
+
+  if (!floorplan) {
+    console.error("Floorplan-Container nicht gefunden");
+    return;
+  }
+
+  // Neues Objekt an den Floorplan anhängen
+  floorplan.appendChild(newObjEl);
+
+  console.log("Objekt wurde aus Inventar entfernt und auf Floorplan gehängt:", removedItem);
+
+  // Falls Kontextmenü offen ist, aktualisiere es
+  updateContextMenuInventory(personEl);
+}
+
+
+function createObjectElement(objectAttributes) {
+  const el = document.createElement("div");
+  el.className = "object-item"; // Oder wie deine Objekte heißen
+  el.dataset.attributes = JSON.stringify(objectAttributes);
+
+  // Optional: Name anzeigen oder anderes Markup
+  el.textContent = objectAttributes.option1 || "Unbenannt";
+
+  // Positionieren (z.B. oben links im Floorplan)
+  el.style.position = "absolute";
+  el.style.left = "10px";
+  el.style.top = "10px";
+
+  // Falls draggable, hier Draggables initialisieren
+  // initDraggable(el);
+
+  return el;
+}
+
+
 
 
 
