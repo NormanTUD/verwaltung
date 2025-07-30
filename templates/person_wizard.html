@@ -32,7 +32,7 @@
         <div id="contacts-container"></div>
         <button type="button" class="btn btn-secondary mb-3" id="add-contact-btn">+ Kontakt hinzufügen</button>
         <hr />
-        <button type="submit" class="btn btn-primary">Person speichern</button>
+        <button type="submit" class="btn btn-primary save-new">Person speichern</button>
     </form>
 
     <script src="../static/jquery.min.js"></script>
@@ -61,7 +61,7 @@
                         <input type="text" name="contact_comment[]" class="form-control" placeholder="Kommentar"
                                value="${data.comment || ''}">
                     </div>
-                    <button type="button" class="btn btn-danger btn-sm remove-contact-btn">Entfernen</button>
+                    <button type="button" class="btn btn-danger btn-sm remove-contact-btn delete-entry">Entfernen</button>
                 </div>
             `);
         }

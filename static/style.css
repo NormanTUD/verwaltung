@@ -158,38 +158,37 @@ button {
 
 /* Neuer Eintrag speichern */
 .save-new {
-	background-color: #27ae60;
-	color: white;
-	font-weight: 700;
-	font-size: 1rem;
-	width: 100%;
-	padding: 8px 14px;
+	background-color: #27ae60 !important;
+	color: white !important;
+	font-weight: 700 !important;
+	font-size: 1rem !important;
+	padding: 8px 14px !important;
 }
 
 .save-new:hover:not(:disabled) {
-	background-color: #219150;
+	background-color: #219150 !important;
 }
 
 .save-new:disabled {
-	background-color: #95a5a6;
-	cursor: not-allowed;
-	color: #ecf0f1;
-	opacity: 0.7;
-	pointer-events: none;
+	background-color: #95a5a6 !important;
+	cursor: not-allowed !important;
+	color: #ecf0f1 !important;
+	opacity: 0.7 !important;
+	pointer-events: none !important;
 }
 
 .save-new:disabled:hover {
-	background-color: #95a5a6;
+	background-color: #95a5a6 !important;
 }
 
 /* Löschen Button */
 .delete-entry {
-	background-color: #e74c3c;
-	color: white;
-	font-size: 0.9em;
-	padding: 5px 10px;
-	border-radius: 3px;
-	transition: background-color 0.3s ease;
+	background-color: #e74c3c !important;
+	color: white !important;
+	font-size: 0.9em !important;
+	padding: 5px 10px !important;
+	border-radius: 3px !important;
+	transition: background-color 0.3s ease !important;
 }
 
 .delete-entry:hover {
@@ -313,11 +312,6 @@ ul {
 		white-space: nowrap;
 		font-weight: 600;
 		color: #7f8c8d;
-	}
-
-	/* Save Button Vollbreite mobil */
-	button.save-new {
-		width: 100%;
 	}
 }
 
