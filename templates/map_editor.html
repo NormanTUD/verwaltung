@@ -1,157 +1,145 @@
-<!DOCTYPE html>
-<html lang="de">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>Raum- und Snapzone Editor</title>
-		<link rel="stylesheet" type="text/css" href="static/map_editor.css">
-		<link rel="shortcut icon" href="static/favicon.ico" type="image/x-icon">
+{% extends "layout.html" %}
+{% block title %}Aggregat{% endblock %}
+{% block content %}
+	<link rel="stylesheet" type="text/css" href="static/map_editor.css">
 
-		<script src="static/jquery.js" crossorigin="anonymous"></script>
-	</head>
-	<body>
-
-		<button id="backLink" class="floorplan_back_Btn">ᐊ</button>
-
-		<div id="selector-container">
-			<label for="buildingSelect">Gebäude:</label>
-			<select id="buildingSelect">
-				<option value="">-- Bitte wählen --</option>
-				{% for b_id in building_map.keys()|sort %}
-				<option value="{{ b_id }}" {% if building_id == b_id %}selected{% endif %}>
-				{{ building_names.get(b_id, "Unbekanntes Gebäude") }}
-				</option>
-				{% endfor %}
-			</select>
+	<div id="selector-container">
+		<label for="buildingSelect">Gebäude:</label>
+		<select id="buildingSelect">
+			<option value="">-- Bitte wählen --</option>
+			{% for b_id in building_map.keys()|sort %}
+			<option value="{{ b_id }}" {% if building_id == b_id %}selected{% endif %}>
+			{{ building_names.get(b_id, "Unbekanntes Gebäude") }}
+			</option>
+			{% endfor %}
+		</select>
 
 
-			<label for="floorSelect">Etage:</label>
-			<select id="floorSelect" {% if not floor %}disabled{% endif %}>
-				<option value="">-- Bitte wählen --</option>
-				{% if building_id %}
-				{% for f in building_map[building_id]|sort %}
-				<option value="{{ f }}" {% if floor == f %}selected{% endif %}>{{ f }}</option>
-				{% endfor %}
-				{% endif %}
-			</select>
+		<label for="floorSelect">Etage:</label>
+		<select id="floorSelect" {% if not floor %}disabled{% endif %}>
+			<option value="">-- Bitte wählen --</option>
+			{% if building_id %}
+			{% for f in building_map[building_id]|sort %}
+			<option value="{{ f }}" {% if floor == f %}selected{% endif %}>{{ f }}</option>
+			{% endfor %}
+			{% endif %}
+		</select>
 
-			<button id="goBtn" disabled>Los</button>
+		<button id="goBtn" disabled>Los</button>
+	</div>
+
+
+	<div id="containerContainer">
+		<img id="backgroundImage"
+		     src="{{ image_url }}"
+		     alt="Etagenplan"
+		     width="{{ image_width }}"
+		     height="{{ image_height }}">
+
+		<div id="container">
 		</div>
+	</div>
+
+	<pre id="output">// Räume und Snapzones werden hier angezeigt</pre>
 
 
-		<div id="containerContainer">
-			<img id="backgroundImage"
-			     src="{{ image_url }}"
-			     alt="Etagenplan"
-			     width="{{ image_width }}"
-			     height="{{ image_height }}">
+	<script>
+		const img = document.getElementById('backgroundImage');
+		const container = document.getElementById('container');
 
-			<div id="container">
-			</div>
-		</div>
+		img.onload = function () {
+			container.style.width = img.naturalWidth + 'px';
+			container.style.height = img.naturalHeight + 'px';
+		};
 
-		<pre id="output">// Räume und Snapzones werden hier angezeigt</pre>
+		const buildingMap = {{ building_map | tojson }};
+		const buildingSelect = document.getElementById("buildingSelect");
+		const floorSelect = document.getElementById("floorSelect");
+		const goBtn = document.getElementById("goBtn");
 
+		function updateFloorOptions() {
+			const building = buildingSelect.value;
+			floorSelect.innerHTML = '<option value="">-- Bitte wählen --</option>';
+			floorSelect.disabled = true;
+			goBtn.disabled = true;
 
-		<script>
-			const img = document.getElementById('backgroundImage');
-			const container = document.getElementById('container');
-
-			img.onload = function () {
-				container.style.width = img.naturalWidth + 'px';
-				container.style.height = img.naturalHeight + 'px';
-			};
-
-			const buildingMap = {{ building_map | tojson }};
-			const buildingSelect = document.getElementById("buildingSelect");
-			const floorSelect = document.getElementById("floorSelect");
-			const goBtn = document.getElementById("goBtn");
-
-			function updateFloorOptions() {
-				const building = buildingSelect.value;
-				floorSelect.innerHTML = '<option value="">-- Bitte wählen --</option>';
-				floorSelect.disabled = true;
-				goBtn.disabled = true;
-
-				if (building && buildingMap[building]) {
-					buildingMap[building].sort((a, b) => a - b).forEach(floor => {
-						const opt = document.createElement("option");
-						opt.value = floor;
-						opt.textContent = floor;
-						floorSelect.appendChild(opt);
-					});
-					floorSelect.disabled = false;
-				}
+			if (building && buildingMap[building]) {
+				buildingMap[building].sort((a, b) => a - b).forEach(floor => {
+					const opt = document.createElement("option");
+					opt.value = floor;
+					opt.textContent = floor;
+					floorSelect.appendChild(opt);
+				});
+				floorSelect.disabled = false;
 			}
+		}
 
-			buildingSelect.addEventListener("change", updateFloorOptions);
-			floorSelect.addEventListener("change", () => {
-				goBtn.disabled = floorSelect.value === "";
-			});
+		buildingSelect.addEventListener("change", updateFloorOptions);
+		floorSelect.addEventListener("change", () => {
+			goBtn.disabled = floorSelect.value === "";
+		});
 
-			goBtn.addEventListener("click", () => {
-				const b = buildingSelect.value;
-				const f = floorSelect.value;
-				if (b && f) {
-					window.location.href = `/map-editor?building_id=${b}&floor=${f}`;
-				}
-			});
-
-			// Initial aktivieren, falls beide gesetzt
-			if (buildingSelect.value && floorSelect.value) {
-				goBtn.disabled = false;
+		goBtn.addEventListener("click", () => {
+			const b = buildingSelect.value;
+			const f = floorSelect.value;
+			if (b && f) {
+				window.location.href = `/map-editor?building_id=${b}&floor=${f}`;
 			}
+		});
 
-			function getUrlParams() {
-				let params = {};
-				let query = window.location.search.substring(1);
-				let pairs = query.split("&");
-				for (let i = 0; i < pairs.length; i++) {
-					let pair = pairs[i].split("=");
-					let key = decodeURIComponent(pair[0]);
-					let value = decodeURIComponent(pair[1] || "");
-					params[key] = value;
-				}
-				return params;
+		// Initial aktivieren, falls beide gesetzt
+		if (buildingSelect.value && floorSelect.value) {
+			goBtn.disabled = false;
+		}
+
+		function getUrlParams() {
+			let params = {};
+			let query = window.location.search.substring(1);
+			let pairs = query.split("&");
+			for (let i = 0; i < pairs.length; i++) {
+				let pair = pairs[i].split("=");
+				let key = decodeURIComponent(pair[0]);
+				let value = decodeURIComponent(pair[1] || "");
+				params[key] = value;
 			}
+			return params;
+		}
 
-			window.addEventListener("DOMContentLoaded", function () {
-				let params = getUrlParams();
+		window.addEventListener("DOMContentLoaded", function () {
+			let params = getUrlParams();
 
-				let buildingSelect = document.getElementById("buildingSelect");
-				let floorSelect = document.getElementById("floorSelect");
+			let buildingSelect = document.getElementById("buildingSelect");
+			let floorSelect = document.getElementById("floorSelect");
 
-				if (params.building_id) {
-					let val = params.building_id;
-					for (let i = 0; i < buildingSelect.options.length; i++) {
-						if (buildingSelect.options[i].value === val) {
-							buildingSelect.selectedIndex = i;
-							break;
-						}
+			if (params.building_id) {
+				let val = params.building_id;
+				for (let i = 0; i < buildingSelect.options.length; i++) {
+					if (buildingSelect.options[i].value === val) {
+						buildingSelect.selectedIndex = i;
+						break;
 					}
 				}
+			}
 
-				if (params.floor) {
-					let val = params.floor;
-					for (let i = 0; i < floorSelect.options.length; i++) {
-						if (floorSelect.options[i].value === val) {
-							floorSelect.selectedIndex = i;
-							break;
-						}
+			if (params.floor) {
+				let val = params.floor;
+				for (let i = 0; i < floorSelect.options.length; i++) {
+					if (floorSelect.options[i].value === val) {
+						floorSelect.selectedIndex = i;
+						break;
 					}
 				}
+			}
 
-				// Optional: Floor-Select aktivieren, wenn Building gesetzt ist
-				if (params.building_id && floorSelect.disabled) {
-					floorSelect.disabled = false;
-				}
-			});
-		</script>
+			// Optional: Floor-Select aktivieren, wenn Building gesetzt ist
+			if (params.building_id && floorSelect.disabled) {
+				floorSelect.disabled = false;
+			}
+		});
+	</script>
 
-		<textarea id="import" onkeyup="import_text()" style="min-width: 500px; min-height: 500px">
-		</textarea>
+	<textarea id="import" onkeyup="import_text()" style="min-width: 500px; min-height: 500px">
+	</textarea>
 
-		<script src="static/map_editor.js"></script>
-		<script src="/static/footer.js"></script>
-	</body>
-</html>
+	<script src="static/map_editor.js"></script>
+{% endblock %}
