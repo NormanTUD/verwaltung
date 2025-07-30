@@ -691,35 +691,35 @@ def index():
 def admin_panel():
     session = Session()
 
-    try:
-        if request.method == 'POST' and 'new_username' in request.form:
-            username = request.form['new_username']
-            password = request.form['new_password']
-            role_id = request.form.get('new_role')
+    if request.method == 'POST' and 'new_username' in request.form:
+        username = request.form['new_username']
+        password = request.form['new_password']
+        role_id = request.form.get('new_role')
 
-            if session.query(User).filter_by(username=username).first():
-                flash('Benutzername existiert bereits.')
-            else:
-                hashed = generate_password_hash(password)
-                user = User(username=username, password=hashed)
-                if role_id:
-                    role = session.query(Role).get(int(role_id))
-                    if role:
-                        user.roles.append(role)
-                session.add(user)
-                session.commit()
-                flash('Benutzer hinzugefügt.')
+        if session.query(User).filter_by(username=username).first():
+            flash('Benutzername existiert bereits.')
+        else:
+            hashed = generate_password_hash(password)
+            user = User(username=username, password=hashed)
+            if role_id:
+                role = session.query(Role).get(int(role_id))
+                if role:
+                    user.roles.append(role)
+            session.add(user)
+            session.commit()
+            flash('Benutzer hinzugefügt.')
 
-            return redirect(url_for('admin_panel'))
-
-        # WICHTIG: Rollen eager-laden, um DetachedInstanceError zu vermeiden
-        users = session.query(User).options(joinedload(User.roles)).all()
-        roles = session.query(Role).all()
-
-        return render_template('admin_panel.html', users=users, roles=roles)
-
-    finally:
         session.close()
+
+        return redirect(url_for('admin_panel'))
+
+    # WICHTIG: Rollen eager-laden, um DetachedInstanceError zu vermeiden
+    users = session.query(User).options(joinedload(User.roles)).all()
+    roles = session.query(Role).all()
+
+    session.close()
+
+    return render_template('admin_panel.html', users=users, roles=roles)
 
 @app.route('/admin/delete/<int:user_id>')
 @login_required
