@@ -112,6 +112,76 @@ FK_DISPLAY_COLUMNS = {
     "person": ["title", "first_name", "last_name"]
 }
 
+INITIAL_DATA = {
+    "kostenstellen": [
+        {"name": "Kostenstelle A"},
+        {"name": "Kostenstelle B"},
+    ],
+    "professorships": [
+        {"name": "Professur X", "kostenstelle_name": "Kostenstelle A"},
+        {"name": "Professur Y", "kostenstelle_name": "Kostenstelle B"},
+    ],
+    "object_categories": [
+        {"name": "Kategorie 1"},
+        {"name": "Kategorie 2"},
+    ],
+    "abteilungen": [
+        {"name": "Abteilung Alpha"},
+        {"name": "Abteilung Beta"},
+    ]
+}
+
+def initialize_db_data():
+    session = Session()
+    try:
+        with app.app_context():
+            # Prüfen ob Tabellen leer sind (hier nur ein Beispiel für Kostenstelle)
+            kostenstelle_count = Kostenstelle.query.count()
+            if kostenstelle_count == 0:
+                # Insert Kostenstellen
+                for ks in INITIAL_DATA["kostenstellen"]:
+                    obj = Kostenstelle(name=ks["name"])
+                    session.add(obj)
+                session.commit()
+                print("Kostenstellen initialisiert.")
+
+            professorship_count = Professorship.query.count()
+            if professorship_count == 0:
+                # Profssorships brauchen Kostenstelle-IDs, deshalb laden wir die Kostenstellen-Objekte
+                for prof in INITIAL_DATA["professorships"]:
+                    kostenstelle_obj = Kostenstelle.query.filter_by(name=prof["kostenstelle_name"]).first()
+                    if kostenstelle_obj is None:
+                        raise ValueError(f"Kostenstelle '{prof['kostenstelle_name']}' nicht gefunden für Professur '{prof['name']}'")
+                    obj = Professorship(name=prof["name"], kostenstelle_id=kostenstelle_obj.id)
+                    session.add(obj)
+                session.commit()
+                print("Professuren initialisiert.")
+
+            object_category_count = ObjectCategory.query.count()
+            if object_category_count == 0:
+                for cat in INITIAL_DATA["object_categories"]:
+                    obj = ObjectCategory(name=cat["name"])
+                    session.add(obj)
+                session.commit()
+                print("ObjectCategories initialisiert.")
+
+            abteilung_count = Abteilung.query.count()
+            if abteilung_count == 0:
+                for abt in INITIAL_DATA["abteilungen"]:
+                    obj = Abteilung(name=abt["name"])
+                    session.add(obj)
+                session.commit()
+                print("Abteilungen initialisiert.")
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        print(f"Fehler beim Initialisieren der DB-Daten: {str(e)}")
+    except Exception as e:
+        session.rollback()
+        print(f"Allgemeiner Fehler: {str(e)}")
+        
+    session.close()
+
 WIZARDS = {
     "transponder": {
         "title": "Transponder erstellen",
@@ -2825,5 +2895,6 @@ def data_overview():
 
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
+    initialize_db_data()
 
     app.run(debug=True, port=5000)
