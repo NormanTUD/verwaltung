@@ -1,95 +1,45 @@
 {% extends "layout.html" %}
-{% block title %}Aggregat{% endblock %}
+{% block title %}Übersicht{% endblock %}
 {% block content %}
-    <div class="tabs">
-        <div class="tab-button" data-tab="tab-wizards">Wizards</div>
-        <div class="tab-button" data-tab="tab-aggregate">Aggregate</div>
-        <div class="tab-button" data-tab="tab-tables">Tabellen</div>
-        <div class="tab-button" data-tab="tab-map">Map-Editor</div>
-    </div>
 
-    <div id="tab-wizards" class="tab-content">
-        <ul>
-            {% for route in wizard_routes %}
-                <li><a href="{{ route }}">{{ route.replace('/wizard/', '').capitalize() }}</a></li>
-            {% endfor %}
-        </ul>
-    </div>
+<h1 class="text-3xl font-bold mb-6">🗂️ Übersicht</h1>
 
-    <div id="tab-aggregate" class="tab-content">
-	    <ul>
-		    <!-- Hier kannst du später beliebig weitere Aggregate‑Links ergänzen -->
-		    <li><a href="{{ url_for('aggregate_inventory_view') }}">Inventar</a></li>
-		    <li><a href="{{ url_for('aggregate_transponder_view') }}">Ausgegebene Transponder</a></li>
-	    </ul>
+<!-- Wizards -->
+<section class="mb-8">
+    <h2 class="text-xl font-semibold mb-2">🧙 Wizards</h2>
+    <ul class="list-disc list-inside">
+        {% for route in wizard_routes %}
+            <li><a class="text-blue-500 hover:underline" href="{{ route }}">{{ route.replace('/wizard/', '').capitalize() }}</a></li>
+        {% endfor %}
+    </ul>
+</section>
 
-    </div>
+<!-- Aggregate -->
+<section class="mb-8">
+    <h2 class="text-xl font-semibold mb-2">📦 Aggregate</h2>
+    <ul class="list-disc list-inside">
+        <li><a class="text-blue-500 hover:underline" href="{{ url_for('aggregate_inventory_view') }}">Inventar</a></li>
+        <li><a class="text-blue-500 hover:underline" href="{{ url_for('aggregate_transponder_view') }}">Ausgegebene Transponder</a></li>
+    </ul>
+</section>
 
-    <div id="tab-tables" class="tab-content">
-        <ul>
-            {% for table in tables %}
-                <li><a href="{{ url_for('table_view', table_name=table) }}">{{ table.capitalize() }}</a></li>
-            {% endfor %}
-        </ul>
-    </div>
+<!-- Tabellen -->
+<section class="mb-8">
+    <h2 class="text-xl font-semibold mb-2">📋 Tabellen</h2>
+    <ul class="list-disc list-inside">
+        {% for table in tables %}
+            <li><a class="text-blue-500 hover:underline" href="{{ url_for('table_view', table_name=table) }}">{{ table.capitalize() }}</a></li>
+        {% endfor %}
+    </ul>
+</section>
 
-    <div id="tab-map" class="tab-content">
-        <ul>
-            <li><a href="/map-editor">Map-Editor starten</a></li>
-            <li><a href="/floorplan">Floorplan</a></li>
-        </ul>
-    </div>
+<!-- Karten -->
+<section class="mb-8">
+    <h2 class="text-xl font-semibold mb-2">🗺️ Karten & Editor</h2>
+    <ul class="list-disc list-inside">
+        <li><a class="text-blue-500 hover:underline" href="/map-editor">Map-Editor starten</a></li>
+        <li><a class="text-blue-500 hover:underline" href="/floorplan">Floorplan</a></li>
+    </ul>
+</section>
 
-    <script>
-        function switchTab(eventOrTabId) {
-            var tabId;
-            if (typeof eventOrTabId === 'string') {
-                tabId = eventOrTabId;
-            } else {
-                tabId = eventOrTabId.target.getAttribute('data-tab');
-                if (tabId) {
-                    window.location.hash = tabId;
-                }
-            }
-
-            var tabButtons = document.querySelectorAll('.tab-button');
-            var tabContents = document.querySelectorAll('.tab-content');
-
-            tabButtons.forEach(function (btn) {
-                if (btn.getAttribute('data-tab') === tabId) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
-            });
-
-            tabContents.forEach(function (tab) {
-                if (tab.id === tabId) {
-                    tab.classList.add('active');
-                } else {
-                    tab.classList.remove('active');
-                }
-            });
-        }
-
-        var buttons = document.querySelectorAll('.tab-button');
-        buttons.forEach(function (btn) {
-            btn.addEventListener('click', switchTab);
-        });
-
-        window.addEventListener('DOMContentLoaded', function () {
-            var hash = window.location.hash.substring(1);  // remove leading #
-            var tabExists = document.getElementById(hash) !== null;
-
-            if (hash && tabExists) {
-                switchTab(hash);
-            } else {
-                // Fallback: aktiviere ersten Tab
-                var firstTab = buttons[0].getAttribute('data-tab');
-                switchTab(firstTab);
-                window.location.hash = firstTab;
-            }
-        });
-    </script>
-    <script src="/static/footer.js"></script>
 {% endblock %}
