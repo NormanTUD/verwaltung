@@ -22,7 +22,8 @@
 		{% endfor %}
 		{% endif %}
 	</select>
-
+	<button id="addBtn">➕ Objekt hinzufügen</button>
+	<button id="addPersonBtn">➕ Person hinzufügen</button>
 	<div id="personForm" style="display:none; margin-top: 20px;">
 		<label>
 			<input type="radio" name="mode" value="select" checked>
@@ -54,8 +55,7 @@
 
 	<div id="viewport">
 		{% if image_url and image_width and image_height %}
-			<button id="addBtn">➕ Objekt hinzufügen</button>
-			<button id="addPersonBtn">➕ Person hinzufügen</button>
+			
 
 			<div id="floorplan"
 			     style="background: url('{{ image_url }}'); width: {{ image_width }}px; height: {{ image_height }}px;">
