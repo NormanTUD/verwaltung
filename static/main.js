@@ -75,7 +75,7 @@ const rooms = {};
 function createLabel(name) {
   const label = document.createElement("div");
   label.className = "room-label";
-  label.textContent = "Raum " + name;
+  //label.textContent = "Raum " + name; 
   return label;
 }
 
