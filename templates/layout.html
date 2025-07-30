@@ -146,7 +146,6 @@
 						element.style.webkitAppearance = 'none';  // Safari
 						element.style.mozAppearance = 'none';     // Firefox
 
-						$("select").css("background-color", "1a202c")
 					} else {
 						element.style.backgroundColor = '';
 						element.style.color = '';
@@ -154,10 +153,16 @@
 						element.style.appearance = '';
 						element.style.webkitAppearance = '';
 						element.style.mozAppearance = '';
-						
-						$("select").css("background-color", "unset")
 					}
 				});
+
+				if(mode === "dark") {
+					$("select").css("background-color", "1a202c");
+					$("input").css("border", "1px solid #3daee9");
+				} else {
+					$("select").css("background-color", "unset");
+					$("input").css("border", "unset");
+				}
 			}
 
 			document.addEventListener('DOMContentLoaded', function () {
