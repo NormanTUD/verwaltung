@@ -1,12 +1,25 @@
+/* Basisstyles */
 body {
 	font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 	margin: 2em;
-	background: #f9f9f9;
-	color: #333;
+	background-color: #f9f9f9;
+	color: #333333;
 }
+
+/* Dark Mode Beispiel für Tailwind: */
+/* body.dark { */
+/*     background-color: #1a202c; */
+/*     color: #cbd5e0; */
+/* } */
 
 h1 {
 	margin-bottom: 1em;
+}
+
+ul, li {
+	margin: 0;
+	padding: 0;
+	list-style-position: inside;
 }
 
 li {
@@ -17,196 +30,197 @@ a {
 	text-decoration: none;
 	color: #007bff;
 	font-weight: 600;
+	transition: color 0.2s ease;
 }
 
-
-a:hover {
+a:hover,
+a:focus {
 	text-decoration: underline;
+	color: #0056b3;
 }
 
+/* Container für Kontaktzeilen */
 .contact-row {
 	margin-bottom: 1rem;
 	padding: 1rem;
 	border: 1px solid #ddd;
 	border-radius: 5px;
+	background-color: white;
+	/* dark mode fallback */
+	/* dark:border-gray-600; dark:bg-gray-700; */
 }
 
+/* Fehlerklassen */
 .error {
-	background: #fffbfb;
+	background-color: #fffbfb;
 	color: #aa0000;
+	border-radius: 4px;
+	padding: 0.5em 1em;
 }
+
 .error_a {
 	color: #0066cc;
 }
 
+/* Filterbox */
 .filter-box {
-	margin: 16px 0;
+	margin: 1rem 0;
 	padding: 12px;
-	background: #eef2ff;
+	background-color: #eef2ff;
 	border: 1px solid #ccd5ff;
 	border-radius: 4px;
 }
+
 .filter-box form {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px;
 	align-items: center;
 }
+
 .filter-box label {
 	display: flex;
 	align-items: center;
 	gap: 4px;
 }
 
+/* Scrollbare Tabelle */
 .table-wrapper {
 	overflow-x: auto;
 }
 
+/* Tabelle - Basis */
 table {
-	border-collapse: collapse;
 	width: 100%;
+	border-collapse: collapse;
 	margin-bottom: 2em;
 	box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-	background: white;
+	background-color: white;
 	border-radius: 6px;
 	overflow: hidden;
+	/* Dark mode fallback */
+	/* dark:bg-gray-800; dark:shadow-lg; */
 }
+
+/* Tabellenkopf */
 thead tr {
 	background-color: #2980b9;
 	color: white;
-	text-align: left;
 	font-weight: 600;
 	user-select: none;
 }
+
 th, td {
-	padding: 10px 15px;
+	padding: 12px 15px;
 	border-bottom: 1px solid #ddd;
+	text-align: left;
 	vertical-align: middle;
 }
-tbody tr:hover:not(.new-entry) {
-	background-color: #ecf0f1;
-}
-input.cell-input, select.cell-input {
-	width: 100%;
-	padding: 6px 8px;
-	border: 1px solid #bdc3c7;
-	border-radius: 4px;
-	font-size: 0.95rem;
-	transition: border-color 0.2s ease-in-out;
-}
-input.cell-input:focus, select.cell-input:focus {
-	border-color: #2980b9;
-	outline: none;
-	box-shadow: 0 0 6px #2980b9aa;
+
+/* Zebra-Streifen für Zeilen */
+tbody tr:nth-child(even) {
+	background-color: #f9f9f9;
 }
 
+/* Hover-Effekt für Tabellenzeilen, außer neue Einträge */
+tbody tr:hover:not(.new-entry) {
+	background-color: #ecf0f1;
+	cursor: pointer;
+}
+
+/* Neue Eintragszeile */
 .new-entry {
 	background-color: #dff0d8;
 	font-weight: 600;
 }
+
 .new-entry td {
 	padding-top: 14px;
 	padding-bottom: 14px;
 }
 
-.save-new {
-	background-color: #27ae60;
-	border: none;
-	color: white;
-	padding: 8px 14px;
-	cursor: pointer;
-	border-radius: 4px;
-	font-weight: 700;
-	font-size: 1rem;
-	transition: background-color 0.3s ease;
+/* Input- und Select-Felder in Tabellenzellen */
+input.cell-input,
+select.cell-input,
+.auto_generated_field {
 	width: 100%;
+	padding: 6px 8px;
+	border: 1px solid #bdc3c7;
+	border-radius: 4px;
+	font-size: 0.95rem;
+	transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
 
-.save-new:hover {
+input.cell-input:focus,
+select.cell-input:focus,
+.auto_generated_field:focus {
+	border-color: #2980b9;
+	outline: none;
+	box-shadow: 0 0 6px #2980b9aa;
+}
+
+/* Buttons allgemein */
+button {
+	padding: 4px 10px;
+	cursor: pointer;
+	border-radius: 4px;
+	border: none;
+	transition: background-color 0.3s ease;
+}
+
+/* Spezifische Buttons */
+
+/* Neuer Eintrag speichern */
+.save-new {
+	background-color: #27ae60;
+	color: white;
+	font-weight: 700;
+	font-size: 1rem;
+	width: 100%;
+	padding: 8px 14px;
+}
+
+.save-new:hover:not(:disabled) {
 	background-color: #219150;
 }
 
-/* Disabled Zustand */
 .save-new:disabled {
-	background-color: #95a5a6; /* Hellgrau */
+	background-color: #95a5a6;
 	cursor: not-allowed;
-	color: #ecf0f1; /* Heller Text */
+	color: #ecf0f1;
 	opacity: 0.7;
-	pointer-events: none; /* Deaktiviert alle Pointer-Events */
+	pointer-events: none;
 }
 
-/* Hover deaktivieren, wenn disabled */
 .save-new:disabled:hover {
-	background-color: #95a5a6; /* bleibt grau */
+	background-color: #95a5a6;
 }
 
-@media (max-width: 768px) {
-	body {
-		margin: 1em;
-	}
-	table.edit-table, thead tr, tbody tr, th, td {
-		display: block;
-		width: 100%;
-	}
-	thead tr {
-		display: none;
-	}
-	tbody tr {
-		margin-bottom: 1.5em;
-		border-radius: 8px;
-		box-shadow: 0 1px 5px rgba(0,0,0,0.1);
-		background: white;
-		padding: 1em;
-	}
-	tbody tr td {
-		border: none;
-		padding: 8px 4px;
-		position: relative;
-		padding-left: 50%;
-	}
-	tbody tr td::before {
-		position: absolute;
-		top: 8px;
-		left: 10px;
-		width: 45%;
-		white-space: nowrap;
-		font-weight: 600;
-		color: #7f8c8d;
-		content: attr(data-label);
-	}
-	button.save-new {
-		width: 100%;
-	}
-}
-
+/* Löschen Button */
 .delete-entry {
-	background-color: #e74c3c; /* kräftiges Rot */
+	background-color: #e74c3c;
 	color: white;
-	border: none;
-	padding: 5px 10px;
 	font-size: 0.9em;
-	cursor: pointer;
+	padding: 5px 10px;
 	border-radius: 3px;
 	transition: background-color 0.3s ease;
 }
 
 .delete-entry:hover {
-	background-color: #c0392b; /* dunkleres Rot beim Hover */
+	background-color: #c0392b;
 }
 
 .delete-entry:active {
-	background-color: #992d22; /* noch dunkler beim Klicken */
+	background-color: #992d22;
 }
 
-select, input[type="checkbox"] {
+/* Select und Checkbox Cursor */
+select,
+input[type="checkbox"] {
 	cursor: pointer;
 }
 
-button {
-	padding: 4px 10px;
-	cursor: pointer;
-}
-
+/* Tabs */
 .tabs {
 	display: flex;
 	border-bottom: 1px solid #ccc;
@@ -222,64 +236,104 @@ button {
 	margin-right: 5px;
 	border-top-left-radius: 5px;
 	border-top-right-radius: 5px;
+	transition: background-color 0.2s ease;
 }
 
 .tab-button.active {
-	background-color: #ffffff;
+	background-color: white;
 	font-weight: bold;
 }
 
+/* Tab-Inhalt */
 .tab-content {
 	display: none;
 	border: 1px solid #ccc;
 	padding: 15px;
-	background-color: #ffffff;
+	background-color: white;
 }
 
 .tab-content.active {
 	display: block;
 }
 
+/* Liste mit Einrückung */
 ul {
 	padding-left: 20px;
 }
 
+/* Floorplan Back Button */
 .floorplan_back_Btn {
 	width: 35px;
 	height: 35px;
 	border-radius: 50%;
-	object-fit: cover;
-	display: block;
-	position: relative;
 	background-color: #007bff;
-	z-index: 9999;
 	color: white;
 	border: none;
-	outline: none; /* nur wenn du den Fokusrahmen wirklich nicht willst */
+	outline: none;
 	padding: 0;
+	position: relative;
+	z-index: 9999;
+	display: block;
+	object-fit: cover;
+	cursor: pointer;
+	transition: background-color 0.2s ease;
 }
 
-.auto_generated_field {
-	width: 50%;
-	padding: 6px 8px;
-	border: 1px solid #bdc3c7;
-	border-radius: 4px;
-	font-size: 0.95rem;
-	transition: border-color 0.2s ease-in-out;
+.floorplan_back_Btn:hover,
+.floorplan_back_Btn:focus {
+	background-color: #0056b3;
 }
 
+/* Responsive Styles */
+@media (max-width: 768px) {
+	body {
+		margin: 1em;
+	}
 
-th, td {
-	padding: 12px 15px;
-	border-bottom: 1px solid #ddd;
-	text-align: left;
-}
+	/* Tabellen mobil als Blocks */
+	table,
+	thead tr,
+	tbody tr,
+	th,
+	td {
+		display: block;
+		width: 100%;
+	}
 
-th {
-	background-color: #0077cc;
-	color: white;
-}
+	thead tr {
+		display: none;
+	}
 
-tr:nth-child(even) {
-	background-color: #f9f9f9;
+	tbody tr {
+		margin-bottom: 1.5em;
+		border-radius: 8px;
+		box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+		background-color: white;
+		padding: 1em;
+	}
+
+	tbody tr td {
+		border: none;
+		padding: 8px 4px;
+		position: relative;
+		padding-left: 50%;
+		text-align: left;
+	}
+
+	/* Label vor Tabellenzellen für mobile */
+	tbody tr td::before {
+		content: attr(data-label);
+		position: absolute;
+		top: 8px;
+		left: 10px;
+		width: 45%;
+		white-space: nowrap;
+		font-weight: 600;
+		color: #7f8c8d;
+	}
+
+	/* Save Button Vollbreite mobil */
+	button.save-new {
+		width: 100%;
+	}
 }
