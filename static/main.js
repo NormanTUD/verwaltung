@@ -70,8 +70,6 @@ function loadFloorplan(buildingId, floor) {
 const rooms = {};
 
 // Räume + Snapzones erzeugen
-
-
 function createLabel(name) {
 	const label = document.createElement("div");
 	label.className = "room-label";
@@ -99,7 +97,6 @@ function createRooms() {
 		};
 	});
 }
-
 
 function createRoomElement(data) {
 	const room = document.createElement("div");
@@ -134,7 +131,6 @@ function makeDraggable(el) {
 		return { offsetX, offsetY };
 	}
 
-
 	function startDragging(e) {
 		e.preventDefault();
 
@@ -159,8 +155,6 @@ function makeDraggable(el) {
 		document.addEventListener("mouseup", onMouseUp);
 	}
 
-
-
 	function getMousePosRelativeToViewport(ev) {
 		const floorplanRect = $("#viewport")[0].getBoundingClientRect();
 
@@ -170,7 +164,6 @@ function makeDraggable(el) {
 		//console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
 		return { mouseX, mouseY };
 	}
-
 
 	function getMousePosRelativeToFloorplan(ev) {
 		const floorplanRect = floorplan.getBoundingClientRect();
@@ -318,9 +311,6 @@ function makeDraggable(el) {
 
 	}
 
-
-
-
 	function onMouseUp(ev) {
 		stopDragging();
 	}
@@ -352,14 +342,11 @@ async function loadPersonDatabase() {
 	}
 }
 
-
 const addPersonBtn = document.getElementById("addPersonBtn");
 const personForm = document.getElementById("personForm");
 const dynamicForm = document.getElementById("dynamicPersonForm");
 const confirmPersonBtn = document.getElementById("confirmPersonBtn");
 const existingPersonSelect = document.getElementById("existingPersonSelect");
-
-
 
 // Hilfsfunktion: Formular generieren
 function generateForm(schema, formElement) {
@@ -465,8 +452,6 @@ function handleSelectMode() {
 	createPersonCircle(person);
 }
 
-
-
 function resetForm() {
 	personForm.style.display = "none";
 	dynamicForm.innerHTML = "";
@@ -495,7 +480,6 @@ async function savePersonToDatabase(newPerson) {
 	}
 }
 
-
 // Erstelle Person-Kreis und hänge an Floorplan an
 function createPersonCircle(attributes) {
 	const circle = createCircleElement(attributes);
@@ -523,7 +507,6 @@ function getPersonRoomDataSync(buildingId, floor) {
 		return null;
 	}
 }
-
 
 function createCircleElement(attributes, position = null) {
 	const circle = document.createElement("div");
@@ -581,7 +564,6 @@ function createPersonsFromApiData(personDataArray) {
 				// Kreis an Floorplan anhängen
 				floorplan.appendChild(circle);
 
-
 				makeDraggable(circle);
 			}
 		} else {
@@ -637,7 +619,6 @@ function my_escape(str) {
 	});
 }
 
-
 function addCircleToFloorplan(circle) {
 	try {
 		floorplan.appendChild(circle);
@@ -676,8 +657,6 @@ function toggleContextMenu(circle, attributes) {
 	}
 }
 
-
-
 function removeExistingContextMenus() {
 	const menus = document.querySelectorAll(".context-menu");
 	menus.forEach(menu => menu.remove());
@@ -696,8 +675,6 @@ function positionContextMenuAbsolute(circle, menu) {
 	menu.style.left = `${left}px`;
 	menu.style.transform = "translateX(-50%)";
 }
-
-
 
 function buildContextMenu(attributes, personEl) {
 	const menu = document.createElement("div");
@@ -775,14 +752,6 @@ function buildContextMenu(attributes, personEl) {
 	return menu;
 }
 
-
-
-
-
-
-
-
-
 function getContextMenuStyles() {
 	return {
 		position: "absolute",
@@ -800,7 +769,6 @@ function getContextMenuStyles() {
 		textAlign: "left"
 	};
 }
-
 
 function positionContextMenu(circle, menu) {
 	try {
@@ -833,16 +801,6 @@ function cancelBtnFunction() {
 }
 
 cancelObjectBtn.addEventListener("click", cancelBtnFunction);
-
-
-
-
-
-
-
-
-
-
 
 function getInputValue(id) {
 	const input = document.getElementById(id);
@@ -903,10 +861,6 @@ function createOptionsDiv(options) {
 
 	return div;
 }
-
-
-
-
 
 function appendToContainer(div, containerId = "generatedObjectsContainer") {
 	const container = document.getElementById(containerId);
@@ -995,10 +949,6 @@ window.addEventListener("DOMContentLoaded", () => {
 	}
 });
 
-
-
-
-
 function checkIfObjectOnPerson(el) {
 	console.log("🚧 Überprüfe, ob 'el' das Zielobjekt ist oder eine Person:");
 
@@ -1068,9 +1018,6 @@ function checkIfObjectOnPerson(el) {
 	}
 }
 
-
-
-
 function updateContextMenuInventory(personEl) {
 	const menu = document.querySelector(".context-menu");
 	if (!menu) {
@@ -1135,10 +1082,6 @@ function updateContextMenuInventory(personEl) {
 	}
 }
 
-
-
-
-
 function removeObjectFromInventory(personEl, itemIndex) {
 	// Person-Attribute parsen
 	let attributes = {};
@@ -1188,7 +1131,6 @@ const cancelPersonBtn = document.getElementById("cancelPersonBtn");
 
 cancelPersonBtn.addEventListener("click", cancelpersonBtnFunction);
 
-
 function cancelpersonBtnFunction() {
 	personForm.style.display = "none";
 	dynamicForm.innerHTML = "";
@@ -1199,7 +1141,6 @@ document.addEventListener("DOMContentLoaded", function() {
 	loadPersonDatabase();
 	load_persons_from_db();
 });
-
 
 document.addEventListener('keydown', function(event) {
   if (event.key === 'Escape') {
