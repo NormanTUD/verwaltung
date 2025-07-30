@@ -821,29 +821,6 @@ document.addEventListener('mousemove', (event) => {
 	mauszeigerAufRoom = element.closest('.room') !== null;
 });
 
-function mauszeiger_is_on_room() {
-	return mauszeigerAufRoom;
-}
-
-
-function isMouseOutsideRooms(event, container, rooms) {
-	const containerRect = container.getBoundingClientRect();
-	const mouseX = event.clientX - containerRect.left;
-	const mouseY = event.clientY - containerRect.top;
-
-	for (const room of rooms) {
-		const inRoom =
-			mouseX >= room.x &&
-			mouseX <= room.x + room.width &&
-			mouseY >= room.y &&
-			mouseY <= room.y + room.height;
-
-		if (inRoom) return false; // Maus ist in einem Raum
-	}
-
-	return true; // Maus ist außerhalb aller Räume
-}
-
 if(!isNaN(building_id) && !isNaN(floor)) {
 	loadFloorplan(building_id, floor);
 }
