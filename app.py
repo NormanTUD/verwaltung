@@ -2331,8 +2331,7 @@ def save_or_update_room():
             _save_room_set_layout(session, room, validated)
             session.commit()
 
-            session.close()
-            return jsonify({
+            ret = jsonify({
                 "status": "success",
                 "room_id": room.id,
                 "room_name": room.name,
@@ -2344,7 +2343,11 @@ def save_or_update_room():
                     "width": validated["width"],
                     "height": validated["height"]
                 }
-            }), 200
+            })
+
+            session.close()
+
+            return ret, 200
 
         except IntegrityError as e:
             session.rollback()
