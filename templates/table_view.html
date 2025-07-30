@@ -1,14 +1,6 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <title>{{ table_name|capitalize }} - Datenbank Editor</title>
-
-    <link rel="stylesheet" href="../static/toastr.min.css">
-    <link rel="stylesheet" href="../static/style.css">
-</head>
-<body>
-    <button id="backLink" class="floorplan_back_Btn">ᐊ</button>
+{% extends "layout.html" %}
+{% block title %}DB Info{% endblock %}
+{% block content %}
     <h2>{{ table_name|capitalize }}</h2>
 
 {% if missing_data_messages %}
@@ -55,6 +47,4 @@
     <script>
         {{ javascript_code|safe }}
     </script>
-    <script src="/static/footer.js"></script>
-</body>
-</html>
+{% endblock %}
