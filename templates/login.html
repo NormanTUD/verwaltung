@@ -35,7 +35,6 @@
 }
 </style>
 <div class="login-container">
-	<h2>Login</h2>
 	<form method="POST" class="login-form">
 		<div class="form-group">
 			<label for="username">Username:</label>
@@ -43,7 +42,7 @@
 		</div>
 
 		<div class="form-group">
-			<label for="password">Password:</label>
+			<label for="password">Passwort:</label>
 			<input id="password" class="form-control" name="password" type="password" required />
 		</div>
 
@@ -51,8 +50,8 @@
 			<button class="save-new" type="submit">Login</button>
 		</div>
 
-		<p class="register-link">Don't have an account?
-			<a href="{{ url_for('register') }}">Register here</a>
+		<p class="register-link">Kein Account?
+			<a href="{{ url_for('register') }}">Hier registrieren</a>
 		</p>
 
 		{% with messages = get_flashed_messages() %}

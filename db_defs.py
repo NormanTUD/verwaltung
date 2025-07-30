@@ -1,5 +1,5 @@
 from typing import Optional, Dict, Any, Type, List
-from sqlalchemy import (create_engine, Column, Integer, String, Text, ForeignKey, Date, Float, TIMESTAMP, UniqueConstraint, Table)
+from sqlalchemy import (create_engine, Column, Integer, String, Text, ForeignKey, Date, Float, TIMESTAMP, UniqueConstraint, Table, Boolean)
 from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.inspection import inspect
 from sqlalchemy.exc import NoInspectionAvailable
@@ -31,6 +31,7 @@ class User(UserMixin, Base):
     username = Column(String(150), unique=True)
     password = Column(String(150))
     role = Column(String(50))
+    is_active = Column(Boolean, default=False)
 
     user_roles = Table(
         'user_roles', Base.metadata,

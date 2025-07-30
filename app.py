@@ -567,7 +567,7 @@ def login():
             login_user(user)
             session.close()
             return redirect(url_for('index'))
-        flash('Login failed')
+        flash('Anmeldung fehlgeschlagen')
     session.close()
     return render_template('login.html')
 
@@ -580,7 +580,7 @@ def is_password_complex(password):
         return False
     if not re.search(r'[0-9]', password):  # Ziffer
         return False
-    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):  # Sonderzeichen
+    if not re.search(r'[^\w\s]', password):  # Sonderzeichen
         return False
     return True
 
@@ -594,21 +594,24 @@ def register():
         # Passwort-Komplexitätsprüfung
         if not is_password_complex(password):
             session.close()
-            return render_template('register.html', error='Password must be at least 8 characters long and contain uppercase, lowercase, digit, and special character.')
+            return render_template(
+                'register.html',
+                error='Passwort muss mindestens 8 Zeichen lang sein und contain Großbuchstaben, Kleinbuchstaben, Zahlen und mindestens ein Sonderzeichen beinhalten.'
+            )
 
-        # Check if user already exists
+        # Prüfen, ob Benutzername bereits existiert
         existing_user = session.query(User).filter_by(username=username).first()
         if existing_user:
             session.close()
             return render_template('register.html', error='Username already taken.')
 
-        # Hash password
+        # Passwort hashen
         hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
-        new_user = User(username=username, password=hashed_pw)
 
-        # Check if this is the first user
+        # Prüfen, ob dies der erste Benutzer ist
         user_count = session.query(User).count()
         if user_count == 0:
+            # Admin-Rolle holen oder erstellen
             try:
                 admin_role = session.query(Role).filter_by(name='admin').one()
             except NoResultFound:
@@ -616,8 +619,21 @@ def register():
                 session.add(admin_role)
                 session.commit()
 
+            # Erster Benutzer: aktiv und admin
+            new_user = User(
+                username=username,
+                password=hashed_pw,
+                is_active=True,
+                role='admin'
+            )
             new_user.roles.append(admin_role)
-            new_user.role = 'admin'
+        else:
+            # Weitere Benutzer: nicht aktiv
+            new_user = User(
+                username=username,
+                password=hashed_pw,
+                is_active=False
+            )
 
         session.add(new_user)
         session.commit()
