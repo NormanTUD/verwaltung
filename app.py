@@ -2923,59 +2923,70 @@ def data_overview():
 
 @app.route("/api/get_person_room_data", methods=["GET"])
 def get_person_room_data():
-    session = Session()
-
-    building_id = request.args.get("building_id", type=int)
-    floor = request.args.get("floor", type=int)
-
-    if building_id is None or floor is None:
-        session.close()
-        return jsonify({"error": "Missing building_id or floor parameter"}), 400
-
+    session = None
     try:
+        session = Session()
+
+        building_id = request.args.get("building_id", type=int)
+        floor = request.args.get("floor", type=int)
+
+        if building_id is None or floor is None:
+            if session:
+                session.close()
+            return jsonify({"error": "Missing building_id or floor parameter"}), 400
+
         rooms = session.query(Room).options(
             joinedload(Room.layout),
-            joinedload(Room.person_links).joinedload(PersonToRoom.person).joinedload(Person.contacts)
+            joinedload(Room.person_links)
+            .joinedload(PersonToRoom.person)
+            .joinedload(Person.contacts)
         ).filter(
             Room.building_id == building_id,
             Room.floor == floor
         ).all()
 
-        # Dictionary zum Sammeln der Personen und ihrer Räume
         person_dict_map = {}
 
         for room in rooms:
             room_info = room.to_dict()
             layout_info = room.layout.to_dict() if room.layout else {}
 
-            for ptr in room.person_links:
+            for ptr in room.person_links:  # ptr ist PersonToRoom
                 person = ptr.person
                 person_id = person.id
 
                 if person_id not in person_dict_map:
-                    # Person noch nicht drin -> neuen Eintrag mit Person und leeren Raum-Liste anlegen
                     person_dict_map[person_id] = {
                         "person": person.to_dict(),
                         "contacts": [c.to_dict() for c in person.contacts],
                         "rooms": []
                     }
 
-                # Raum + Layout an die Raum-Liste der Person anhängen
+                # x, y Position aus PersonToRoom mit anhängen
                 person_dict_map[person_id]["rooms"].append({
                     "room": room_info,
-                    "layout": layout_info
+                    "layout": layout_info,
+                    "x": ptr.x,
+                    "y": ptr.y
                 })
 
-        session.close()
+        if session:
+            session.close()
 
-        # Ergebnis ist nur die Liste der Personen mit deren gesammelten Räumen
         result = list(person_dict_map.values())
-
         return jsonify(result)
 
+    except SQLAlchemyError as e:
+        if session:
+            session.rollback()
+            session.close()
+        print(f"❌ SQLAlchemy Fehler in /api/get_person_room_data: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
     except Exception as e:
+        if session:
+            session.close()
         print(f"❌ Fehler in /api/get_person_room_data: {e}")
-        session.close()
         return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == "__main__":

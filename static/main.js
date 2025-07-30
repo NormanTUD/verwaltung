@@ -349,7 +349,9 @@ function makeDraggable(el) {
 		// Daten, die gesendet werden sollen (z.B. attributes plus Raum)
 		const payload = {
 			room: newRoom.el.dataset.name,
-			person: attributes
+			person: attributes,
+			x: parseInt($(el).css("left")),
+			y: parseInt($(el).css("top"))
 		};
 
 		fetch("/api/save_person_to_room", {
