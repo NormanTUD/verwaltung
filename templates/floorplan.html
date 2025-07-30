@@ -1,18 +1,10 @@
-<!DOCTYPE html>
-<html lang="de">
-	<head>
-		<meta charset="UTF-8" />
-		<title>Virtueller Raumplan mit Zoom, Pan und Snapping</title>
+{% extends "layout.html" %}
+{% block title %}Aggregat{% endblock %}
+{% block content %}
 		<link rel="stylesheet" href="static/map.css">
-		<link rel="shortcut icon" href="static/favicon.ico" type="image/x-icon">
-		<script src="/static/jquery.min.js"></script>
-
-	</head>
-	<body>
 
 		<button id="addBtn">➕ Objekt hinzufügen</button>
 		<button id="addPersonBtn">➕ Person hinzufügen</button>
-		<button id="backLink" class="floorplan_back_Btn">ᐊ</button>
 
 		<label for="buildingSelect">Gebäude:</label>
 		<select id="buildingSelect">
@@ -115,5 +107,4 @@
 
 		<script src="static/main.js"></script>
 		<script src="/static/footer.js"></script>
-	</body>
-</html>
+{% endblock %}
