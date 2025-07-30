@@ -3014,4 +3014,4 @@ if __name__ == "__main__":
     insert_tu_dresden_buildings()
     initialize_db_data()
 
-    app.run(debug=True, port=5000)
+    app.run(debug=False, port=5000)
