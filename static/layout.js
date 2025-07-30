@@ -208,3 +208,47 @@ document.addEventListener('click', (e) => {
 		resultsBox.classList.add('hidden');
 	}
 });
+
+document.addEventListener('keydown', function(e) {
+	const searchField = document.getElementById('sidebarSearch');
+
+	if (!searchField) return;
+
+	// Ignoriere Eingabe, wenn gerade ein Eingabefeld oder contentEditable aktiv ist
+	const active = document.activeElement;
+	if (
+		active &&
+		(active.tagName === 'INPUT' ||
+			active.tagName === 'TEXTAREA' ||
+			active.isContentEditable)
+	) return;
+
+	// Nur Buchstaben/Zahlen/Sonderzeichen verarbeiten (nicht z. B. Shift, Alt usw.)
+	if (e.key.length === 1) {
+		// Fokus setzen
+		if (document.activeElement !== searchField) {
+			searchField.focus();
+			// Optional: Alles markieren oder Cursor ans Ende setzen
+			searchField.setSelectionRange(searchField.value.length, searchField.value.length);
+		}
+
+		// Zeichen ans Ende anhängen (wie echte Eingabe)
+		const value = searchField.value;
+		const start = searchField.selectionStart;
+		const end = searchField.selectionEnd;
+
+		const newValue = value.slice(0, start) + e.key + value.slice(end);
+		searchField.value = newValue;
+
+		// Cursor aktualisieren
+		const cursorPos = start + 1;
+		searchField.setSelectionRange(cursorPos, cursorPos);
+
+		// Events auslösen
+		searchField.dispatchEvent(new Event('input', { bubbles: true }));
+		searchField.dispatchEvent(new Event('change', { bubbles: true }));
+
+		// Standardverhalten verhindern (z. B. Scrollen bei Leertaste)
+		e.preventDefault();
+	}
+});
