@@ -683,7 +683,7 @@ def index():
 
     print(wizard_routes)
 
-    return render_template("index.html", tables=tables, wizard_routes=wizard_routes)
+    return render_template("index.html", tables=tables, wizard_routes=wizard_routes, user=current_user)
 
 @app.route('/admin', methods=['GET', 'POST'])
 @login_required
