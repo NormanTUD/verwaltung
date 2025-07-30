@@ -2921,6 +2921,55 @@ def data_overview():
     finally:
         session.close()
 
+@app.route("/api/get_person_room_data", methods=["GET"])
+def get_person_room_data():
+    session = Session()
+
+    building_id = request.args.get("building_id", type=int)
+    floor = request.args.get("floor", type=int)
+
+    if building_id is None or floor is None:
+        session.close()
+        return jsonify({"error": "Missing building_id or floor parameter"}), 400
+
+    try:
+        rooms = session.query(Room).options(
+            joinedload(Room.layout),
+            joinedload(Room.person_links).joinedload(PersonToRoom.person).joinedload(Person.contacts)
+        ).filter(
+            Room.building_id == building_id,
+            Room.floor == floor
+        ).all()
+
+        person_data = []
+        for room in rooms:
+            for ptr in room.person_links:
+                person = ptr.person
+                person_dict = person.to_dict()
+                contacts = [c.__dict__ for c in person.contacts]
+                room_dict = room.__dict__.copy()
+                layout_dict = room.layout.__dict__ if room.layout else {}
+
+                person_data.append({
+                    "person": person_dict,
+                    "contacts": contacts,
+                    "rooms": [
+                        {
+                            "room": room_dict,
+                            "layout": layout_dict
+                        }
+                    ]
+                })
+
+        session.close()
+        return jsonify(person_data)
+
+    except Exception as e:
+        print(f"❌ Fehler in /api/get_person_room_data: {e}")
+        session.close()
+        return jsonify({"error": "Internal server error"}), 500
+
+
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
     initialize_db_data()

@@ -628,7 +628,8 @@ function createPersonCircle(attributes) {
 	applyInvertFilterToElements(theme)
 }
 
-function createCircleElement(attributes) {
+function createCircleElement(attributes, position=null) {
+	log(attributes);
 	const circle = document.createElement("div");
 	circle.classList.add("person-circle");
 
@@ -637,7 +638,7 @@ function createCircleElement(attributes) {
 	// Nur das Bild anzeigen, keine weiteren Infos!
 	circle.innerHTML = `<img src="${attributes.image_url}" alt="Personenbild" />`;
 
-	setCirclePosition(circle);
+	setCirclePosition(circle, position);
 	return circle;
 }
 
@@ -662,7 +663,7 @@ function getViewportCenterPosition() {
 	};
 }
 
-function setCirclePosition(circle) {
+function setCirclePosition(circle, position=null) {
 	const center = getViewportCenterPosition();
 
 
