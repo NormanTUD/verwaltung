@@ -2501,31 +2501,36 @@ def add_person():
         session.close()
         return jsonify({"error": str(e)}), 500
 
+
+
 @app.route("/api/save_person_to_room", methods=["POST"])
 def save_person_to_room():
     session = Session()
 
-    data = request.get_json()
-    
-    if not data or "room" not in data or "person" not in data:
-        session.close()
-        return jsonify({"error": "Request body must include both 'room' and 'person' fields"}), 400
-
-    room_name = data["room"]
-    person_data = data["person"]
-    required_fields = ["first_name", "last_name", "image_url"]
-
-    for field in required_fields:
-        if field not in person_data:
-            session.close()
-            return jsonify({"error": f"Missing required field in person data: '{field}'"}), 400
-
     try:
-        # Optional-Felder sicher auslesen
+        data = request.get_json()
+
+        if not data or "room" not in data or "person" not in data:
+            session.close()
+            return jsonify({"error": "Request body must include both 'room' and 'person' fields"}), 400
+
+        room_name = data["room"]
+        person_data = data["person"]
+        required_fields = ["first_name", "last_name", "image_url"]
+
+        for field in required_fields:
+            if field not in person_data:
+                session.close()
+                return jsonify({"error": f"Missing required field in person data: '{field}'"}), 400
+
+        # x und y auslesen, wenn vorhanden, sonst default auf None
+        x = data.get("x")
+        y = data.get("y")
+
+        # 1. Person suchen oder anlegen
         title = person_data.get("title")
         comment = person_data.get("comment")
 
-        # 1. Person suchen oder anlegen
         person = session.query(Person).filter_by(
             first_name=person_data["first_name"],
             last_name=person_data["last_name"],
@@ -2552,8 +2557,13 @@ def save_person_to_room():
         # 3. Vorherige Raum-Zuordnung(en) für diese Person löschen
         session.query(PersonToRoom).filter_by(person_id=person.id).delete()
 
-        # 4. Neue Verbindung anlegen
-        link = PersonToRoom(person_id=person.id, room_id=room.id)
+        # 4. Neue Verbindung anlegen mit x und y
+        link = PersonToRoom(
+            person_id=person.id,
+            room_id=room.id,
+            x=x,
+            y=y
+        )
         session.add(link)
 
         session.commit()
@@ -2562,14 +2572,14 @@ def save_person_to_room():
             "status": "updated",
             "person_id": person.id,
             "room_id": room.id,
-            "link_id": link.id
+            "link_id": link.id,
+            "x": x,
+            "y": y
         }
 
         session.close()
 
-        ret = jsonify(struct)
-
-        return ret, 200
+        return jsonify(struct), 200
 
     except IntegrityError as e:
         session.rollback()
