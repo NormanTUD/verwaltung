@@ -1,8 +1,6 @@
 {% extends "layout.html" %}
 {% block title %}DB Info{% endblock %}
 {% block content %}
-    <h2>{{ table_name|capitalize }}</h2>
-
 {% if missing_data_messages %}
     <div class="missing-warnings">
         {% for msg in missing_data_messages %}
