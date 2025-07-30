@@ -819,7 +819,6 @@ def update_user(user_id):
             user.roles.append(role)
 
     session.commit()
-    flash("Benutzer aktualisiert.")
     session.close()
     return redirect(url_for('admin_panel'))
 
