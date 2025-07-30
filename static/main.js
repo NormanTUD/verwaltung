@@ -1059,6 +1059,7 @@ function handleSave() {
   clearFormFields();
   hideForm();
   console.log("handleSave: Fertig");
+	applyInvertFilterToElements(theme)
 }
 
 function setupEventListeners() {
