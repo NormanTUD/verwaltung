@@ -451,11 +451,13 @@ function updateFormMode() {
   }
 }
 
-addPersonBtn.addEventListener("click", () => {
-  personForm.style.display = "block";
-  populateExistingPersonSelect();
-  updateFormMode();
-});
+if(addPersonBtn) {
+	addPersonBtn.addEventListener("click", () => {
+	  personForm.style.display = "block";
+	  populateExistingPersonSelect();
+	  updateFormMode();
+	});
+}
 
 // Radio Buttons für Modus wechseln
 document.querySelectorAll('input[name="mode"]').forEach(radio => {
@@ -801,9 +803,11 @@ const addBtn = document.getElementById("addBtn");
 const objectForm = document.getElementById("objectForm");
 const cancelObjectBtn = document.getElementById("cancelObjectBtn");
 
-addBtn.addEventListener("click", () => {
-  objectForm.style.display = "block";
-});
+if(addBtn) {
+	addBtn.addEventListener("click", () => {
+	  objectForm.style.display = "block";
+	});
+}
 
 cancelObjectBtn.addEventListener("click", () => {
   objectForm.style.display = "none";

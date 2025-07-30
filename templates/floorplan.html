@@ -3,9 +3,6 @@
 {% block content %}
 	<link rel="stylesheet" href="static/map.css">
 
-	<button id="addBtn">➕ Objekt hinzufügen</button>
-	<button id="addPersonBtn">➕ Person hinzufügen</button>
-
 	<label for="buildingSelect">Gebäude:</label>
 	<select id="buildingSelect">
 		<option value="">-- Bitte wählen --</option>
@@ -57,11 +54,14 @@
 
 	<div id="viewport">
 		{% if image_url and image_width and image_height %}
-		<div id="floorplan"
-		     style="background: url('{{ image_url }}'); width: {{ image_width }}px; height: {{ image_height }}px;">
-		</div>
+			<button id="addBtn">➕ Objekt hinzufügen</button>
+			<button id="addPersonBtn">➕ Person hinzufügen</button>
+
+			<div id="floorplan"
+			     style="background: url('{{ image_url }}'); width: {{ image_width }}px; height: {{ image_height }}px;">
+			</div>
 		{% else %}
-		<p>Kein gültiger Gebäudeplan gefunden.</p>
+			<p>Kein gültiger Gebäudeplan gefunden.</p>
 		{% endif %}
 
 		<div id="generatedObjectsContainer"></div>
