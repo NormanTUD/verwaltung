@@ -717,6 +717,9 @@ function createPersonsFromApiData(personDataArray) {
 
 				// Kreis an Floorplan anhängen
 				floorplan.appendChild(circle);
+
+
+				makeDraggable(circle);
 			}
 		} else {
 			// Keine Räume, Kreis zentriert erzeugen
@@ -1363,15 +1366,7 @@ function cancelpersonBtnFunction() {
 	dynamicForm.style.display = "none";
 }
 
-
-
-
-
-
-
-
-
-
 document.addEventListener("DOMContentLoaded", function() {
 	loadPersonDatabase();
+	load_persons_from_db();
 });
