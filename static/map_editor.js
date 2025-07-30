@@ -623,7 +623,6 @@ $(container).on('mousemove', function (e) {
 		const pos = getMousePos(e);
 		drawingRoom.width = Math.max(1, pos.x - drawingRoom.x);
 		drawingRoom.height = Math.max(1, pos.y - drawingRoom.y);
-		//debug(`Drawing room resize to width: ${drawingRoom.width}, height: ${drawingRoom.height}, drawingRoom:`, drawingRoom);
 		drawTempRect('room', drawingRoom);
 	}
 });
