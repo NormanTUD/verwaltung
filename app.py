@@ -11,6 +11,7 @@ from copy import deepcopy
 import csv
 import uuid
 from functools import wraps
+import re
 
 try:
     import venv
@@ -568,12 +569,30 @@ def login():
     session.close()
     return render_template('login.html')
 
+def is_password_complex(password):
+    if len(password) < 8:
+        return False
+    if not re.search(r'[A-Z]', password):  # Großbuchstabe
+        return False
+    if not re.search(r'[a-z]', password):  # Kleinbuchstabe
+        return False
+    if not re.search(r'[0-9]', password):  # Ziffer
+        return False
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):  # Sonderzeichen
+        return False
+    return True
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     session = Session()
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
+
+        # Passwort-Komplexitätsprüfung
+        if not is_password_complex(password):
+            session.close()
+            return render_template('register.html', error='Password must be at least 8 characters long and contain uppercase, lowercase, digit, and special character.')
 
         # Check if user already exists
         existing_user = session.query(User).filter_by(username=username).first()
@@ -588,7 +607,6 @@ def register():
         # Check if this is the first user
         user_count = session.query(User).count()
         if user_count == 0:
-            # Try to get or create admin role
             try:
                 admin_role = session.query(Role).filter_by(name='admin').one()
             except NoResultFound:
@@ -596,9 +614,8 @@ def register():
                 session.add(admin_role)
                 session.commit()
 
-            # Assign admin role to the new user
             new_user.roles.append(admin_role)
-            new_user.role = 'admin'  # optional if you're still using this field
+            new_user.role = 'admin'
 
         session.add(new_user)
         session.commit()
