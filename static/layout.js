@@ -32,17 +32,11 @@ function applyInvertFilterToElements(mode) {
 			element.style.backgroundColor = '#1a202c';
 			element.style.color = '#f7fafc';
 			element.style.borderColor = '#2d3748';
-			element.style.appearance = 'none';        // Entfernt systemeigenes Styling
-			element.style.webkitAppearance = 'none';  // Safari
-			element.style.mozAppearance = 'none';     // Firefox
 
 		} else {
 			element.style.backgroundColor = '';
 			element.style.color = '';
 			element.style.borderColor = '';
-			element.style.appearance = '';
-			element.style.webkitAppearance = '';
-			element.style.mozAppearance = '';
 		}
 	});
 
