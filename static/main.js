@@ -643,9 +643,9 @@ function createPersonsFromApiData(personDataArray) {
 			continue;
 		}
 
-		// Für jeden Raum der Person einen Kreis an der Layout-Position erzeugen
 		if (Array.isArray(personEntry.rooms) && personEntry.rooms.length > 0) {
 			for (const roomEntry of personEntry.rooms) {
+				log("roomEntry:", roomEntry);
 				const layout = roomEntry.layout || null;
 				const position = extractPositionFromLayout(layout);
 

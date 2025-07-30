@@ -2931,7 +2931,6 @@ def data_overview():
     finally:
         session.close()
 
-
 @app.route("/api/get_person_room_data", methods=["GET"])
 def get_person_room_data():
     session = None
@@ -2962,7 +2961,7 @@ def get_person_room_data():
             room_info = room.to_dict()
             layout_info = room.layout.to_dict() if room.layout else {}
 
-            for ptr in room.person_links:  # ptr ist PersonToRoom
+            for ptr in room.person_links:
                 person = ptr.person
                 person_id = person.id
 
@@ -2973,11 +2972,17 @@ def get_person_room_data():
                         "rooms": []
                     }
 
-                # Debug-Log: Prüfe x, y Werte
                 x_value = ptr.x
                 y_value = ptr.y
+
                 if x_value is None or y_value is None:
-                    print(f"⚠️ Warnung: PersonToRoom id={ptr.id} hat x oder y = None")
+                    print(f"⚠ Warnung: PersonToRoom id={ptr.id} hat x oder y = None")
+
+                # Sicherheit: Stelle sicher, dass x/y NICHT in room_info vorkommen
+                if "x" in room_info:
+                    del room_info["x"]
+                if "y" in room_info:
+                    del room_info["y"]
 
                 person_dict_map[person_id]["rooms"].append({
                     "room": room_info,
