@@ -1,14 +1,6 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8" />
-    <title>Person Wizard</title>
-    <link href="../static/bootstrap.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="../static/style.css">
-    <link href="../static/toastr.min.css" rel="stylesheet" />
-</head>
-<body>
-    <button id="backLink" class="floorplan_back_Btn">ᐊ</button>
+{% extends "layout.html" %}
+{% block title %}Person erstellen{% endblock %}
+{% block content %}
     <h1>Person anlegen</h1>
     <form method="post" id="person-form">
         <div class="mb-3">
@@ -114,6 +106,4 @@
             }
         });
     </script>
-    <script src="/static/footer.js"></script>
-</body>
-</html>
+{% endblock %}
