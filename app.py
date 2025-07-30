@@ -135,7 +135,7 @@ INITIAL_DATA = {
 }
 
 WIZARDS = {
-    "transponder": {
+    "Transponder": {
         "title": "Transponder erstellen",
         "model": Transponder,
         "fields": [
@@ -157,7 +157,7 @@ WIZARDS = {
             }
         ]
     },
-    "abteilung": {
+    "Abteilung": {
         "title": "Abteilung erstellen",
         "model": Abteilung,
         "fields": [
@@ -165,7 +165,7 @@ WIZARDS = {
             {"name": "abteilungsleiter_id", "type": "number", "label": "Abteilungsleiter (Person-ID)"},
         ],
     },
-    "professorship": {
+    "Professur": {
         "title": "Professur erstellen",
         "model": Professorship,
         "fields": [
@@ -173,14 +173,14 @@ WIZARDS = {
             {"name": "name", "type": "text", "label": "Name", "required": True},
         ],
     },
-    "kostenstelle": {
+    "Kostenstelle": {
         "title": "Kostenstelle erstellen",
         "model": Kostenstelle,
         "fields": [
             {"name": "name", "type": "text", "label": "Name", "required": True},
         ],
     },
-    "inventory": {
+    "Inventar": {
         "title": "Inventar erstellen",
         "model": Inventory,
         "fields": [
@@ -200,7 +200,7 @@ WIZARDS = {
             {"name": "abteilung_id", "type": "number", "label": "Abteilungs-ID"},
         ],
     },
-    "person_to_abteilung": {
+    "Person und Abteilung": {
         "title": "Person zu Abteilung zuordnen",
         "model": PersonToAbteilung,
         "fields": [
@@ -208,7 +208,7 @@ WIZARDS = {
             {"name": "abteilung_id", "type": "number", "label": "Abteilung-ID", "required": True},
         ],
     },
-    "object": {
+    "Objekt": {
         "title": "Objekt erstellen",
         "model": Object,
         "fields": [
@@ -217,7 +217,7 @@ WIZARDS = {
             {"name": "category_id", "type": "number", "label": "Kategorie-ID"},
         ],
     },
-    "loan": {
+    "Ausleihe": {
         "title": "Leihgabe erstellen",
         "model": Loan,
         "fields": [
