@@ -673,6 +673,7 @@ def inject_sidebar_data():
     )
 
 @app.route("/")
+@login_required
 def index():
     tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]
 
@@ -964,6 +965,7 @@ def load_static_file(path):
         return ""
 
 @app.route("/table/<table_name>")
+@login_required
 def table_view(table_name):
     if table_name in ["role", "user"]:
         abort(404, description="Tabelle darf nicht angezeigt werden")
@@ -1000,6 +1002,7 @@ def table_view(table_name):
     )
 
 @app.route("/add/<table_name>", methods=["POST"])
+@login_required
 def add_entry(table_name):
     session = Session()
     cls = next((c for c in Base.__subclasses__() if c.__tablename__ == table_name), None)
@@ -1032,6 +1035,7 @@ def add_entry(table_name):
         return jsonify(success=False, error=str(e))
 
 @app.route("/update/<table_name>", methods=["POST"])
+@login_required
 def update_entry(table_name):
     session = Session()
     cls = next((c for c in Base.__subclasses__() if c.__tablename__ == table_name), None)
@@ -1071,6 +1075,7 @@ def update_entry(table_name):
         return jsonify(success=False, error=str(e))
 
 @app.route("/delete/<table_name>", methods=["POST"])
+@login_required
 def delete_entry(table_name):
     session = Session()
     cls = next((c for c in Base.__subclasses__() if c.__tablename__ == table_name), None)
@@ -1109,10 +1114,12 @@ def delete_entry(table_name):
         return jsonify(success=False, error=str(e))
 
 @app.route("/aggregate/")
+@login_required
 def aggregate_index():
     return render_template("aggregate_index.html")  # Optional – nur als Startseite für Aggregates
 
 @app.route("/aggregate/transponder")
+@login_required
 def aggregate_transponder_view():
     session = Session()
 
@@ -1231,6 +1238,7 @@ def _get_category_name(c):
     return c.name if c else "-"
 
 @app.route("/aggregate/inventory")
+@login_required
 def aggregate_inventory_view():
     session = None
     try:
@@ -1312,6 +1320,7 @@ def aggregate_inventory_view():
         return render_template("error.html", message="Fehler beim Laden der Daten.")
 
 @app.route("/wizard/person", methods=["GET", "POST"])
+@login_required
 def wizard_person():
     session = Session()
     error = None
@@ -1418,6 +1427,7 @@ def wizard_person():
     return render_template("person_wizard.html", success=success, error=error, form_data=form_data)
 
 @app.route("/map-editor")
+@login_required
 def map_editor():
     session = Session()
 
@@ -1513,6 +1523,7 @@ def map_editor():
     )
 
 @app.route("/wizard/<wizard_name>", methods=["GET", "POST"])
+@login_required
 def run_wizard(wizard_name):
     allowed = set(WIZARDS.keys())
 
@@ -1955,6 +1966,7 @@ def fill_pdf_form(template_path, data_dict):
     return output_io
 
 @app.route('/generate_pdf/schliessmedien/')
+@login_required
 def generate_pdf():
     TEMPLATE_PATH = 'pdfs/ausgabe_schliessmedien.pdf'
 
@@ -2008,6 +2020,7 @@ def generate_pdf():
     )
 
 @app.route("/transponder", methods=["GET"])
+@login_required
 def transponder_form():
     session = Session()
     persons = session.query(Person).order_by(Person.last_name).all()
@@ -2024,6 +2037,7 @@ def transponder_form():
     )
 
 @app.route("/transponder/ausgabe", methods=["POST"])
+@login_required
 def transponder_ausgabe():
     person_id = request.form.get("person_id")
     transponder_id = request.form.get("transponder_id")
@@ -2045,6 +2059,7 @@ def transponder_ausgabe():
     return redirect(url_for("transponder.transponder_form"))
 
 @app.route("/transponder/rueckgabe", methods=["POST"])
+@login_required
 def transponder_rueckgabe():
     transponder_id = request.form.get("transponder_id")
     return_date_str = request.form.get("return_date")
@@ -2065,6 +2080,7 @@ def transponder_rueckgabe():
     return redirect(url_for("transponder.transponder_form"))
 
 @app.route("/user_edit/<handler_name>", methods=["GET", "POST"])
+@login_required
 def gui_edit(handler_name):
     handler, error = get_handler_instance(handler_name)
     if error:
@@ -2125,6 +2141,7 @@ def gui_edit(handler_name):
         handler.session.close()
 
 @app.route('/floorplan')
+@login_required
 def floorplan():
     session = Session()
 
@@ -2213,6 +2230,7 @@ def floorplan():
     )
 
 @app.route("/api/save_or_update_room", methods=["POST"])
+@login_required
 def save_or_update_room():
     session = Session()
     data = request.get_json()
@@ -2355,6 +2373,7 @@ def _save_room_set_layout(session, room, v):
         session.add(layout)
 
 @app.route("/get_floorplan", methods=["GET"])
+@login_required
 def get_floorplan():
     session = Session()
 
@@ -2405,6 +2424,7 @@ def get_floorplan():
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/delete_room", methods=["POST"])
+@login_required
 def delete_room():
     data = request.get_json()
 
@@ -2445,6 +2465,7 @@ def delete_room():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/add_or_update_person', methods=['POST'])
+@login_required
 def add_or_update_person():
     data = request.json
     vorname = data.get('vorname')
@@ -2471,6 +2492,7 @@ def add_or_update_person():
     return jsonify({'message': 'Person gespeichert'}), 200
 
 @app.route("/api/add_person", methods=["POST"])
+@login_required
 def add_person():
     data = request.get_json()
     required_fields = ["first_name", "last_name", "title", "comment", "image_url"]
@@ -2518,6 +2540,7 @@ def add_person():
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/save_person_to_room", methods=["POST"])
+@login_required
 def save_person_to_room():
     session = Session()
 
@@ -2734,6 +2757,7 @@ def schema():
     return send_file('/tmp/schema.png', mimetype='image/png')
 
 @app.route('/api/get_person_names', methods=['GET'])
+@login_required
 def get_person_names():
     session = Session()
     result = get_names(session, Person, Person.id, [Person.first_name, Person.last_name])
@@ -2741,6 +2765,7 @@ def get_person_names():
     return jsonify(result)
 
 @app.route('/api/get_kostenstelle_names', methods=['GET'])
+@login_required
 def get_kostenstelle_names():
     session = Session()
     result = get_names(session, Kostenstelle, Kostenstelle.id, [Kostenstelle.name])
@@ -2748,6 +2773,7 @@ def get_kostenstelle_names():
     return jsonify(result)
 
 @app.route('/api/get_abteilung_names', methods=['GET'])
+@login_required
 def get_abteilung_names():
     session = Session()
     result = get_names(session, Abteilung, Abteilung.id, [Abteilung.name])
@@ -2755,6 +2781,7 @@ def get_abteilung_names():
     return jsonify(result)
 
 @app.route('/api/get_professorship_names', methods=['GET'])
+@login_required
 def get_professorship_names():
     session = Session()
     result = get_names(session, Professorship, Professorship.id, [Professorship.name])
@@ -2762,6 +2789,7 @@ def get_professorship_names():
     return jsonify(result)
 
 @app.route('/api/get_category_names', methods=['GET'])
+@login_required
 def get_category_names():
     session = Session()
     result = get_names(session, ObjectCategory, ObjectCategory.id, [ObjectCategory.name])
@@ -2769,6 +2797,7 @@ def get_category_names():
     return jsonify(result)
 
 @app.route('/api/get_object_names', methods=['GET'])
+@login_required
 def get_object_names():
     session = Session()
     result = get_names(session, Object, Object.id, [Object.name])
@@ -2826,6 +2855,7 @@ def db_info():
     return render_template('db_info.html', tables=tables, mermaid=mermaid)
 
 @app.route("/api/get_person_room_data", methods=["GET"])
+@login_required
 def get_person_room_data():
     session = None
     try:
