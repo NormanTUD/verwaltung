@@ -420,13 +420,7 @@ const dynamicForm = document.getElementById("dynamicPersonForm");
 const confirmPersonBtn = document.getElementById("confirmPersonBtn");
 const existingPersonSelect = document.getElementById("existingPersonSelect");
 
-const personSchema = [
-	{ label: "Vorname", key: "first_name", type: "string" },
-	{ label: "Nachname", key: "last_name", type: "string" },
-	{ label: "Titel", key: "title", type: "string" },
-	{ label: "Kommentar", key: "comment", type: "string" },
-	{ label: "Bild-URL", key: "image_url", type: "string" }
-];
+
 
 // Hilfsfunktion: Formular generieren
 function generateForm(schema, formElement) {
@@ -532,38 +526,7 @@ function handleSelectMode() {
 	createPersonCircle(person);
 }
 
-function handleCreateMode() {
-	const formData = new FormData(dynamicForm);
-	const newPerson = {};
-	for (const field of personSchema) {
-		let value = formData.get(field.key);
-		if (!value) {
-			alert(`Bitte das Feld "${field.label}" ausfüllen.`);
-			return;
-		}
-		newPerson[field.key] = value;
-	}
-	savePersonToDatabase(newPerson);
-	createPersonCircle(newPerson);
-}
 
-async function savePersonToDatabase(newPerson) {
-	try {
-		const response = await fetch('/api/add_person', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(newPerson)
-		});
-		const result = await response.json();
-		if (!response.ok) {
-			console.error('Fehler beim Speichern:', result.error);
-			return;
-		}
-		console.log('Person erfolgreich gespeichert:', result);
-	} catch (error) {
-		console.error('Netzwerkfehler:', error);
-	}
-}
 
 function resetForm() {
 	personForm.style.display = "none";
