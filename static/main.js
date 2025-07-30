@@ -79,33 +79,22 @@ function createLabel(name) {
 	return label;
 }
 
-function createCounter() {
-	const counter = document.createElement("div");
-	counter.className = "room-counter";
-	//counter.textContent = "0 Objekt(e)";
-	counter.dataset.count = "0";
-	return counter;
-}
-
 function createRoom(data) {
 	const room = createRoomElement(data);
 	const label = createLabel(data.name);
-	const counter = createCounter();
 
 	room.appendChild(label);
-	room.appendChild(counter);
 
-	return { room, counter, };
+	return room;
 }
 
 function createRooms() {
 	roomsData.forEach(data => {
-		const { room, counter } = createRoom(data);
+		const room = createRoom(data);
 		floorplan.appendChild(room);
 
 		rooms[data.name] = {
 			el: room,
-			counterEl: counter,
 			objects: [], // ← Wichtig: Wird zur Laufzeit ergänzt, keine Änderung an roomsData nötig
 		};
 	});
@@ -184,18 +173,6 @@ function checkParentInDOM(el) {
 	console.log("Objekt ist korrekt im floorplan enthalten.");
 	return true;
 }
-
-
-
-
-
-function updateCounter(room) {
-	const count = room.objects.length;
-	room.counterEl.textContent = `${count} Objekt(e)`;
-	room.counterEl.dataset.count = count;
-}
-
-
 
 
 
@@ -333,7 +310,6 @@ function makeDraggable(el) {
 		if (rooms[oldRoomName]) {
 			const oldRoom = rooms[oldRoomName];
 			oldRoom.objects = oldRoom.objects.filter(o => o !== el);
-			updateCounter(oldRoom);
 			console.log(`Removed element from old room: ${oldRoomName}`);
 		}
 	}
@@ -341,7 +317,6 @@ function makeDraggable(el) {
 	function addToNewRoom(el, newRoom) {
 		newRoom.objects.push(el);
 		el.dataset.room = newRoom.el.dataset.name;
-		updateCounter(newRoom);
 		console.log(`Added element to new room: ${newRoom.el.dataset.name}`, el);
 
 		var attributes = JSON.parse(el.dataset.attributes || "{}");
