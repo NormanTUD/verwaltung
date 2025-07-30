@@ -371,8 +371,6 @@ function makeDraggable(el) {
 			.catch(error => {
 				console.error("Fehler beim Speichern:", error);
 			});
-
-		//save_person_to_raum();
 	}
 
 	function stopDragging() {
