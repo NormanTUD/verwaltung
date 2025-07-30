@@ -1376,7 +1376,9 @@ def aggregate_persons_view():
     try:
         session = Session()
 
-        people = session.query(Person) \
+        person_id_filter = request.args.get("person_id", type=int)
+
+        people_query = session.query(Person) \
             .options(
                 joinedload(Person.contacts),
                 joinedload(Person.rooms).joinedload(PersonToRoom.room).joinedload(Room.building),
@@ -1384,7 +1386,12 @@ def aggregate_persons_view():
                 joinedload(Person.person_abteilungen).joinedload(PersonToAbteilung.abteilung),
                 joinedload(Person.transponders_issued),
                 joinedload(Person.transponders_owned)
-            ).all()
+            )
+
+        if person_id_filter:
+            people_query = people_query.filter(Person.id == person_id_filter)
+
+        people = people_query.all()
 
         rows = []
         for p in people:
@@ -1394,14 +1401,12 @@ def aggregate_persons_view():
             faxes = sorted({c.fax for c in p.contacts if c.fax})
             emails = sorted({c.email for c in p.contacts if c.email})
 
-            # Räume mit Gebäude und Etage
             rooms = [link.room for link in p.rooms if link.room]
             room_strs = sorted(set(
                 f"{r.name} ({r.floor}.OG, {r.building.name if r.building else '?'})"
                 for r in rooms
             ))
 
-            # Abteilungen aus direkter Leitung + Verknüpfung
             abteilungen_leiter = {a.name for a in p.departments}
             abteilungen_mitglied = {pta.abteilung.name for pta in p.person_abteilungen}
             alle_abteilungen = sorted(abteilungen_leiter | abteilungen_mitglied)
@@ -1430,7 +1435,9 @@ def aggregate_persons_view():
             title="Personenübersicht",
             column_labels=column_labels,
             row_data=row_data,
-            filters={},  # ggf. später Filter ergänzen
+            filters={
+                "person_id": person_id_filter
+            },
             url_for_view=url_for("aggregate_persons_view")
         )
 
@@ -1439,7 +1446,6 @@ def aggregate_persons_view():
         if session:
             session.close()
         return render_template("error.html", message="Fehler beim Laden der Daten.")
-
 
 def _create_room_name(r):
     if r:
@@ -3088,7 +3094,7 @@ def page_not_found(e):
     return render_template('404.html'), 404
 
 @app.route('/search')
-@login_required  # optional
+@login_required
 def search():
     session = Session()
 
@@ -3103,20 +3109,27 @@ def search():
         label = route.replace('/wizard/', '').capitalize()
         if query in label.lower():
             results.append({
-                    'label': f'🧙 {label}',
-                    'url': route
-                })
+                'label': f'🧙 {label}',
+                'url': route
+            })
 
     if 'inventar'.startswith(query):
         results.append({'label': '📦 Inventar', 'url': url_for('aggregate_inventory_view')})
     if 'transponder'.startswith(query):
         results.append({'label': '📦 Transponder', 'url': url_for('aggregate_transponder_view')})
 
-    is_admin = False
-    if is_admin_user(session):
-        is_admin = True
+    # 🔍 Personensuche
+    people = session.query(Person).all()
+    for person in people:
+        name_parts = f"{person.title or ''} {person.first_name} {person.last_name}".strip().lower()
+        if query in name_parts:
+            results.append({
+                'label': f'👤 {person.first_name} {person.last_name}',
+                'url': url_for('aggregate_persons_view', person_id=person.id)
+            })
 
-    if is_admin:
+    # Admin-Zeug
+    if is_admin_user(session):
         tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]
         for table in tables:
             if query in table.lower():
@@ -3124,14 +3137,13 @@ def search():
                     'label': f'📋 {table.capitalize()}',
                     'url': url_for('table_view', table_name=table)
                 })
+        if 'map-editor'.startswith(query):
+            results.append({'label': '🗺️ Map-Editor', 'url': '/map-editor'})
 
     if 'floorplan'.startswith(query):
         results.append({'label': '🗺️ Floorplan', 'url': '/floorplan'})
-    if is_admin and 'map-editor'.startswith(query):
-        results.append({'label': '🗺️ Map-Editor', 'url': '/map-editor'})
 
     session.close()
-
     return jsonify(results)
 
 if __name__ == "__main__":
