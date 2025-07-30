@@ -1207,6 +1207,29 @@ def aggregate_transponder_view():
         session.close()
         return render_template("error.html", message="Fehler beim Laden der Daten.")
 
+def _create_room_name(r):
+    if r:
+        floor_str = f"{r.floor}.OG" if r.floor is not None else "?"
+        return f"{r.name} ({floor_str})"
+    return "-"
+
+def _get_professorship_name(pf):
+    return pf.name if pf else "-"
+
+def _get_abteilung_name(a):
+    return a.name if a else "-"
+
+def _get_kostenstelle_name(k):
+    return k.name if k else "-"
+
+def _get_person_name(p):
+    if p:
+        return f"{p.first_name} {p.last_name}"
+    return "Unbekannt"
+
+def _get_category_name(c):
+    return c.name if c else "-"
+
 @app.route("/aggregate/inventory")
 def aggregate_inventory_view():
     session = None
@@ -1242,46 +1265,22 @@ def aggregate_inventory_view():
 
         inventory_list = query.all()
 
-        # Hilfsfunktionen
-        def person_name(p):
-            if p:
-                return f"{p.first_name} {p.last_name}"
-            return "Unbekannt"
-
-        def category_name(c):
-            return c.name if c else "-"
-
-        def kostenstelle_name(k):
-            return k.name if k else "-"
-
-        def abteilung_name(a):
-            return a.name if a else "-"
-
-        def professorship_name(pf):
-            return pf.name if pf else "-"
-
-        def room_name(r):
-            if r:
-                floor_str = f"{r.floor}.OG" if r.floor is not None else "?"
-                return f"{r.name} ({floor_str})"
-            return "-"
-
         rows = []
         for inv in inventory_list:
             row = {
                 "ID": inv.id,
                 "Seriennummer": inv.serial_number or "-",
                 "Objekt": inv.object.name if inv.object else "-",
-                "Kategorie": category_name(inv.object.category) if inv.object else "-",
+                "Kategorie": _get_category_name(inv.object.category) if inv.object else "-",
                 "Anlagennummer": inv.anlagennummer or "-",
-                "Ausgegeben an": person_name(inv.owner),
-                "Ausgegeben durch": person_name(inv.issuer),
+                "Ausgegeben an": _get_person_name(inv.owner),
+                "Ausgegeben durch": _get_person_name(inv.issuer),
                 "Ausgabedatum": inv.got_date.isoformat() if inv.got_date else "-",
                 "Rückgabedatum": inv.return_date.isoformat() if inv.return_date else "Nicht zurückgegeben",
-                "Raum": room_name(inv.room),
-                "Abteilung": abteilung_name(inv.abteilung),
-                "Professur": professorship_name(inv.professorship),
-                "Kostenstelle": kostenstelle_name(inv.kostenstelle),
+                "Raum": _create_room_name(inv.room),
+                "Abteilung": _get_abteilung_name(inv.abteilung),
+                "Professur": _get_professorship_name(inv.professorship),
+                "Kostenstelle": _get_kostenstelle_name(inv.kostenstelle),
                 "Preis": f"{inv.price:.2f} €" if inv.price is not None else "-",
                 "Kommentar": inv.comment or "-"
             }
