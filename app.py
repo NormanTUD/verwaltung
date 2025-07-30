@@ -313,29 +313,28 @@ def initialize_db_data():
     session.close()
 
 def is_admin_user(session=None) -> bool:
-    if not current_user.is_authenticated:
-        return False
-
-    close_session = False
     if session is None:
         session = Session()
-        close_session = True
+
+    if not current_user.is_authenticated:
+        session.close()
+        return False
 
     try:
         user = session.query(User).options(joinedload(User.roles)).filter_by(id=current_user.id).one_or_none()
         if user is None:
             print(f"is_admin_user: user {current_user.id} not found")
+            session.close()
             return False
 
         roles = [role.name for role in user.roles]
         print(f"is_admin_user: roles of user {current_user.id}: {roles}")
+        session.close()
         return 'admin' in roles
     except Exception as e:
         print(f"is_admin_user: error: {e}")
+        session.close()
         return False
-    finally:
-        if close_session:
-            session.close()
 
 def admin_required(f):
     @wraps(f)
