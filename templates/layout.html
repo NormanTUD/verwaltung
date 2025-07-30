@@ -140,18 +140,31 @@
 					}
 
 					function applyInvertFilterToElements(mode) {
+						// Elemente, die invertiert werden (Bilder, Floorplan)
 						const floorplan = document.getElementById('floorplan');
 						const backgroundImage = document.getElementById('backgroundImage');
 
-						if (mode === 'dark') {
-							if (floorplan) floorplan.style.filter = 'invert(1)';
-							if (backgroundImage) backgroundImage.style.filter = 'invert(1)';
-						} else {
-							if (floorplan) floorplan.style.filter = '';
-							if (backgroundImage) backgroundImage.style.filter = '';
+						if (floorplan) {
+							floorplan.style.filter = (mode === 'dark') ? 'invert(1)' : '';
 						}
-					}
+						if (backgroundImage) {
+							backgroundImage.style.filter = (mode === 'dark') ? 'invert(1)' : '';
+						}
 
+						// Input-artige Elemente farblich anpassen
+						const inputs = document.querySelectorAll('input, textarea, select, button');
+						inputs.forEach(function(element) {
+							if (mode === 'dark') {
+								element.style.backgroundColor = '#1a202c';  // dunkelgrau (Tailwind bg-gray-900)
+								element.style.color = '#f7fafc';            // hell (Tailwind text-gray-100)
+								element.style.borderColor = '#2d3748';     // etwas hellerer Rahmen
+							} else {
+								element.style.backgroundColor = '';
+								element.style.color = '';
+								element.style.borderColor = '';
+							}
+						});
+					}
 					function showToast(message) {
 						toast.textContent = message;
 						toast.classList.remove('hidden');
