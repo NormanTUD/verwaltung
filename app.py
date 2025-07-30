@@ -316,17 +316,21 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated:
+            print("admin_required: User is not authenticated")
             abort(403)
 
         try:
             # Nutzer mit Rollen aus DB nachladen (vermeidet DetachedInstanceError)
             user = session(User).query.options(joinedload(User.roles)).get(current_user.id)
             if user is None:
+                print("admin_required: User is None")
                 abort(403)
             if not any(role.name == 'admin' for role in user.roles):
+                print(f"admin_required: user.roles ({', '.join(user.roles)}) does not contain admin")
                 abort(403)
         except Exception as e:
             # optional: log error here
+            print(f"admin_required: got an error: {e}")
             abort(403)
 
         return f(*args, **kwargs)
