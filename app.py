@@ -3002,6 +3002,10 @@ def get_person_room_data():
         print(f"❌ Fehler in /api/get_person_room_data: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
+
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
     initialize_db_data()
