@@ -224,11 +224,23 @@ EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or not any(r.name == 'admin' for r in current_user.roles):
+        if not current_user.is_authenticated:
             abort(403)
-        return f(*args, **kwargs)
-    return decorated_function
 
+        try:
+            # Nutzer mit Rollen aus DB nachladen (vermeidet DetachedInstanceError)
+            user = db.session.query(User).options(joinedload(User.roles)).get(current_user.id)
+            if user is None:
+                abort(403)
+            if not any(role.name == 'admin' for role in user.roles):
+                abort(403)
+        except Exception as e:
+            # optional: log error here
+            abort(403)
+
+        return f(*args, **kwargs)
+
+    return decorated_function
 def parse_buildings_csv(csv_text):
     session = Session()
 
