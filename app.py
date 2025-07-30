@@ -1,3 +1,5 @@
+# todo: erster user ist automatisch aktiviert. andere müssen erst von admins aktiviert werden
+
 import sys
 import traceback
 import re
