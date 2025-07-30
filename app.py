@@ -1538,8 +1538,15 @@ def generate_fields_for_schluesselausgabe_from_metadata(
         if not contacts:
             return ""
         contact = contacts[0]  # nur erster Eintrag
-        phone = contact.get("phone", "").strip()
-        email = contact.get("email", "").strip()
+        phone = ""
+        phone = contact.get("phone", "")
+        if phone:
+            phone = phone.strip()
+
+        email = ""
+        email = contact.get("email", "")
+        if email:
+            email = email.strip()
 
         if phone and email:
             return f"{phone} / {email}"
