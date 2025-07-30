@@ -2557,13 +2557,19 @@ def save_person_to_room():
         session.add(link)
 
         session.commit()
-        session.close()
-        return jsonify({
+
+        struct = {
             "status": "updated",
             "person_id": person.id,
             "room_id": room.id,
             "link_id": link.id
-        }), 200
+        }
+
+        session.close()
+
+        ret = jsonify(struct)
+
+        return ret, 200
 
     except IntegrityError as e:
         session.rollback()
@@ -2577,7 +2583,7 @@ def save_person_to_room():
         session.rollback()
         session.close()
         return jsonify({
-            "error": "Unexpected server error",
+            "error": f"Unexpected server error: {e}",
             "details": str(e)
         }), 500
 
