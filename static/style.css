@@ -320,3 +320,7 @@ ul {
 		width: 100%;
 	}
 }
+
+#sidebar {
+	user-select: none;
+}
