@@ -3015,6 +3015,52 @@ def get_person_room_data():
 def page_not_found(e):
     return render_template('404.html'), 404
 
+@app.route('/search')
+@login_required  # optional
+def search():
+    session = Session()
+
+    query = request.args.get('q', '').lower()
+    results = []
+
+    wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
+    wizard_routes.append("/wizard/person")
+    wizard_routes = sorted(set(wizard_routes))
+
+    for route in wizard_routes:
+        label = route.replace('/wizard/', '').capitalize()
+        if query in label.lower():
+            results.append({
+                    'label': f'🧙 {label}',
+                    'url': route
+                })
+
+    if 'inventar'.startswith(query):
+        results.append({'label': '📦 Inventar', 'url': url_for('aggregate_inventory_view')})
+    if 'transponder'.startswith(query):
+        results.append({'label': '📦 Transponder', 'url': url_for('aggregate_transponder_view')})
+
+    is_admin = False
+    if is_admin_user(session):
+        is_admin = True
+
+    if is_admin:
+        for table in tables:
+            if query in table.lower():
+                results.append({
+                    'label': f'📋 {table.capitalize()}',
+                    'url': url_for('table_view', table_name=table)
+                })
+
+    if 'floorplan'.startswith(query):
+        results.append({'label': '🗺️ Floorplan', 'url': '/floorplan'})
+    if is_admin and 'map-editor'.startswith(query):
+        results.append({'label': '🗺️ Map-Editor', 'url': '/map-editor'})
+
+    session.close()
+
+    return jsonify(results)
+
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
     initialize_db_data()
