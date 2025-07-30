@@ -270,6 +270,8 @@ function replace_id_fields_with_proper_fields() {
 			replaceFieldsForElement(element, name, config);
 		}
 	}
+
+	applyInvertFilterToElements(theme);
 }
 
 
