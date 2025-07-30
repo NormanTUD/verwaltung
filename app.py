@@ -241,6 +241,7 @@ def admin_required(f):
         return f(*args, **kwargs)
 
     return decorated_function
+
 def parse_buildings_csv(csv_text):
     session = Session()
 
@@ -520,19 +521,36 @@ def load_user(user_id):
 
 @app.context_processor
 def inject_sidebar_data():
+    session = Session()
+
     tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]
     wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
     wizard_routes.append("/wizard/person")
     wizard_routes = sorted(set(wizard_routes))
 
     is_authenticated = current_user.is_authenticated
-
     is_admin = False
+
     if is_authenticated:
         try:
-            is_admin = any(r.name == 'admin' for r in current_user.roles)
+            # User nochmal frisch aus DB laden mit Rollen eager
+            user = session.query(User).options(
+                joinedload(User.roles)
+            ).filter(User.id == current_user.id).one_or_none()
+
+            if user is not None:
+                is_admin = any(role.name == 'admin' for role in user.roles)
+            else:
+                print(f"User mit ID {current_user.id} nicht in DB gefunden")
         except DetachedInstanceError:
             print("DetachedInstanceError: current_user is not bound to session")
+        except Exception as e:
+            print(f"Unbekannter Fehler beim Laden des Users: {e}")
+
+    print(f"is_authenticated: {is_authenticated}")
+    print(f"is_admin: {is_admin}")
+
+    session.close()
 
     return dict(
         tables=tables,
