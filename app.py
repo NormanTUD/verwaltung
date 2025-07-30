@@ -429,7 +429,7 @@ def login():
         user = session.query(User).filter_by(username=request.form['username']).first()
         if user and check_password_hash(user.password, request.form['password']):
             login_user(user)
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('index'))
         flash('Login failed')
     return render_template('login.html')
 
@@ -493,7 +493,16 @@ def inject_sidebar_data():
     wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
     wizard_routes.append("/wizard/person")
     wizard_routes = sorted(set(wizard_routes))
-    return dict(tables=tables, wizard_routes=wizard_routes)
+
+    is_authenticated = current_user.is_authenticated
+    is_admin = is_authenticated and any(r.name == 'admin' for r in current_user.roles)
+
+    return dict(
+        tables=tables,
+        wizard_routes=wizard_routes,
+        is_authenticated=is_authenticated,
+        is_admin=is_admin
+    )
 
 @app.route("/")
 def index():
