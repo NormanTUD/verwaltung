@@ -1345,3 +1345,11 @@ document.addEventListener("DOMContentLoaded", function() {
 	loadPersonDatabase();
 	load_persons_from_db();
 });
+
+
+document.addEventListener('keydown', function(event) {
+  if (event.key === 'Escape') {
+    cancelpersonBtnFunction();
+    cancelBtnFunction();
+  }
+});
