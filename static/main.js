@@ -219,6 +219,7 @@ function getElementMouseOffset(e, el) {
 
   function startDragging(e) {
     e.preventDefault();
+    
     dragging = true;
     el.style.cursor = "grabbing";
     console.log("Dragging started");
@@ -229,19 +230,35 @@ function getElementMouseOffset(e, el) {
 
     log(`startDragging: Element mouse offset: ${dragOffsetX}, ${dragOffsetY}`);
 
-    document.addEventListener("mousemove", onMouseMove);
+    log(e.target.offsetParent);
+
+    if(e.target.offsetParent.classList.contains("person-circle")) {
+      document.addEventListener("mousemove", onMouseMove);
+    } else {
+      document.addEventListener("mousemove", onMouseMoveViewport)
+    }
+    document.addEventListener("mousemove", onMouseMoveViewport);
     document.addEventListener("mouseup", onMouseUp);
   }
 
-  function getMousePosRelativeToFloorplan(ev) {
-    const floorplanRect = $("#viewport")[0].getBoundingClientRect();
 
-    log(`floorplanRect.left: ${floorplanRect.left}, floorplanRect.top: ${floorplanRect.top}`);
+  
+  function getMousePosRelativeToViewport(ev) {
+    const floorplanRect = $("#viewport")[0].getBoundingClientRect();
 
     let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
     let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
 
-    log(`getMousePosRelativeToFloorplan: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
+    //console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
+    return { mouseX, mouseY };
+  }
+
+
+  function getMousePosRelativeToFloorplan(ev) {
+    const floorplanRect = floorplan.getBoundingClientRect();
+
+    let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
+    let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
 
     //console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
     return { mouseX, mouseY };
@@ -263,6 +280,20 @@ function getElementMouseOffset(e, el) {
     el.style.top = y + "px";
     el.dataset.snapped = "false";
     //console.log(`Element moved to (${x}, ${y})`);
+  }
+
+  function onMouseMoveViewport(ev) {
+    if (!dragging) return;
+
+    const { mouseX, mouseY } = getMousePosRelativeToViewport(ev);
+
+    log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
+
+    const { x, y } = scaleAndClampPosition(mouseX, mouseY);
+
+    log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
+
+    moveElement(x, y);
   }
 
   function onMouseMove(ev) {
