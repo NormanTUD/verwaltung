@@ -40,6 +40,7 @@ function applyInvertFilterToElements(mode) {
 		}
 	});
 
+
 	if(mode === "dark") {
 		$("select").css("background-color", "1a202c");
 		$("input, textarea, select, button").css("border", "1px solid #3daee9");
@@ -54,8 +55,18 @@ function applyInvertFilterToElements(mode) {
 		$(".person-circle>img").css("filter", "unset")
 	}
 
+
 	$(".delete-entry").css("background-color", "#e74c3c");
 }
+
+const SPinput = document.getElementById('sidebarSearch');
+SPinput.addEventListener('input', () => {
+	if (SPinput.value.trim() !== '') {
+		SPinput.style.color = 'white';
+	} else {
+		SPinput.style.color = ''; // zurücksetzen
+	}
+});
 
 document.addEventListener('DOMContentLoaded', function () {
 	try {
