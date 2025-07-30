@@ -1,13 +1,6 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <title>Datenbank Tabellen</title>
-    <link rel="stylesheet" href="static/style.css">
-    <script src="../static/jquery.min.js"></script>
-</head>
-<body>
-
+{% extends "layout.html" %}
+{% block title %}Aggregat{% endblock %}
+{% block content %}
     <div class="tabs">
         <div class="tab-button" data-tab="tab-wizards">Wizards</div>
         <div class="tab-button" data-tab="tab-aggregate">Aggregate</div>
@@ -99,5 +92,4 @@
         });
     </script>
     <script src="/static/footer.js"></script>
-</body>
-</html>
+{% endblock %}
