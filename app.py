@@ -2945,10 +2945,11 @@ def get_person_room_data():
         for room in rooms:
             for ptr in room.person_links:
                 person = ptr.person
+
                 person_dict = person.to_dict()
-                contacts = [c.__dict__ for c in person.contacts]
-                room_dict = room.__dict__.copy()
-                layout_dict = room.layout.__dict__ if room.layout else {}
+                contacts = [c.to_dict() for c in person.contacts]
+                room_dict = room.to_dict()
+                layout_dict = room.layout.to_dict() if room.layout else {}
 
                 person_data.append({
                     "person": person_dict,
@@ -2968,7 +2969,6 @@ def get_person_room_data():
         print(f"❌ Fehler in /api/get_person_room_data: {e}")
         session.close()
         return jsonify({"error": "Internal server error"}), 500
-
 
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
