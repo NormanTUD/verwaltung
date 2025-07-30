@@ -1369,6 +1369,78 @@ def aggregate_transponder_view():
         session.close()
         return render_template("error.html", message="Fehler beim Laden der Daten.")
 
+@app.route("/aggregate/persons")
+@login_required
+def aggregate_persons_view():
+    session = None
+    try:
+        session = Session()
+
+        people = session.query(Person) \
+            .options(
+                joinedload(Person.contacts),
+                joinedload(Person.rooms).joinedload(PersonToRoom.room).joinedload(Room.building),
+                joinedload(Person.departments),
+                joinedload(Person.person_abteilungen).joinedload(PersonToAbteilung.abteilung),
+                joinedload(Person.transponders_issued),
+                joinedload(Person.transponders_owned)
+            ).all()
+
+        rows = []
+        for p in people:
+            full_name = f"{p.title or ''} {p.first_name} {p.last_name}".strip()
+
+            phones = sorted({c.phone for c in p.contacts if c.phone})
+            faxes = sorted({c.fax for c in p.contacts if c.fax})
+            emails = sorted({c.email for c in p.contacts if c.email})
+
+            # Räume mit Gebäude und Etage
+            rooms = [link.room for link in p.rooms if link.room]
+            room_strs = sorted(set(
+                f"{r.name} ({r.floor}.OG, {r.building.name if r.building else '?'})"
+                for r in rooms
+            ))
+
+            # Abteilungen aus direkter Leitung + Verknüpfung
+            abteilungen_leiter = {a.name for a in p.departments}
+            abteilungen_mitglied = {pta.abteilung.name for pta in p.person_abteilungen}
+            alle_abteilungen = sorted(abteilungen_leiter | abteilungen_mitglied)
+
+            row = {
+                "ID": p.id,
+                "Name": full_name,
+                "Telefon(e)": ", ".join(phones) if phones else "-",
+                "Fax(e)": ", ".join(faxes) if faxes else "-",
+                "E-Mail(s)": ", ".join(emails) if emails else "-",
+                "Räume": ", ".join(room_strs) if room_strs else "-",
+                "Abteilungen": ", ".join(alle_abteilungen) if alle_abteilungen else "-",
+                "Leiter von": ", ".join(sorted(abteilungen_leiter)) if abteilungen_leiter else "-",
+                "Ausgegebene Transponder": str(len(p.transponders_issued)),
+                "Erhaltene Transponder": str(len(p.transponders_owned)),
+                "Kommentar": p.comment or "-"
+            }
+            rows.append(row)
+
+        column_labels = list(rows[0].keys()) if rows else []
+        row_data = [[escape(str(row[col])) for col in column_labels] for row in rows]
+
+        session.close()
+        return render_template(
+            "aggregate_view.html",
+            title="Personenübersicht",
+            column_labels=column_labels,
+            row_data=row_data,
+            filters={},  # ggf. später Filter ergänzen
+            url_for_view=url_for("aggregate_persons_view")
+        )
+
+    except Exception as e:
+        app.logger.error(f"Fehler beim Laden der Personen-Aggregatsansicht: {e}")
+        if session:
+            session.close()
+        return render_template("error.html", message="Fehler beim Laden der Daten.")
+
+
 def _create_room_name(r):
     if r:
         floor_str = f"{r.floor}.OG" if r.floor is not None else "?"
