@@ -209,13 +209,13 @@ function makeDraggable(el) {
   let dragOffsetX = 0;
   let dragOffsetY = 0;
 
-  function getElementCenterOffset(e, el) {
-    const elRect = el.getBoundingClientRect();
-    const offsetX = e.clientX - (elRect.left + elRect.width / 2);
-    const offsetY = e.clientY - (elRect.top + elRect.height / 2);
-    //console.log("Center offset:", { offsetX, offsetY });
-    return { offsetX, offsetY };
-  }
+function getElementMouseOffset(e, el) {
+  const elRect = el.getBoundingClientRect();
+  const offsetX = e.clientX - elRect.left;
+  const offsetY = e.clientY - elRect.top;
+  return { offsetX, offsetY };
+}
+
 
   function startDragging(e) {
     e.preventDefault();
@@ -223,18 +223,26 @@ function makeDraggable(el) {
     el.style.cursor = "grabbing";
     console.log("Dragging started");
 
-    const offsets = getElementCenterOffset(e, el);
+    const offsets = getElementMouseOffset(e, el);
     dragOffsetX = offsets.offsetX;
     dragOffsetY = offsets.offsetY;
+
+    log(`startDragging: Element mouse offset: ${dragOffsetX}, ${dragOffsetY}`);
 
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
   }
 
   function getMousePosRelativeToFloorplan(ev) {
-    const floorplanRect = floorplan.getBoundingClientRect();
-    let mouseX = ev.clientX - floorplanRect.left - el.offsetWidth / 2 - dragOffsetX;
-    let mouseY = ev.clientY - floorplanRect.top - el.offsetHeight / 2 - dragOffsetY;
+    const floorplanRect = $("#viewport")[0].getBoundingClientRect();
+
+    log(`floorplanRect.left: ${floorplanRect.left}, floorplanRect.top: ${floorplanRect.top}`);
+
+    let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
+    let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
+
+    log(`getMousePosRelativeToFloorplan: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
+
     //console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
     return { mouseX, mouseY };
   }
@@ -261,7 +269,13 @@ function makeDraggable(el) {
     if (!dragging) return;
 
     const { mouseX, mouseY } = getMousePosRelativeToFloorplan(ev);
+
+    log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
+
     const { x, y } = scaleAndClampPosition(mouseX, mouseY);
+
+    log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
+
     moveElement(x, y);
   }
 
