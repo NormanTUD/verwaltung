@@ -197,6 +197,8 @@ class PersonToRoom(Base):
     id = Column(Integer, primary_key=True)
     person_id = Column(Integer, ForeignKey("person.id", ondelete="CASCADE"))
     room_id = Column(Integer, ForeignKey("room.id", ondelete="CASCADE"))
+    x = Column(Integer)
+    y = Column(Integer)
     person = relationship("Person", back_populates="rooms")
     room = relationship("Room", back_populates="person_links")
     
