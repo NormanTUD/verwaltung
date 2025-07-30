@@ -656,29 +656,24 @@ function getViewportSize() {
 }
 
 function getViewportCenterPosition() {
-  const scroll = getScrollPosition();
-  const viewport = getViewportSize();
-
   return {
-    x: scroll.x + viewport.width / 2,
-    y: scroll.y + viewport.height / 2,
+    x: window.pageXOffset + window.innerWidth / 2,
+    y: window.pageYOffset + window.innerHeight / 2
   };
 }
 
 function setCirclePosition(circle) {
   const center = getViewportCenterPosition();
 
-  // Damit es funktioniert, brauchen wir position: absolute oder fixed
-  circle.style.position = "absolute";
 
-  // Kreis zentrieren: Oben und Links sind die Koordinaten der Mitte minus halb so breit/hoch wie das Element
-  const rect = circle.getBoundingClientRect();
-  const width = rect.width || 50;  // Falls noch kein Width, Beispiel 50px
-  const height = rect.height || 50;
+  const width = circle.offsetWidth || 50;
+  const height = circle.offsetHeight || 50;
 
+  circle.style.position = 'absolute';
   circle.style.left = `${center.x - width / 2}px`;
   circle.style.top = `${center.y - height / 2}px`;
 }
+
 
 
 function getCircleStyles() {
@@ -703,18 +698,7 @@ function getCircleStyles() {
   };
 }
 
-function setCirclePosition(circle) {
-  const viewport = getViewportSize();
 
-  circle.style.position = "relative"; // FIXED statt ABSOLUTE
-
-  const rect = circle.getBoundingClientRect();
-  const width = rect.width || 50;
-  const height = rect.height || 50;
-
-  circle.style.left = `${viewport.width / 2 - width / 2}px`;
-  circle.style.top = `${viewport.height / 2 - height / 2}px`;
-}
 
 
 function my_escape(str) {
