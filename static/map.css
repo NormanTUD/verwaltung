@@ -32,7 +32,6 @@ html, body {
 }
 
 #addPersonBtn {
-    position: fixed;
     bottom: 20px; left: 240px;
     z-index: 9999;
     padding: 10px 15px;
@@ -69,7 +68,6 @@ html, body {
     width: 200px;
 }
 #addBtn {
-    position: fixed;
     bottom: 20px; left: 20px;
     z-index: 9999;
     padding: 10px 15px;
