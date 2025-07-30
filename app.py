@@ -1631,7 +1631,6 @@ def generate_fields_for_schluesselausgabe_from_metadata(
 
         data[name] = value
 
-
     return data
 
 
