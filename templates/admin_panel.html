@@ -10,6 +10,7 @@
 		<th>Username</th>
 		<th>Rollen</th>
 		<th>Passwort</th>
+		<th>Aktivieren</th>
 		<th>Ändern</th>
 		<th>Löschen</th>
 	</tr>
@@ -30,6 +31,13 @@
 			</td>
 			<td>
 				<input class="form-control" type="password" name="new_password" placeholder="Neues Passwort">
+			</td>
+			<td>
+				{% if not user.is_active %}
+					<button type="button" class="activate-user save-new" data-user-id="{{ user.id }}">Aktivieren</button>
+				{% else %}
+					Aktiv
+				{% endif %}
 			</td>
 			<td class="actions">
 				<button type="submit">Ändern</button>
@@ -70,5 +78,41 @@
 		</table>
 	</form>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.activate-user').forEach(button => {
+    button.addEventListener('click', () => {
+      const userId = button.dataset.userId;
+      if (!userId) return;
+
+      if (!confirm('Benutzer wirklich aktivieren?')) return;
+
+      fetch(`/admin/activate/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token() if csrf_token is defined else "" }}'
+        },
+        body: JSON.stringify({})
+      })
+      .then(response => {
+        if (!response.ok) throw new Error('Aktivierung fehlgeschlagen');
+        return response.json();
+      })
+      .then(data => {
+        if (data.success) {
+          location.reload();
+        } else {
+          alert('Aktivierung fehlgeschlagen: ' + (data.error || 'Unbekannter Fehler'));
+        }
+      })
+      .catch(err => {
+        alert('Fehler: ' + err.message);
+      });
+    });
+  });
+});
+</script>
 
 {% endblock %}

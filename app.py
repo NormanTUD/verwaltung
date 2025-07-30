@@ -563,11 +563,17 @@ def login():
     session = Session()
     if request.method == 'POST':
         user = session.query(User).filter_by(username=request.form['username']).first()
-        if user and check_password_hash(user.password, request.form['password']):
-            login_user(user)
-            session.close()
-            return redirect(url_for('index'))
-        flash('Anmeldung fehlgeschlagen')
+        if user:
+            if not user.is_active:
+                flash('Benutzer ist noch nicht aktiviert.')
+            elif check_password_hash(user.password, request.form['password']):
+                login_user(user)
+                session.close()
+                return redirect(url_for('index'))  # Immer index, nicht next
+            else:
+                flash('Falsches Passwort.')
+        else:
+            flash('Benutzer nicht gefunden.')
     session.close()
     return render_template('login.html')
 
@@ -736,7 +742,7 @@ def admin_panel():
             flash('Benutzername existiert bereits.')
         else:
             hashed = generate_password_hash(password)
-            user = User(username=username, password=hashed)
+            user = User(username=username, password=hashed, is_active=False)  # NEU: standardmäßig inaktiv
             if role_id:
                 role = session.query(Role).get(int(role_id))
                 if role:
@@ -746,7 +752,6 @@ def admin_panel():
             flash('Benutzer hinzugefügt.')
 
         session.close()
-
         return redirect(url_for('admin_panel'))
 
     # WICHTIG: Rollen eager-laden, um DetachedInstanceError zu vermeiden
@@ -754,7 +759,6 @@ def admin_panel():
     roles = session.query(Role).all()
 
     session.close()
-
     return render_template('admin_panel.html', users=users, roles=roles)
 
 @app.route('/admin/delete/<int:user_id>')
@@ -787,6 +791,11 @@ def update_user(user_id):
         session.close()
         return redirect(url_for('admin_panel'))
 
+    # Aktivieren (falls angefragt und noch nicht aktiv)
+    if 'activate_user' in request.form and not user.is_active:
+        user.is_active = True
+        flash(f"Benutzer {user.username} wurde aktiviert.")
+
     # Benutzername ändern
     new_username = request.form.get('username')
     if new_username and new_username != user.username:
@@ -813,6 +822,29 @@ def update_user(user_id):
     flash("Benutzer aktualisiert.")
     session.close()
     return redirect(url_for('admin_panel'))
+
+from flask import jsonify
+
+@app.route('/admin/activate/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def activate_user(user_id):
+    session = Session()
+    user = session.query(User).get(user_id)
+
+    if not user:
+        session.close()
+        return jsonify(success=False, error="Benutzer nicht gefunden"), 404
+
+    if user.is_active:
+        session.close()
+        return jsonify(success=False, error="Benutzer ist bereits aktiviert"), 400
+
+    user.is_active = True
+    session.commit()
+    session.close()
+
+    return jsonify(success=True)
 
 @app.route('/favicon.ico')
 def favicon():
