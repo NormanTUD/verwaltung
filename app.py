@@ -2453,6 +2453,8 @@ def get_names(session, model, id_field, name_fields):
     return result
 
 @app.route('/schema')
+@login_required
+@admin_required
 def schema():
     graph = create_schema_graph(engine=engine, metadata=Base.metadata)
     graph.write_png('/tmp/schema.png')
