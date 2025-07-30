@@ -4,25 +4,11 @@
 		<meta charset="UTF-8">
 		<title>Verwaltung &mdash; {% block title %}Meine Seite{% endblock %}</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-
 		<link href="/static/bootstrap.min.css" rel="stylesheet">
 		<link rel="stylesheet" href="/static/style.css">
 		<script src="/static/jquery.min.js" defer></script>
-
 		<script src="/static/tailwind.js"></script>
-		<script>
-			tailwind.config = {
-				darkMode: 'class',
-				theme: {
-					extend: {
-						transitionProperty: {
-							'width': 'width',
-							'spacing': 'margin, padding'
-						}
-					}
-				}
-			};
-		</script>
+		<script src="/static/tailwind_config.js"></script>
 	</head>
 	<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-all  flex" style='height: fit-content;'>
 
