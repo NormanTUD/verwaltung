@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de" class="no-js transition-colors duration-500">
+<html lang="de" class="no-js transition-colors">
 	<head>
 		<meta charset="UTF-8">
 		<title>{% block title %}Meine Seite{% endblock %}</title>
@@ -40,7 +40,7 @@
 			}
 		</style>
 	</head>
-	<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-all duration-500 flex" style='height: fit-content;'>
+	<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-all  flex" style='height: fit-content;'>
 
 		<!-- Sidebar -->
 		<nav id="sidebar" class="bg-gray-800 text-white w-64 min-h-screen p-4 space-y-4 invisible">
@@ -94,7 +94,7 @@
 		</nav>
 
 		<!-- Main Content -->
-		<main class="flex-grow p-6 transition-all duration-500">
+		<main class="flex-grow p-6 transition-all ">
 			{% block content %}
 			<h1 class="text-3xl font-bold">Willkommen</h1>
 			{% endblock %}
