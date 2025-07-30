@@ -82,7 +82,7 @@ function createLabel(name) {
 function createCounter() {
   const counter = document.createElement("div");
   counter.className = "room-counter";
-  counter.textContent = "0 Objekt(e)";
+  //counter.textContent = "0 Objekt(e)";
   counter.dataset.count = "0";
   return counter;
 }
