@@ -2921,6 +2921,7 @@ def data_overview():
     finally:
         session.close()
 
+
 @app.route("/api/get_person_room_data", methods=["GET"])
 def get_person_room_data():
     session = None
@@ -2938,8 +2939,8 @@ def get_person_room_data():
         rooms = session.query(Room).options(
             joinedload(Room.layout),
             joinedload(Room.person_links)
-            .joinedload(PersonToRoom.person)
-            .joinedload(Person.contacts)
+                .joinedload(PersonToRoom.person)
+                .joinedload(Person.contacts)
         ).filter(
             Room.building_id == building_id,
             Room.floor == floor
@@ -2962,12 +2963,17 @@ def get_person_room_data():
                         "rooms": []
                     }
 
-                # x, y Position aus PersonToRoom mit anhängen
+                # Debug-Log: Prüfe x, y Werte
+                x_value = ptr.x
+                y_value = ptr.y
+                if x_value is None or y_value is None:
+                    print(f"⚠️ Warnung: PersonToRoom id={ptr.id} hat x oder y = None")
+
                 person_dict_map[person_id]["rooms"].append({
                     "room": room_info,
                     "layout": layout_info,
-                    "x": ptr.x,
-                    "y": ptr.y
+                    "x": x_value,
+                    "y": y_value
                 })
 
         if session:
