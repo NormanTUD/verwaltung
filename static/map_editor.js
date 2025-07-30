@@ -313,6 +313,9 @@ async function createRoomElement(room) {
     await enableDragResize($el, 'room', room);
     //debug('Drag/Resize für Raum aktiviert');
 
+
+	applyInvertFilterToElements(theme);
+
     return $el[0];
 }
 
