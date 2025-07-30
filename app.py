@@ -2858,8 +2858,11 @@ def get_room_id():
             session.add(room)
             session.commit()
 
+        ret = jsonify({"room_id": room.id})
+
         session.close()
-        return jsonify({"room_id": room.id})
+
+        return ret
 
     except SQLAlchemyError as e:
         # Optionale Logging-Ausgabe
