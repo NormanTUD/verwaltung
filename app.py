@@ -315,8 +315,11 @@ def initialize_db_data():
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        session = Session()
+
         if not current_user.is_authenticated:
             print("admin_required: User is not authenticated")
+            session.close()
             abort(403)
 
         try:
@@ -324,14 +327,19 @@ def admin_required(f):
             user = session(User).query.options(joinedload(User.roles)).get(current_user.id)
             if user is None:
                 print("admin_required: User is None")
+                session.close()
                 abort(403)
             if not any(role.name == 'admin' for role in user.roles):
                 print(f"admin_required: user.roles ({', '.join(user.roles)}) does not contain admin")
+                session.close()
                 abort(403)
         except Exception as e:
             # optional: log error here
             print(f"admin_required: got an error: {e}")
+            session.close()
             abort(403)
+
+        session.close()
 
         return f(*args, **kwargs)
 
@@ -2806,7 +2814,7 @@ def db_info():
 
 @app.route("/data_overview", methods=["GET"])
 def data_overview():
-    session: Session = Session()
+    session = Session()
     try:
         # Benutzer pro Rolle
         users_by_role_raw = (
@@ -3004,4 +3012,4 @@ if __name__ == "__main__":
     insert_tu_dresden_buildings()
     initialize_db_data()
 
-    app.run(debug=False, port=5000)
+    app.run(debug=True, port=5000)
