@@ -504,7 +504,7 @@ if(addPersonBtn) {
 		populateExistingPersonSelect();
 		updateFormMode();
 		applyInvertFilterToElements(theme)
-    cancelBtnFunction()
+		cancelBtnFunction()
 	});
 }
 
