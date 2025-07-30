@@ -1,20 +1,11 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Database Info</title>
+{% extends "layout.html" %}
+{% block title %}DB Info{% endblock %}
+{% block content %}
     <script type="module">
         import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
         mermaid.initialize({ startOnLoad: true });
     </script>
-    <style>
-        body { font-family: sans-serif; padding: 2em; }
-        h2 { margin-top: 2em; }
-        table { border-collapse: collapse; width: 100%; margin-bottom: 2em; }
-        th, td { border: 1px solid #ccc; padding: 5px; }
-        pre { background: #f9f9f9; padding: 1em; overflow: auto; }
-    </style>
-</head>
-<body>
+
     <h1>Datenbankübersicht</h1>
 
     <div class="mermaid">
@@ -61,5 +52,4 @@
             {% endfor %}
         </table>
     {% endfor %}
-</body>
-</html>
+{% endblock %}
