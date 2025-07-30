@@ -513,7 +513,6 @@ def inject_sidebar_data():
     wizard_routes.append("/wizard/person")
     wizard_routes = sorted(set(wizard_routes))
 
-    print("AAAAAAAAAAAAAAA")
     is_authenticated = current_user.is_authenticated
 
     is_admin = False
@@ -522,8 +521,6 @@ def inject_sidebar_data():
             is_admin = any(r.name == 'admin' for r in current_user.roles)
         except DetachedInstanceError:
             print("DetachedInstanceError: current_user is not bound to session")
-
-    print("AAAAAAAAAAAAAAA")
 
     return dict(
         tables=tables,
