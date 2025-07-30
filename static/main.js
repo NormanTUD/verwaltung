@@ -287,11 +287,11 @@ function getElementMouseOffset(e, el) {
 
     const { mouseX, mouseY } = getMousePosRelativeToViewport(ev);
 
-    log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
+    //log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
 
     const { x, y } = scaleAndClampPosition(mouseX, mouseY);
 
-    log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
+    //log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
 
     moveElement(x, y);
   }
@@ -768,12 +768,17 @@ function toggleContextMenu(circle, attributes) {
 
     const menu = buildContextMenu(attributes);
     positionContextMenuAbsolute(circle, menu);
-    floorplan.appendChild(menu); // WICHTIG: nicht circle.appendChild
+    floorplan.appendChild(menu);
+
+    // Kontextmenü-Inventar direkt auffüllen
+    updateContextMenuInventory(circle);
+
     console.log("Kontextmenü angezeigt:", attributes);
   } catch (error) {
     console.error("Fehler beim Umschalten des Kontextmenüs:", error);
   }
 }
+
 
 function removeExistingContextMenus() {
   const menus = document.querySelectorAll(".context-menu");
@@ -812,6 +817,14 @@ function buildContextMenu(attributes) {
     <div><strong>Inventar:</strong></div>
     <ul class="question-list"></ul>
   `;
+  const list = menu.querySelector(".question-list");
+if (attributes.inventory && Array.isArray(attributes.inventory)) {
+  attributes.inventory.forEach((item, index) => {
+    const li = document.createElement("li");
+    li.textContent = `📦 ${item.option1 || "Unbenannt"} (${index + 1})`;
+    list.appendChild(li);
+  });
+}
 
   return menu;
 }
@@ -1030,25 +1043,87 @@ window.addEventListener("DOMContentLoaded", () => {
 
 
 function checkIfObjectOnPerson(el) {
+
+console.log("🚧 Überprüfe, ob 'el' das Zielobjekt ist oder eine Person:");
+
+if (el.classList.contains("person-circle")) {
+  console.warn("⚠️ Das verschobene Element ist eine Person! Es sollte kein Person-Element entfernt werden.");
+  return;
+}
+
+
   const objRect = el.getBoundingClientRect();
   const objCenterX = objRect.left + objRect.width / 2;
   const objCenterY = objRect.top + objRect.height / 2;
+
+  console.log("🔍 Objekt-Mitte:", objCenterX, objCenterY);
 
   const personEls = document.querySelectorAll('.person-circle');
   let found = false;
 
   personEls.forEach(person => {
     const personRect = person.getBoundingClientRect();
-    if (
+
+    const hit =
       objCenterX >= personRect.left &&
       objCenterX <= personRect.right &&
       objCenterY >= personRect.top &&
-      objCenterY <= personRect.bottom
-    ) {
+      objCenterY <= personRect.bottom;
+
+    console.log(`👤 Prüfe Person ${person.id || "[kein ID]"}: Treffer?`, hit);
+
+    if (hit) {
       found = true;
+
       const attributes = JSON.parse(person.dataset.attributes || "{}");
       const fullName = `${attributes.first_name || ""} ${attributes.last_name || ""}`.trim();
       console.log(`✅ Objekt befindet sich auf Person: ${fullName}`);
+
+      const objectOptions = JSON.parse(el.dataset.attributes || "{}");
+
+      if (!attributes.inventory) {
+        attributes.inventory = [];
+      }
+
+      // Objekt zum Inventar hinzufügen
+      attributes.inventory.push(objectOptions);
+      person.dataset.attributes = JSON.stringify(attributes);
+
+      console.log("📦 Objekt zum Inventar hinzugefügt:", objectOptions);
+
+
+      // 1. Objekt-Daten auslesen
+      const objectDataRaw = el.dataset.attributes;
+      console.log("📦 Daten im Objekt:", objectDataRaw);
+
+      if (!objectDataRaw) {
+        console.error("❌ Kein dataset.attributes gefunden im Objekt");
+        return;
+      }
+
+      const objectData = JSON.parse(objectDataRaw);
+      console.log("✅ Geparstes Objekt:", objectData);
+
+      // 2. Objekt aus DOM entfernen
+      el.remove();
+      console.log("🗑️ Objekt wurde aus DOM entfernt");
+
+      // 3. Inventar der Person aktualisieren
+      let inventory = [];
+      try {
+        inventory = JSON.parse(person.dataset.inventory || "[]");
+      } catch (err) {
+        console.warn("⚠️ Fehler beim Parsen von inventory, setze auf leer");
+      }
+
+      inventory.push(objectData);
+      person.dataset.inventory = JSON.stringify(inventory);
+      console.log("🧰 Neues Inventar gespeichert:", person.dataset.inventory);
+
+      // 4. Kontextmenü updaten (falls offen)
+      updateContextMenuInventory(person);
+
+      return;
     }
   });
 
@@ -1056,6 +1131,53 @@ function checkIfObjectOnPerson(el) {
     console.log("❌ Objekt befindet sich auf keiner Person.");
   }
 }
+
+
+
+function updateContextMenuInventory(person) {
+  const menu = document.querySelector(".context-menu");
+  if (!menu) {
+    console.log("ℹ️ Kein Kontextmenü offen, Inventar wird nicht angezeigt.");
+    return;
+  }
+
+  const ul = menu.querySelector(".question-list");
+  if (!ul) {
+    console.warn("❌ Keine <ul class='question-list'> im Menü gefunden.");
+    return;
+  }
+
+  let inventory = [];
+  try {
+    inventory = JSON.parse(person.dataset.inventory || "[]");
+  } catch (err) {
+    console.error("❌ Fehler beim Parsen des Inventars:", err);
+    return;
+  }
+
+  console.log("📦 Aktualisiere Kontextmenü mit Inventar:", inventory);
+  ul.innerHTML = "";
+
+  inventory.forEach((item, index) => {
+    const li = document.createElement("li");
+    li.className = "inventory-item";
+    li.style.cursor = "pointer";
+    li.innerHTML = `
+      <div><strong>${my_escape(item.option1)}</strong></div>
+      <small>${my_escape(item.option2)}</small>
+    `;
+
+    // Drag aus Inventar auf Floorplan
+    li.addEventListener("click", () => {
+      const restoredDiv = createOptionsDiv(item);
+      appendToContainer(restoredDiv);
+    });
+
+    ul.appendChild(li);
+  });
+}
+
+
 
 
 
