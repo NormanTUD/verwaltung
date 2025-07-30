@@ -1,13 +1,7 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="utf-8">
-    <title>Fehler</title>
-</head>
-<body>
+{% extends "layout.html" %}
+{% block title %}Aggregat{% endblock %}
+{% block content %}
     <h1 class='error'>Ein Fehler ist aufgetreten</h1>
     <p class='error'>{{ message }}</p>
     <p class='error'><a class="error_a" href="{{ url_for('index') }}">Zurück&nbsp;zur&nbsp;Startseite</a></p>
-    <script src="/static/footer.js"></script>
-</body>
-</html>
+{% endblock %}
