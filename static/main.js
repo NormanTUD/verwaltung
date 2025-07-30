@@ -647,17 +647,17 @@ function getPersonRoomDataSync(buildingId, floor) {
 }
 
 
-function createCircleElement(attributes, position=null) {
-	log(attributes);
+function createCircleElement(attributes, position = null) {
 	const circle = document.createElement("div");
 	circle.classList.add("person-circle");
 
 	circle.dataset.attributes = JSON.stringify(attributes);
 
-	// Nur das Bild anzeigen, keine weiteren Infos!
+	// Bild nur anzeigen
 	circle.innerHTML = `<img src="${attributes.image_url}" alt="Personenbild" />`;
 
 	setCirclePosition(circle, position);
+
 	return circle;
 }
 
@@ -682,19 +682,77 @@ function getViewportCenterPosition() {
 	};
 }
 
-function setCirclePosition(circle, position=null) {
-	const center = getViewportCenterPosition();
+function load_persons_from_db () {
+	const personData = getPersonRoomDataSync(building_id, floor);
 
+	if (personData) {
+		createPersonsFromApiData(personData);
+	} else {
+		console.error("Keine Personendaten geladen");
+	}
+}
+
+function createPersonsFromApiData(personDataArray) {
+	if (!Array.isArray(personDataArray)) {
+		console.error("API-Daten sind kein Array");
+		return;
+	}
+
+	for (const personEntry of personDataArray) {
+		const personAttributes = personEntry.person;
+
+		if (!personAttributes) {
+			console.warn("Person ohne Attribute übersprungen");
+			continue;
+		}
+
+		// Für jeden Raum der Person einen Kreis an der Layout-Position erzeugen
+		if (Array.isArray(personEntry.rooms) && personEntry.rooms.length > 0) {
+			for (const roomEntry of personEntry.rooms) {
+				const layout = roomEntry.layout || null;
+				const position = extractPositionFromLayout(layout);
+
+				const circle = createCircleElement(personAttributes, position);
+
+				// Kreis an Floorplan anhängen
+				floorplan.appendChild(circle);
+			}
+		} else {
+			// Keine Räume, Kreis zentriert erzeugen
+			const circle = createCircleElement(personAttributes, null);
+			floorplan.appendChild(circle);
+		}
+	}
+
+	applyInvertFilterToElements(theme)
+}
+
+function extractPositionFromLayout(layout) {
+	if (!layout || typeof layout.x !== "number" || typeof layout.y !== "number") {
+		return null;
+	}
+	return { x: layout.x, y: layout.y };
+}
+
+function setCirclePosition(circle, position = null) {
+	const center = getViewportCenterPosition();
 
 	const width = circle.offsetWidth || 50;
 	const height = circle.offsetHeight || 50;
 
-	circle.style.position = 'absolute';
-	circle.style.left = `${center.x - width / 2}px`;
-	circle.style.top = `${center.y - height / 2}px`;
+	circle.style.position = "absolute";
+
+	if (position && typeof position.x === "number" && typeof position.y === "number") {
+		// Position aus layout benutzen
+		// Optional: ggf. Skalierung anpassen, wenn layout-Koordinaten nicht direkt px sind
+		circle.style.left = position.x + "px";
+		circle.style.top = position.y + "px";
+	} else {
+		// Standard: zentriert
+		circle.style.left = `${center.x - width / 2}px`;
+		circle.style.top = `${center.y - height / 2}px`;
+	}
 }
-
-
 
 function getCircleStyles() {
 	return {
