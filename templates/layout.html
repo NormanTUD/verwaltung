@@ -1,15 +1,13 @@
 <!DOCTYPE html>
-<html lang="de" class="transition-colors duration-500">
+<html lang="de" class="no-js transition-colors duration-500">
 <head>
     <meta charset="UTF-8">
     <title>{% block title %}Meine Seite{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-
-	<link href="/static/bootstrap.min.css" rel="stylesheet">
-	<link rel="stylesheet" href="../static/style.css">
-	<link href="/static/toastr.min.css" rel="stylesheet">
-	<script src="/static/jquery.min.js"></script>
+    <link href="/static/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/jquery.min.js" defer></script>
 
     <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -33,7 +31,7 @@
             position: fixed;
             top: 1rem;
             right: 1rem;
-            background-color: #1f2937; /* gray-800 */
+            background-color: #1f2937;
             color: white;
             padding: 0.75rem 1.25rem;
             border-radius: 0.5rem;
@@ -45,41 +43,39 @@
 <body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-all duration-500 flex">
 
     <!-- Sidebar -->
-    <nav id="sidebar" class="bg-gray-800 text-white w-64 min-h-screen p-4 space-y-4 transition-transform duration-300">
+    <nav id="sidebar" class="bg-gray-800 text-white w-64 min-h-screen p-4 space-y-4 invisible">
         <h2 class="text-2xl font-bold mb-6">🌙 GUI</h2>
 
         <ul class="space-y-2">
-
             <li class="text-sm text-gray-400 uppercase">🧙 Wizards</li>
             {% for route in wizard_routes %}
                 <li>
-                    <a href="{{ route }}" class="block px-4 py-2 rounded hover:bg-gray-700 transition">
+                    <a href="{{ route }}" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == route %}bg-gray-700{% endif %}">
                         {{ route.replace('/wizard/', '').capitalize() }}
                     </a>
                 </li>
             {% endfor %}
 
             <li class="mt-4 text-sm text-gray-400 uppercase">📦 Aggregate</li>
-            <li><a href="{{ url_for('aggregate_inventory_view') }}" class="block px-4 py-2 rounded hover:bg-gray-700 transition">Inventar</a></li>
-            <li><a href="{{ url_for('aggregate_transponder_view') }}" class="block px-4 py-2 rounded hover:bg-gray-700 transition">Transponder</a></li>
+            <li><a href="{{ url_for('aggregate_inventory_view') }}" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == url_for('aggregate_inventory_view') %}bg-gray-700{% endif %}">Inventar</a></li>
+            <li><a href="{{ url_for('aggregate_transponder_view') }}" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == url_for('aggregate_transponder_view') %}bg-gray-700{% endif %}">Transponder</a></li>
 
             <li class="mt-4 text-sm text-gray-400 uppercase">📋 Tabellen</li>
             {% for table in tables %}
                 <li>
-                    <a href="{{ url_for('table_view', table_name=table) }}" class="block px-4 py-2 rounded hover:bg-gray-700 transition">
+                    <a href="{{ url_for('table_view', table_name=table) }}" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == url_for('table_view', table_name=table) %}bg-gray-700{% endif %}">
                         {{ table.capitalize() }}
                     </a>
                 </li>
             {% endfor %}
 
             <li class="mt-4 text-sm text-gray-400 uppercase">🗺️ Karten</li>
-            <li><a href="/map-editor" class="block px-4 py-2 rounded hover:bg-gray-700 transition">Map-Editor</a></li>
-            <li><a href="/floorplan" class="block px-4 py-2 rounded hover:bg-gray-700 transition">Floorplan</a></li>
-
+            <li><a href="/map-editor" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == '/map-editor' %}bg-gray-700{% endif %}">Map-Editor</a></li>
+            <li><a href="/floorplan" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == '/floorplan' %}bg-gray-700{% endif %}">Floorplan</a></li>
         </ul>
 
         <div class="pt-6 space-y-2">
-            <button id="toggleThemeBtn" class="w-full bg-gray-700 hover:bg-gray-600 py-2 rounded transition">🌓 Theme wechseln</button>
+            <button id="toggleThemeBtn" class="w-full bg-gray-700 hover:bg-gray-600 py-2 rounded transition">🌓 Theme</button>
             <button id="logoutBtn" class="w-full bg-red-600 hover:bg-red-500 py-2 rounded transition">🚪 Logout</button>
         </div>
     </nav>
@@ -95,37 +91,54 @@
     <div id="toast" class="toast hidden"></div>
 
     <!-- Scripts -->
-    <script>
+    <script defer>
+        document.documentElement.classList.remove('no-js');
+
         document.addEventListener('DOMContentLoaded', function () {
             const html = document.documentElement;
             const toast = document.getElementById('toast');
+            const sidebar = document.getElementById('sidebar');
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             const storedTheme = localStorage.getItem('theme');
+            const toggleThemeBtn = document.getElementById('toggleThemeBtn');
+            const logoutBtn = document.getElementById('logoutBtn');
+
+            sidebar.classList.remove('invisible');
+            sidebar.classList.add('transition-transform', 'duration-300');
 
             function applyTheme(mode) {
                 if (mode === 'dark') {
                     html.classList.add('dark');
                     localStorage.setItem('theme', 'dark');
+                    updateThemeButtonIcon();
                     showToast("🌙 Dark Mode aktiviert");
                 } else {
                     html.classList.remove('dark');
                     localStorage.setItem('theme', 'light');
+                    updateThemeButtonIcon();
                     showToast("☀️ Light Mode aktiviert");
                 }
+            }
+
+            function updateThemeButtonIcon() {
+                const isDark = html.classList.contains('dark');
+                toggleThemeBtn.textContent = isDark ? "☀️ Light Mode" : "🌙 Dark Mode";
             }
 
             if (storedTheme) {
                 applyTheme(storedTheme);
             } else if (prefersDark) {
                 applyTheme('dark');
+            } else {
+                applyTheme('light');
             }
 
-            document.getElementById('toggleThemeBtn').addEventListener('click', function () {
+            toggleThemeBtn.addEventListener('click', function () {
                 const isDark = html.classList.contains('dark');
                 applyTheme(isDark ? 'light' : 'dark');
             });
 
-            document.getElementById('logoutBtn').addEventListener('click', function () {
+            logoutBtn.addEventListener('click', function () {
                 showToast("🚪 Ausgeloggt");
                 // window.location.href = "/logout";
             });
@@ -143,6 +156,7 @@
             }
         });
     </script>
-		<script src="/static/footer.js"></script>
+
+    <script src="/static/footer.js" defer></script>
 </body>
 </html>
