@@ -1,133 +1,124 @@
-<!DOCTYPE html>
-<html lang="de">
-	<head>
-		<meta charset="UTF-8">
-		<title>{{ config.title }}</title>
-		<link href="/static/bootstrap.min.css" rel="stylesheet">
-		<link rel="stylesheet" href="../static/style.css">
-		<link href="/static/toastr.min.css" rel="stylesheet">
-	</head>
-	<body>
-		<button id="backLink" class="floorplan_back_Btn">ᐊ</button>
-		<h1>{{ config.title }}</h1>
-		<form method="post" id="wizard-form">
-			{% for field in config.fields %}
-			<div class="mb-3">
-				<label class="form-label">{{ field.label }}</label>
-				{# Wert aus form_data holen, falls vorhanden #}
-				{% set value = form_data[field.name][0] if form_data and field.name in form_data else '' %}
-				{% if field.type == 'textarea' %}
-				<textarea class="form-control" name="{{ field.name }}" {% if field.required %}required{% endif %}>{{ value }}</textarea>
-				{% else %}
-				<input type="{{ field.type }}" class="form-control" name="{{ field.name }}" value="{{ value }}" {% if field.required %}required{% endif %}>
-				{% endif %}
-			</div>
-			{% endfor %}
+{% extends "layout.html" %}
+{% block title %}Wizard{% endblock %}
+{% block content %}
+<h1>{{ config.title }}</h1>
+<form method="post" id="wizard-form">
+	{% for field in config.fields %}
+	<div class="mb-3">
+		<label class="form-label">{{ field.label }}</label>
+		{# Wert aus form_data holen, falls vorhanden #}
+		{% set value = form_data[field.name][0] if form_data and field.name in form_data else '' %}
+		{% if field.type == 'textarea' %}
+		<textarea class="form-control" name="{{ field.name }}" {% if field.required %}required{% endif %}>{{ value }}</textarea>
+		{% else %}
+		<input type="{{ field.type }}" class="form-control" name="{{ field.name }}" value="{{ value }}" {% if field.required %}required{% endif %}>
+		{% endif %}
+	</div>
+	{% endfor %}
 
-			{% for sub in config.subforms %}
-			<hr>
-			<h3>{{ sub.label }}</h3>
-			<div class="subform-container" data-name="{{ sub.name }}"></div>
-			<button type="button" class="btn btn-secondary add-subform-btn" data-name="{{ sub.name }}">+ {{ sub.label }} hinzufügen</button>
-			{% endfor %}
+	{% for sub in config.subforms %}
+	<hr>
+	<h3>{{ sub.label }}</h3>
+	<div class="subform-container" data-name="{{ sub.name }}"></div>
+	<button type="button" class="btn btn-secondary add-subform-btn" data-name="{{ sub.name }}">+ {{ sub.label }} hinzufügen</button>
+	{% endfor %}
 
-			<hr>
-			<button type="submit" class="btn btn-primary">Speichern</button>
-		</form>
+	<hr>
+	<button type="submit" class="btn btn-primary">Speichern</button>
+</form>
 
-		<script src="/static/jquery.min.js"></script>
-		<script src="/static/toastr.min.js"></script>
-		<script>
-			function decodeHtmlEntities(text) {
-				var textarea = document.createElement('textarea');
-				textarea.innerHTML = text;
-				return decodeURIComponent(textarea.value);
+<script src="/static/jquery.min.js"></script>
+<script src="/static/toastr.min.js"></script>
+<script>
+	function decodeHtmlEntities(text) {
+		var textarea = document.createElement('textarea');
+		textarea.innerHTML = text;
+		return decodeURIComponent(textarea.value);
+	}
+
+	const rawSubforms = "{{ config_json.subforms or [] | tojson | urlencode }}";
+	const SUBFORMS = eval(decodeHtmlEntities(rawSubforms));
+	const formData = {{ form_data or {} | tojson }};
+
+	function escapeHtml(text) {
+		return text
+			.replace(/&/g, "&amp;")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/"/g, "&quot;")
+				.replace(/'/g, "&#039;");
+	}
+
+	// subform HTML mit optionalen Werten für die Felder
+	function createSubformHTML(subform, values = {}) {
+		let html = '<div class="subform-entry border rounded p-2 mb-2">';
+		for (let f of subform.fields) {
+			let val = values[f.name] || '';
+			html += `<div class="mb-2"><label>${escapeHtml(f.label)}</label><input class="form-control" name="${escapeHtml(f.name)}[]" type="${f.type || 'text'}" value="${escapeHtml(val)}"></div>`;
+		}
+		html += '<button type="button" class="btn btn-danger btn-sm remove-subform-btn">Entfernen</button>';
+		html += '</div>';
+		return html;
+	}
+
+	$(document).ready(function() {
+		// Subform-Daten aus formData zusammensuchen und HTML erzeugen
+		for (let sub of SUBFORMS) {
+			const container = $(`.subform-container[data-name="${sub.name}"]`);
+			let entriesCount = 0;
+
+			// Subform-Felder haben Namen wie fieldname[]
+			// Finde max. Anzahl der Einträge
+			let fieldNames = sub.fields.map(f => f.name + '[]');
+			let maxEntries = 0;
+			for (let fn of fieldNames) {
+				if (formData[fn]) {
+					maxEntries = Math.max(maxEntries, formData[fn].length);
+				}
 			}
 
-			const rawSubforms = "{{ config_json.subforms or [] | tojson | urlencode }}";
-			const SUBFORMS = eval(decodeHtmlEntities(rawSubforms));
-			const formData = {{ form_data or {} | tojson }};
-
-			function escapeHtml(text) {
-				return text
-					.replace(/&/g, "&amp;")
-					.replace(/</g, "&lt;")
-					.replace(/>/g, "&gt;")
-					.replace(/"/g, "&quot;")
-						.replace(/'/g, "&#039;");
+			for (let i = 0; i < maxEntries; i++) {
+				let values = {};
+				for (let f of sub.fields) {
+					let key = f.name + '[]';
+					values[f.name] = (formData[key] && formData[key][i]) ? formData[key][i] : '';
+				}
+				container.append(createSubformHTML(sub, values));
+				entriesCount++;
 			}
 
-			// subform HTML mit optionalen Werten für die Felder
-			function createSubformHTML(subform, values = {}) {
-				let html = '<div class="subform-entry border rounded p-2 mb-2">';
-				for (let f of subform.fields) {
-					let val = values[f.name] || '';
-					html += `<div class="mb-2"><label>${escapeHtml(f.label)}</label><input class="form-control" name="${escapeHtml(f.name)}[]" type="${f.type || 'text'}" value="${escapeHtml(val)}"></div>`;
-				}
-				html += '<button type="button" class="btn btn-danger btn-sm remove-subform-btn">Entfernen</button>';
-				html += '</div>';
-				return html;
+			if (entriesCount === 0) {
+				container.append(createSubformHTML(sub));
 			}
+		}
 
-			$(document).ready(function() {
-				// Subform-Daten aus formData zusammensuchen und HTML erzeugen
-				for (let sub of SUBFORMS) {
-					const container = $(`.subform-container[data-name="${sub.name}"]`);
-					let entriesCount = 0;
+		$('.add-subform-btn').on('click', function() {
+			const name = $(this).data('name');
+			const sub = SUBFORMS.find(s => s.name === name);
+			const container = $(`.subform-container[data-name="${name}"]`);
+			container.append(createSubformHTML(sub));
 
-					// Subform-Felder haben Namen wie fieldname[]
-					// Finde max. Anzahl der Einträge
-					let fieldNames = sub.fields.map(f => f.name + '[]');
-					let maxEntries = 0;
-					for (let fn of fieldNames) {
-						if (formData[fn]) {
-							maxEntries = Math.max(maxEntries, formData[fn].length);
-						}
-					}
+			if (typeof replace_id_fields_with_proper_fields === "function") {
+				replace_id_fields_with_proper_fields();
+			}
+		});
 
-					for (let i = 0; i < maxEntries; i++) {
-						let values = {};
-						for (let f of sub.fields) {
-							let key = f.name + '[]';
-							values[f.name] = (formData[key] && formData[key][i]) ? formData[key][i] : '';
-						}
-						container.append(createSubformHTML(sub, values));
-						entriesCount++;
-					}
+		$(document).on('click', '.remove-subform-btn', function() {
+			$(this).closest('.subform-entry').remove();
+		});
 
-					if (entriesCount === 0) {
-						container.append(createSubformHTML(sub));
-					}
-				}
+		const success_msg = {{ success | tojson }};
+		const error_msg = {{ error | tojson }};
 
-				$('.add-subform-btn').on('click', function() {
-					const name = $(this).data('name');
-					const sub = SUBFORMS.find(s => s.name === name);
-					const container = $(`.subform-container[data-name="${name}"]`);
-					container.append(createSubformHTML(sub));
+		if (success_msg) {
+			toastr.success(success_msg);
+		}
 
-					if (typeof replace_id_fields_with_proper_fields === "function") {
-						replace_id_fields_with_proper_fields();
-					}
-				});
+		if (error_msg) {
+			toastr.error("Fehler: " + error_msg);
+		}
+	});
+</script>
 
-				$(document).on('click', '.remove-subform-btn', function() {
-					$(this).closest('.subform-entry').remove();
-				});
-
-				const success_msg = {{ success | tojson }};
-				const error_msg = {{ error | tojson }};
-
-				if (success_msg) {
-					toastr.success(success_msg);
-				}
-
-				if (error_msg) {
-					toastr.error("Fehler: " + error_msg);
-				}
-			});
-		</script>
-
-		<script src="/static/footer.js"></script>
-	</body>
-</html>
+<script src="/static/footer.js"></script>
+{% endblock %}
