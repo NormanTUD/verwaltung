@@ -629,18 +629,36 @@ function createPersonCircle(attributes) {
 	applyInvertFilterToElements(theme)
 }
 
-function createCircleElement(attributes) {
+function getPersonRoomDataSync(buildingId, floor) {
+	var xhr = new XMLHttpRequest();
+	var url = "/api/get_person_room_data?building_id=" + encodeURIComponent(buildingId) + "&floor=" + encodeURIComponent(floor);
+	xhr.open("GET", url, false); // synchron
+	try {
+		xhr.send(null);
+		if (xhr.status === 200) {
+			return JSON.parse(xhr.responseText);
+		} else {
+			console.error("HTTP-Fehler:", xhr.status);
+			return null;
+		}
+	} catch (e) {
+		console.error("XHR-Fehler:", e);
+		return null;
+	}
+}
+
+
+function createCircleElement(attributes, position=null) {
+	log(attributes);
 	const circle = document.createElement("div");
 	circle.classList.add("person-circle");
 
 	circle.dataset.attributes = JSON.stringify(attributes);
 
 	// Nur das Bild anzeigen, keine weiteren Infos!
-	circle.innerHTML = `
-    <img src="${attributes.image_url}" alt="Personenbild" />
-  `;
+	circle.innerHTML = `<img src="${attributes.image_url}" alt="Personenbild" />`;
 
-	setCirclePosition(circle);
+	setCirclePosition(circle, position);
 	return circle;
 }
 
@@ -665,7 +683,7 @@ function getViewportCenterPosition() {
 	};
 }
 
-function setCirclePosition(circle) {
+function setCirclePosition(circle, position=null) {
 	const center = getViewportCenterPosition();
 
 
