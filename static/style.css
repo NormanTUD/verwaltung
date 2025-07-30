@@ -330,3 +330,8 @@ ul {
 	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 	z-index: 9999;
 }
+
+.table > :not(caption) > * > * {
+	color: unset !important;
+	background-color: unset !important;
+}
