@@ -524,7 +524,6 @@ def insert_tu_dresden_buildings ():
 
     parse_buildings_csv(csv_input)
 
-
 @login_manager.user_loader
 def load_user(user_id):
     session = Session()
@@ -601,7 +600,6 @@ def is_valid_email(email):
 
 def column_label(table, col):
     return COLUMN_LABELS.get(f"{table}.{col}", col.replace("_id", "").replace("_", " ").capitalize())
-
 
 def load_user(user_id):
     try:
@@ -1084,11 +1082,9 @@ def delete_entry(table_name):
         session.close()
         return jsonify(success=False, error=str(e))
 
-
 @app.route("/aggregate/")
 def aggregate_index():
     return render_template("aggregate_index.html")  # Optional – nur als Startseite für Aggregates
-
 
 @app.route("/aggregate/transponder")
 def aggregate_transponder_view():
@@ -1151,13 +1147,11 @@ def aggregate_transponder_view():
         column_labels = list(rows[0].keys()) if rows else []
         column_labels.append("PDF")
 
-
         row_data = [
             [html.escape(str(row[col])) for col in column_labels if col != "PDF"] +
             [f"<a href='http://localhost:5000/generate_pdf/schliessmedien/?issuer_id={issuer.id if issuer else ''}&owner_id={owner.id if owner else ''}&transponder_id={t.id}'><img src='../static/pdf.svg' height=32 width=32></a>"]
             for t, row, owner, issuer in [(t, row, t.owner, t.issuer) for t, row in zip(transponder_list, rows)]
         ]
-
 
         # Filter-Dict zum dynamischen Befüllen des Formulars und Anzeige des Status
         filters = {
@@ -1634,7 +1628,6 @@ def get_abteilung_metadata(abteilung_id: int) -> dict:
         session.close()
         return {"error": str(e)}
 
-
 def generate_fields_for_schluesselausgabe_from_metadata(
     issuer: dict,
     owner: dict,
@@ -1754,7 +1747,6 @@ def generate_fields_for_schluesselausgabe_from_metadata(
         data[name] = value
 
     return data
-
 
 def get_transponder_metadata(transponder_id: int) -> dict:
     session = Session()
@@ -1989,7 +1981,6 @@ def generate_pdf():
         as_attachment=True,
         download_name='ausgabe_schliessmedien_filled.pdf'
     )
-
 
 @app.route("/transponder", methods=["GET"])
 def transponder_form():
@@ -2501,8 +2492,6 @@ def add_person():
         session.close()
         return jsonify({"error": str(e)}), 500
 
-
-
 @app.route("/api/save_person_to_room", methods=["POST"])
 def save_person_to_room():
     session = Session()
@@ -2761,7 +2750,6 @@ def get_object_names():
     session.close()
     return jsonify(result)
 
-
 @app.route('/db_info')
 @login_required
 @admin_required
@@ -2811,8 +2799,6 @@ def db_info():
     mermaid = make_mermaid(tables, relationships)
 
     return render_template('db_info.html', tables=tables, mermaid=mermaid)
-
-
 
 @app.route("/data_overview", methods=["GET"])
 def data_overview():
