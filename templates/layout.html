@@ -129,14 +129,26 @@
 						sidebar.classList.add('transition-transform', 'duration-300');
 					}
 
-					// Setze Hintergrund-Klassen für <main> passend zum Theme
 					function applyMainBgClass(mode) {
 						if (mode === 'dark') {
-							main.classList.add('bg-gray-900', 'text-gray-100'); // Dunkler Hintergrund + helle Schrift
+							main.classList.add('bg-gray-900', 'text-gray-100');
 							main.classList.remove('bg-white', 'text-gray-900');
 						} else {
-							main.classList.add('bg-white', 'text-gray-900'); // Heller Hintergrund + dunkle Schrift
+							main.classList.add('bg-white', 'text-gray-900');
 							main.classList.remove('bg-gray-900', 'text-gray-100');
+						}
+					}
+
+					function applyInvertFilterToElements(mode) {
+						const floorplan = document.getElementById('floorplan');
+						const backgroundImage = document.getElementById('backgroundImage');
+
+						if (mode === 'dark') {
+							if (floorplan) floorplan.style.filter = 'invert(1)';
+							if (backgroundImage) backgroundImage.style.filter = 'invert(1)';
+						} else {
+							if (floorplan) floorplan.style.filter = '';
+							if (backgroundImage) backgroundImage.style.filter = '';
 						}
 					}
 
@@ -162,12 +174,14 @@
 							html.classList.add('dark');
 							localStorage.setItem('theme', 'dark');
 							applyMainBgClass('dark');
+							applyInvertFilterToElements('dark');
 							updateThemeButtonIcon();
 							showToast("🌙 Dark Mode aktiviert");
 						} else {
 							html.classList.remove('dark');
 							localStorage.setItem('theme', 'light');
 							applyMainBgClass('light');
+							applyInvertFilterToElements('light');
 							updateThemeButtonIcon();
 							showToast("☀️ Light Mode aktiviert");
 						}
