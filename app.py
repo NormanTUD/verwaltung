@@ -131,57 +131,6 @@ INITIAL_DATA = {
     ]
 }
 
-def initialize_db_data():
-    session = Session()
-    try:
-        with app.app_context():
-            # Prüfen ob Tabellen leer sind (hier nur ein Beispiel für Kostenstelle)
-            kostenstelle_count = Kostenstelle.query.count()
-            if kostenstelle_count == 0:
-                # Insert Kostenstellen
-                for ks in INITIAL_DATA["kostenstellen"]:
-                    obj = Kostenstelle(name=ks["name"])
-                    session.add(obj)
-                session.commit()
-                print("Kostenstellen initialisiert.")
-
-            professorship_count = Professorship.query.count()
-            if professorship_count == 0:
-                # Profssorships brauchen Kostenstelle-IDs, deshalb laden wir die Kostenstellen-Objekte
-                for prof in INITIAL_DATA["professorships"]:
-                    kostenstelle_obj = Kostenstelle.query.filter_by(name=prof["kostenstelle_name"]).first()
-                    if kostenstelle_obj is None:
-                        raise ValueError(f"Kostenstelle '{prof['kostenstelle_name']}' nicht gefunden für Professur '{prof['name']}'")
-                    obj = Professorship(name=prof["name"], kostenstelle_id=kostenstelle_obj.id)
-                    session.add(obj)
-                session.commit()
-                print("Professuren initialisiert.")
-
-            object_category_count = ObjectCategory.query.count()
-            if object_category_count == 0:
-                for cat in INITIAL_DATA["object_categories"]:
-                    obj = ObjectCategory(name=cat["name"])
-                    session.add(obj)
-                session.commit()
-                print("ObjectCategories initialisiert.")
-
-            abteilung_count = Abteilung.query.count()
-            if abteilung_count == 0:
-                for abt in INITIAL_DATA["abteilungen"]:
-                    obj = Abteilung(name=abt["name"])
-                    session.add(obj)
-                session.commit()
-                print("Abteilungen initialisiert.")
-
-    except SQLAlchemyError as e:
-        session.rollback()
-        print(f"Fehler beim Initialisieren der DB-Daten: {str(e)}")
-    except Exception as e:
-        session.rollback()
-        print(f"Allgemeiner Fehler: {str(e)}")
-        
-    session.close()
-
 WIZARDS = {
     "transponder": {
         "title": "Transponder erstellen",
@@ -291,6 +240,78 @@ WIZARDS = {
 
 EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 
+def initialize_db_data():
+    session = Session()
+    try:
+        print("Starte Initialisierung der Daten...")
+
+        # Kostenstelle prüfen und ggf. einfügen
+        print("Prüfe Anzahl der Kostenstellen...")
+        kostenstelle_count = session.query(Kostenstelle).count()
+        print(f"Gefundene Kostenstellen: {kostenstelle_count}")
+        if kostenstelle_count == 0:
+            print("Keine Kostenstellen gefunden, füge neue hinzu...")
+            for ks in INITIAL_DATA["kostenstellen"]:
+                print(f"  - Füge Kostenstelle hinzu: {ks['name']}")
+                obj = Kostenstelle(name=ks["name"])
+                session.add(obj)
+            session.commit()
+            print("Kostenstellen wurden erfolgreich initialisiert.")
+
+        # Professorship prüfen und ggf. einfügen
+        print("Prüfe Anzahl der Professuren...")
+        professorship_count = session.query(Professorship).count()
+        print(f"Gefundene Professuren: {professorship_count}")
+        if professorship_count == 0:
+            print("Keine Professuren gefunden, füge neue hinzu...")
+            for prof in INITIAL_DATA["professorships"]:
+                print(f"  - Verarbeite Professur: {prof['name']} mit Kostenstelle '{prof['kostenstelle_name']}'")
+                kostenstelle_obj = session.query(Kostenstelle).filter_by(name=prof["kostenstelle_name"]).first()
+                if kostenstelle_obj is None:
+                    raise ValueError(f"Kostenstelle '{prof['kostenstelle_name']}' nicht gefunden für Professur '{prof['name']}'")
+                obj = Professorship(name=prof["name"], kostenstelle_id=kostenstelle_obj.id)
+                session.add(obj)
+            session.commit()
+            print("Professuren wurden erfolgreich initialisiert.")
+
+        # ObjectCategory prüfen und ggf. einfügen
+        print("Prüfe Anzahl der ObjectCategories...")
+        object_category_count = session.query(ObjectCategory).count()
+        print(f"Gefundene ObjectCategories: {object_category_count}")
+        if object_category_count == 0:
+            print("Keine ObjectCategories gefunden, füge neue hinzu...")
+            for cat in INITIAL_DATA["object_categories"]:
+                print(f"  - Füge ObjectCategory hinzu: {cat['name']}")
+                obj = ObjectCategory(name=cat["name"])
+                session.add(obj)
+            session.commit()
+            print("ObjectCategories wurden erfolgreich initialisiert.")
+
+        # Abteilung prüfen und ggf. einfügen
+        print("Prüfe Anzahl der Abteilungen...")
+        abteilung_count = session.query(Abteilung).count()
+        print(f"Gefundene Abteilungen: {abteilung_count}")
+        if abteilung_count == 0:
+            print("Keine Abteilungen gefunden, füge neue hinzu...")
+            for abt in INITIAL_DATA["abteilungen"]:
+                print(f"  - Füge Abteilung hinzu: {abt['name']}")
+                obj = Abteilung(name=abt["name"])
+                session.add(obj)
+            session.commit()
+            print("Abteilungen wurden erfolgreich initialisiert.")
+
+        print("Initialisierung der Daten abgeschlossen.")
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        print(f"SQLAlchemy-Fehler beim Initialisieren der DB-Daten: {str(e)}")
+    except Exception as e:
+        session.rollback()
+        print(f"Allgemeiner Fehler beim Initialisieren der DB-Daten: {str(e)}")
+    finally:
+        session.close()
+        print("Datenbank-Session geschlossen.")
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -299,7 +320,7 @@ def admin_required(f):
 
         try:
             # Nutzer mit Rollen aus DB nachladen (vermeidet DetachedInstanceError)
-            user = db.session.query(User).options(joinedload(User.roles)).get(current_user.id)
+            user = session(User).query.options(joinedload(User.roles)).get(current_user.id)
             if user is None:
                 abort(403)
             if not any(role.name == 'admin' for role in user.roles):
