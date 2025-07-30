@@ -346,8 +346,6 @@ function makeDraggable(el) {
 			.catch(error => {
 				console.error("Fehler beim Speichern:", error);
 			});
-
-		//save_person_to_raum();
 	}
 
 	function stopDragging() {
@@ -364,10 +362,8 @@ function makeDraggable(el) {
 		if (foundRoom) {
 			console.log("Found room on drag end:", foundRoom);
 
-			if (el.dataset.room !== foundRoom.el.dataset.name) {
-				removeFromOldRoom(el);
-				addToNewRoom(el, foundRoom);
-			}
+			removeFromOldRoom(el);
+			addToNewRoom(el, foundRoom);
 
 			updateZIndex(el, foundRoom);
 			// snapObjectToZone(el, foundRoom); ← DAS WEG!
