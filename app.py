@@ -562,21 +562,30 @@ def load_user(user_id):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))  # Benutzer ist schon eingeloggt → sofort weiterleiten
+
     session = Session()
-    if request.method == 'POST':
-        user = session.query(User).filter_by(username=request.form['username']).first()
-        if user:
-            if not user.is_active:
-                flash('Benutzer ist noch nicht aktiviert.')
-            elif check_password_hash(user.password, request.form['password']):
-                login_user(user)
-                session.close()
-                return redirect(url_for('index'))  # Immer index, nicht next
+    try:
+        if request.method == 'POST':
+            username = request.form.get('username', '')
+            password = request.form.get('password', '')
+
+            user = session.query(User).filter_by(username=username).first()
+
+            if user:
+                if not user.is_active:
+                    flash('Benutzer ist noch nicht aktiviert.')
+                elif check_password_hash(user.password, password):
+                    login_user(user)
+                    return redirect(url_for('index'))
+                else:
+                    flash('Falsches Passwort.')
             else:
-                flash('Falsches Passwort.')
-        else:
-            flash('Benutzer nicht gefunden.')
-    session.close()
+                flash('Benutzer nicht gefunden.')
+    finally:
+        session.close()
+
     return render_template('login.html')
 
 def is_password_complex(password):
