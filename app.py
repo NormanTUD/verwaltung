@@ -2847,7 +2847,7 @@ def save_person_to_room():
             session.flush()
 
         # 2. Raum finden
-        room = session.query(Room).filter_by(name=room_name).first()
+        room = session.query(Room).filter_by(id=room_name).first()
         if not room:
             session.close()
             return jsonify({"error": f"Room '{room_name}' not found"}), 404
