@@ -47,15 +47,17 @@
 					{% for row in row_data %}
 					<tr>
 						{% for cell in row %}
-						{% if loop.index0 == (column_labels|length - 1) %}
-						<td>{{ cell | safe }}</td>  {# PDF-Spalte: nicht escapen #}
-						{% else %}
-						<td>{{ cell }}</td>          {# andere Spalten: escape normal #}
-						{% endif %}
+							{% set col_name = column_labels[loop.index0] %}
+							{% if col_name in ["Ausgegeben an", "Ausgegeben durch", "PDF"] %}
+								<td>{{ cell | safe }}</td>
+							{% else %}
+								<td>{{ cell }}</td>
+							{% endif %}
 						{% endfor %}
 					</tr>
 					{% endfor %}
 				</tbody>
+
 			</table>
 
 		</div>
