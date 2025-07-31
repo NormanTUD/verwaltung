@@ -95,7 +95,7 @@ function getElementsByName(name) {
 	return elements;
 }
 
-function createInputField(fieldConfig, fieldName, onOptionsLoaded) {
+function createInputField(fieldConfig, fieldName, onOptionsLoaded, default_value) {
 	if (fieldConfig.type === "select") {
 		var select = $('<select>', {
 			class: 'auto_generated_field',
@@ -105,26 +105,30 @@ function createInputField(fieldConfig, fieldName, onOptionsLoaded) {
 		var optionsUrl = fieldConfig.options_url || fieldConfig.options_url_id_dict;
 
 		$.get(optionsUrl, function(data) {
+			select.append($('<option>', {
+				value: "",
+				text: "-"
+			}));
+
 			if (fieldConfig.options_url_id_dict && typeof data === 'object' && !Array.isArray(data)) {
 				for (var id in data) {
 					select.append($('<option>', {
 						value: id,
-						text: data[id]
+						text: data[id],
+						selected: id === default_value
 					}));
 				}
 			} else if (Array.isArray(data)) {
 				for (var option of data) {
 					select.append($('<option>', {
 						value: option,
-						text: option
+						text: option,
+						selected: option === default_value
 					}));
 				}
 			}
 
-			// Automatisch ersten Wert auswählen und callback ausführen
-			if (select.children().length > 0) {
-				select.val(select.children().first().val());
-			}
+			log(select);
 
 			if (typeof onOptionsLoaded === "function") {
 				onOptionsLoaded(select);
@@ -203,15 +207,16 @@ function updateHiddenFieldValue(config, hiddenElement, form, triggeredBy = null)
 				hiddenElement.val('');
 			});
 		}
-	} else {
-		var firstField = Object.keys(config.fields)[0];
-		hiddenElement.val(params[firstField] || '');
 	}
 }
 
 
 function replaceFieldsForElement(element, name, config) {
 	var $element = $(element);
+	var original_value = $(element).attr("value");
+
+	log("element and original_value: ", $element, original_value);
+
 	if(Object.keys(config).includes("label")) {
 		var $parentLabel = $element.parent().find("label");
 		if ($parentLabel.length > 0) {
@@ -238,7 +243,7 @@ function replaceFieldsForElement(element, name, config) {
 
 		let input = createInputField(fieldConfig, fieldName, function(selectElement) {
 			onInputChange();
-		});
+		}, original_value);
 
 		if (i === 0) {
 			$element.before($("<br>"));
