@@ -3662,6 +3662,26 @@ def update_transponder_field():
     finally:
         session.close()
     
+def _readonly_block_check():
+    from flask_login import current_user
+    if getattr(current_user, 'readonly', False):
+        raise RuntimeError("Schreiboperationen sind deaktiviert: Benutzer ist im Readonly-Modus.")
+
+def block_writes_if_user_readonly(session, flush_context, instances):
+    write_ops = session.new.union(session.dirty).union(session.deleted)
+    if not write_ops:
+        return  # nichts zu tun
+
+    try:
+        if request:
+            _readonly_block_check()
+    except RuntimeError:
+        raise
+    except Exception:
+        # Kein Flask-Kontext (z. B. bei Alembic), dann ignorieren
+        pass
+
+event.listen(Session, "before_flush", block_writes_if_user_readonly)
 event.listen(Session, "before_flush", block_writes_if_data_version_cookie_set)
 
 if __name__ == "__main__":
