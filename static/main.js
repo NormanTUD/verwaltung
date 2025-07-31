@@ -279,54 +279,54 @@ function makeDraggable(el) {
 
 
 	function addToNewRoom(el, newRoom) {
-		newRoom.objects.push(el);
-		log("newRoom:", newRoom);
-		el.dataset.room = newRoom.el.dataset.id;
-		console.log(`Added element to new room: ${newRoom.el.dataset.id}`, el);
+	console.trace();
+	newRoom.objects.push(el);
+	log("newRoom:", newRoom);
+	el.dataset.room = newRoom.el.dataset.id;
+	console.log(`Added element to new room: ${newRoom.el.dataset.id}`, el);
 
-		var attributes = JSON.parse(el.dataset.attributes || "{}");
-
-		// Daten, die gesendet werden sollen (z.B. attributes plus Raum)
-		const payload = {
-			room: newRoom.el.dataset.id,
-			person: attributes,
-			x: parseInt($(el).css("left")),
-			y: parseInt($(el).css("top"))
-		};
-
-		if (payload.room === undefined) {
-			alert("payload.room ist undefined!");
-		}
-
-		fetch("/api/save_person_to_room", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json"
-			},
-			body: JSON.stringify(payload)  // Payload als JSON-String schicken
-		})
-			.then(response => {
-				if (!response.ok) throw new Error("Netzwerkantwort war nicht OK");
-				return response.json(); // falls JSON als Antwort erwartet wird
-			})
-			.then(data => {
-				console.log("Erfolgreich gespeichert:", data);
-
-				var currentAttributes = $(el).attr('data-attributes');
-
-				// 2. Wenn vorhanden, als Objekt parsen, sonst leeres Objekt
-				var attributesObj = currentAttributes ? JSON.parse(currentAttributes) : {};
-
-				// 3. room_id hinzufügen/überschreiben
-				attributesObj.room_id = data.room_id;
-
-				// 4. Wieder als JSON setzen
-				$(el).attr('data-attributes', JSON.stringify(attributesObj));
-			})
-			.catch(error => {
-				console.error("Fehler beim Speichern:", error);
-			});
+	// Nur fortfahren, wenn es sich um eine Person handelt
+	if (!el.classList.contains("person-circle")) {
+		return;
 	}
+
+	var attributes = JSON.parse(el.dataset.attributes || "{}");
+
+	const payload = {
+		room: newRoom.el.dataset.id,
+		person: attributes,
+		x: parseInt($(el).css("left")),
+		y: parseInt($(el).css("top"))
+	};
+
+	if (payload.room === undefined) {
+		alert("payload.room ist undefined!");
+		return;
+	}
+
+	fetch("/api/save_person_to_room", {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json"
+		},
+		body: JSON.stringify(payload)
+	})
+		.then(response => {
+			if (!response.ok) throw new Error("Netzwerkantwort war nicht OK");
+			return response.json();
+		})
+		.then(data => {
+			console.log("Erfolgreich gespeichert:", data);
+
+			var currentAttributes = $(el).attr('data-attributes');
+			var attributesObj = currentAttributes ? JSON.parse(currentAttributes) : {};
+			attributesObj.room_id = data.room_id;
+			$(el).attr('data-attributes', JSON.stringify(attributesObj));
+		})
+		.catch(error => {
+			console.error("Fehler beim Speichern:", error);
+		});
+}
 
 	function stopDragging() {
 		if (!dragging) return;
