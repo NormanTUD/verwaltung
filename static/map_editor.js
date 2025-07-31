@@ -4,8 +4,8 @@ let params;
 
 try {
 	params = new URLSearchParams(window.location.search);
-} catch (error) {
-	console.error("Fehler beim Parsen der URL:", error);
+} catch (e) {
+	err("Fehler beim Parsen der URL:", e);
 	params = new URLSearchParams(); // Leeres Fallback
 }
 
@@ -17,7 +17,7 @@ let floor = parseInt(floor_str, 10);
 
 function loadFloorplan(buildingId, floor) {
 	if (typeof buildingId !== "number" || typeof floor !== "number") {
-		console.error("loadFloorplan: buildingId und floor müssen Zahlen sein");
+		err("loadFloorplan: buildingId und floor müssen Zahlen sein");
 		return;
 	}
 
@@ -40,8 +40,8 @@ function loadFloorplan(buildingId, floor) {
 			renderAll();
 			updateOutput();
 		})
-		.catch(function (error) {
-			console.error("Fehler beim Laden des Floorplans:", error);
+		.catch(function (e) {
+			err("Fehler beim Laden des Floorplans:", e);
 		});
 }
 
@@ -93,7 +93,7 @@ const warn = (...args) => {
 	console.warn(`[${getCallerInfo()}]`, ...args);
 };
 
-const error = (...args) => {
+const err = (...args) => {
 	console.error(`[${getCallerInfo()}]`, ...args);
 };
 
@@ -145,10 +145,10 @@ async function save_room(room) {
 			const savedId = data.room_id !== undefined ? ` (ID: ${data.room_id})` : "";
 			console.log("Raum erfolgreich gespeichert:", savedName + savedId);
 		} else {
-			console.error("Fehler beim Speichern:", data.error || data);
+			err("Fehler beim Speichern:", data.error || data);
 		}
-	} catch (error) {
-		console.error("API Fehler:", error);
+	} catch (e) {
+		err("API Fehler:", e);
 	}
 }
 
@@ -186,7 +186,7 @@ function updateOutput() {
 		$('#output').text(JSON.stringify(exportData, null, 2));
 		//log('Export erfolgreich abgeschlossen.');
 	} catch (e) {
-		error('Fehler beim Export der Räume:', e);
+		err('Fehler beim Export der Räume:', e);
 	}
 }
 function getMousePos(evt) {
@@ -243,11 +243,11 @@ function delete_room(e, ask = true, this_room) {
 				if (data.status) {
 					log("Raum gelöscht aus DB: " + this_room.name);
 				} else {
-					console.error("Fehler beim Löschen:", data.error || data);
+					err("Fehler beim Löschen:", data.error || data);
 				}
 			})
-			.catch(error => {
-				console.error("API Fehler beim Löschen:", error);
+			.catch(e=> {
+				err("API Fehler beim Löschen:", err);
 			});
 
 	} else {
@@ -323,7 +323,7 @@ async function createRoomElement(room) {
 async function getResizeEdge(e, rect) {
 	try {
 		if (!e || !rect) {
-			error('getResizeEdge: Event or rect is undefined');
+			err('getResizeEdge: Event or rect is undefined');
 			return null;
 		}
 
@@ -363,8 +363,8 @@ async function getResizeEdge(e, rect) {
 
 		log(`Final resize edge string: "${edge}"`);
 		return edge;
-	} catch (err) {
-		error('Error in getResizeEdge:', err);
+	} catch (e) {
+		err('Error in getResizeEdge:', e);
 		return null;
 	}
 }
@@ -672,7 +672,7 @@ function drawTempRect(type, rect, parentRoom = null) {
 		}
 
 		if (!parentEl) {
-			error(`Parent room element mit id oder data-id "${parentRoom.id}" nicht gefunden! Temp rect kann nicht angehängt werden.`);
+			err(`Parent room element mit id oder data-id "${parentRoom.id}" nicht gefunden! Temp rect kann nicht angehängt werden.`);
 			return;
 		}
 
@@ -742,7 +742,7 @@ container.addEventListener('click', async e => {
 
 async function import_text() {
 	if (!$("#import").length) {
-		error("#import element nicht gefunden");
+		err("#import element nicht gefunden");
 		return;
 	}
 
@@ -757,7 +757,7 @@ async function import_text() {
 	try {
 		parsed = JSON.parse(text);
 	} catch (e) {
-		error(`import_text: error parsing ${text}: ${e}`);
+		err(`import_text: error parsing ${text}: ${e}`);
 		return;
 	}
 
