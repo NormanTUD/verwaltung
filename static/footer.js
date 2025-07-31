@@ -99,7 +99,7 @@ function createInputField(fieldConfig, fieldName, onOptionsLoaded, default_value
 	if (fieldConfig.type === "select") {
 		var select = $('<select>', {
 			class: 'auto_generated_field',
-			name: fieldName
+			name: `generated_${fieldName}`,
 		});
 
 		var optionsUrl = fieldConfig.options_url || fieldConfig.options_url_id_dict;
@@ -143,7 +143,7 @@ function createInputField(fieldConfig, fieldName, onOptionsLoaded, default_value
 		return $('<input>', {
 			type: 'text',
 			class: 'auto_generated_field',
-			name: fieldName,
+			name: `generated_{fieldName}`,
 			placeholder: fieldConfig.name
 		});
 	}
