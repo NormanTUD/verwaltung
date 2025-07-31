@@ -56,6 +56,17 @@
   <h3>Kontakte (Emails, Telefon, Fax, Kommentar)</h3>
   <div id="contacts-container"></div>
   <button type="button" class="btn btn-secondary mb-3" id="add-contact-btn">+ Kontakt hinzufügen</button>
+
+  <hr />
+  <h3>Transponder</h3>
+  <div id="transponder-container"></div>
+  <button type="button" class="btn btn-secondary mb-3" id="add-transponder-btn">+ Transponder hinzufügen</button>
+
+  <hr />
+  <h3>Räume (IDs)</h3>
+  <div id="rooms-container"></div>
+  <button type="button" class="btn btn-secondary mb-3" id="add-room-btn">+ Raum hinzufügen</button>
+
   <hr />
   <button type="submit" class="btn btn-primary save-new">Person speichern</button>
 </form>
@@ -91,15 +102,64 @@
 	    `);
 	}
 
+	function createTransponderRow(data = {}) {
+		return $(`
+		<div class="transponder-row">
+		    <div class="mb-2">
+		        <label>Seriennummer:</label>
+		        <input type="text" name="transponder_serial[]" class="form-control" placeholder="Seriennummer"
+		               value="${data.serial || ''}">
+		    </div>
+		    <div class="mb-2">
+		        <label>Kommentar:</label>
+		        <input type="text" name="transponder_comment[]" class="form-control" placeholder="Kommentar"
+		               value="${data.comment || ''}">
+		    </div>
+		    <button type="button" class="btn btn-danger btn-sm remove-transponder-btn">Entfernen</button>
+		</div>
+		`);
+	}
+
+	function createRoomRow(data = {}) {
+		return $(`
+		<div class="room-row">
+		    <div class="mb-2">
+		        <label>Raum ID:</label>
+		        <input type="number" name="room_id[]" class="form-control" placeholder="Raum-ID (z.B. 42)" 
+		               value="${data.id || ''}">
+		    </div>
+		    <button type="button" class="btn btn-danger btn-sm remove-room-btn">Entfernen</button>
+		</div>
+		`);
+	}
+
 	$(document).ready(function () {
 		$('#add-contact-btn').on('click', function () {
 			$('#contacts-container').append(createContactRow());
-
 			applyInvertFilterToElements(theme);
 		});
 
 		$('#contacts-container').on('click', '.remove-contact-btn', function () {
 			$(this).closest('.contact-row').remove();
+		});
+
+		$('#add-transponder-btn').on('click', function () {
+			$('#transponder-container').append(createTransponderRow());
+			applyInvertFilterToElements(theme);
+		});
+
+		$('#transponder-container').on('click', '.remove-transponder-btn', function () {
+			$(this).closest('.transponder-row').remove();
+		});
+
+		$('#add-room-btn').on('click', function () {
+			$('#rooms-container').append(createRoomRow());
+			applyInvertFilterToElements(theme);
+			replace_id_fields_with_proper_fields()
+		});
+
+		$('#rooms-container').on('click', '.remove-room-btn', function () {
+			$(this).closest('.room-row').remove();
 		});
 
 		toastr.options = {
@@ -117,6 +177,8 @@
 			toastr.success("Person erfolgreich gespeichert.");
 			$('#person-form')[0].reset();
 			$('#contacts-container').empty().append(createContactRow());
+			$('#transponder-container').empty().append(createTransponderRow());
+			$('#rooms-container').empty().append(createRoomRow());
 		} else {
 			if (error) {
 				toastr.error("Fehler: " + error);
@@ -129,6 +191,24 @@
 				});
 			} else {
 				$('#contacts-container').append(createContactRow());
+			}
+
+			if (formData.transponders && formData.transponders.length > 0) {
+				$('#transponder-container').empty();
+				formData.transponders.forEach(tp => {
+					$('#transponder-container').append(createTransponderRow(tp));
+				});
+			} else {
+				$('#transponder-container').append(createTransponderRow());
+			}
+
+			if (formData.rooms && formData.rooms.length > 0) {
+				$('#rooms-container').empty();
+				formData.rooms.forEach(room => {
+					$('#rooms-container').append(createRoomRow(room));
+				});
+			} else {
+				$('#rooms-container').append(createRoomRow());
 			}
 		}
 	});
