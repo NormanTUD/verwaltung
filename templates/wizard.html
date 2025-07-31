@@ -36,9 +36,8 @@
 		return decodeURIComponent(textarea.value);
 	}
 
-	const rawSubforms = "{{ config_json.subforms or [] | tojson | urlencode }}";
-	const SUBFORMS = eval(decodeHtmlEntities(rawSubforms));
-	const formData = {{ form_data or {} | tojson }};
+	const SUBFORMS = {{ config_json.get('subforms', []) | tojson }};
+	const formData = {{ form_data | tojson }};
 
 	function escapeHtml(text) {
 		return text

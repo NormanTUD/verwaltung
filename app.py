@@ -15,6 +15,7 @@ import csv
 import uuid
 from functools import wraps
 import re
+import json
 
 try:
     import venv
@@ -2083,13 +2084,15 @@ def _wizard_internal(name):
         
     session.close()
 
+    print(form_data)
+
     return render_template(
         "wizard.html",
         config=config,
-        config_json=get_json_safe_config(config),
+        config_json=get_json_safe_config(config) or [],
         success=success,
         error=error,
-        form_data=form_data
+        form_data=form_data or {}
     )
 
 def get_abteilung_metadata(abteilung_id: int) -> dict:
