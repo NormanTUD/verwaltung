@@ -734,33 +734,44 @@ function addCircleToFloorplan(circle) {
 
 function setupContextMenu(circle, attributes) {
 	try {
+		console.log("setupContextMenu wird aufgerufen für:", circle, "mit attributes:", attributes);
+
 		circle.addEventListener("contextmenu", (e) => {
+			console.log("Rechtsklick erkannt auf:", circle);
 			e.preventDefault();
 			toggleContextMenu(circle, attributes);
 		});
+
+		console.log("EventListener für Kontextmenü erfolgreich hinzugefügt.");
 	} catch (error) {
 		console.error("Fehler beim Einrichten des Kontextmenüs:", error);
 	}
 }
 
+
 function toggleContextMenu(circle, attributes) {
-	try {
-		removeExistingContextMenus();
+  try {
+    console.log("toggleContextMenu aufgerufen mit circle:", circle);
+    console.log("toggleContextMenu attributes:", attributes);
 
-		// Wichtig: circle mitgeben
-		const menu = buildContextMenu(attributes, circle);
-		positionContextMenuAbsolute(circle, menu);
-		floorplan.appendChild(menu);
+    removeExistingContextMenus();
 
-		updateContextMenuInventory(circle);
+    // Wichtig: circle mitgeben
+    const menu = buildContextMenu(attributes, circle);
+    console.log("Kontextmenü gebaut:", menu);
 
-		applyInvertFilterToElements(theme)
+    positionContextMenuAbsolute(circle, menu);
+    floorplan.appendChild(menu);
 
-		console.log("Kontextmenü angezeigt:", attributes);
-	} catch (error) {
-		console.error("Fehler beim Umschalten des Kontextmenüs:", error);
-	}
+    updateContextMenuInventory(circle);
+    applyInvertFilterToElements(theme);
+
+    console.log("Kontextmenü angezeigt:", attributes);
+  } catch (error) {
+    console.error("Fehler beim Umschalten des Kontextmenüs:", error);
+  }
 }
+
 
 function removeExistingContextMenus() {
 	const menus = document.querySelectorAll(".context-menu");
@@ -1253,3 +1264,31 @@ document.addEventListener('keydown', function (event) {
 		cancelBtnFunction();
 	}
 });
+
+
+
+
+
+const container = document.getElementById("container");
+
+floorplan.addEventListener("contextmenu", (event) => {
+  event.preventDefault(); // Kontextmenü verhindern, egal was
+
+  const circle = event.target.closest(".person-circle");
+
+  if (circle && floorplan.contains(circle)) {
+    let attributes = {};
+    try {
+      attributes = JSON.parse(circle.dataset.attributes || "{}");
+    } catch (error) {
+      console.error("Fehler beim Parsen der Attribute:", error);
+      alert("Fehler beim Lesen der Personen-Attribute.");
+      return;
+    }
+    setupContextMenu(circle, attributes);
+  } else {
+    alert("Kein Person Circle getroffen");
+  }
+});
+
+
