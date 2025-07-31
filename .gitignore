@@ -5,3 +5,4 @@ databases.db
 test.db
 testenv/
 database.db
+.vscode/
