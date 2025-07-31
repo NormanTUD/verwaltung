@@ -182,38 +182,40 @@ const resultsBox = document.getElementById('sidebarSearchResults');
 
 let timeout = null;
 
-input.addEventListener('input', () => {
-	clearTimeout(timeout);
-	const query = input.value.trim();
+if(input) {
+	input.addEventListener('input', () => {
+		clearTimeout(timeout);
+		const query = input.value.trim();
 
-	if (query.length === 0) {
-		resultsBox.innerHTML = '';
-		resultsBox.classList.add('hidden');
-		return;
-	}
+		if (query.length === 0) {
+			resultsBox.innerHTML = '';
+			resultsBox.classList.add('hidden');
+			return;
+		}
 
-	timeout = setTimeout(() => {
-		fetch(`/search?q=${encodeURIComponent(query)}`)
-			.then(r => r.json())
-			.then(results => {
-				resultsBox.innerHTML = '';
-				if (results.length > 0) {
-					results.forEach(result => {
-						const li = document.createElement('li');
-						li.textContent = result.label;
-						li.className = 'px-3 py-2 hover:bg-gray-200 cursor-pointer';
-						li.onclick = () => {
-							window.location.href = result.url;
-						};
-						resultsBox.appendChild(li);
-					});
-					resultsBox.classList.remove('hidden');
-				} else {
-					resultsBox.classList.add('hidden');
-				}
-			});
-	}, 200);
-});
+		timeout = setTimeout(() => {
+			fetch(`/search?q=${encodeURIComponent(query)}`)
+				.then(r => r.json())
+				.then(results => {
+					resultsBox.innerHTML = '';
+					if (results.length > 0) {
+						results.forEach(result => {
+							const li = document.createElement('li');
+							li.textContent = result.label;
+							li.className = 'px-3 py-2 hover:bg-gray-200 cursor-pointer';
+							li.onclick = () => {
+								window.location.href = result.url;
+							};
+							resultsBox.appendChild(li);
+						});
+						resultsBox.classList.remove('hidden');
+					} else {
+						resultsBox.classList.add('hidden');
+					}
+				});
+		}, 200);
+	});
+}
 
 document.addEventListener('click', (e) => {
 	if (!resultsBox.contains(e.target) && e.target !== input) {
