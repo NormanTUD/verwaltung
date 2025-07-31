@@ -209,12 +209,6 @@ function updateHiddenFieldValue(config, hiddenElement, form, triggeredBy = null)
 }
 
 function autoUpdate(element_name, update_typ, update_id, new_val) {
-	log("==========");
-	log("element_name:", element_name);
-	log("update_typ:", update_typ);
-	log("update_id:", update_id);
-	log("new_val:", new_val);
-
 	try {
 		var baseUrl = "/api/auto_update/";
 		var fullUrl = baseUrl + encodeURIComponent(update_typ)
@@ -235,12 +229,20 @@ function autoUpdate(element_name, update_typ, update_id, new_val) {
 			})
 			.then(function(data) {
 				log("Response data:", data);
+
+				toastr.success(data.message, "Erfolgreich");
 			})
 			.catch(function(error) {
 				log("Fetch error:", error);
+
+				var msg = "Fehler beim Senden der Anfrage: " + error.message;
+				toastr.error(msg, "Fehler");
 			});
 	} catch (e) {
 		log("Unexpected error:", e);
+
+		var msg = "Unerwarteter Fehler: " + e.message;
+		toastr.error(msg, "Fehler");
 	}
 }
 
