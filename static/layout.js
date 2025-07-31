@@ -177,15 +177,14 @@ document.addEventListener('DOMContentLoaded', function () {
 	}
 });
 
-const input = document.getElementById('sidebarSearch');
 const resultsBox = document.getElementById('sidebarSearchResults');
 
 let timeout = null;
 
-if(input) {
-	input.addEventListener('input', () => {
+if(SPinput && resultsBox) {
+	SPinput.addEventListener('input', () => {
 		clearTimeout(timeout);
-		const query = input.value.trim();
+		const query = SPinput.value.trim();
 
 		if (query.length === 0) {
 			resultsBox.innerHTML = '';
@@ -215,13 +214,14 @@ if(input) {
 				});
 		}, 200);
 	});
+
+	document.addEventListener('click', (e) => {
+		if (!resultsBox.contains(e.target) && e.target !== input) {
+			resultsBox.classList.add('hidden');
+		}
+	});
 }
 
-document.addEventListener('click', (e) => {
-	if (!resultsBox.contains(e.target) && e.target !== input) {
-		resultsBox.classList.add('hidden');
-	}
-});
 
 document.addEventListener('keydown', function(e) {
 	const searchField = document.getElementById('sidebarSearch');
