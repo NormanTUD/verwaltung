@@ -3,54 +3,57 @@
 {% block content %}
 <h1>Person anlegen</h1>
 <form method="post" id="person-form">
-  <table class="table" style="width: 100%; table-layout: fixed;">
-    <tbody>
-      <tr>
-        <td style="width: 15%;">
-          <label for="title" class="form-label">Titel</label>
-        </td>
-        <td style="width: 35%;">
-          <input type="text" class="form-control" id="title" name="title"
-                 placeholder="Titel eingeben"
-                 value="{{ form_data.title | default('') }}">
-        </td>
-        <td style="width: 15%;">
-          <label for="first_name" class="form-label">Vorname *</label>
-        </td>
-        <td style="width: 35%;">
-          <input type="text" class="form-control" id="first_name" name="first_name" required
-                 placeholder="Vorname eingeben"
-                 value="{{ form_data.first_name | default('') }}">
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <label for="last_name" class="form-label">Nachname *</label>
-        </td>
-        <td>
-          <input type="text" class="form-control" id="last_name" name="last_name" required
-                 placeholder="Nachname eingeben"
-                 value="{{ form_data.last_name | default('') }}">
-        </td>
-        <td>
-          <label for="image_url" class="form-label">Bild URL</label>
-        </td>
-        <td>
-          <input type="url" class="form-control" id="image_url" name="image_url"
-                 placeholder="https://example.com/bild.jpg"
-                 value="{{ form_data.image_url | default('') }}">
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <label for="comment" class="form-label">Kommentar</label>
-        </td>
-        <td colspan="3">
-          <textarea class="form-control" id="comment" name="comment" placeholder="Kommentar eingeben" style="width: 100%;">{{ form_data.comment | default('') }}</textarea>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+	<table class="table" style="width: 100%; table-layout: fixed;">
+	<tbody>
+		<tr>
+		<td style="width: 15%;">
+			<label for="title" class="form-label">Titel</label>
+		</td>
+		<td colspan="3" style="width: 85%;">
+			<input type="text" class="form-control" id="title" name="title"
+				placeholder="Titel eingeben"
+				value="{{ form_data.title | default('') }}">
+		</td>
+		</tr>
+		<tr>
+		<td style="width: 15%;">
+			<label for="first_name" class="form-label">Vorname *</label>
+		</td>
+		<td style="width: 35%;">
+			<input type="text" class="form-control" id="first_name" name="first_name" required
+				placeholder="Vorname eingeben"
+				value="{{ form_data.first_name | default('') }}">
+		</td>
+		<td style="width: 15%;">
+			<label for="last_name" class="form-label">Nachname *</label>
+		</td>
+		<td style="width: 35%;">
+			<input type="text" class="form-control" id="last_name" name="last_name" required
+				placeholder="Nachname eingeben"
+				value="{{ form_data.last_name | default('') }}">
+		</td>
+		</tr>
+		<tr>
+		<td>
+			<label for="image_url" class="form-label">Bild URL</label>
+		</td>
+		<td colspan="3">
+			<input type="url" class="form-control" id="image_url" name="image_url"
+				placeholder="https://example.com/bild.jpg"
+				value="{{ form_data.image_url | default('') }}">
+		</td>
+		</tr>
+		<tr>
+		<td>
+			<label for="comment" class="form-label">Kommentar</label>
+		</td>
+		<td colspan="3">
+			<textarea class="form-control" id="comment" name="comment" placeholder="Kommentar eingeben" style="width: 100%;">{{ form_data.comment | default('') }}</textarea>
+		</td>
+		</tr>
+	</tbody>
+	</table>
+
 
   <hr />
   <h3>Kontakte (Emails, Telefon, Fax, Kommentar)</h3>
