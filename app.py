@@ -2192,7 +2192,12 @@ def generate_fields_for_schluesselausgabe_from_metadata(
         elif name == "Text3":
             first_name = issuer.get("first_name", "")
             last_name = issuer.get("last_name", "")
-            value = f"{last_name}, {first_name}"
+            if last_name and first_name:
+                value = f"{last_name}, {first_name}"
+            elif last_name:
+                value = f"{last_name}"
+            elif first_name:
+                value = f"{first_name}"
 
         elif name == "Text4":
             value = extract_contact_string(issuer)
@@ -2447,10 +2452,6 @@ def generate_pdf():
     transponder_id = request.args.get('transponder_id')
 
     missing = []
-    if not issuer_id:
-        missing.append("issuer_id (Ausgeber-ID)")
-    if not owner_id:
-        missing.append("owner_id (Besitzer-ID)")
     if not transponder_id:
         missing.append("transponder_id")
 
