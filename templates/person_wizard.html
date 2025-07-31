@@ -116,7 +116,7 @@
 		        <input type="text" name="transponder_comment[${roomIndex}][]" class="form-control" placeholder="Kommentar"
 		               value="${data.comment || ''}">
 		    </div>
-		    <button type="button" class="btn btn-danger btn-sm remove-transponder-btn">Entfernen</button>
+		    <button type="button" class="btn btn-danger btn-sm remove-transponder-btn delete-entry">Entfernen</button>
 		</div>
 		`);
 	}
@@ -135,8 +135,8 @@
 		    <div class="transponders-container mb-3">
 		      <h5>Transponder</h5>
 		    </div>
-		    <button type="button" class="btn btn-secondary btn-sm mb-2 add-transponder-btn">+ Transponder hinzufügen</button>
-		    <button type="button" class="btn btn-danger btn-sm remove-room-btn">Raum entfernen</button>
+		    <button type="button" class="btn btn-secondary btn-sm mb-2 add-transponder-btn">+ Transponder hinzufügen</button><br>
+		    <button type="button" class="btn btn-danger btn-sm remove-room-btn delete-entry">Raum entfernen</button>
 		</div>
 		`);
 
@@ -184,6 +184,10 @@
 			let newRoom = createRoomRow({}, roomCount);
 			$('#rooms-container').append(newRoom);
 			reindexRooms();
+			
+			applyInvertFilterToElements(theme);
+			
+			replace_id_fields_with_proper_fields();
 		});
 
 		$('#rooms-container').on('click', '.remove-room-btn', function () {
@@ -196,6 +200,9 @@
 			let roomIndex = roomDiv.attr('data-room-index');
 			let transpondersContainer = roomDiv.find('.transponders-container');
 			transpondersContainer.append(createTransponderRow(roomIndex));
+			applyInvertFilterToElements(theme);
+			
+			replace_id_fields_with_proper_fields();
 		});
 
 		$('#rooms-container').on('click', '.remove-transponder-btn', function () {
