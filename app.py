@@ -27,7 +27,19 @@ from pathlib import Path
 VENV_PATH = Path.home() / ".verwaltung_venv"
 PYTHON_BIN = VENV_PATH / ("Scripts" if platform.system() == "Windows" else "bin") / ("python.exe" if platform.system() == "Windows" else "python")
 
-pip_install_modules = [PYTHON_BIN, "-m", "pip", "install", "-q", "--upgrade", "flask", "sqlalchemy", "pypdf", "cryptography", "aiosqlite", "pillow", "flask_login", "flask_sqlalchemy", "sqlalchemy_schemadisplay"]
+pip_install_modules = [
+    PYTHON_BIN, "-m", "pip", "install", "-q", "--upgrade",
+    "flask",
+    "sqlalchemy",
+    "pypdf",
+    "cryptography",
+    "aiosqlite",
+    "pillow",
+    "flask_login",
+    "flask_sqlalchemy",
+    "sqlalchemy_schemadisplay",
+    "sqlalchemy_continuum"
+]
 
 def create_and_setup_venv():
     print(f"Creating virtualenv at {VENV_PATH}")

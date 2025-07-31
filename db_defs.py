@@ -6,6 +6,9 @@ from sqlalchemy.exc import NoInspectionAvailable
 from sqlalchemy.orm import declarative_base, relationship, Session, class_mapper, RelationshipProperty, aliased, joinedload
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy_continuum import make_versioned
+
+make_versioned()
 
 class CustomBase:
     def to_dict(self, recursive=False):
