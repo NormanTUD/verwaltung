@@ -3610,10 +3610,7 @@ def update_transponder_field():
             try:
                 parsed_value = int(new_val)
             except ValueError:
-                return jsonify({
-                    "error": f"Invalid integer for column '{element_name}'",
-                    "input": new_val
-                }), 400
+                parsed_value = None
 
         elif column_type_name in ["Text", "String", "Unicode", "UnicodeText"]:
             parsed_value = new_val
