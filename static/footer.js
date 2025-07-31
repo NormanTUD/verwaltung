@@ -276,15 +276,17 @@ function replaceFieldsForElement(element, name, config) {
 			onInputChange();
 		}, original_value);
 
-		$(input).on("change", function (e) {
-			var target = e.currentTarget;
-			var new_val = $(target).val();
+		if(update_info) {
+			$(input).on("change", function (e) {
+				var target = e.currentTarget;
+				var new_val = $(target).val();
 
-			var update_typ = update_info.slice(0, update_info.lastIndexOf("_"))
-			var update_id = update_info.slice(update_info.lastIndexOf("_") + 1);
+				var update_typ = update_info.slice(0, update_info.lastIndexOf("_"))
+				var update_id = update_info.slice(update_info.lastIndexOf("_") + 1);
 
-			autoUpdate(element_name, update_typ, update_id, new_val)
-		});
+				autoUpdate(element_name, update_typ, update_id, new_val)
+			});
+		}
 
 		$element.before(input);
 		inputs.push(input);

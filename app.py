@@ -3635,7 +3635,7 @@ def update_transponder_field():
         session.commit()
 
         return jsonify({
-            "message": f"Field '{element_name}' updated successfully",
+            "message": f"Feld '{element_name}' für die ID {update_id} erfolgreich geupdatet",
             "id": update_id,
             "new_value": parsed_value
         }), 200
