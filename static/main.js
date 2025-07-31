@@ -1289,29 +1289,7 @@ floorplan.addEventListener("contextmenu", (event) => {
 			alert("Fehler beim Lesen der Personen-Attribute.");
 			return;
 		}
-		try {
-		console.log("toggleContextMenu aufgerufen mit circle:", circle);
-		console.log("toggleContextMenu attributes:", attributes);
-
-		
-
-		// Wichtig: circle mitgeben
-		const menu = buildContextMenu(attributes, circle);
-		console.log("Kontextmenü gebaut:", menu);
-
-		positionContextMenuAbsolute(circle, menu);
-		floorplan.appendChild(menu);
-		requestAnimationFrame(() => {
-			menu.style.opacity = "1";
-		});
-
-		updateContextMenuInventory(circle);
-		applyInvertFilterToElements(theme);
-
-		console.log("Kontextmenü angezeigt:", attributes);
-	} catch (error) {
-		console.error("Fehler beim Umschalten des Kontextmenüs:", error);
-	}
+		setupContextMenu(circle, attributes);
 	} else {
 		alert("Kein Person Circle getroffen");
 	}
