@@ -537,7 +537,7 @@ function createCircleElement(attributes, position = null) {
 
 		const attrs = JSON.parse(circle.dataset.attributes);
 		const personId = attrs.id; // ggf anpassen, wenn anders benannt
-		const roomId = attrs.floor; // nehme an floor ist roomId
+		const roomId = attrs.room_id; // nehme an floor ist roomId
 
 		if (!personId || roomId === undefined) {
 			console.error("Person ID oder Raum ID fehlt:", personId, roomId);
