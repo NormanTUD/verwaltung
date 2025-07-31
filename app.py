@@ -843,13 +843,6 @@ def is_valid_email(email):
 def column_label(table, col):
     return COLUMN_LABELS.get(f"{table}.{col}", col.replace("_id", "").replace("_", " ").capitalize())
 
-def load_user(user_id):
-    try:
-        return db.session.query(User).options(joinedload(User.roles)).get(user_id)
-    except Exception as e:
-        print("User load error:", e)
-        return None
-
 @app.context_processor
 def inject_sidebar_data():
     session = Session()
