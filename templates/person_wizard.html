@@ -161,7 +161,7 @@
 			contacts.find('.remove-contact-btn').prop('disabled', false);
 		}
 		
-		applyInvertFilterToElements(theme);
+		replace_id_fields_with_proper_fields();
 	}
 
 	$(document).ready(function () {
@@ -169,8 +169,6 @@
 		$('#add-contact-btn').on('click', function () {
 			$('#contacts-container').append(createContactRow());
 			updateContactRemoveButtons();
-			
-			applyInvertFilterToElements(theme);
 		});
 
 		$('#contacts-container').on('click', '.remove-contact-btn', function () {
@@ -204,14 +202,14 @@
 				});
 			});
 			roomCount = $('#rooms-container > .room-row').length;
+
+			replace_id_fields_with_proper_fields();
 		}
 
 		$('#add-room-btn').on('click', function () {
 			let newRoom = createRoomRow({}, roomCount);
 			$('#rooms-container').append(newRoom);
 			reindexRooms();
-			
-			applyInvertFilterToElements(theme);
 			
 			replace_id_fields_with_proper_fields();
 		});
@@ -226,13 +224,14 @@
 			let roomIndex = roomDiv.attr('data-room-index');
 			let transpondersContainer = roomDiv.find('.transponders-container');
 			transpondersContainer.append(createTransponderRow(roomIndex));
-			applyInvertFilterToElements(theme);
 			
 			replace_id_fields_with_proper_fields();
 		});
 
 		$('#rooms-container').on('click', '.remove-transponder-btn', function () {
 			$(this).closest('.transponder-row').remove();
+
+			replace_id_fields_with_proper_fields();
 		});
 
 		toastr.options = {
@@ -284,22 +283,6 @@
 				roomCount = 1;
 			}
 		}
-
-		function replace_id_fields_with_proper_fields() {
-			// Funktion hier zum Anpassen der Felder, wenn benötigt
-		}
-
-		// Theme-bezogene Filterfunktion (Beispiel, falls benötigt)
-		let theme = "{{ theme | default('') }}";
-		function applyInvertFilterToElements(themeName) {
-			if (themeName === "dark") {
-				$('input, select, textarea, button').css('filter', 'invert(1)');
-			} else {
-				$('input, select, textarea, button').css('filter', 'none');
-			}
-		}
-
-		applyInvertFilterToElements(theme);
 	});
 </script>
 {% endblock %}
