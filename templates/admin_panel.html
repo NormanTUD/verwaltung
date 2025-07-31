@@ -10,6 +10,7 @@
 		<th>Username</th>
 		<th>Rollen</th>
 		<th>Passwort</th>
+		<th>Readonly</th>
 		<th>Aktivieren</th>
 		<th>Ändern</th>
 		<th>Löschen</th>
@@ -31,6 +32,12 @@
 			</td>
 			<td>
 				<input class="form-control" type="password" name="new_password" placeholder="Neues Passwort">
+			</td>
+			<td>
+				<label>
+					<input type="checkbox" name="readonly" {% if user.readonly %}checked{% endif %}>
+					Readonly
+				</label>
 			</td>
 			<td>
 				{% if not user.is_active %}

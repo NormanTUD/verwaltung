@@ -998,17 +998,18 @@ def update_user(user_id):
 
     # Rolle ändern
     new_role_id = request.form.get('role_id')
-    user.roles.clear()  # Alle bisherigen Rollen entfernen
+    user.roles.clear()
     if new_role_id:
         role = session.query(Role).get(int(new_role_id))
         if role:
             user.roles.append(role)
 
+    # ✅ Readonly setzen
+    user.readonly = 'readonly' in request.form
+
     session.commit()
     session.close()
     return redirect(url_for('admin_panel'))
-
-from flask import jsonify
 
 @app.route('/admin/activate/<int:user_id>', methods=['POST'])
 @login_required
