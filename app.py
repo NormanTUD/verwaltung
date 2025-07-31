@@ -1508,12 +1508,12 @@ def aggregate_transponder_view():
             owner_input = (
                 f'<input type="text" name="owner_id" data-update_info="transponder_{t.id}" value="{html.escape(str(owner.id))}" />'
                 if owner else
-                '<input type="text" name="owner_id" data-update_info="transponder_{t.id}" value="" />'
+                f'<input type="text" name="owner_id" data-update_info="transponder_{t.id}" value="" />'
             )
             issuer_input = (
                 f'<input type="text" name="issuer_id" data-update_info="transponder_{t.id}" value="{html.escape(str(issuer.id))}" />'
                 if issuer else
-                '<input type="text" name="issuer_id" data-update_info="transponder_{t.id}" value="" />'
+                f'<input type="text" name="issuer_id" data-update_info="transponder_{t.id}" value="" />'
             )
 
             row = {
