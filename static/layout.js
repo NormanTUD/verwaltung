@@ -84,7 +84,6 @@ document.addEventListener('DOMContentLoaded', function () {
 			return;
 		}
 		if (!toggleThemeBtn) {
-			console.error('Button zum Umschalten des Themes (toggleThemeBtn) nicht gefunden.');
 			return;
 		}
 		if (!toast) {
