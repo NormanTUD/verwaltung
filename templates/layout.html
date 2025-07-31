@@ -32,13 +32,24 @@
 				color:gray!important
 			}
 		</style>
+	
+		<script>
+			document.addEventListener("DOMContentLoaded", function () {
+				var emojis = ["🏝️", "🍹", "⛱️", "🌞", "🌊"];
+				var randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+				var emojiContainer = document.getElementById("emoji");
+				if (emojiContainer) {
+					emojiContainer.textContent = randomEmoji;
+				}
+			});
+		</script>
 	</head>
 	<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-all flex" style='height: fit-content;'>
 
 		{% if is_authenticated %}
 			<!-- Sidebar -->
 			<nav id="sidebar" class="bg-gray-800 text-white w-64 min-h-screen p-4 space-y-4 invisible">
-				<h2 class="text-2xl font-bold mb-6"><a href='/'>🗂️ OASIS</a></h2>
+				<h2 class="text-2xl font-bold mb-6"><a href='/'><span id="emoji">🗂️</span> OASIS</a></h2>
 
 				<div>
 					<input
