@@ -1,4 +1,4 @@
-# todo: erster user ist automatisch aktiviert. andere müssen erst von admins aktiviert werden
+# TODO: mehrseitiger wizard: erstelle person, füge ihr raum hinzu und transponder usw
 
 import sys
 import traceback
