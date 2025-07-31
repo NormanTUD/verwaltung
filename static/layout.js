@@ -216,7 +216,7 @@ if(SPinput && resultsBox) {
 	});
 
 	document.addEventListener('click', (e) => {
-		if (!resultsBox.contains(e.target) && e.target !== input) {
+		if (!resultsBox.contains(e.target) && e.target !== SPinput) {
 			resultsBox.classList.add('hidden');
 		}
 	});
