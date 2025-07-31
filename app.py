@@ -310,7 +310,7 @@ def load_timestamp_from_cookie():
 def _data_version_block_check():
     cookie_val = request.cookies.get("data_version")
     if cookie_val is not None and cookie_val.strip() != "":
-        raise RuntimeError("Schreiboperationen sind deaktiviert, weil 'data_version'-Cookie gesetzt ist.")
+        raise RuntimeError("Schreiboperationen sind deaktiviert, weil eine ältere Version geladen ist.")
 
 def block_writes_if_data_version_cookie_set(session, flush_context, instances):
     # Alle neuen, geänderten oder gelöschten Objekte
