@@ -1,23 +1,5 @@
 const log = console.log;
 
-// Toastr Optionen (deine bestehende Konfiguration)
-toastr.options = {
-	"closeButton": true,
-	"debug": false,
-	"newestOnTop": true,
-	"progressBar": true,
-	"positionClass": "toast-top-right",
-	"preventDuplicates": true,
-	"showDuration": "300",
-	"hideDuration": "1000",
-	"timeOut": "3500",
-	"extendedTimeOut": "1000",
-	"showEasing": "swing",
-	"hideEasing": "linear",
-	"showMethod": "fadeIn",
-	"hideMethod": "fadeOut"
-};
-
 // Funktion, die prüft, ob mindestens ein Feld in der neuen Zeile gefüllt ist
 function checkNewEntryInputs() {
         const inputs = $(".new-entry input, .new-entry select");
@@ -81,12 +63,12 @@ $(".cell-input").filter(function() {
 	const value = $(this).val();
 	$.post("/update/{{ table_name }}", { name, value }, function(resp) {
 		if (!resp.success) {
-			toastr.error("Fehler beim Updaten: " + resp.error);
+			error("Fehler beim Updaten: " + resp.error);
 		} else {
-			toastr.success("Eintrag geupdatet");
+			success("Eintrag geupdatet");
 		}
 	}, "json").fail(function() {
-		toastr.error("Netzwerkfehler beim Updaten");
+		error("Netzwerkfehler beim Updaten");
 	});
 });
 
@@ -98,13 +80,13 @@ $(".save-new").on("click", function() {
 	});
 	$.post("/add/{{ table_name }}", data, function(resp) {
 		if (!resp.success) {
-			toastr.error("Fehler beim Speichern: " + resp.error);
+			error("Fehler beim Speichern: " + resp.error);
 		} else {
-			toastr.success("Eintrag gespeichert");
+			success("Eintrag gespeichert");
 			location.reload();
 		}
 	}, "json").fail(function() {
-		toastr.error("Netzwerkfehler beim Speichern");
+		error("Netzwerkfehler beim Speichern");
 	});
 });
 
@@ -114,7 +96,7 @@ $(".delete-entry").on("click", function() {
 	const id = $row.data("id");
 
 	if (id === null || id === undefined) {
-		toastr.error(`Datensatz-ID nicht gefunden: ${id}.`);
+		error(`Datensatz-ID nicht gefunden: ${id}.`);
 		return;
 	}
 
@@ -130,12 +112,12 @@ $(".delete-entry").on("click", function() {
 		dataType: "json"
 	}).done(function(resp) {
 		if (!resp.success) {
-			toastr.error("Fehler beim Löschen: " + resp.error);
+			error("Fehler beim Löschen: " + resp.error);
 		} else {
-			toastr.success("Eintrag gelöscht");
+			success("Eintrag gelöscht");
 			$row.remove();
 		}
 	}).fail(function() {
-		toastr.error("Netzwerkfehler beim Löschen");
+		error("Netzwerkfehler beim Löschen");
 	});
 });
