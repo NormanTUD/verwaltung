@@ -15,719 +15,710 @@ let floor_str = params.get("floor");
 let building_id = parseInt(building_id_str, 10);
 let floor = parseInt(floor_str, 10);
 
-if (isNaN(building_id)) {
-	console.error("Kein gültiger 'building_id' Parameter gefunden:", building_id_str);
-	building_id = 0; // Standardwert oder Fehlerbehandlung
-}
+if (!isNaN(building_id) && !isNaN(floor)) {
+	const floorplan = document.getElementById("floorplan");
+	let scale = 1;
+	let offsetX = 0;
+	let offsetY = 0;
+	let objId = 0;
+	let selectedShape = null;
+	let startPanX = 0;
+	let startPanY = 0;
+	let startOffsetX = 0;
+	let startOffsetY = 0;
 
-if (isNaN(floor)) {
-	console.error("Kein gültiger 'floor' Parameter gefunden:", floor_str);
-	floor = 0; // Standardwert oder Fehlerbehandlung
-}
+	var roomsData = [];
 
-const floorplan = document.getElementById("floorplan");
-let scale = 1;
-let offsetX = 0;
-let offsetY = 0;
-let objId = 0;
-let selectedShape = null;
-let startPanX = 0;
-let startPanY = 0;
-let startOffsetX = 0;
-let startOffsetY = 0;
-
-var roomsData = [];
-
-function loadFloorplan(buildingId, floor) {
-	if (typeof buildingId !== "number" || typeof floor !== "number") {
-		console.error("loadFloorplan: buildingId und floor müssen Zahlen sein");
-		return;
-	}
-
-	var url = "/get_floorplan?building_id=" + encodeURIComponent(buildingId) + "&floor=" + encodeURIComponent(floor);
-
-	fetch(url)
-		.then(function (response) {
-			if (!response.ok) {
-				throw new Error("Serverantwort war nicht OK: " + response.status + " " + response.statusText);
-			}
-			return response.json();
-		})
-		.then(function (data) {
-			if (!Array.isArray(data)) {
-				throw new Error("Antwort ist kein Array: " + JSON.stringify(data));
-			}
-
-			roomsData = data;
-
-			createRooms();
-		})
-		.catch(function (error) {
-			console.error("Fehler beim Laden des Floorplans:", error);
-		});
-}
-
-const rooms = {};
-
-// Räume + Snapzones erzeugen
-function createLabel(name) {
-	const label = document.createElement("div");
-	label.className = "room-label";
-	//label.textContent = "Raum " + name; 
-	return label;
-}
-
-function createRoom(data) {
-	const room = createRoomElement(data);
-	const label = createLabel(data.name);
-
-	room.appendChild(label);
-
-	return room;
-}
-
-function createRooms() {
-	roomsData.forEach(data => {
-		const room = createRoom(data);
-		floorplan.appendChild(room);
-
-		rooms[data.name] = {
-			el: room,
-			objects: [], // ← Wichtig: Wird zur Laufzeit ergänzt, keine Änderung an roomsData nötig
-		};
-	});
-}
-
-function createRoomElement(data) {
-	const room = document.createElement("div");
-	room.className = "room";
-	room.style.left = data.x + "px";
-	room.style.top = data.y + "px";
-
-	if (data.width) {
-		room.style.width = data.width + "px";
-	}
-	if (data.height) {
-		room.style.height = data.height + "px";
-	}
-
-	room.dataset.name = data.name;
-	room.dataset.id = data.id;
-	return room;
-}
-
-function updateZIndex(obj, room) {
-	obj.style.zIndex = 300;
-}
-
-function makeDraggable(el) {
-	let dragging = false;
-	let dragOffsetX = 0;
-	let dragOffsetY = 0;
-
-	function getElementMouseOffset(e, el) {
-		const elRect = el.getBoundingClientRect();
-		const offsetX = e.clientX - elRect.left;
-		const offsetY = e.clientY - elRect.top;
-		return { offsetX, offsetY };
-	}
-
-	function startDragging(e) {
-		e.preventDefault();
-
-		dragging = true;
-		el.style.cursor = "grabbing";
-		//console.log("Dragging started");
-
-		const offsets = getElementMouseOffset(e, el);
-		dragOffsetX = offsets.offsetX;
-		dragOffsetY = offsets.offsetY;
-
-		//log(`startDragging: Element mouse offset: ${dragOffsetX}, ${dragOffsetY}`);
-
-		//log(e.target.offsetParent);
-
-		if (e.target.offsetParent.classList.contains("person-circle")) {
-			document.addEventListener("mousemove", onMouseMove);
-		} else {
-			document.addEventListener("mousemove", onMouseMoveViewport)
-		}
-		document.addEventListener("mousemove", onMouseMoveViewport);
-		document.addEventListener("mouseup", onMouseUp);
-	}
-
-	function getMousePosRelativeToViewport(ev) {
-		const floorplanRect = $("#viewport")[0].getBoundingClientRect();
-
-		let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
-		let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
-
-		//console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
-		return { mouseX, mouseY };
-	}
-
-	function getMousePosRelativeToFloorplan(ev) {
-		const floorplanRect = floorplan.getBoundingClientRect();
-
-		let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
-		let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
-
-		//console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
-		return { mouseX, mouseY };
-	}
-
-	function scaleAndClampPosition(mouseX, mouseY) {
-		let x = mouseX / scale;
-		let y = mouseY / scale;
-
-		x = Math.min(Math.max(0, x), floorplan.offsetWidth - el.offsetWidth);
-		y = Math.min(Math.max(0, y), floorplan.offsetHeight - el.offsetHeight);
-
-		//console.log("Scaled and clamped position:", { x, y });
-		return { x, y };
-	}
-
-	function moveElement(x, y) {
-		el.style.left = x + "px";
-		el.style.top = y + "px";
-		el.dataset.snapped = "false";
-		//console.log(`Element moved to (${x}, ${y})`);
-	}
-
-	function onMouseMoveViewport(ev) {
-		if (!dragging) return;
-
-		const { mouseX, mouseY } = getMousePosRelativeToViewport(ev);
-
-		//log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
-
-		const { x, y } = scaleAndClampPosition(mouseX, mouseY);
-
-		//log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
-
-		moveElement(x, y);
-	}
-
-	function onMouseMove(ev) {
-		if (!dragging) return;
-
-		const { mouseX, mouseY } = getMousePosRelativeToFloorplan(ev);
-
-		//log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
-
-		const { x, y } = scaleAndClampPosition(mouseX, mouseY);
-
-		//log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
-
-		moveElement(x, y);
-	}
-
-	function findRoomContainingElementCenter(el) {
-		const objRect = el.getBoundingClientRect();
-		const cx = objRect.left + objRect.width / 2;
-		const cy = objRect.top + objRect.height / 2;
-		//console.log("Element center coordinates:", { cx, cy });
-
-		let foundRoom = null;
-		Object.values(rooms).forEach(room => {
-			const rRect = room.el.getBoundingClientRect();
-			if (cx > rRect.left && cx < rRect.right && cy > rRect.top && cy < rRect.bottom) {
-				foundRoom = room;
-				//console.log("Found room containing element:", room.el.dataset.name);
-			}
-		});
-		if (!foundRoom) console.log("No room found containing element");
-		return foundRoom;
-	}
-
-	function removeFromOldRoom(el) {
-		const attributes = JSON.parse(el.dataset.attributes || "{}");
-		const personId = attributes.id;
-		const roomId = attributes.room_id;  // Das ist die Zahl, die das Backend braucht
-
-		if (!personId || !roomId) {
-			console.warn("Fehlende Person- oder Raum-ID beim Entfernen aus altem Raum");
+	function loadFloorplan() {
+		if (typeof building_id !== "number" || typeof floor !== "number") {
+			console.error("loadFloorplan: building_id und floor müssen Zahlen sein");
 			return;
 		}
 
-		// Entferne das Element aus dem lokalen Raum-Objekt, falls vorhanden
-		const oldRoomName = el.dataset.room;
-		if (rooms[oldRoomName]) {
-			rooms[oldRoomName].objects = rooms[oldRoomName].objects.filter(o => o !== el);
-			console.log(`Removed element from old room: ${oldRoomName}`);
-		}
+		var url = "/get_floorplan?building_id=" + encodeURIComponent(building_id) + "&floor=" + encodeURIComponent(floor);
 
-		// API-Call mit korrekter Raum-ID (Zahl)
-		const url = `/api/delete_person_from_room?person_id=${personId}&room_id=${roomId}`;
-		fetch(url, { method: "GET" })
-			.then(response => {
-				if (!response.ok) throw new Error(`API Fehler: ${response.status}`);
-				return response.json();
-			})
-			.then(data => {
-				console.log("Person wurde aus altem Raum entfernt:", data);
-
-				// Raum-ID im attributes auf null setzen, weil Person jetzt aus diesem Raum raus ist
-				attributes.room_id = null;
-				el.dataset.attributes = JSON.stringify(attributes);
-			})
-			.catch(err => {
-				console.error("Fehler beim Entfernen der Person aus dem alten Raum:", err);
-			});
-	}
-
-
-
-	function addToNewRoom(el, newRoom) {
-	console.trace();
-	newRoom.objects.push(el);
-	log("newRoom:", newRoom);
-	el.dataset.room = newRoom.el.dataset.id;
-	console.log(`Added element to new room: ${newRoom.el.dataset.id}`, el);
-
-	// Nur fortfahren, wenn es sich um eine Person handelt
-	if (!el.classList.contains("person-circle")) {
-		return;
-	}
-
-	var attributes = JSON.parse(el.dataset.attributes || "{}");
-
-	const payload = {
-		room: newRoom.el.dataset.id,
-		person: attributes,
-		x: parseInt($(el).css("left")),
-		y: parseInt($(el).css("top"))
-	};
-
-	if (payload.room === undefined) {
-		alert("payload.room ist undefined!");
-		return;
-	}
-
-	fetch("/api/save_person_to_room", {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json"
-		},
-		body: JSON.stringify(payload)
-	})
-		.then(response => {
-			if (!response.ok) throw new Error("Netzwerkantwort war nicht OK");
-			return response.json();
-		})
-		.then(data => {
-			console.log("Erfolgreich gespeichert:", data);
-
-			var currentAttributes = $(el).attr('data-attributes');
-			var attributesObj = currentAttributes ? JSON.parse(currentAttributes) : {};
-			attributesObj.room_id = data.room_id;
-			$(el).attr('data-attributes', JSON.stringify(attributesObj));
-		})
-		.catch(error => {
-			console.error("Fehler beim Speichern:", error);
-		});
-}
-
-	function stopDragging() {
-		if (!dragging) return;
-		dragging = false;
-		el.style.cursor = "grab";
-		//console.log("Dragging stopped");
-
-		document.removeEventListener("mousemove", onMouseMove);
-		document.removeEventListener("mouseup", onMouseUp);
-
-		const foundRoom = findRoomContainingElementCenter(el);
-
-		if (foundRoom) {
-			//console.log("Found room on drag end:", foundRoom);
-
-			removeFromOldRoom(el);
-			addToNewRoom(el, foundRoom);
-
-			updateZIndex(el, foundRoom);
-			// snapObjectToZone(el, foundRoom); ← DAS WEG!
-		} else {
-			console.log("No room found on drag end");
-			if (rooms[el.dataset.room]) {
-				// snapObjectToZone(el, rooms[el.dataset.room]); ← AUCH WEG!
-			}
-		}
-		checkIfObjectOnPerson(el);
-
-	}
-
-	function onMouseUp(ev) {
-		stopDragging();
-	}
-
-	el.addEventListener("mousedown", (e) => {
-		if (e.button === 2) return; // Rechtsklick -> Kontextmenü bleibt erlaubt
-		removeExistingContextMenus(); // ❗ Kontextmenü schließen beim Start des Drag
-		startDragging(e); // Drag starten
-	});
-}
-// Globale Personendatenbank
-let personDatabase = [];
-
-async function loadPersonDatabase() {
-	try {
-		const response = await fetch("/api/get_person_database");
-		if (!response.ok) {
-			throw new Error("Fehler beim Laden der Personendaten");
-		}
-
-		const data = await response.json();
-		personDatabase = data;
-
-		//console.log("✅ Personendaten erfolgreich geladen:", personDatabase);
-		return personDatabase; // optional: Rückgabe, falls du die Daten weiterverwenden willst
-	} catch (error) {
-		console.error("❌ Fehler beim Laden der Personendaten:", error);
-		return [];
-	}
-}
-
-const addPersonBtn = document.getElementById("addPersonBtn");
-const personForm = document.getElementById("personForm");
-const dynamicForm = document.getElementById("dynamicPersonForm");
-const confirmPersonBtn = document.getElementById("confirmPersonBtn");
-const existingPersonSelect = document.getElementById("existingPersonSelect");
-
-// Hilfsfunktion: Formular generieren
-function generateForm(schema, formElement) {
-	formElement.innerHTML = ""; // Formular leeren
-
-	schema.forEach(field => {
-		const label = document.createElement("label");
-		label.textContent = field.label;
-		label.style.display = "block"; // Label als Block, damit das Input darunter steht
-
-		const input = document.createElement("input");
-		input.type = "text";
-		input.name = field.key;
-		input.style.display = "block"; // Input als Block, damit es unter dem Label steht
-		input.style.marginBottom = "10px"; // Abstand nach unten
-
-		formElement.appendChild(label);
-		formElement.appendChild(input);
-	});
-}
-
-// Bestehende Personen in Select füllen
-function populateExistingPersonSelect() {
-	existingPersonSelect.innerHTML = "";
-	personDatabase.forEach((person, index) => {
-		const option = document.createElement("option");
-		option.value = index;
-
-		// Titel, falls vorhanden, sonst leerer String
-		const title = person.title ? person.title + " " : "";
-
-		option.textContent = `${title}${person.first_name} ${person.last_name}`;
-		existingPersonSelect.appendChild(option);
-		console.log(person);
-	});
-}
-
-
-// Anzeigen je nach Modus (select oder new)
-function updateFormMode() {
-	const mode = document.querySelector('input[name="mode"]:checked').value;
-
-	if (mode === "select") {
-		dynamicForm.style.display = "none";
-		document.getElementById("selectPersonArea").style.display = "block";
-	} else {
-		generateForm(personSchema, dynamicForm);
-		dynamicForm.style.display = "block";
-		document.getElementById("selectPersonArea").style.display = "none";
-	}
-}
-
-if (addPersonBtn) {
-	addPersonBtn.addEventListener("click", () => {
-		personForm.style.display = "block";
-		populateExistingPersonSelect();
-		updateFormMode();
-		applyInvertFilterToElements(theme)
-		cancelBtnFunction()
-	});
-}
-
-// Radio Buttons für Modus wechseln
-document.querySelectorAll('input[name="mode"]').forEach(radio => {
-	radio.addEventListener("change", updateFormMode);
-});
-
-confirmPersonBtn.addEventListener("click", () => {
-	try {
-		const mode = getSelectedMode();
-
-		if (mode === "select") {
-			handleSelectMode();
-		} else {
-			handleCreateMode();
-		}
-
-		resetForm();
-	} catch (error) {
-		console.error("Fehler im Haupt-Event-Handler:", error);
-	}
-});
-
-function getSelectedMode() {
-	const modeInput = document.querySelector('input[name="mode"]:checked');
-	if (!modeInput) {
-		console.error("Kein Modus ausgewählt.");
-		throw new Error("Bitte einen Modus auswählen.");
-	}
-	//console.log("Modus gewählt:", modeInput.value);
-	return modeInput.value;
-}
-
-function handleSelectMode() {
-	const selectedIndex = existingPersonSelect.value;
-	if (selectedIndex === "") {
-		alert("Bitte eine Person auswählen!");
-		console.warn("Keine Person ausgewählt.");
-		return;
-	}
-
-	const person = personDatabase[selectedIndex];
-	if (!person) {
-		console.error("Person an ausgewähltem Index nicht gefunden:", selectedIndex);
-		return;
-	}
-
-	//console.log("Existierende Person ausgewählt:", person);
-	createPersonCircle(person);
-}
-
-function resetForm() {
-	personForm.style.display = "none";
-	dynamicForm.innerHTML = "";
-	dynamicForm.style.display = "none";
-	//console.log("Formular zurückgesetzt.");
-}
-
-async function savePersonToDatabase(newPerson) {
-	try {
-		const response = await fetch('/api/add_or_update_person', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(newPerson)
-		});
-
-		if (!response.ok) {
-			const errorData = await response.json();
-			console.error('Fehler beim Speichern:', errorData.error);
-			return;
-		}
-
-		const result = await response.json();
-		console.log('Person erfolgreich gespeichert:', result.message);
-	} catch (error) {
-		console.error('Netzwerkfehler:', error);
-	}
-}
-
-// Erstelle Person-Kreis und hänge an Floorplan an
-function createPersonCircle(attributes) {
-	const circle = createCircleElement(attributes);
-	addCircleToFloorplan(circle);
-	makeDraggable(circle);
-	setupContextMenu(circle, attributes);
-	//add_or_update_person(attributes);
-	applyInvertFilterToElements(theme)
-}
-
-function getPersonRoomDataSync(buildingId, floor) {
-	var xhr = new XMLHttpRequest();
-	var url = "/api/get_person_room_data?building_id=" + encodeURIComponent(buildingId) + "&floor=" + encodeURIComponent(floor);
-	xhr.open("GET", url, false); // synchron
-	try {
-		xhr.send(null);
-		if (xhr.status === 200) {
-			return JSON.parse(xhr.responseText);
-		} else {
-			console.error("HTTP-Fehler:", xhr.status);
-			return null;
-		}
-	} catch (e) {
-		console.error("XHR-Fehler:", e);
-		return null;
-	}
-}
-
-function createCircleElement(attributes, position = null) {
-	const circle = document.createElement("div");
-	circle.classList.add("person-circle");
-	circle.dataset.attributes = JSON.stringify(attributes);
-	circle.style.position = "absolute";
-
-	// 🔴 ❌ Button oben rechts
-	const closeBtn = document.createElement("div");
-	closeBtn.className = "circle-close-button";
-	closeBtn.textContent = "×";
-	closeBtn.title = "Entfernen";
-
-	closeBtn.addEventListener("click", (e) => {
-		e.stopPropagation();
-
-		const attrs = JSON.parse(circle.dataset.attributes);
-		const personId = attrs.id; // ggf anpassen, wenn anders benannt
-		const roomId = attrs.room_id; // nehme an floor ist roomId
-
-		if (!personId || roomId === undefined) {
-			console.error("Person ID oder Raum ID fehlt:", personId, roomId);
-			return;
-		}
-
-		const url = `/api/delete_person_from_room?person_id=${personId}&room_id=${roomId}`;
-
-		fetch(url, { method: 'GET' })
-			.then(response => {
+		fetch(url)
+			.then(function (response) {
 				if (!response.ok) {
-					throw new Error(`API Fehler: ${response.status}`);
+					throw new Error("Serverantwort war nicht OK: " + response.status + " " + response.statusText);
 				}
 				return response.json();
 			})
-			.then(data => {
-				console.log("Person wurde aus Raum entfernt:", data);
-				floorplan.removeChild(circle);
+			.then(function (data) {
+				if (!Array.isArray(data)) {
+					throw new Error("Antwort ist kein Array: " + JSON.stringify(data));
+				}
+
+				roomsData = data;
+
+				createRooms();
 			})
-			.catch(err => {
-				console.error("Fehler beim Entfernen der Person aus dem Raum:", err);
+			.catch(function (error) {
+				console.error("Fehler beim Laden des Floorplans:", error);
 			});
-	});
-
-
-	circle.appendChild(closeBtn);
-
-	// 🖼️ Bild oder Name
-	if (attributes.image_url) {
-		const img = document.createElement("img");
-		img.src = attributes.image_url;
-		img.alt = `${attributes.first_name} ${attributes.last_name}`;
-		img.style.zIndex = "1"; // liegt unter dem Button
-		circle.appendChild(img);
-	} else {
-		const nameSpan = document.createElement("span");
-		nameSpan.className = "no-image";
-		nameSpan.style.color = "black";
-		nameSpan.style.zIndex = "1";
-		nameSpan.innerHTML = `${attributes.first_name}<br>${attributes.last_name}`;
-		circle.appendChild(nameSpan);
 	}
 
-	setCirclePosition(circle, position);
-	return circle;
-}
+	const rooms = {};
 
-
-
-
-
-
-function getViewportCenterPosition() {
-	return {
-		x: window.pageXOffset + window.innerWidth / 2,
-		y: window.pageYOffset + window.innerHeight / 2
-	};
-}
-
-function load_persons_from_db() {
-	const personData = getPersonRoomDataSync(building_id, floor);
-
-	if (personData) {
-		createPersonsFromApiData(personData);
-	} else {
-		console.error("Keine Personendaten geladen");
-	}
-}
-
-function createPersonsFromApiData(personDataArray) {
-	if (!Array.isArray(personDataArray)) {
-		console.error("API-Daten sind kein Array");
-		return;
+	// Räume + Snapzones erzeugen
+	function createLabel(name) {
+		const label = document.createElement("div");
+		label.className = "room-label";
+		//label.textContent = "Raum " + name; 
+		return label;
 	}
 
-	for (const personEntry of personDataArray) {
-		const personAttributes = personEntry.person;
+	function createRoom(data) {
+		const room = createRoomElement(data);
+		const label = createLabel(data.name);
 
-		if (!personAttributes) {
-			console.warn("Person ohne Attribute übersprungen");
-			continue;
+		room.appendChild(label);
+
+		return room;
+	}
+
+	function createRooms() {
+		roomsData.forEach(data => {
+			const room = createRoom(data);
+			floorplan.appendChild(room);
+
+			rooms[data.name] = {
+				el: room,
+				objects: [], // ← Wichtig: Wird zur Laufzeit ergänzt, keine Änderung an roomsData nötig
+			};
+		});
+	}
+
+	function createRoomElement(data) {
+		const room = document.createElement("div");
+		room.className = "room";
+		room.style.left = data.x + "px";
+		room.style.top = data.y + "px";
+
+		if (data.width) {
+			room.style.width = data.width + "px";
+		}
+		if (data.height) {
+			room.style.height = data.height + "px";
 		}
 
-		if (Array.isArray(personEntry.rooms) && personEntry.rooms.length > 0) {
-			for (const roomEntry of personEntry.rooms) {
+		room.dataset.name = data.name;
+		room.dataset.id = data.id;
+		return room;
+	}
 
-				log("roomEntry:", roomEntry);
-				const layout = roomEntry.layout || null;
-				const position = extractPositionFromLayout(layout);
+	function updateZIndex(obj, room) {
+		obj.style.zIndex = 300;
+	}
 
-				personAttributes["room_id"] = roomEntry.room.id || null;
+	function makeDraggable(el) {
+		let dragging = false;
+		let dragOffsetX = 0;
+		let dragOffsetY = 0;
 
-				const circle = createCircleElement(personAttributes, position);
+		function getElementMouseOffset(e, el) {
+			const elRect = el.getBoundingClientRect();
+			const offsetX = e.clientX - elRect.left;
+			const offsetY = e.clientY - elRect.top;
+			return { offsetX, offsetY };
+		}
 
-				// Kreis an Floorplan anhängen
-				floorplan.appendChild(circle);
+		function startDragging(e) {
+			e.preventDefault();
 
-				makeDraggable(circle);
+			dragging = true;
+			el.style.cursor = "grabbing";
+			//console.log("Dragging started");
+
+			const offsets = getElementMouseOffset(e, el);
+			dragOffsetX = offsets.offsetX;
+			dragOffsetY = offsets.offsetY;
+
+			//log(`startDragging: Element mouse offset: ${dragOffsetX}, ${dragOffsetY}`);
+
+			//log(e.target.offsetParent);
+
+			if (e.target.offsetParent.classList.contains("person-circle")) {
+				document.addEventListener("mousemove", onMouseMove);
+			} else {
+				document.addEventListener("mousemove", onMouseMoveViewport)
 			}
-		} else {
-			// Keine Räume, Kreis zentriert erzeugen
-			const circle = createCircleElement(personAttributes, null);
-			floorplan.appendChild(circle);
+			document.addEventListener("mousemove", onMouseMoveViewport);
+			document.addEventListener("mouseup", onMouseUp);
+		}
+
+		function getMousePosRelativeToViewport(ev) {
+			const floorplanRect = $("#viewport")[0].getBoundingClientRect();
+
+			let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
+			let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
+
+			//console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
+			return { mouseX, mouseY };
+		}
+
+		function getMousePosRelativeToFloorplan(ev) {
+			const floorplanRect = floorplan.getBoundingClientRect();
+
+			let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
+			let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
+
+			//console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
+			return { mouseX, mouseY };
+		}
+
+		function scaleAndClampPosition(mouseX, mouseY) {
+			let x = mouseX / scale;
+			let y = mouseY / scale;
+
+			x = Math.min(Math.max(0, x), floorplan.offsetWidth - el.offsetWidth);
+			y = Math.min(Math.max(0, y), floorplan.offsetHeight - el.offsetHeight);
+
+			//console.log("Scaled and clamped position:", { x, y });
+			return { x, y };
+		}
+
+		function moveElement(x, y) {
+			el.style.left = x + "px";
+			el.style.top = y + "px";
+			el.dataset.snapped = "false";
+			//console.log(`Element moved to (${x}, ${y})`);
+		}
+
+		function onMouseMoveViewport(ev) {
+			if (!dragging) return;
+
+			const { mouseX, mouseY } = getMousePosRelativeToViewport(ev);
+
+			//log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
+
+			const { x, y } = scaleAndClampPosition(mouseX, mouseY);
+
+			//log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
+
+			moveElement(x, y);
+		}
+
+		function onMouseMove(ev) {
+			if (!dragging) return;
+
+			const { mouseX, mouseY } = getMousePosRelativeToFloorplan(ev);
+
+			//log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
+
+			const { x, y } = scaleAndClampPosition(mouseX, mouseY);
+
+			//log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
+
+			moveElement(x, y);
+		}
+
+		function findRoomContainingElementCenter(el) {
+			const objRect = el.getBoundingClientRect();
+			const cx = objRect.left + objRect.width / 2;
+			const cy = objRect.top + objRect.height / 2;
+			//console.log("Element center coordinates:", { cx, cy });
+
+			let foundRoom = null;
+			Object.values(rooms).forEach(room => {
+				const rRect = room.el.getBoundingClientRect();
+				if (cx > rRect.left && cx < rRect.right && cy > rRect.top && cy < rRect.bottom) {
+					foundRoom = room;
+					//console.log("Found room containing element:", room.el.dataset.name);
+				}
+			});
+			if (!foundRoom) console.log("No room found containing element");
+			return foundRoom;
+		}
+
+		function removeFromOldRoom(el) {
+			const attributes = JSON.parse(el.dataset.attributes || "{}");
+			const personId = attributes.id;
+			const roomId = attributes.room_id;  // Das ist die Zahl, die das Backend braucht
+
+			if (!personId || !roomId) {
+				console.warn("Fehlende Person- oder Raum-ID beim Entfernen aus altem Raum");
+				return;
+			}
+
+			// Entferne das Element aus dem lokalen Raum-Objekt, falls vorhanden
+			const oldRoomName = el.dataset.room;
+			if (rooms[oldRoomName]) {
+				rooms[oldRoomName].objects = rooms[oldRoomName].objects.filter(o => o !== el);
+				console.log(`Removed element from old room: ${oldRoomName}`);
+			}
+
+			// API-Call mit korrekter Raum-ID (Zahl)
+			const url = `/api/delete_person_from_room?person_id=${personId}&room_id=${roomId}`;
+			fetch(url, { method: "GET" })
+				.then(response => {
+					if (!response.ok) throw new Error(`API Fehler: ${response.status}`);
+					return response.json();
+				})
+				.then(data => {
+					console.log("Person wurde aus altem Raum entfernt:", data);
+
+					// Raum-ID im attributes auf null setzen, weil Person jetzt aus diesem Raum raus ist
+					attributes.room_id = null;
+					el.dataset.attributes = JSON.stringify(attributes);
+				})
+				.catch(err => {
+					console.error("Fehler beim Entfernen der Person aus dem alten Raum:", err);
+				});
+		}
+
+
+
+		function addToNewRoom(el, newRoom) {
+			console.trace();
+			newRoom.objects.push(el);
+			log("newRoom:", newRoom);
+			el.dataset.room = newRoom.el.dataset.id;
+			console.log(`Added element to new room: ${newRoom.el.dataset.id}`, el);
+
+			// Nur fortfahren, wenn es sich um eine Person handelt
+			if (!el.classList.contains("person-circle")) {
+				return;
+			}
+
+			var attributes = JSON.parse(el.dataset.attributes || "{}");
+
+			const payload = {
+				room: newRoom.el.dataset.id,
+				person: attributes,
+				x: parseInt($(el).css("left")),
+				y: parseInt($(el).css("top"))
+			};
+
+			if (payload.room === undefined) {
+				alert("payload.room ist undefined!");
+				return;
+			}
+
+			fetch("/api/save_person_to_room", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify(payload)
+			})
+				.then(response => {
+					if (!response.ok) throw new Error("Netzwerkantwort war nicht OK");
+					return response.json();
+				})
+				.then(data => {
+					console.log("Erfolgreich gespeichert:", data);
+
+					var currentAttributes = $(el).attr('data-attributes');
+					var attributesObj = currentAttributes ? JSON.parse(currentAttributes) : {};
+					attributesObj.room_id = data.room_id;
+					$(el).attr('data-attributes', JSON.stringify(attributesObj));
+				})
+				.catch(error => {
+					console.error("Fehler beim Speichern:", error);
+				});
+		}
+
+		function stopDragging() {
+			if (!dragging) return;
+			dragging = false;
+			el.style.cursor = "grab";
+			//console.log("Dragging stopped");
+
+			document.removeEventListener("mousemove", onMouseMove);
+			document.removeEventListener("mouseup", onMouseUp);
+
+			const foundRoom = findRoomContainingElementCenter(el);
+
+			if (foundRoom) {
+				//console.log("Found room on drag end:", foundRoom);
+
+				removeFromOldRoom(el);
+				addToNewRoom(el, foundRoom);
+
+				updateZIndex(el, foundRoom);
+				// snapObjectToZone(el, foundRoom); ← DAS WEG!
+			} else {
+				console.log("No room found on drag end");
+				if (rooms[el.dataset.room]) {
+					// snapObjectToZone(el, rooms[el.dataset.room]); ← AUCH WEG!
+				}
+			}
+			checkIfObjectOnPerson(el);
+
+		}
+
+		function onMouseUp(ev) {
+			stopDragging();
+		}
+
+		el.addEventListener("mousedown", (e) => {
+			if (e.button === 2) return; // Rechtsklick -> Kontextmenü bleibt erlaubt
+			removeExistingContextMenus(); // ❗ Kontextmenü schließen beim Start des Drag
+			startDragging(e); // Drag starten
+		});
+	}
+	// Globale Personendatenbank
+	let personDatabase = [];
+
+	async function loadPersonDatabase() {
+		try {
+			const response = await fetch("/api/get_person_database");
+			if (!response.ok) {
+				throw new Error("Fehler beim Laden der Personendaten");
+			}
+
+			const data = await response.json();
+			personDatabase = data;
+
+			//console.log("✅ Personendaten erfolgreich geladen:", personDatabase);
+			return personDatabase; // optional: Rückgabe, falls du die Daten weiterverwenden willst
+		} catch (error) {
+			console.error("❌ Fehler beim Laden der Personendaten:", error);
+			return [];
 		}
 	}
 
-	applyInvertFilterToElements(theme)
-}
+	const addPersonBtn = document.getElementById("addPersonBtn");
+	const personForm = document.getElementById("personForm");
+	const dynamicForm = document.getElementById("dynamicPersonForm");
+	const confirmPersonBtn = document.getElementById("confirmPersonBtn");
+	const existingPersonSelect = document.getElementById("existingPersonSelect");
 
-function extractPositionFromLayout(layout) {
-	if (!layout || typeof layout.x !== "number" || typeof layout.y !== "number") {
-		return null;
+	// Hilfsfunktion: Formular generieren
+	function generateForm(schema, formElement) {
+		formElement.innerHTML = ""; // Formular leeren
+
+		schema.forEach(field => {
+			const label = document.createElement("label");
+			label.textContent = field.label;
+			label.style.display = "block"; // Label als Block, damit das Input darunter steht
+
+			const input = document.createElement("input");
+			input.type = "text";
+			input.name = field.key;
+			input.style.display = "block"; // Input als Block, damit es unter dem Label steht
+			input.style.marginBottom = "10px"; // Abstand nach unten
+
+			formElement.appendChild(label);
+			formElement.appendChild(input);
+		});
 	}
-	return { x: layout.x, y: layout.y };
-}
 
-function setCirclePosition(circle, position = null) {
-	const center = getViewportCenterPosition();
+	// Bestehende Personen in Select füllen
+	function populateExistingPersonSelect() {
+		existingPersonSelect.innerHTML = "";
+		personDatabase.forEach((person, index) => {
+			const option = document.createElement("option");
+			option.value = index;
 
-	const width = circle.offsetWidth || 50;
-	const height = circle.offsetHeight || 50;
+			// Titel, falls vorhanden, sonst leerer String
+			const title = person.title ? person.title + " " : "";
 
-	circle.style.position = "absolute";
-
-	if (position && typeof position.x === "number" && typeof position.y === "number") {
-		// Position aus layout benutzen
-		// Optional: ggf. Skalierung anpassen, wenn layout-Koordinaten nicht direkt px sind
-		circle.style.left = position.x + "px";
-		circle.style.top = position.y + "px";
-	} else {
-		// Standard: zentriert
-		circle.style.left = `${center.x - width / 2}px`;
-		circle.style.top = `${center.y - height / 2}px`;
+			option.textContent = `${title}${person.first_name} ${person.last_name}`;
+			existingPersonSelect.appendChild(option);
+			console.log(person);
+		});
 	}
-}
 
-function my_escape(str) {
-	if (typeof str !== 'string') {
-		str = String(str ?? ''); // Konvertiert null/undefined zu leerem String
+
+	// Anzeigen je nach Modus (select oder new)
+	function updateFormMode() {
+		const mode = document.querySelector('input[name="mode"]:checked').value;
+
+		if (mode === "select") {
+			dynamicForm.style.display = "none";
+			document.getElementById("selectPersonArea").style.display = "block";
+		} else {
+			generateForm(personSchema, dynamicForm);
+			dynamicForm.style.display = "block";
+			document.getElementById("selectPersonArea").style.display = "none";
+		}
 	}
-	return str.replace(/[&<>"']/g, function (char) {
-		const escapeChars = {
-			'&': '&amp;',
-			'<': '&lt;',
-			'>': '&gt;',
-			'"': '&quot;',
-			"'": '&#39;',
-		};
-		return escapeChars[char];
+
+	if (addPersonBtn) {
+		addPersonBtn.addEventListener("click", () => {
+			personForm.style.display = "block";
+			populateExistingPersonSelect();
+			updateFormMode();
+			applyInvertFilterToElements(theme)
+			cancelBtnFunction()
+		});
+	}
+
+	// Radio Buttons für Modus wechseln
+	document.querySelectorAll('input[name="mode"]').forEach(radio => {
+		radio.addEventListener("change", updateFormMode);
 	});
+
+	confirmPersonBtn.addEventListener("click", () => {
+		try {
+			const mode = getSelectedMode();
+
+			if (mode === "select") {
+				handleSelectMode();
+			} else {
+				handleCreateMode();
+			}
+
+			resetForm();
+		} catch (error) {
+			console.error("Fehler im Haupt-Event-Handler:", error);
+		}
+	});
+
+	function getSelectedMode() {
+		const modeInput = document.querySelector('input[name="mode"]:checked');
+		if (!modeInput) {
+			console.error("Kein Modus ausgewählt.");
+			throw new Error("Bitte einen Modus auswählen.");
+		}
+		//console.log("Modus gewählt:", modeInput.value);
+		return modeInput.value;
+	}
+
+	function handleSelectMode() {
+		const selectedIndex = existingPersonSelect.value;
+		if (selectedIndex === "") {
+			alert("Bitte eine Person auswählen!");
+			console.warn("Keine Person ausgewählt.");
+			return;
+		}
+
+		const person = personDatabase[selectedIndex];
+		if (!person) {
+			console.error("Person an ausgewähltem Index nicht gefunden:", selectedIndex);
+			return;
+		}
+
+		//console.log("Existierende Person ausgewählt:", person);
+		createPersonCircle(person);
+	}
+
+	function resetForm() {
+		personForm.style.display = "none";
+		dynamicForm.innerHTML = "";
+		dynamicForm.style.display = "none";
+		//console.log("Formular zurückgesetzt.");
+	}
+
+	async function savePersonToDatabase(newPerson) {
+		try {
+			const response = await fetch('/api/add_or_update_person', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(newPerson)
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				console.error('Fehler beim Speichern:', errorData.error);
+				return;
+			}
+
+			const result = await response.json();
+			console.log('Person erfolgreich gespeichert:', result.message);
+		} catch (error) {
+			console.error('Netzwerkfehler:', error);
+		}
+	}
+
+	// Erstelle Person-Kreis und hänge an Floorplan an
+	function createPersonCircle(attributes) {
+		const circle = createCircleElement(attributes);
+		addCircleToFloorplan(circle);
+		makeDraggable(circle);
+		setupContextMenu(circle, attributes);
+		//add_or_update_person(attributes);
+		applyInvertFilterToElements(theme)
+	}
+
+	function getPersonRoomDataSync() {
+		var xhr = new XMLHttpRequest();
+		var url = "/api/get_person_room_data?building_id=" + encodeURIComponent(building_id) + "&floor=" + encodeURIComponent(floor);
+		xhr.open("GET", url, false); // synchron
+		try {
+			xhr.send(null);
+			if (xhr.status === 200) {
+				return JSON.parse(xhr.responseText);
+			} else {
+				console.error("HTTP-Fehler:", xhr.status);
+				return null;
+			}
+		} catch (e) {
+			console.error("XHR-Fehler:", e);
+			return null;
+		}
+	}
+
+	function createCircleElement(attributes, position = null) {
+		const circle = document.createElement("div");
+		circle.classList.add("person-circle");
+		circle.dataset.attributes = JSON.stringify(attributes);
+		circle.style.position = "absolute";
+
+		// 🔴 ❌ Button oben rechts
+		const closeBtn = document.createElement("div");
+		closeBtn.className = "circle-close-button";
+		closeBtn.textContent = "×";
+		closeBtn.title = "Entfernen";
+
+		closeBtn.addEventListener("click", (e) => {
+			e.stopPropagation();
+
+			const attrs = JSON.parse(circle.dataset.attributes);
+			const personId = attrs.id; // ggf anpassen, wenn anders benannt
+			const roomId = attrs.room_id; // nehme an floor ist roomId
+
+			if (!personId || roomId === undefined) {
+				console.error("Person ID oder Raum ID fehlt:", personId, roomId);
+				return;
+			}
+
+			const url = `/api/delete_person_from_room?person_id=${personId}&room_id=${roomId}`;
+
+			fetch(url, { method: 'GET' })
+				.then(response => {
+					if (!response.ok) {
+						throw new Error(`API Fehler: ${response.status}`);
+					}
+					return response.json();
+				})
+				.then(data => {
+					console.log("Person wurde aus Raum entfernt:", data);
+					floorplan.removeChild(circle);
+				})
+				.catch(err => {
+					console.error("Fehler beim Entfernen der Person aus dem Raum:", err);
+				});
+		});
+
+
+		circle.appendChild(closeBtn);
+
+		// 🖼️ Bild oder Name
+		if (attributes.image_url) {
+			const img = document.createElement("img");
+			img.src = attributes.image_url;
+			img.alt = `${attributes.first_name} ${attributes.last_name}`;
+			img.style.zIndex = "1"; // liegt unter dem Button
+			circle.appendChild(img);
+		} else {
+			const nameSpan = document.createElement("span");
+			nameSpan.className = "no-image";
+			nameSpan.style.color = "black";
+			nameSpan.style.zIndex = "1";
+			nameSpan.innerHTML = `${attributes.first_name}<br>${attributes.last_name}`;
+			circle.appendChild(nameSpan);
+		}
+
+		setCirclePosition(circle, position);
+		return circle;
+	}
+
+
+
+
+
+
+	function getViewportCenterPosition() {
+		return {
+			x: window.pageXOffset + window.innerWidth / 2,
+			y: window.pageYOffset + window.innerHeight / 2
+		};
+	}
+
+	function load_persons_from_db() {
+		const personData = getPersonRoomDataSync(building_id, floor);
+
+		if (personData) {
+			createPersonsFromApiData(personData);
+		} else {
+			console.error("Keine Personendaten geladen");
+		}
+	}
+
+	function createPersonsFromApiData(personDataArray) {
+		if (!Array.isArray(personDataArray)) {
+			console.error("API-Daten sind kein Array");
+			return;
+		}
+
+		for (const personEntry of personDataArray) {
+			const personAttributes = personEntry.person;
+
+			if (!personAttributes) {
+				console.warn("Person ohne Attribute übersprungen");
+				continue;
+			}
+
+			if (Array.isArray(personEntry.rooms) && personEntry.rooms.length > 0) {
+				for (const roomEntry of personEntry.rooms) {
+
+					log("roomEntry:", roomEntry);
+					const layout = roomEntry.layout || null;
+					const position = extractPositionFromLayout(layout);
+
+					personAttributes["room_id"] = roomEntry.room.id || null;
+
+					const circle = createCircleElement(personAttributes, position);
+
+					// Kreis an Floorplan anhängen
+					floorplan.appendChild(circle);
+
+					makeDraggable(circle);
+				}
+			} else {
+				// Keine Räume, Kreis zentriert erzeugen
+				const circle = createCircleElement(personAttributes, null);
+				floorplan.appendChild(circle);
+			}
+		}
+
+		applyInvertFilterToElements(theme)
+	}
+
+	function extractPositionFromLayout(layout) {
+		if (!layout || typeof layout.x !== "number" || typeof layout.y !== "number") {
+			return null;
+		}
+		return { x: layout.x, y: layout.y };
+	}
+
+	function setCirclePosition(circle, position = null) {
+		const center = getViewportCenterPosition();
+
+		const width = circle.offsetWidth || 50;
+		const height = circle.offsetHeight || 50;
+
+		circle.style.position = "absolute";
+
+		if (position && typeof position.x === "number" && typeof position.y === "number") {
+			// Position aus layout benutzen
+			// Optional: ggf. Skalierung anpassen, wenn layout-Koordinaten nicht direkt px sind
+			circle.style.left = position.x + "px";
+			circle.style.top = position.y + "px";
+		} else {
+			// Standard: zentriert
+			circle.style.left = `${center.x - width / 2}px`;
+			circle.style.top = `${center.y - height / 2}px`;
+		}
+	}
+
+	function my_escape(str) {
+		if (typeof str !== 'string') {
+			str = String(str ?? ''); // Konvertiert null/undefined zu leerem String
+		}
+		return str.replace(/[&<>"']/g, function (char) {
+			const escapeChars = {
+				'&': '&amp;',
+				'<': '&lt;',
+				'>': '&gt;',
+				'"': '&quot;',
+				"'": '&#39;',
+			};
+			return escapeChars[char];
+		});
 }
 
 function addCircleToFloorplan(circle) {
@@ -814,15 +805,15 @@ function buildContextMenu(attributes, personEl) {
 
 	// Grundstruktur mit allen Attributen
 	menu.innerHTML = `
-    <div><strong>Vorname:</strong> ${my_escape(attributes.first_name || "")}</div>
-    <div><strong>Nachname:</strong> ${my_escape(attributes.last_name || "")}</div>
-    <div><strong>Titel:</strong> ${my_escape(attributes.title || "")}</div>
-    <div><strong>Kommentar:</strong> ${my_escape(attributes.comment || "")}</div>
-    
-    <hr>
-    <div><strong>Inventar:</strong></div>
-    <ul class="question-list" style="list-style:none; padding-left:0; margin:0;"></ul>
-  `;
+	    <div><strong>Vorname:</strong> ${my_escape(attributes.first_name || "")}</div>
+	    <div><strong>Nachname:</strong> ${my_escape(attributes.last_name || "")}</div>
+	    <div><strong>Titel:</strong> ${my_escape(attributes.title || "")}</div>
+	    <div><strong>Kommentar:</strong> ${my_escape(attributes.comment || "")}</div>
+
+	    <hr>
+	    <div><strong>Inventar:</strong></div>
+	    <ul class="question-list" style="list-style:none; padding-left:0; margin:0;"></ul>
+	  `;
 
 	const inventory = attributes.inventory || [];
 	const ul = menu.querySelector("ul.question-list");
@@ -960,11 +951,11 @@ function createOptionsDiv(options) {
 	div.dataset.room = "";
 
 	div.innerHTML = `
-    <p><strong>Option 1:</strong> ${options.option1}</p>
-    <p><strong>Option 2:</strong> ${options.option2}</p>
-    <p><strong>Option 3:</strong> ${options.option3}</p>
-    <p><strong>Option 4:</strong> ${options.option4}</p>
-  `;
+	    <p><strong>Option 1:</strong> ${options.option1}</p>
+	    <p><strong>Option 2:</strong> ${options.option2}</p>
+	    <p><strong>Option 3:</strong> ${options.option3}</p>
+	    <p><strong>Option 4:</strong> ${options.option4}</p>
+	  `;
 
 	// Temporär anhängen, um die Größe zu messen
 	document.body.appendChild(div);
@@ -1283,14 +1274,15 @@ document.addEventListener('keydown', function (event) {
 
 
 window.addEventListener("DOMContentLoaded", () => {
-  const people = document.querySelectorAll(".person-circle");
+	const people = document.querySelectorAll(".person-circle");
 
-  people.forEach(person => {
-    person.addEventListener("contextmenu", (event) => {
-      event.preventDefault(); // verhindert das native Kontextmenü
-      const attributes = JSON.parse(person.getAttribute("data-attributes"));
-      toggleContextMenu(person, attributes);
-    });
-  });
+	people.forEach(person => {
+		person.addEventListener("contextmenu", (event) => {
+			event.preventDefault(); // verhindert das native Kontextmenü
+			const attributes = JSON.parse(person.getAttribute("data-attributes"));
+			toggleContextMenu(person, attributes);
+		});
+	});
 });
 
+}
