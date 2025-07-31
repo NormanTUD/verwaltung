@@ -1275,27 +1275,15 @@ document.addEventListener('keydown', function (event) {
 
 
 
-const container = document.getElementById("container");
+window.addEventListener("DOMContentLoaded", () => {
+  const people = document.querySelectorAll(".person-circle");
 
-floorplan.addEventListener("contextmenu", (event) => {
-	event.preventDefault(); // Kontextmenü verhindern, egal was
-
-	const circle = event.target.closest(".person-circle");
-
-	if (circle && floorplan.contains(circle)) {
-		let attributes = {};
-		try {
-			attributes = JSON.parse(circle.dataset.attributes || "{}");
-		} catch (error) {
-			console.error("Fehler beim Parsen der Attribute:", error);
-			alert("Fehler beim Lesen der Personen-Attribute.");
-			return;
-		}
-		
-		setupContextMenu(circle, attributes);
-	} else {
-		alert("Kein Person Circle getroffen");
-	}
+  people.forEach(person => {
+    person.addEventListener("contextmenu", (event) => {
+      event.preventDefault(); // verhindert das native Kontextmenü
+      const attributes = JSON.parse(person.getAttribute("data-attributes"));
+      toggleContextMenu(person, attributes);
+    });
+  });
 });
-
 
