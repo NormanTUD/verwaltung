@@ -703,7 +703,12 @@ def load_user(user_id):
 def inject_sidebar_data():
     session = Session()
 
-    tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]
+    tables = [
+        cls.__tablename__
+        for cls in Base.__subclasses__()
+        if hasattr(cls, '__tablename__') and cls.__tablename__ not in ["role", "user"]
+    ]
+
     wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
     wizard_routes.append("/wizard/person")
     wizard_routes = sorted(set(wizard_routes))
@@ -739,7 +744,11 @@ def inject_sidebar_data():
 @app.route("/")
 @login_required
 def index():
-    tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]
+    tables = [
+        cls.__tablename__
+        for cls in Base.__subclasses__()
+        if hasattr(cls, '__tablename__') and cls.__tablename__ not in ["role", "user"]
+    ]
 
     # wizard_routes aus den keys von WIZARDS + eventuell "person"
     wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
