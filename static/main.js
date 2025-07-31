@@ -993,6 +993,7 @@ function appendToContainer(div, containerId = "generatedObjectsContainer") {
 	}
 	container.appendChild(div);
 	console.log("appendToContainer: Div hinzugefügt");
+	applyInvertFilterToElements(theme) 
 }
 
 function clearFormFields() {
