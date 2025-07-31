@@ -210,10 +210,6 @@ function isInside(a, b) {
 	return result;
 }
 
-
-
-
-
 function delete_room(e, ask = true, this_room) {
 	console.trace();
 	if (e !== undefined && e !== null) {
@@ -229,7 +225,6 @@ function delete_room(e, ask = true, this_room) {
 		}
 		updateOutput();
 		renderAll();
-
 
 		fetch("/api/delete_room", {
 			method: "POST",
@@ -313,12 +308,10 @@ async function createRoomElement(room) {
 	await enableDragResize($el, 'room', room);
 	//debug('Drag/Resize für Raum aktiviert');
 
-
 	applyInvertFilterToElements(theme);
 
 	return $el[0];
 }
-
 
 async function getResizeEdge(e, rect) {
 	try {
@@ -513,7 +506,6 @@ async function enableDragResize($el, type, obj, parentRoom = null) {
 	});
 }
 
-
 function cancel_drag(e) {
 	// Nur Escape-Taste oder Mouseup außerhalb von Input-Feldern
 	if (e.type === 'keydown' && e.key === 'Escape') {
@@ -558,8 +550,6 @@ $(window).on('mousemove', function (e) {
 				room.y = window.dragData.origY + dy;
 				//debug(`Raum verschoben → x:${room.x}, y:${room.y}`);
 			}
-
-
 		}
 
 	} else if (window.resizeData) {
