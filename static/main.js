@@ -276,6 +276,17 @@ function makeDraggable(el) {
 			})
 			.then(data => {
 				console.log("Erfolgreich gespeichert:", data);
+
+				var currentAttributes = $(el).attr('data-attributes');
+
+				// 2. Wenn vorhanden, als Objekt parsen, sonst leeres Objekt
+				var attributesObj = currentAttributes ? JSON.parse(currentAttributes) : {};
+
+				// 3. room_id hinzufügen/überschreiben
+				attributesObj.room_id = data.room_id;
+
+				// 4. Wieder als JSON setzen
+				$(el).attr('data-attributes', JSON.stringify(attributesObj));
 			})
 			.catch(error => {
 				console.error("Fehler beim Speichern:", error);
@@ -612,9 +623,12 @@ function createPersonsFromApiData(personDataArray) {
 
 		if (Array.isArray(personEntry.rooms) && personEntry.rooms.length > 0) {
 			for (const roomEntry of personEntry.rooms) {
+
 				log("roomEntry:", roomEntry);
 				const layout = roomEntry.layout || null;
 				const position = extractPositionFromLayout(layout);
+
+				personAttributes["room_id"] = roomEntry.room.id || null;
 
 				const circle = createCircleElement(personAttributes, position);
 
