@@ -241,40 +241,40 @@ function makeDraggable(el) {
 	}
 
 	function removeFromOldRoom(el) {
-    const attributes = JSON.parse(el.dataset.attributes || "{}");
-    const personId = attributes.id;
-    const roomId = attributes.room_id;  // Das ist die Zahl, die das Backend braucht
+		const attributes = JSON.parse(el.dataset.attributes || "{}");
+		const personId = attributes.id;
+		const roomId = attributes.room_id;  // Das ist die Zahl, die das Backend braucht
 
-    if (!personId || !roomId) {
-        console.warn("Fehlende Person- oder Raum-ID beim Entfernen aus altem Raum");
-        return;
-    }
+		if (!personId || !roomId) {
+			console.warn("Fehlende Person- oder Raum-ID beim Entfernen aus altem Raum");
+			return;
+		}
 
-    // Entferne das Element aus dem lokalen Raum-Objekt, falls vorhanden
-    const oldRoomName = el.dataset.room;
-    if (rooms[oldRoomName]) {
-        rooms[oldRoomName].objects = rooms[oldRoomName].objects.filter(o => o !== el);
-        console.log(`Removed element from old room: ${oldRoomName}`);
-    }
+		// Entferne das Element aus dem lokalen Raum-Objekt, falls vorhanden
+		const oldRoomName = el.dataset.room;
+		if (rooms[oldRoomName]) {
+			rooms[oldRoomName].objects = rooms[oldRoomName].objects.filter(o => o !== el);
+			console.log(`Removed element from old room: ${oldRoomName}`);
+		}
 
-    // API-Call mit korrekter Raum-ID (Zahl)
-    const url = `/api/delete_person_from_room?person_id=${personId}&room_id=${roomId}`;
-    fetch(url, { method: "GET" })
-        .then(response => {
-            if (!response.ok) throw new Error(`API Fehler: ${response.status}`);
-            return response.json();
-        })
-        .then(data => {
-            console.log("Person wurde aus altem Raum entfernt:", data);
+		// API-Call mit korrekter Raum-ID (Zahl)
+		const url = `/api/delete_person_from_room?person_id=${personId}&room_id=${roomId}`;
+		fetch(url, { method: "GET" })
+			.then(response => {
+				if (!response.ok) throw new Error(`API Fehler: ${response.status}`);
+				return response.json();
+			})
+			.then(data => {
+				console.log("Person wurde aus altem Raum entfernt:", data);
 
-            // Raum-ID im attributes auf null setzen, weil Person jetzt aus diesem Raum raus ist
-            attributes.room_id = null;
-            el.dataset.attributes = JSON.stringify(attributes);
-        })
-        .catch(err => {
-            console.error("Fehler beim Entfernen der Person aus dem alten Raum:", err);
-        });
-}
+				// Raum-ID im attributes auf null setzen, weil Person jetzt aus diesem Raum raus ist
+				attributes.room_id = null;
+				el.dataset.attributes = JSON.stringify(attributes);
+			})
+			.catch(err => {
+				console.error("Fehler beim Entfernen der Person aus dem alten Raum:", err);
+			});
+	}
 
 
 
@@ -294,7 +294,7 @@ function makeDraggable(el) {
 			y: parseInt($(el).css("top"))
 		};
 
-		if(payload.room === undefined) {
+		if (payload.room === undefined) {
 			alert("payload.room ist undefined!");
 		}
 
@@ -750,30 +750,34 @@ function setupContextMenu(circle, attributes) {
 
 
 function toggleContextMenu(circle, attributes) {
-  try {
-    console.log("toggleContextMenu aufgerufen mit circle:", circle);
-    console.log("toggleContextMenu attributes:", attributes);
+	try {
+		console.log("toggleContextMenu aufgerufen mit circle:", circle);
+		console.log("toggleContextMenu attributes:", attributes);
 
-    removeExistingContextMenus();
+		removeExistingContextMenus();
 
-    // Wichtig: circle mitgeben
-    const menu = buildContextMenu(attributes, circle);
-    console.log("Kontextmenü gebaut:", menu);
+		// Wichtig: circle mitgeben
+		const menu = buildContextMenu(attributes, circle);
+		console.log("Kontextmenü gebaut:", menu);
 
-    positionContextMenuAbsolute(circle, menu);
-    floorplan.appendChild(menu);
+		positionContextMenuAbsolute(circle, menu);
+		floorplan.appendChild(menu);
+		requestAnimationFrame(() => {
+			menu.style.opacity = "1";
+		});
 
-    updateContextMenuInventory(circle);
-    applyInvertFilterToElements(theme);
+		updateContextMenuInventory(circle);
+		applyInvertFilterToElements(theme);
 
-    console.log("Kontextmenü angezeigt:", attributes);
-  } catch (error) {
-    console.error("Fehler beim Umschalten des Kontextmenüs:", error);
-  }
+		console.log("Kontextmenü angezeigt:", attributes);
+	} catch (error) {
+		console.error("Fehler beim Umschalten des Kontextmenüs:", error);
+	}
 }
 
 
 function removeExistingContextMenus() {
+	console.log(`removeExistingContextMenus aufgerufen, Menüs gefunden: ${menus.length}`);
 	const menus = document.querySelectorAll(".context-menu");
 	menus.forEach(menu => menu.remove());
 }
@@ -1272,23 +1276,45 @@ document.addEventListener('keydown', function (event) {
 const container = document.getElementById("container");
 
 floorplan.addEventListener("contextmenu", (event) => {
-  event.preventDefault(); // Kontextmenü verhindern, egal was
+	event.preventDefault(); // Kontextmenü verhindern, egal was
 
-  const circle = event.target.closest(".person-circle");
+	const circle = event.target.closest(".person-circle");
 
-  if (circle && floorplan.contains(circle)) {
-    let attributes = {};
-    try {
-      attributes = JSON.parse(circle.dataset.attributes || "{}");
-    } catch (error) {
-      console.error("Fehler beim Parsen der Attribute:", error);
-      alert("Fehler beim Lesen der Personen-Attribute.");
-      return;
-    }
-    setupContextMenu(circle, attributes);
-  } else {
-    alert("Kein Person Circle getroffen");
-  }
+	if (circle && floorplan.contains(circle)) {
+		let attributes = {};
+		try {
+			attributes = JSON.parse(circle.dataset.attributes || "{}");
+		} catch (error) {
+			console.error("Fehler beim Parsen der Attribute:", error);
+			alert("Fehler beim Lesen der Personen-Attribute.");
+			return;
+		}
+		try {
+		console.log("toggleContextMenu aufgerufen mit circle:", circle);
+		console.log("toggleContextMenu attributes:", attributes);
+
+		
+
+		// Wichtig: circle mitgeben
+		const menu = buildContextMenu(attributes, circle);
+		console.log("Kontextmenü gebaut:", menu);
+
+		positionContextMenuAbsolute(circle, menu);
+		floorplan.appendChild(menu);
+		requestAnimationFrame(() => {
+			menu.style.opacity = "1";
+		});
+
+		updateContextMenuInventory(circle);
+		applyInvertFilterToElements(theme);
+
+		console.log("Kontextmenü angezeigt:", attributes);
+	} catch (error) {
+		console.error("Fehler beim Umschalten des Kontextmenüs:", error);
+	}
+	} else {
+		alert("Kein Person Circle getroffen");
+	}
 });
 
 
