@@ -22,18 +22,15 @@ class SessionUsageAnalyzer(ast.NodeVisitor):
         self.generic_visit(node)
 
     def session_closed_properly(self, func_node, session_name):
-        """
-        Check if session_name is closed inside the function node,
-        and that any `return` or `raise` is not before a close.
-        """
         if func_node is None:
-            return False  # session opened globally? suspicious
+            return False  # global sessions: suspicious
 
-        # Track whether the session is closed before every return or raise
         closed_lines = set()
         return_or_raise_lines = set()
+        closed_in_finally = False
 
         for subnode in ast.walk(func_node):
+            # Check for session.close() calls
             if isinstance(subnode, ast.Expr):
                 if isinstance(subnode.value, ast.Call):
                     func = subnode.value.func
@@ -42,13 +39,28 @@ class SessionUsageAnalyzer(ast.NodeVisitor):
                             if func.value.id == session_name:
                                 closed_lines.add(subnode.lineno)
 
+            # Collect return and raise lines
             elif isinstance(subnode, (ast.Return, ast.Raise)):
                 return_or_raise_lines.add(subnode.lineno)
+
+            # Check if close is in a finally block
+            elif isinstance(subnode, ast.Try):
+                for final_node in subnode.finalbody:
+                    for final_sub in ast.walk(final_node):
+                        if isinstance(final_sub, ast.Expr):
+                            if isinstance(final_sub.value, ast.Call):
+                                func = final_sub.value.func
+                                if isinstance(func, ast.Attribute):
+                                    if func.attr == "close" and isinstance(func.value, ast.Name):
+                                        if func.value.id == session_name:
+                                            closed_in_finally = True
+
+        if closed_in_finally:
+            return True  # always considered safe
 
         if not return_or_raise_lines:
             return bool(closed_lines)
 
-        # Only OK if all return/raise are after a close
         for ret_line in return_or_raise_lines:
             closes_before = [l for l in closed_lines if l < ret_line]
             if not closes_before:
