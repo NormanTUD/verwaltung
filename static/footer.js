@@ -226,8 +226,6 @@ function autoUpdate(element_name, update_typ, update_id, new_val) {
 				return response.json();
 			})
 			.then(function(data) {
-				log("Response data:", data);
-
 				success(data.message, "Erfolgreich");
 			})
 			.catch(function(error) {
