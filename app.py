@@ -2629,7 +2629,7 @@ def get_floorplan():
                 continue  # skip rooms without layout
 
             result.append({
-                "id": f"r{room.id}",
+                "id": room.id,
                 "name": room.name,
                 "x": layout.x,
                 "y": layout.y,

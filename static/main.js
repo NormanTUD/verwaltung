@@ -294,6 +294,10 @@ function makeDraggable(el) {
 			y: parseInt($(el).css("top"))
 		};
 
+		if(payload.room === undefined) {
+			alert("payload.room ist undefined!");
+		}
+
 		fetch("/api/save_person_to_room", {
 			method: "POST",
 			headers: {
