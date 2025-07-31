@@ -398,10 +398,22 @@ function updateVersionLabel(value) {
 	}
 }
 
+function deleteCookie(name) {
+	document.cookie = name + "=;path=/;max-age=0";
+}
+
 function applyVersion() {
 	const slider = document.getElementById('versionSlider');
 	const index = parseInt(slider.value);
+
 	if (index < 0 || index >= versions.length) return;
+
+	// Wenn neueste Version gewählt → Cookie löschen (falls vorhanden) und neu laden
+	if (index === versions.length - 1) {
+		deleteCookie('data_version');
+		location.reload();
+		return;
+	}
 
 	const version = versions[index];
 	document.cookie = "data_version=" + version.id + ";path=/;max-age=" + 30 * 24 * 60 * 60;
@@ -429,7 +441,7 @@ async function loadVersions() {
 		const slider = document.getElementById('versionSlider');
 		slider.min = 0;
 		slider.max = versions.length - 1;
-		slider.value = versions.length - 1; // Standard auf neueste Version
+		slider.value = versions.length - 1;
 		slider.disabled = false;
 
 		document.getElementById('applyVersionBtn').disabled = false;
@@ -438,6 +450,7 @@ async function loadVersions() {
 
 		const cookies = document.cookie.split(';').map(c => c.trim());
 		const versionCookie = cookies.find(c => c.startsWith("data_version="));
+
 		if (versionCookie) {
 			const versionId = parseInt(versionCookie.split('=')[1]);
 			const idx = versions.findIndex(v => v.id === versionId);

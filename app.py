@@ -307,6 +307,27 @@ def load_timestamp_from_cookie():
 
     session.close()
 
+def _data_version_block_check():
+    cookie_val = request.cookies.get("data_version")
+    if cookie_val is not None and cookie_val.strip() != "":
+        raise RuntimeError("Schreiboperationen sind deaktiviert, weil 'data_version'-Cookie gesetzt ist.")
+
+def block_writes_if_data_version_cookie_set(session, flush_context, instances):
+    # Alle neuen, geänderten oder gelöschten Objekte
+    write_ops = session.new.union(session.dirty).union(session.deleted)
+    if not write_ops:
+        return  # keine schreibenden Operationen -> alles OK
+
+    # Nur ausführen, wenn Flask-Request-Kontext aktiv ist
+    try:
+        if request:
+            _data_version_block_check()
+    except RuntimeError:
+        raise
+    except Exception:
+        # Wenn kein Flask-Kontext (z. B. Migrations), dann ignorieren
+        pass
+
 def add_version_filter(query):
     print("[DEBUG] add_version_filter aufgerufen")
 
@@ -3458,5 +3479,7 @@ def get_versions():
     finally:
         session.close()
     
+event.listen(Session, "before_flush", block_writes_if_data_version_cookie_set)
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
