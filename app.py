@@ -3189,6 +3189,9 @@ def search():
         results.append({'label': '📦 Transponder', 'url': url_for('aggregate_transponder_view')})
     if 'person'.startswith(query):
         results.append({'label': '📦 Person', 'url': url_for('aggregate_person_view')})
+    if is_admin_user(session):
+        if 'admin'.startswith(query):
+            results.append({'label': '🛠️ Admin', 'url': '/admin'})
 
     # 🔍 Personensuche nach Name, Email, Telefon, Fax
     people = session.query(Person).options(joinedload(Person.contacts)).all()
