@@ -1,5 +1,5 @@
 from typing import Optional, Dict, Any, Type, List
-from sqlalchemy import (create_engine, Column, Integer, String, Text, ForeignKey, Date, Float, TIMESTAMP, UniqueConstraint, Table, Boolean)
+from sqlalchemy import (create_engine, Column, Integer, String, Text, ForeignKey, Date, Float, TIMESTAMP, UniqueConstraint, Table, Boolean, Index)
 from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.inspection import inspect
 from sqlalchemy.exc import NoInspectionAvailable
@@ -107,7 +107,9 @@ class PersonContact(Base):
     __table_args__ = (
         UniqueConstraint("person_id", "email", name="uq_contact_person_email"),
         UniqueConstraint("person_id", "phone", name="uq_contact_person_phone"),
-       UniqueConstraint("person_id", "fax", name="uq_contact_person_fax"),
+        UniqueConstraint("person_id", "fax", name="uq_contact_person_fax"),
+        Index("ix_person_contact_person_id", "person_id"),
+        Index("ix_person_contact_email", "email"),
     )
 
 class Abteilung(Base):
@@ -191,6 +193,9 @@ class Room(Base):
     __table_args__ = (
         UniqueConstraint("building_id", "name", name="uq_room_per_building"),
         UniqueConstraint("guid", name="uq_guid"),
+        Index("ix_room_building_id", "building_id"),
+        Index("ix_room_floor", "floor"),
+        Index("ix_room_guid", "guid"),
     )
 
 class PersonToRoom(Base):
@@ -205,6 +210,8 @@ class PersonToRoom(Base):
     
     __table_args__ = (
         UniqueConstraint("person_id", "room_id", name="uq_person_to_room"),
+        Index("ix_person_to_room_person_id", "person_id"),
+        Index("ix_person_to_room_room_id", "room_id"),
     )
 
 class Transponder(Base):
@@ -222,6 +229,8 @@ class Transponder(Base):
     
     __table_args__ = (
         UniqueConstraint("serial_number", name="uq_transponder_serial"),
+        Index("ix_transponder_owner_id", "owner_id"),
+        Index("ix_transponder_issuer_id", "issuer_id"),
     )
 
 class TransponderToRoom(Base):
@@ -234,6 +243,8 @@ class TransponderToRoom(Base):
 
     __table_args__ = (
         UniqueConstraint("transponder_id", "room_id", name="uq_transponder_to_room"),
+        Index("ix_transponder_to_room_transponder_id", "transponder_id"),
+        Index("ix_transponder_to_room_room_id", "room_id"),
     )
 
 class ObjectCategory(Base):
@@ -303,6 +314,16 @@ class Inventory(Base):
     professorship = relationship("Professorship", lazy="joined")
     room = relationship("Room", foreign_keys=[raum_id], lazy="joined")
 
+    __table_args__ = (
+        Index("ix_inventory_owner_id", "owner_id"),
+        Index("ix_inventory_issuer_id", "issuer_id"),
+        Index("ix_inventory_object_id", "object_id"),
+        Index("ix_inventory_raum_id", "raum_id"),
+        Index("ix_inventory_kostenstelle_id", "kostenstelle_id"),
+        Index("ix_inventory_professorship_id", "professorship_id"),
+        Index("ix_inventory_abteilung_id", "abteilung_id"),
+    )
+
 class RoomLayout(Base):
     __tablename__ = "room_layout"
     id = Column(Integer, primary_key=True)
@@ -332,6 +353,13 @@ class Loan(Base):
     issuer = relationship("Person", foreign_keys=[issuer_id], lazy="joined")
     objects = relationship("ObjectToLoan", back_populates="loan", cascade="all, delete")
 
+    __table_args__ = (
+        Index("ix_loan_person_id", "person_id"),
+        Index("ix_loan_issuer_id", "issuer_id"),
+        Index("ix_loan_loan_date", "loan_date"),
+        Index("ix_loan_return_date", "return_date"),
+    )
+
 class ObjectToLoan(Base):
     __tablename__ = "object_to_loan"
     id = Column(Integer, primary_key=True)
@@ -342,5 +370,7 @@ class ObjectToLoan(Base):
 
     __table_args__ = (
         UniqueConstraint("loan_id", "object_id", name="uq_loan_object"),
+        Index("ix_object_to_loan_loan_id", "loan_id"),
+        Index("ix_object_to_loan_object_id", "object_id"),
     )
 
