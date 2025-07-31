@@ -137,15 +137,15 @@ function makeDraggable(el) {
 
 		dragging = true;
 		el.style.cursor = "grabbing";
-		console.log("Dragging started");
+		//console.log("Dragging started");
 
 		const offsets = getElementMouseOffset(e, el);
 		dragOffsetX = offsets.offsetX;
 		dragOffsetY = offsets.offsetY;
 
-		log(`startDragging: Element mouse offset: ${dragOffsetX}, ${dragOffsetY}`);
+		//log(`startDragging: Element mouse offset: ${dragOffsetX}, ${dragOffsetY}`);
 
-		log(e.target.offsetParent);
+		//log(e.target.offsetParent);
 
 		if (e.target.offsetParent.classList.contains("person-circle")) {
 			document.addEventListener("mousemove", onMouseMove);
@@ -213,11 +213,11 @@ function makeDraggable(el) {
 
 		const { mouseX, mouseY } = getMousePosRelativeToFloorplan(ev);
 
-		log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
+		//log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
 
 		const { x, y } = scaleAndClampPosition(mouseX, mouseY);
 
-		log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
+		//log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
 
 		moveElement(x, y);
 	}
@@ -233,7 +233,7 @@ function makeDraggable(el) {
 			const rRect = room.el.getBoundingClientRect();
 			if (cx > rRect.left && cx < rRect.right && cy > rRect.top && cy < rRect.bottom) {
 				foundRoom = room;
-				console.log("Found room containing element:", room.el.dataset.name);
+				//console.log("Found room containing element:", room.el.dataset.name);
 			}
 		});
 		if (!foundRoom) console.log("No room found containing element");
@@ -328,7 +328,7 @@ function makeDraggable(el) {
 		if (!dragging) return;
 		dragging = false;
 		el.style.cursor = "grab";
-		console.log("Dragging stopped");
+		//console.log("Dragging stopped");
 
 		document.removeEventListener("mousemove", onMouseMove);
 		document.removeEventListener("mouseup", onMouseUp);
@@ -336,7 +336,7 @@ function makeDraggable(el) {
 		const foundRoom = findRoomContainingElementCenter(el);
 
 		if (foundRoom) {
-			console.log("Found room on drag end:", foundRoom);
+			//console.log("Found room on drag end:", foundRoom);
 
 			removeFromOldRoom(el);
 			addToNewRoom(el, foundRoom);
@@ -472,7 +472,7 @@ function getSelectedMode() {
 		console.error("Kein Modus ausgewählt.");
 		throw new Error("Bitte einen Modus auswählen.");
 	}
-	console.log("Modus gewählt:", modeInput.value);
+	//console.log("Modus gewählt:", modeInput.value);
 	return modeInput.value;
 }
 
@@ -490,7 +490,7 @@ function handleSelectMode() {
 		return;
 	}
 
-	console.log("Existierende Person ausgewählt:", person);
+	//console.log("Existierende Person ausgewählt:", person);
 	createPersonCircle(person);
 }
 
@@ -498,7 +498,7 @@ function resetForm() {
 	personForm.style.display = "none";
 	dynamicForm.innerHTML = "";
 	dynamicForm.style.display = "none";
-	console.log("Formular zurückgesetzt.");
+	//console.log("Formular zurückgesetzt.");
 }
 
 async function savePersonToDatabase(newPerson) {
