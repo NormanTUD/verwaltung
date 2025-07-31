@@ -337,7 +337,6 @@ def add_version_filter(query):
         return query    
 
     if g.issued_at is None:
-        print("[DEBUG] g.issued_at ist None – Query wird nicht verändert")                                                                                                                                                                                               
         return query                                                                  
 
     print(f"[DEBUG] g.issued_at gesetzt auf: {g.issued_at}")
