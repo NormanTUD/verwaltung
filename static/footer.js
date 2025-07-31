@@ -212,6 +212,8 @@ function updateHiddenFieldValue(config, hiddenElement, form, triggeredBy = null)
 function replaceFieldsForElement(element, name, config) {
 	var $element = $(element);
 	var original_value = $(element).attr("value");
+	var update_info = $element.data("update_info");
+	var element_name = $element.attr("name");
 
 	if(Object.keys(config).includes("label")) {
 		var $parentLabel = $element.parent().find("label");
@@ -241,9 +243,19 @@ function replaceFieldsForElement(element, name, config) {
 			onInputChange();
 		}, original_value);
 
-		if (i === 0) {
-			$element.before($("<br>"));
-		}
+		$(input).on("change", function (e) {
+			var target = e.currentTarget;
+			var new_val = $(target).val();
+
+			var update_typ = update_info.slice(0, update_info.lastIndexOf("_"))
+			var update_id = update_info.slice(update_info.lastIndexOf("_") + 1);
+
+			log("==========");
+			log("element_name:", element_name);
+			log("update_typ:", update_typ);
+			log("update_id:", update_id);
+			log("new_val:", new_val);
+		});
 
 		$element.before(input);
 		inputs.push(input);
