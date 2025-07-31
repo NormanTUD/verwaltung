@@ -138,8 +138,8 @@ html, body {
     overflow: hidden; /* Wichtig: Bild bleibt im Kreis */
 }
 .person-circle img {
-    width: 80px;
-    height: 80px;
+    width: 81px;
+    height: 78px;
     border-radius: 50%;
     object-fit: cover;
     display: block;
