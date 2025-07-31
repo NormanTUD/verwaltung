@@ -3159,7 +3159,7 @@ def get_person_database():
             result.append({
                 "first_name": person.first_name or "",
                 "last_name": person.last_name or "",
-                "title": "TODO TITLE",
+                "title": person.title or "",
                 "floor": 0,
                 "comment": person.comment or "",
                 "id": person.id,

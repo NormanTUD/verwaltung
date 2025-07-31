@@ -818,7 +818,7 @@ function buildContextMenu(attributes, personEl) {
     <div><strong>Nachname:</strong> ${my_escape(attributes.last_name || "")}</div>
     <div><strong>Titel:</strong> ${my_escape(attributes.title || "")}</div>
     <div><strong>Kommentar:</strong> ${my_escape(attributes.comment || "")}</div>
-    <div><strong>Bild-URL:</strong> <a href="${my_escape(attributes.image_url || "#")}" target="_blank">${my_escape(attributes.image_url || "")}</a></div>
+    
     <hr>
     <div><strong>Inventar:</strong></div>
     <ul class="question-list" style="list-style:none; padding-left:0; margin:0;"></ul>
