@@ -83,6 +83,8 @@ try:
     from PIL import Image
     import datetime
 
+    from sqlalchemy_continuum import TransactionFactory
+
     from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
     from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -113,6 +115,10 @@ login_manager.init_app(app)
 
 login_manager.login_view = 'login'
 login_manager.login_message = "Bitte melde dich an, um fortzufahren."
+
+Transaction = TransactionFactory(Base)
+
+configure_mappers()
 
 engine = create_engine("sqlite:///database.db")
 Base.metadata.create_all(engine)
