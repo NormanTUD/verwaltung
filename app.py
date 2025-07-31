@@ -2671,7 +2671,7 @@ def delete_person_from_room():
 
         if link is None:
             session.close()
-            return jsonify({"error": f"Link between person_id '{person_id}' and room_id '{room_id}' not found"}), 404
+            return jsonify({"error": f"Link between person_id '{person_id}' and room_id '{room_id}' not found"}), 200
 
         session.delete(link)
         session.commit()
