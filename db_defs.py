@@ -6,6 +6,10 @@ from sqlalchemy.exc import NoInspectionAvailable
 from sqlalchemy.orm import declarative_base, relationship, Session, class_mapper, RelationshipProperty, aliased, joinedload
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy_continuum import make_versioned, TransactionFactory, version_class
+from sqlalchemy.orm import configure_mappers
+
+make_versioned(user_cls=None)
 
 class CustomBase:
     def to_dict(self, recursive=False):
@@ -27,6 +31,7 @@ Base = declarative_base(cls=CustomBase)
 
 class User(UserMixin, Base):
     __tablename__ = "user"
+    #__versioned__ = {}
     id = Column(Integer, primary_key=True)
     username = Column(String(150), unique=True)
     password = Column(String(150))
@@ -47,6 +52,7 @@ class User(UserMixin, Base):
 
 class Role(Base):
     __tablename__ = 'role'
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(String(50), unique=True)
 
@@ -58,6 +64,7 @@ class Role(Base):
 
 class Person(Base):
     __tablename__ = "person"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     title = Column(Text)
     first_name = Column(Text)
@@ -96,6 +103,7 @@ class Person(Base):
 
 class PersonContact(Base):
     __tablename__ = "person_contact"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     person_id = Column(Integer, ForeignKey("person.id", ondelete="CASCADE"))
     phone = Column(Text)
@@ -114,6 +122,7 @@ class PersonContact(Base):
 
 class Abteilung(Base):
     __tablename__ = "abteilung"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(Text)
     abteilungsleiter_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
@@ -126,6 +135,7 @@ class Abteilung(Base):
 
 class PersonToAbteilung(Base):
     __tablename__ = "person_to_abteilung"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     person_id = Column(Integer, ForeignKey("person.id", ondelete="CASCADE"))
     abteilung_id = Column(Integer, ForeignKey("abteilung.id", ondelete="CASCADE"))
@@ -138,6 +148,7 @@ class PersonToAbteilung(Base):
 
 class Kostenstelle(Base):
     __tablename__ = "kostenstelle"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(Text)
     professorships = relationship("Professorship", back_populates="kostenstelle")
@@ -148,6 +159,7 @@ class Kostenstelle(Base):
 
 class Professorship(Base):
     __tablename__ = "professorship"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     kostenstelle_id = Column(Integer, ForeignKey("kostenstelle.id", ondelete="SET NULL"))
     name = Column(Text)
@@ -160,6 +172,7 @@ class Professorship(Base):
 
 class ProfessorshipToPerson(Base):
     __tablename__ = "professorship_to_person"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     professorship_id = Column(Integer, ForeignKey("professorship.id", ondelete="CASCADE"))
     person_id = Column(Integer, ForeignKey("person.id", ondelete="CASCADE"))
@@ -172,6 +185,7 @@ class ProfessorshipToPerson(Base):
 
 class Building(Base):
     __tablename__ = "building"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(Text)
     building_number = Column(Text)
@@ -180,6 +194,7 @@ class Building(Base):
 
 class Room(Base):
     __tablename__ = "room"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     building_id = Column(Integer, ForeignKey("building.id", ondelete="SET NULL"))
     name = Column(Text)
@@ -200,6 +215,7 @@ class Room(Base):
 
 class PersonToRoom(Base):
     __tablename__ = "person_to_room"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     person_id = Column(Integer, ForeignKey("person.id", ondelete="CASCADE"))
     room_id = Column(Integer, ForeignKey("room.id", ondelete="CASCADE"))
@@ -216,6 +232,7 @@ class PersonToRoom(Base):
 
 class Transponder(Base):
     __tablename__ = "transponder"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     issuer_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
     owner_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
@@ -235,6 +252,7 @@ class Transponder(Base):
 
 class TransponderToRoom(Base):
     __tablename__ = "transponder_to_room"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     transponder_id = Column(Integer, ForeignKey("transponder.id", ondelete="CASCADE"))
     room_id = Column(Integer, ForeignKey("room.id", ondelete="CASCADE"))
@@ -249,6 +267,7 @@ class TransponderToRoom(Base):
 
 class ObjectCategory(Base):
     __tablename__ = "object_category"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(Text)
     objects = relationship("Object", back_populates="category")
@@ -259,6 +278,7 @@ class ObjectCategory(Base):
 
 class Object(Base):
     __tablename__ = "object"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(Text)
     price = Column(Float)
@@ -271,6 +291,7 @@ class Object(Base):
 
 class Lager(Base):
     __tablename__ = "lager"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     raum_id = Column(Integer, ForeignKey("room.id", ondelete="SET NULL"))
 
@@ -280,6 +301,7 @@ class Lager(Base):
 
 class ObjectToLager(Base):
     __tablename__ = "object_to_lager"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     object_id = Column(Integer, ForeignKey("object.id", ondelete="CASCADE"))
     lager_id = Column(Integer, ForeignKey("lager.id", ondelete="CASCADE"))
@@ -290,6 +312,7 @@ class ObjectToLager(Base):
 
 class Inventory(Base):
     __tablename__ = "inventory"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     owner_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
     object_id = Column(Integer, ForeignKey("object.id", ondelete="SET NULL"))
@@ -326,6 +349,7 @@ class Inventory(Base):
 
 class RoomLayout(Base):
     __tablename__ = "room_layout"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     room_id = Column(Integer, ForeignKey("room.id", ondelete="CASCADE"), nullable=False)
     x = Column(Integer, nullable=False)
@@ -342,6 +366,7 @@ class RoomLayout(Base):
 
 class Loan(Base):
     __tablename__ = "loan"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     person_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
     issuer_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
@@ -362,6 +387,7 @@ class Loan(Base):
 
 class ObjectToLoan(Base):
     __tablename__ = "object_to_loan"
+    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     loan_id = Column(Integer, ForeignKey("loan.id", ondelete="CASCADE"))
     object_id = Column(Integer, ForeignKey("object.id", ondelete="SET NULL"))

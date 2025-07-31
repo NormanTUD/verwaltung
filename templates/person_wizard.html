@@ -54,7 +54,6 @@
 	</tbody>
 	</table>
 
-
   <hr />
   <h3>Kontakte (Emails, Telefon, Fax, Kommentar)</h3>
   <div id="contacts-container"></div>
@@ -151,17 +150,42 @@
 		return room;
 	}
 
+	// Funktion, die die Löschbuttons der Kontakte aktualisiert:
+	function updateContactRemoveButtons() {
+		let contacts = $('#contacts-container .contact-row');
+		if (contacts.length === 1) {
+			// Wenn nur noch 1 Kontakt da ist, den Entfernen-Button deaktivieren
+			contacts.find('.remove-contact-btn').prop('disabled', true);
+		} else {
+			// Ansonsten alle Buttons aktivieren
+			contacts.find('.remove-contact-btn').prop('disabled', false);
+		}
+		
+		applyInvertFilterToElements(theme);
+	}
+
 	$(document).ready(function () {
 		// Kontakte
 		$('#add-contact-btn').on('click', function () {
 			$('#contacts-container').append(createContactRow());
+			updateContactRemoveButtons();
 			
 			applyInvertFilterToElements(theme);
 		});
 
 		$('#contacts-container').on('click', '.remove-contact-btn', function () {
-			$(this).closest('.contact-row').remove();
+			let contacts = $('#contacts-container .contact-row');
+			if (contacts.length > 1) {
+				$(this).closest('.contact-row').remove();
+				updateContactRemoveButtons();
+			} else {
+				// Optional: Toastr Warnung, dass mind. 1 Kontakt bleiben muss
+				toastr.warning("Mindestens ein Kontakt muss vorhanden sein.");
+			}
 		});
+
+		// Initial beim Laden prüfen
+		updateContactRemoveButtons();
 
 		// Räume + Transponder (verschachtelt)
 		let roomCount = 0;
@@ -228,6 +252,7 @@
 			$('#contacts-container').empty().append(createContactRow());
 			$('#rooms-container').empty().append(createRoomRow({}, 0));
 			roomCount = 1;
+			updateContactRemoveButtons();
 		} else {
 			// Fehler anzeigen
 			if (error) {
@@ -235,27 +260,46 @@
 			}
 
 			// Kontakte laden
-			if (formData.contacts && formData.contacts.length > 0) {
-				$('#contacts-container').empty();
-				formData.contacts.forEach(contact => {
-					$('#contacts-container').append(createContactRow(contact));
-				});
+			let contacts = formData.contacts || [];
+			$('#contacts-container').empty();
+			if (contacts.length > 0) {
+				for (let i = 0; i < contacts.length; i++) {
+					$('#contacts-container').append(createContactRow(contacts[i]));
+				}
 			} else {
 				$('#contacts-container').append(createContactRow());
 			}
+			updateContactRemoveButtons();
 
-			// Räume mit Transpondern laden
-			if (formData.rooms && formData.rooms.length > 0) {
-				$('#rooms-container').empty();
-				for (let i = 0; i < formData.rooms.length; i++) {
-					$('#rooms-container').append(createRoomRow(formData.rooms[i], i));
+			// Räume laden
+			let rooms = formData.rooms || [];
+			$('#rooms-container').empty();
+			if (rooms.length > 0) {
+				for (let i = 0; i < rooms.length; i++) {
+					$('#rooms-container').append(createRoomRow(rooms[i], i));
 				}
-				roomCount = formData.rooms.length;
+				roomCount = rooms.length;
 			} else {
 				$('#rooms-container').append(createRoomRow({}, 0));
 				roomCount = 1;
 			}
 		}
+
+		function replace_id_fields_with_proper_fields() {
+			// Funktion hier zum Anpassen der Felder, wenn benötigt
+		}
+
+		// Theme-bezogene Filterfunktion (Beispiel, falls benötigt)
+		let theme = "{{ theme | default('') }}";
+		function applyInvertFilterToElements(themeName) {
+			if (themeName === "dark") {
+				$('input, select, textarea, button').css('filter', 'invert(1)');
+			} else {
+				$('input, select, textarea, button').css('filter', 'none');
+			}
+		}
+
+		applyInvertFilterToElements(theme);
 	});
 </script>
 {% endblock %}

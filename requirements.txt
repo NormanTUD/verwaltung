@@ -4,3 +4,5 @@ pypdf
 cryptography
 aiosqlite
 pillow
+sqlalchemy_continuum
+sqlalchemy_utils

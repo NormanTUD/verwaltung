@@ -27,7 +27,19 @@ from pathlib import Path
 VENV_PATH = Path.home() / ".verwaltung_venv"
 PYTHON_BIN = VENV_PATH / ("Scripts" if platform.system() == "Windows" else "bin") / ("python.exe" if platform.system() == "Windows" else "python")
 
-pip_install_modules = [PYTHON_BIN, "-m", "pip", "install", "-q", "--upgrade", "flask", "sqlalchemy", "pypdf", "cryptography", "aiosqlite", "pillow", "flask_login", "flask_sqlalchemy", "sqlalchemy_schemadisplay"]
+pip_install_modules = [
+    PYTHON_BIN, "-m", "pip", "install", "-q", "--upgrade",
+    "flask",
+    "sqlalchemy",
+    "pypdf",
+    "cryptography",
+    "aiosqlite",
+    "pillow",
+    "flask_login",
+    "flask_sqlalchemy",
+    "sqlalchemy_schemadisplay",
+    "sqlalchemy_continuum"
+]
 
 def create_and_setup_venv():
     print(f"Creating virtualenv at {VENV_PATH}")
@@ -53,9 +65,9 @@ def restart_with_venv():
         sys.exit(1)
 
 try:
-    from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash
-    from sqlalchemy import create_engine, inspect, Date, DateTime, text, func
-    from sqlalchemy.orm import sessionmaker, joinedload, Session
+    from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g
+    from sqlalchemy import create_engine, inspect, Date, DateTime, text, func, event
+    from sqlalchemy.orm import sessionmaker, joinedload, Session, Query
     from sqlalchemy.orm.exc import NoResultFound, DetachedInstanceError
     from sqlalchemy.exc import SQLAlchemyError
     from db_defs import *
@@ -70,6 +82,8 @@ try:
     from sqlalchemy_schemadisplay import create_schema_graph
     from PIL import Image
     import datetime
+
+    from sqlalchemy_continuum import TransactionFactory, versioning_manager
 
     from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
     from werkzeug.security import generate_password_hash, check_password_hash
@@ -102,9 +116,15 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = "Bitte melde dich an, um fortzufahren."
 
+Transaction = TransactionFactory(Base)
+
+configure_mappers()
+
 engine = create_engine("sqlite:///database.db")
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
+
+TransactionTable = versioning_manager.transaction_cls
 
 COLUMN_LABELS = {
     "abteilung.abteilungsleiter_id": "Abteilungsleiter",
@@ -243,6 +263,85 @@ WIZARDS = {
 }
 
 EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
+
+def query_with_version(session, model_class):
+    # Wenn kein Zeitstempel gesetzt -> aktueller Stand
+    if not hasattr(g, 'db_timestamp') or g.db_timestamp is None:
+        return session.query(model_class).all()
+
+    ModelVersion = version_class(model_class)
+
+    # Versionen abfragen mit filter auf den Zeitstempel aus Cookie (g.db_timestamp)
+    versions = session.query(ModelVersion).\
+        join(ModelVersion.transaction).\
+        filter(ModelVersion.transaction.issued_at <= g.db_timestamp).\
+        order_by(ModelVersion.transaction.issued_at.desc()).all()
+
+    latest_versions = {}
+    for version in versions:
+        if version.id not in latest_versions:
+            latest_versions[version.id] = version
+
+    return list(latest_versions.values())
+
+@app.before_request
+def load_timestamp_from_cookie():
+    timestamp_str = request.cookies.get('db_timestamp')
+    if timestamp_str:
+        try:
+            g.db_timestamp = datetime.fromisoformat(timestamp_str)
+        except Exception:
+            g.db_timestamp = None
+    else:
+        g.db_timestamp = None
+
+def add_version_filter(query):
+    """
+    Fügt bei gesetztem g.db_timestamp automatisch einen Filter für zeitliche Versionierung hinzu.
+    Nur bei Modellen, die versioniert sind (über sqlalchemy_continuum).
+    """
+    if not hasattr(g, 'db_timestamp') or g.db_timestamp is None:
+        return query  # Kein Zeitfilter, original Query zurückgeben
+
+    # Prüfen, ob Query auf einem versionierten Model basiert
+    entities = query._entities
+    if not entities:
+        return query
+
+    # Für simplicity: Wir nehmen nur das erste Model (häufig der Fall)
+    model_class = getattr(entities[0], 'entity_zero', None)
+    if model_class is None:
+        return query
+
+    model_class = model_class.class_
+
+    # Version-Klasse des Modells holen (von sqlalchemy_continuum)
+    try:
+        ModelVersion = version_class(model_class)
+    except Exception:
+        return query  # Nicht versioniert, Query nicht ändern
+
+    # Wenn Query schon auf einer Version-Klasse läuft, dann nicht ändern
+    if model_class.__name__.endswith('Version'):
+        return query
+
+    # Ersetze die Query auf ModelVersion mit Filter nach g.db_timestamp
+    # Wichtig: query kann komplex sein, hier nur einfacher Filter-Ansatz
+    filtered_query = query.session.query(ModelVersion).\
+        join(ModelVersion.transaction).\
+        filter(ModelVersion.transaction.issued_at <= g.db_timestamp).\
+        order_by(ModelVersion.transaction.issued_at.desc())
+
+    return filtered_query
+
+@event.listens_for(Query, "before_compile", retval=True)
+def before_compile_handler(query):
+    try:
+        new_query = add_version_filter(query)
+        return new_query
+    except Exception:
+        # Fehler nicht unterbrechen lassen, lieber Original-Query ausführen
+        return query
 
 def initialize_db_data():
     session = Session()
@@ -691,7 +790,12 @@ def load_user(user_id):
 def inject_sidebar_data():
     session = Session()
 
-    tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]
+    tables = [
+        cls.__tablename__
+        for cls in Base.__subclasses__()
+        if hasattr(cls, '__tablename__') and cls.__tablename__ not in ["role", "user"]
+    ]
+
     wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
     wizard_routes.append("/wizard/person")
     wizard_routes = sorted(set(wizard_routes))
@@ -727,7 +831,11 @@ def inject_sidebar_data():
 @app.route("/")
 @login_required
 def index():
-    tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]
+    tables = [
+        cls.__tablename__
+        for cls in Base.__subclasses__()
+        if hasattr(cls, '__tablename__') and cls.__tablename__ not in ["role", "user"]
+    ]
 
     # wizard_routes aus den keys von WIZARDS + eventuell "person"
     wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
@@ -3270,6 +3378,30 @@ def search():
     session.close()
     return jsonify(results)
 
+@app.route('/api/versions')
+def get_versions():
+    session = Session()
+    try:
+        transactions = session.query(TransactionTable).order_by(TransactionTable.id.asc()).all()
+
+        versions = []
+        for t in transactions:
+            timestamp_iso = None
+            if hasattr(t, "issued_at") and isinstance(t.issued_at, datetime.datetime):
+                timestamp_iso = t.issued_at.isoformat()
+
+            versions.append({
+                "id": t.id,
+                "timestamp": timestamp_iso
+            })
+
+        return jsonify(versions)
+    except SQLAlchemyError as e:
+        app.logger.error("Error fetching versions: %s", e)
+        return jsonify([]), 500
+    finally:
+        session.close()
+    
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
     initialize_db_data()

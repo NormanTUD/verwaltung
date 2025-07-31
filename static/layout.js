@@ -46,15 +46,14 @@ function applyInvertFilterToElements(mode) {
 		$("input, textarea, select, button").css("border", "1px solid #3daee9");
 		$("#objectForm, #personForm").css("background-color", "black");
 		$(".optionContainer,.context-menu").css("color", "white").css("background-color", "black").css("filter", "invert(1)");
-		$(".person-circle>img").css("filter", "invert(1)")
+		$(".person-circle>img").css("filter", "invert(1)");
 	} else {
 		$("select").css("background-color", "unset");
 		$("input, textarea, select, button").css("border", "1px solid black");
 		$("#objectForm, #personForm").css("background-color", "white");
 		$(".optionContainer,.context-menu").css("color", "black").css("background-color", "white").css("filter", "unset");
-		$(".person-circle>img").css("filter", "unset")
+		$(".person-circle>img").css("filter", "unset");
 	}
-
 
 	$(".delete-entry").css("background-color", "#e74c3c");
 }
@@ -329,8 +328,6 @@ if (SPinput && resultsBox) {
     });
 }
 
-
-
 document.addEventListener('keydown', function(e) {
 	const searchField = document.getElementById('sidebarSearch');
 
@@ -346,12 +343,15 @@ document.addEventListener('keydown', function(e) {
 			active.isContentEditable)
 	) return;
 
+	// Ignoriere, wenn Modifier-Tasten gedrückt sind (Alt, Ctrl, Meta, Shift)
+	if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+
 	// Nur Buchstaben/Zahlen/Sonderzeichen verarbeiten (nicht z. B. Shift, Alt usw.)
 	if (e.key.length === 1) {
 		// Fokus setzen
 		if (document.activeElement !== searchField) {
 			searchField.focus();
-			// Optional: Alles markieren oder Cursor ans Ende setzen
+			// Cursor ans Ende setzen
 			searchField.setSelectionRange(searchField.value.length, searchField.value.length);
 		}
 
@@ -374,4 +374,88 @@ document.addEventListener('keydown', function(e) {
 		// Standardverhalten verhindern (z. B. Scrollen bei Leertaste)
 		e.preventDefault();
 	}
+});
+
+let versions = [];
+
+function updateVersionLabel(value) {
+const label = document.getElementById('versionLabel');
+if (versions.length === 0) {
+	label.textContent = 'Keine Versionen';
+	return;
+}
+const index = parseInt(value);
+if (index < 0 || index >= versions.length) {
+	label.textContent = 'Ungültige Version';
+	return;
+}
+const version = versions[index];
+if (version.timestamp) {
+	const date = new Date(version.timestamp);
+	label.textContent = date.toLocaleString();
+} else {
+	label.textContent = 'Version ' + version.id;
+}
+}
+
+function applyVersion() {
+const slider = document.getElementById('versionSlider');
+const index = parseInt(slider.value);
+if (index < 0 || index >= versions.length) return;
+
+const version = versions[index];
+document.cookie = "data_version=" + version.id + ";path=/;max-age=" + 30 * 24 * 60 * 60;
+location.reload();
+}
+
+async function loadVersions() {
+try {
+	const res = await fetch('/api/versions');
+	if (!res.ok) throw new Error('Versions API nicht erreichbar');
+	versions = await res.json();
+
+	const versionContainer = document.getElementById('versionContainer');
+	const noVersionsMessage = document.getElementById('noVersionsMessage');
+
+	if (versions.length === 0) {
+	versionContainer.style.display = 'none';
+	noVersionsMessage.style.display = 'block';
+	return;
+	}
+
+	versionContainer.style.display = 'block';
+	noVersionsMessage.style.display = 'none';
+
+	const slider = document.getElementById('versionSlider');
+	slider.min = 0;
+	slider.max = versions.length - 1;
+	slider.value = versions.length - 1; // Standard auf neueste Version
+	slider.disabled = false;
+
+	document.getElementById('applyVersionBtn').disabled = false;
+
+	updateVersionLabel(slider.value);
+
+	const cookies = document.cookie.split(';').map(c => c.trim());
+	const versionCookie = cookies.find(c => c.startsWith("data_version="));
+	if (versionCookie) {
+	const versionId = parseInt(versionCookie.split('=')[1]);
+	const idx = versions.findIndex(v => v.id === versionId);
+	if (idx !== -1) {
+		slider.value = idx;
+		updateVersionLabel(idx);
+	}
+	}
+
+} catch (err) {
+	console.error(err);
+	document.getElementById('versionContainer').style.display = 'none';
+	const noVersionsMessage = document.getElementById('noVersionsMessage');
+	noVersionsMessage.style.display = 'block';
+	noVersionsMessage.textContent = 'Fehler beim Laden der Versionen';
+}
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+loadVersions();
 });
