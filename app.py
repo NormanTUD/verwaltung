@@ -603,61 +603,63 @@ def is_password_complex(password):
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))  # Bereits angemeldet → weiterleiten
+
     session = Session()
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+    try:
+        if request.method == 'POST':
+            username = request.form.get('username', '')
+            password = request.form.get('password', '')
 
-        # Passwort-Komplexitätsprüfung
-        if not is_password_complex(password):
-            session.close()
-            return render_template(
-                'register.html',
-                error='Passwort muss mindestens 8 Zeichen lang sein und contain Großbuchstaben, Kleinbuchstaben, Zahlen und mindestens ein Sonderzeichen beinhalten.'
-            )
+            # Passwort-Komplexitätsprüfung
+            if not is_password_complex(password):
+                return render_template(
+                    'register.html',
+                    error='Passwort muss mindestens 8 Zeichen lang sein und Großbuchstaben, Kleinbuchstaben, Zahlen und mindestens ein Sonderzeichen beinhalten.'
+                )
 
-        # Prüfen, ob Benutzername bereits existiert
-        existing_user = session.query(User).filter_by(username=username).first()
-        if existing_user:
-            session.close()
-            return render_template('register.html', error='Username already taken.')
+            # Prüfen, ob Benutzername bereits existiert
+            existing_user = session.query(User).filter_by(username=username).first()
+            if existing_user:
+                return render_template('register.html', error='Username already taken.')
 
-        # Passwort hashen
-        hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
+            # Passwort hashen
+            hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
 
-        # Prüfen, ob dies der erste Benutzer ist
-        user_count = session.query(User).count()
-        if user_count == 0:
-            # Admin-Rolle holen oder erstellen
-            try:
-                admin_role = session.query(Role).filter_by(name='admin').one()
-            except NoResultFound:
-                admin_role = Role(name='admin')
-                session.add(admin_role)
-                session.commit()
+            # Prüfen, ob dies der erste Benutzer ist
+            user_count = session.query(User).count()
+            if user_count == 0:
+                # Admin-Rolle holen oder erstellen
+                try:
+                    admin_role = session.query(Role).filter_by(name='admin').one()
+                except NoResultFound:
+                    admin_role = Role(name='admin')
+                    session.add(admin_role)
+                    session.commit()
 
-            # Erster Benutzer: aktiv und admin
-            new_user = User(
-                username=username,
-                password=hashed_pw,
-                is_active=True,
-                role='admin'
-            )
-            new_user.roles.append(admin_role)
-        else:
-            # Weitere Benutzer: nicht aktiv
-            new_user = User(
-                username=username,
-                password=hashed_pw,
-                is_active=False
-            )
+                # Erster Benutzer: aktiv und admin
+                new_user = User(
+                    username=username,
+                    password=hashed_pw,
+                    is_active=True,
+                    role='admin'
+                )
+                new_user.roles.append(admin_role)
+            else:
+                # Weitere Benutzer: nicht aktiv
+                new_user = User(
+                    username=username,
+                    password=hashed_pw,
+                    is_active=False
+                )
 
-        session.add(new_user)
-        session.commit()
+            session.add(new_user)
+            session.commit()
+            return redirect(url_for('login'))
+    finally:
         session.close()
-        return redirect(url_for('login'))
 
-    session.close()
     return render_template('register.html')
 
 @app.route('/dashboard')
