@@ -3429,7 +3429,12 @@ def search():
 
     # Admin-Zeug
     if is_admin_user(session):
-        tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]
+        tables = [
+            cls.__tablename__
+            for cls in Base.__subclasses__()
+            if hasattr(cls, '__tablename__') and cls.__tablename__ not in ["role", "user"]
+        ]
+
         for table in tables:
             if query in table.lower():
                 results.append({
