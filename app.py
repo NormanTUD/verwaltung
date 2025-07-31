@@ -1,4 +1,5 @@
 # TODO: mehrseitiger wizard: erstelle person, füge ihr raum hinzu und transponder usw
+# TODO: read only rolle
 
 import sys
 import traceback
@@ -3188,7 +3189,7 @@ def search():
     if 'transponder'.startswith(query):
         results.append({'label': '📦 Transponder', 'url': url_for('aggregate_transponder_view')})
     if 'person'.startswith(query):
-        results.append({'label': '📦 Person', 'url': url_for('aggregate_person_view')})
+        results.append({'label': '📦 Person', 'url': url_for('aggregate_persons_view')})
     if is_admin_user(session):
         if 'admin'.startswith(query):
             results.append({'label': '🛠️ Admin', 'url': '/admin'})
