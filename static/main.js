@@ -521,35 +521,35 @@ function createCircleElement(attributes, position = null) {
 	closeBtn.title = "Entfernen";
 
 	closeBtn.addEventListener("click", (e) => {
-	floorplan.removeChild(circle);
-    e.stopPropagation();
+		floorplan.removeChild(circle);
+		e.stopPropagation();
 
-    const attrs = JSON.parse(circle.dataset.attributes);
-    const personId = attrs.id; // ggf anpassen, wenn anders benannt
-    const roomId = attrs.floor; // nehme an floor ist roomId
+		const attrs = JSON.parse(circle.dataset.attributes);
+		const personId = attrs.id; // ggf anpassen, wenn anders benannt
+		const roomId = attrs.floor; // nehme an floor ist roomId
 
-    if (!personId || roomId === undefined) {
-        console.error("Person ID oder Raum ID fehlt:", personId, roomId);
-        return;
-    }
+		if (!personId || roomId === undefined) {
+			console.error("Person ID oder Raum ID fehlt:", personId, roomId);
+			return;
+		}
 
-    const url = `/api/delete_person_from_room?person_id=${personId}&room_id=${roomId}`;
+		const url = `/api/delete_person_from_room?person_id=${personId}&room_id=${roomId}`;
 
-    fetch(url, { method: 'GET' })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`API Fehler: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log("Person wurde aus Raum entfernt:", data);
-            floorplan.removeChild(circle);
-        })
-        .catch(err => {
-            console.error("Fehler beim Entfernen der Person aus dem Raum:", err);
-        });
-});
+		fetch(url, { method: 'GET' })
+			.then(response => {
+				if (!response.ok) {
+					throw new Error(`API Fehler: ${response.status}`);
+				}
+				return response.json();
+			})
+			.then(data => {
+				console.log("Person wurde aus Raum entfernt:", data);
+				floorplan.removeChild(circle);
+			})
+			.catch(err => {
+				console.error("Fehler beim Entfernen der Person aus dem Raum:", err);
+			});
+	});
 
 
 	circle.appendChild(closeBtn);
