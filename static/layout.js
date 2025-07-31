@@ -330,8 +330,6 @@ if (SPinput && resultsBox) {
     });
 }
 
-
-
 document.addEventListener('keydown', function(e) {
 	const searchField = document.getElementById('sidebarSearch');
 
@@ -347,12 +345,15 @@ document.addEventListener('keydown', function(e) {
 			active.isContentEditable)
 	) return;
 
+	// Ignoriere, wenn Modifier-Tasten gedrückt sind (Alt, Ctrl, Meta, Shift)
+	if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+
 	// Nur Buchstaben/Zahlen/Sonderzeichen verarbeiten (nicht z. B. Shift, Alt usw.)
 	if (e.key.length === 1) {
 		// Fokus setzen
 		if (document.activeElement !== searchField) {
 			searchField.focus();
-			// Optional: Alles markieren oder Cursor ans Ende setzen
+			// Cursor ans Ende setzen
 			searchField.setSelectionRange(searchField.value.length, searchField.value.length);
 		}
 
