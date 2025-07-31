@@ -10,21 +10,23 @@
 					Nur nicht zurückgegebene Einträge anzeigen
 				</label>
 
-				<label for="owner-select">Ausgegeben an:</label>
-				<select name="owner" id="owner-select">
-					<option value="">Alle</option>
-					{% for person in people %}
-					<option value="{{ person.id }}" {% if filters.owner == person.id %}selected{% endif %}>{{ person.name }}</option>
-					{% endfor %}
-				</select>
+				<label for="owner-input">Ausgegeben an (Owner ID):</label>
+				<input
+					type="text"
+					id="owner-input"
+					name="owner_id"
+					value="{{ filters.owner_id | default('') }}"
+					placeholder="Owner ID eingeben"
+				/>
 
-				<label for="issuer-select">Ausgegeben durch:</label>
-				<select name="issuer" id="issuer-select">
-					<option value="">Alle</option>
-					{% for person in people %}
-					<option value="{{ person.id }}" {% if filters.issuer == person.id %}selected{% endif %}>{{ person.name }}</option>
-					{% endfor %}
-				</select>
+				<label for="issuer-input">Ausgegeben durch (Issuer ID):</label>
+				<input
+					type="text"
+					id="issuer-input"
+					name="issuer_id"
+					value="{{ filters.issuer_id | default('') }}"
+					placeholder="Issuer ID eingeben"
+				/>
 
 				<button type="submit">Filter anwenden</button>
 				<a href="{{ url_for_view }}">Alle anzeigen</a>

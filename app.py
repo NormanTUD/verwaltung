@@ -1462,10 +1462,9 @@ def aggregate_inventory_view():
 def aggregate_transponder_view():
     session = Session()
 
-    # Filter aus Query-Params
     show_only_unreturned = request.args.get("unreturned") == "1"
-    owner_filter = request.args.get("owner", "").strip()
-    issuer_filter = request.args.get("issuer", "").strip()
+    owner_id_filter = request.args.get("owner_id", "").strip()
+    issuer_id_filter = request.args.get("issuer_id", "").strip()
 
     try:
         query = session.query(Transponder) \
@@ -1475,24 +1474,24 @@ def aggregate_transponder_view():
                 joinedload(Transponder.room_links).joinedload(TransponderToRoom.room).joinedload(Room.building)
             )
 
-        # Filter nur nicht zurückgegebene
         if show_only_unreturned:
             query = query.filter(Transponder.return_date.is_(None))
 
-        # Filter für owner (besitzer)
-        if owner_filter:
-            # Hier gehen wir davon aus, dass owner_filter eine Teilstring-Suche auf Vor- oder Nachname erlaubt
-            query = query.join(Transponder.owner).filter(
-                (Transponder.owner.first_name.ilike(f"%{owner_filter}%")) |
-                (Transponder.owner.last_name.ilike(f"%{owner_filter}%"))
-            )
+        if owner_id_filter:
+            # Filter direkt auf owner_id (integer)
+            try:
+                owner_id_int = int(owner_id_filter)
+                query = query.filter(Transponder.owner_id == owner_id_int)
+            except ValueError:
+                # Ungültige Eingabe, kein Filter
+                pass
 
-        # Filter für issuer (ausgeber)
-        if issuer_filter:
-            query = query.join(Transponder.issuer).filter(
-                (Transponder.issuer.first_name.ilike(f"%{issuer_filter}%")) |
-                (Transponder.issuer.last_name.ilike(f"%{issuer_filter}%"))
-            )
+        if issuer_id_filter:
+            try:
+                issuer_id_int = int(issuer_id_filter)
+                query = query.filter(Transponder.issuer_id == issuer_id_int)
+            except ValueError:
+                pass
 
         transponder_list = query.all()
 
@@ -1525,11 +1524,10 @@ def aggregate_transponder_view():
             for t, row, owner, issuer in [(t, row, t.owner, t.issuer) for t, row in zip(transponder_list, rows)]
         ]
 
-        # Filter-Dict zum dynamischen Befüllen des Formulars und Anzeige des Status
         filters = {
             "Nur nicht zurückgegebene anzeigen": show_only_unreturned,
-            "Besitzer (Ausgegeben an)": owner_filter,
-            "Ausgeber (Ausgegeben durch)": issuer_filter
+            "owner_id": owner_id_filter,
+            "issuer_id": issuer_id_filter
         }
 
         session.close()
@@ -1539,12 +1537,11 @@ def aggregate_transponder_view():
             column_labels=column_labels,
             row_data=row_data,
             filters=filters,
-            # toggle_url nicht mehr hart codiert, hier auf Basis aktueller Filter mit geändertem "unreturned"
             toggle_url=url_for(
                 "aggregate_transponder_view",
                 unreturned="0" if show_only_unreturned else "1",
-                owner=owner_filter,
-                issuer=issuer_filter
+                owner_id=owner_id_filter,
+                issuer_id=issuer_id_filter
             )
         )
 
@@ -1552,7 +1549,7 @@ def aggregate_transponder_view():
         app.logger.error(f"Fehler beim Laden der Transponder-Aggregatsansicht: {e}")
         session.close()
         return render_template("error.html", message="Fehler beim Laden der Daten.")
-
+    
 @app.route("/aggregate/persons")
 @login_required
 def aggregate_persons_view():
