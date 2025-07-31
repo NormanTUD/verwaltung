@@ -511,18 +511,45 @@ function getPersonRoomDataSync(buildingId, floor) {
 function createCircleElement(attributes, position = null) {
 	const circle = document.createElement("div");
 	circle.classList.add("person-circle");
-
 	circle.dataset.attributes = JSON.stringify(attributes);
+	circle.style.position = "absolute";
 
-	// Bild nur anzeigen
-	circle.innerHTML = `<img src="${attributes.image_url}" />`;
-	if (!attributes.image_url) {
-		circle.innerHTML = `<span class="no-image" style="color: black;">${attributes.first_name}<br>${attributes.last_name}</span>`;
+	// 🔴 ❌ Button oben rechts
+	const closeBtn = document.createElement("div");
+	closeBtn.className = "circle-close-button";
+	closeBtn.textContent = "×";
+	closeBtn.title = "Entfernen";
+
+	closeBtn.addEventListener("click", (e) => {
+		e.stopPropagation();
+		console.log("Kreis wurde geklickt:", attributes);
+	});
+	circle.appendChild(closeBtn);
+
+	// 🖼️ Bild oder Name
+	if (attributes.image_url) {
+		const img = document.createElement("img");
+		img.src = attributes.image_url;
+		img.alt = `${attributes.first_name} ${attributes.last_name}`;
+		img.style.zIndex = "1"; // liegt unter dem Button
+		circle.appendChild(img);
+	} else {
+		const nameSpan = document.createElement("span");
+		nameSpan.className = "no-image";
+		nameSpan.style.color = "black";
+		nameSpan.style.zIndex = "1";
+		nameSpan.innerHTML = `${attributes.first_name}<br>${attributes.last_name}`;
+		circle.appendChild(nameSpan);
 	}
-	setCirclePosition(circle, position);
 
+	setCirclePosition(circle, position);
 	return circle;
 }
+
+
+
+
+
 
 function getViewportCenterPosition() {
 	return {
