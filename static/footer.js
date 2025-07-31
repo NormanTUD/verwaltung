@@ -128,8 +128,6 @@ function createInputField(fieldConfig, fieldName, onOptionsLoaded, default_value
 				}
 			}
 
-			log(select);
-
 			if (typeof onOptionsLoaded === "function") {
 				onOptionsLoaded(select);
 			}
@@ -214,8 +212,6 @@ function updateHiddenFieldValue(config, hiddenElement, form, triggeredBy = null)
 function replaceFieldsForElement(element, name, config) {
 	var $element = $(element);
 	var original_value = $(element).attr("value");
-
-	log("element and original_value: ", $element, original_value);
 
 	if(Object.keys(config).includes("label")) {
 		var $parentLabel = $element.parent().find("label");
