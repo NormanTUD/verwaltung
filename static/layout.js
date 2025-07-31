@@ -429,6 +429,10 @@ async function loadVersions() {
 		const versionContainer = document.getElementById('versionContainer');
 		const noVersionsMessage = document.getElementById('noVersionsMessage');
 
+		if(!versionContainer) {
+			return;
+		}
+
 		if (versions.length === 0) {
 			versionContainer.style.display = 'none';
 			noVersionsMessage.style.display = 'block';
