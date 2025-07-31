@@ -2629,7 +2629,7 @@ def get_floorplan():
                 continue  # skip rooms without layout
 
             result.append({
-                "id": f"r{room.id}",
+                "id": room.id,
                 "name": room.name,
                 "x": layout.x,
                 "y": layout.y,
@@ -2671,7 +2671,7 @@ def delete_person_from_room():
 
         if link is None:
             session.close()
-            return jsonify({"error": f"Link between person_id '{person_id}' and room_id '{room_id}' not found"}), 404
+            return jsonify({"error": f"Link between person_id '{person_id}' and room_id '{room_id}' not found"}), 200
 
         session.delete(link)
         session.commit()
@@ -2847,7 +2847,7 @@ def save_person_to_room():
             session.flush()
 
         # 2. Raum finden
-        room = session.query(Room).filter_by(name=room_name).first()
+        room = session.query(Room).filter_by(id=room_name).first()
         if not room:
             session.close()
             return jsonify({"error": f"Room '{room_name}' not found"}), 404

@@ -112,6 +112,7 @@ function createRoomElement(data) {
 	}
 
 	room.dataset.name = data.name;
+	room.dataset.id = data.id;
 	return room;
 }
 
@@ -136,17 +137,17 @@ function makeDraggable(el) {
 
 		dragging = true;
 		el.style.cursor = "grabbing";
-		console.log("Dragging started");
+		//console.log("Dragging started");
 
 		const offsets = getElementMouseOffset(e, el);
 		dragOffsetX = offsets.offsetX;
 		dragOffsetY = offsets.offsetY;
 
-		log(`startDragging: Element mouse offset: ${dragOffsetX}, ${dragOffsetY}`);
+		//log(`startDragging: Element mouse offset: ${dragOffsetX}, ${dragOffsetY}`);
 
-		log(e.target.offsetParent);
+		//log(e.target.offsetParent);
 
-		if(e.target.offsetParent.classList.contains("person-circle")) {
+		if (e.target.offsetParent.classList.contains("person-circle")) {
 			document.addEventListener("mousemove", onMouseMove);
 		} else {
 			document.addEventListener("mousemove", onMouseMoveViewport)
@@ -212,11 +213,11 @@ function makeDraggable(el) {
 
 		const { mouseX, mouseY } = getMousePosRelativeToFloorplan(ev);
 
-		log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
+		//log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
 
 		const { x, y } = scaleAndClampPosition(mouseX, mouseY);
 
-		log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
+		//log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
 
 		moveElement(x, y);
 	}
@@ -232,7 +233,7 @@ function makeDraggable(el) {
 			const rRect = room.el.getBoundingClientRect();
 			if (cx > rRect.left && cx < rRect.right && cy > rRect.top && cy < rRect.bottom) {
 				foundRoom = room;
-				console.log("Found room containing element:", room.el.dataset.name);
+				//console.log("Found room containing element:", room.el.dataset.name);
 			}
 		});
 		if (!foundRoom) console.log("No room found containing element");
@@ -240,28 +241,62 @@ function makeDraggable(el) {
 	}
 
 	function removeFromOldRoom(el) {
-		const oldRoomName = el.dataset.room;
-		if (rooms[oldRoomName]) {
-			const oldRoom = rooms[oldRoomName];
-			oldRoom.objects = oldRoom.objects.filter(o => o !== el);
-			console.log(`Removed element from old room: ${oldRoomName}`);
-		}
-	}
+    const attributes = JSON.parse(el.dataset.attributes || "{}");
+    const personId = attributes.id;
+    const roomId = attributes.room_id;  // Das ist die Zahl, die das Backend braucht
+
+    if (!personId || !roomId) {
+        console.warn("Fehlende Person- oder Raum-ID beim Entfernen aus altem Raum");
+        return;
+    }
+
+    // Entferne das Element aus dem lokalen Raum-Objekt, falls vorhanden
+    const oldRoomName = el.dataset.room;
+    if (rooms[oldRoomName]) {
+        rooms[oldRoomName].objects = rooms[oldRoomName].objects.filter(o => o !== el);
+        console.log(`Removed element from old room: ${oldRoomName}`);
+    }
+
+    // API-Call mit korrekter Raum-ID (Zahl)
+    const url = `/api/delete_person_from_room?person_id=${personId}&room_id=${roomId}`;
+    fetch(url, { method: "GET" })
+        .then(response => {
+            if (!response.ok) throw new Error(`API Fehler: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            console.log("Person wurde aus altem Raum entfernt:", data);
+
+            // Raum-ID im attributes auf null setzen, weil Person jetzt aus diesem Raum raus ist
+            attributes.room_id = null;
+            el.dataset.attributes = JSON.stringify(attributes);
+        })
+        .catch(err => {
+            console.error("Fehler beim Entfernen der Person aus dem alten Raum:", err);
+        });
+}
+
+
 
 	function addToNewRoom(el, newRoom) {
 		newRoom.objects.push(el);
-		el.dataset.room = newRoom.el.dataset.name;
-		console.log(`Added element to new room: ${newRoom.el.dataset.name}`, el);
+		log("newRoom:", newRoom);
+		el.dataset.room = newRoom.el.dataset.id;
+		console.log(`Added element to new room: ${newRoom.el.dataset.id}`, el);
 
 		var attributes = JSON.parse(el.dataset.attributes || "{}");
 
 		// Daten, die gesendet werden sollen (z.B. attributes plus Raum)
 		const payload = {
-			room: newRoom.el.dataset.name,
+			room: newRoom.el.dataset.id,
 			person: attributes,
 			x: parseInt($(el).css("left")),
 			y: parseInt($(el).css("top"))
 		};
+
+		if(payload.room === undefined) {
+			alert("payload.room ist undefined!");
+		}
 
 		fetch("/api/save_person_to_room", {
 			method: "POST",
@@ -297,7 +332,7 @@ function makeDraggable(el) {
 		if (!dragging) return;
 		dragging = false;
 		el.style.cursor = "grab";
-		console.log("Dragging stopped");
+		//console.log("Dragging stopped");
 
 		document.removeEventListener("mousemove", onMouseMove);
 		document.removeEventListener("mouseup", onMouseUp);
@@ -305,7 +340,7 @@ function makeDraggable(el) {
 		const foundRoom = findRoomContainingElementCenter(el);
 
 		if (foundRoom) {
-			console.log("Found room on drag end:", foundRoom);
+			//console.log("Found room on drag end:", foundRoom);
 
 			removeFromOldRoom(el);
 			addToNewRoom(el, foundRoom);
@@ -345,7 +380,7 @@ async function loadPersonDatabase() {
 		const data = await response.json();
 		personDatabase = data;
 
-		console.log("✅ Personendaten erfolgreich geladen:", personDatabase);
+		//console.log("✅ Personendaten erfolgreich geladen:", personDatabase);
 		return personDatabase; // optional: Rückgabe, falls du die Daten weiterverwenden willst
 	} catch (error) {
 		console.error("❌ Fehler beim Laden der Personendaten:", error);
@@ -404,7 +439,7 @@ function updateFormMode() {
 	}
 }
 
-if(addPersonBtn) {
+if (addPersonBtn) {
 	addPersonBtn.addEventListener("click", () => {
 		personForm.style.display = "block";
 		populateExistingPersonSelect();
@@ -441,7 +476,7 @@ function getSelectedMode() {
 		console.error("Kein Modus ausgewählt.");
 		throw new Error("Bitte einen Modus auswählen.");
 	}
-	console.log("Modus gewählt:", modeInput.value);
+	//console.log("Modus gewählt:", modeInput.value);
 	return modeInput.value;
 }
 
@@ -459,7 +494,7 @@ function handleSelectMode() {
 		return;
 	}
 
-	console.log("Existierende Person ausgewählt:", person);
+	//console.log("Existierende Person ausgewählt:", person);
 	createPersonCircle(person);
 }
 
@@ -467,7 +502,7 @@ function resetForm() {
 	personForm.style.display = "none";
 	dynamicForm.innerHTML = "";
 	dynamicForm.style.display = "none";
-	console.log("Formular zurückgesetzt.");
+	//console.log("Formular zurückgesetzt.");
 }
 
 async function savePersonToDatabase(newPerson) {
@@ -532,7 +567,6 @@ function createCircleElement(attributes, position = null) {
 	closeBtn.title = "Entfernen";
 
 	closeBtn.addEventListener("click", (e) => {
-		floorplan.removeChild(circle);
 		e.stopPropagation();
 
 		const attrs = JSON.parse(circle.dataset.attributes);
@@ -597,7 +631,7 @@ function getViewportCenterPosition() {
 	};
 }
 
-function load_persons_from_db () {
+function load_persons_from_db() {
 	const personData = getPersonRoomDataSync(building_id, floor);
 
 	if (personData) {
@@ -855,10 +889,10 @@ const addBtn = document.getElementById("addBtn");
 const objectForm = document.getElementById("objectForm");
 const cancelObjectBtn = document.getElementById("cancelObjectBtn");
 
-if(addBtn) {
+if (addBtn) {
 	addBtn.addEventListener("click", () => {
 		objectForm.style.display = "block";
-    cancelpersonBtnFunction()
+		cancelpersonBtnFunction()
 	});
 }
 
@@ -875,7 +909,7 @@ cancelObjectBtn.addEventListener("click", cancelBtnFunction);
 
 function getInputValue(id) {
 	const input = document.getElementById(id);
-	console.log(`getInputValue: id=${id}, element found? ${input !== null}`);
+	//console.log(`getInputValue: id=${id}, element found? ${input !== null}`);
 	if (!input) return null;
 	return input.value.trim();
 }
@@ -887,7 +921,7 @@ function getAllOptions() {
 		option3: getInputValue("option3"),
 		option4: getInputValue("option4")
 	};
-	console.log("getAllOptions:", options);
+	//console.log("getAllOptions:", options);
 	return options;
 }
 
@@ -993,21 +1027,21 @@ function setupEventListeners() {
 
 	if (saveBtn) {
 		saveBtn.addEventListener("click", handleSave);
-		console.log("setupEventListeners: Listener für Speichern gesetzt");
+		//console.log("setupEventListeners: Listener für Speichern gesetzt");
 	} else {
 		console.error("setupEventListeners: Button 'saveOptionsBtn' nicht gefunden");
 	}
 
 	if (cancelBtn) {
 		cancelBtn.addEventListener("click", hideForm);
-		console.log("setupEventListeners: Listener für Abbrechen gesetzt");
+		//console.log("setupEventListeners: Listener für Abbrechen gesetzt");
 	} else {
 		console.error("setupEventListeners: Button 'cancelObjectBtn' nicht gefunden");
 	}
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-	console.log("DOM vollständig geladen");
+	//console.log("DOM vollständig geladen");
 	setupEventListeners();
 
 	// Automatisch div mit aktuellen Eingaben erstellen, falls vorhanden
@@ -1208,14 +1242,14 @@ function cancelpersonBtnFunction() {
 	dynamicForm.style.display = "none";
 }
 
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", function () {
 	loadPersonDatabase();
 	load_persons_from_db();
 });
 
-document.addEventListener('keydown', function(event) {
-  if (event.key === 'Escape') {
-    cancelpersonBtnFunction();
-    cancelBtnFunction();
-  }
+document.addEventListener('keydown', function (event) {
+	if (event.key === 'Escape') {
+		cancelpersonBtnFunction();
+		cancelBtnFunction();
+	}
 });

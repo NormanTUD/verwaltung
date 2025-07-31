@@ -95,7 +95,6 @@ document.addEventListener('DOMContentLoaded', function () {
 			// Weiter machen, da evtl. nicht kritisch
 		}
 		if (!logoutBtn) {
-			console.warn('Logout-Button nicht gefunden.');
 			// Weiter machen, falls kein Logout vorhanden
 		}
 
