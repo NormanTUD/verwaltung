@@ -230,19 +230,19 @@ function autoUpdate(element_name, update_typ, update_id, new_val) {
 			.then(function(data) {
 				log("Response data:", data);
 
-				toastr.success(data.message, "Erfolgreich");
+				success(data.message, "Erfolgreich");
 			})
 			.catch(function(error) {
 				log("Fetch error:", error);
 
 				var msg = "Fehler beim Senden der Anfrage: " + error.message;
-				toastr.error(msg, "Fehler");
+				error(msg, "Fehler");
 			});
 	} catch (e) {
 		log("Unexpected error:", e);
 
 		var msg = "Unerwarteter Fehler: " + e.message;
-		toastr.error(msg, "Fehler");
+		error(msg, "Fehler");
 	}
 }
 
