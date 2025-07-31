@@ -31,7 +31,7 @@ Base = declarative_base(cls=CustomBase)
 
 class User(UserMixin, Base):
     __tablename__ = "user"
-    __versioned__ = {}
+    #__versioned__ = {}
     id = Column(Integer, primary_key=True)
     username = Column(String(150), unique=True)
     password = Column(String(150))
