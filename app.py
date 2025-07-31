@@ -1499,22 +1499,18 @@ def aggregate_transponder_view():
 
         rows = []
         for t in transponder_list:
-            owner = t.owner
-            issuer = t.issuer
+            owner = t.owner_id
+            issuer = t.issuer_id
+
+            print(f"owner: {owner}")
+            print(f"issuer: {issuer}")
+
             rooms = [link.room for link in t.room_links if link.room]
             buildings = list({r.building.name if r.building else "?" for r in rooms})
 
             # Input-Felder für owner_id und issuer_id
-            owner_input = (
-                f'<input type="text" name="owner_id" data-update_info="transponder_{t.id}" value="{html.escape(str(owner.id))}" />'
-                if owner else
-                f'<input type="text" name="owner_id" data-update_info="transponder_{t.id}" value="" />'
-            )
-            issuer_input = (
-                f'<input type="text" name="issuer_id" data-update_info="transponder_{t.id}" value="{html.escape(str(issuer.id))}" />'
-                if issuer else
-                f'<input type="text" name="issuer_id" data-update_info="transponder_{t.id}" value="" />'
-            )
+            owner_input = f'<input type="text" name="owner_id" data-update_info="transponder_{t.id}" value="{html.escape(str(owner))}" />'
+            issuer_input = f'<input type="text" name="issuer_id" data-update_info="transponder_{t.id}" value="{html.escape(str(issuer))}" />'
 
             row = {
                 "ID": t.id,
