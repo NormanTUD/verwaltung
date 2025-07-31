@@ -343,6 +343,7 @@ document.addEventListener('keydown', function(e) {
 		active &&
 		(active.tagName === 'INPUT' ||
 			active.tagName === 'TEXTAREA' ||
+			active.tagName === 'SELECT' ||
 			active.isContentEditable)
 	) return;
 
