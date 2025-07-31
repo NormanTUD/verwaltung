@@ -379,83 +379,83 @@ document.addEventListener('keydown', function(e) {
 let versions = [];
 
 function updateVersionLabel(value) {
-const label = document.getElementById('versionLabel');
-if (versions.length === 0) {
-	label.textContent = 'Keine Versionen';
-	return;
-}
-const index = parseInt(value);
-if (index < 0 || index >= versions.length) {
-	label.textContent = 'Ungültige Version';
-	return;
-}
-const version = versions[index];
-if (version.timestamp) {
-	const date = new Date(version.timestamp);
-	label.textContent = date.toLocaleString();
-} else {
-	label.textContent = 'Version ' + version.id;
-}
+	const label = document.getElementById('versionLabel');
+	if (versions.length === 0) {
+		label.textContent = 'Keine Versionen';
+		return;
+	}
+	const index = parseInt(value);
+	if (index < 0 || index >= versions.length) {
+		label.textContent = 'Ungültige Version';
+		return;
+	}
+	const version = versions[index];
+	if (version.timestamp) {
+		const date = new Date(version.timestamp);
+		label.textContent = date.toLocaleString();
+	} else {
+		label.textContent = 'Version ' + version.id;
+	}
 }
 
 function applyVersion() {
-const slider = document.getElementById('versionSlider');
-const index = parseInt(slider.value);
-if (index < 0 || index >= versions.length) return;
+	const slider = document.getElementById('versionSlider');
+	const index = parseInt(slider.value);
+	if (index < 0 || index >= versions.length) return;
 
-const version = versions[index];
-document.cookie = "data_version=" + version.id + ";path=/;max-age=" + 30 * 24 * 60 * 60;
-location.reload();
+	const version = versions[index];
+	document.cookie = "data_version=" + version.id + ";path=/;max-age=" + 30 * 24 * 60 * 60;
+	location.reload();
 }
 
 async function loadVersions() {
-try {
-	const res = await fetch('/api/versions');
-	if (!res.ok) throw new Error('Versions API nicht erreichbar');
-	versions = await res.json();
+	try {
+		const res = await fetch('/api/versions');
+		if (!res.ok) throw new Error('Versions API nicht erreichbar');
+		versions = await res.json();
 
-	const versionContainer = document.getElementById('versionContainer');
-	const noVersionsMessage = document.getElementById('noVersionsMessage');
+		const versionContainer = document.getElementById('versionContainer');
+		const noVersionsMessage = document.getElementById('noVersionsMessage');
 
-	if (versions.length === 0) {
-	versionContainer.style.display = 'none';
-	noVersionsMessage.style.display = 'block';
-	return;
+		if (versions.length === 0) {
+			versionContainer.style.display = 'none';
+			noVersionsMessage.style.display = 'block';
+			return;
+		}
+
+		versionContainer.style.display = 'block';
+		noVersionsMessage.style.display = 'none';
+
+		const slider = document.getElementById('versionSlider');
+		slider.min = 0;
+		slider.max = versions.length - 1;
+		slider.value = versions.length - 1; // Standard auf neueste Version
+		slider.disabled = false;
+
+		document.getElementById('applyVersionBtn').disabled = false;
+
+		updateVersionLabel(slider.value);
+
+		const cookies = document.cookie.split(';').map(c => c.trim());
+		const versionCookie = cookies.find(c => c.startsWith("data_version="));
+		if (versionCookie) {
+			const versionId = parseInt(versionCookie.split('=')[1]);
+			const idx = versions.findIndex(v => v.id === versionId);
+			if (idx !== -1) {
+				slider.value = idx;
+				updateVersionLabel(idx);
+			}
+		}
+
+	} catch (err) {
+		console.error(err);
+		document.getElementById('versionContainer').style.display = 'none';
+		const noVersionsMessage = document.getElementById('noVersionsMessage');
+		noVersionsMessage.style.display = 'block';
+		noVersionsMessage.textContent = 'Fehler beim Laden der Versionen';
 	}
-
-	versionContainer.style.display = 'block';
-	noVersionsMessage.style.display = 'none';
-
-	const slider = document.getElementById('versionSlider');
-	slider.min = 0;
-	slider.max = versions.length - 1;
-	slider.value = versions.length - 1; // Standard auf neueste Version
-	slider.disabled = false;
-
-	document.getElementById('applyVersionBtn').disabled = false;
-
-	updateVersionLabel(slider.value);
-
-	const cookies = document.cookie.split(';').map(c => c.trim());
-	const versionCookie = cookies.find(c => c.startsWith("data_version="));
-	if (versionCookie) {
-	const versionId = parseInt(versionCookie.split('=')[1]);
-	const idx = versions.findIndex(v => v.id === versionId);
-	if (idx !== -1) {
-		slider.value = idx;
-		updateVersionLabel(idx);
-	}
-	}
-
-} catch (err) {
-	console.error(err);
-	document.getElementById('versionContainer').style.display = 'none';
-	const noVersionsMessage = document.getElementById('noVersionsMessage');
-	noVersionsMessage.style.display = 'block';
-	noVersionsMessage.textContent = 'Fehler beim Laden der Versionen';
-}
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-loadVersions();
+	loadVersions();
 });
