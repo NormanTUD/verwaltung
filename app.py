@@ -1,4 +1,5 @@
 # TODO: mehrseitiger wizard: erstelle person, füge ihr raum hinzu und transponder usw
+# TODO: read only rolle
 
 import sys
 import traceback
@@ -1478,24 +1479,27 @@ def _get_person_name(p):
 def _get_category_name(c):
     return c.name if c else "-"
 
-
 @app.route("/wizard/person", methods=["GET", "POST"])
 @login_required
 def wizard_person():
     session = Session()
     error = None
     success = False
+
     form_data = {
         "title": "",
         "first_name": "",
         "last_name": "",
         "comment": "",
         "image_url": "",
-        "contacts": []
+        "contacts": [],
+        "transponders": [],
+        "rooms": []
     }
 
-    if request.method == "POST":
-        try:
+    try:
+        if request.method == "POST":
+            # Grunddaten
             form_data["title"] = request.form.get("title", "").strip()
             form_data["first_name"] = request.form.get("first_name", "").strip()
             form_data["last_name"] = request.form.get("last_name", "").strip()
@@ -1503,9 +1507,9 @@ def wizard_person():
             form_data["image_url"] = request.form.get("image_url", "").strip()
 
             if not form_data["first_name"] or not form_data["last_name"]:
-                session.close()
                 raise ValueError("Vorname und Nachname sind Pflichtfelder.")
 
+            # Kontakte
             emails = request.form.getlist("email[]")
             phones = request.form.getlist("phone[]")
             faxes = request.form.getlist("fax[]")
@@ -1513,15 +1517,14 @@ def wizard_person():
 
             contacts = []
             valid_emails = []
-
             max_len = max(len(emails), len(phones), len(faxes), len(comments))
+
             for i in range(max_len):
                 email_val = emails[i].strip() if i < len(emails) else ""
                 phone_val = phones[i].strip() if i < len(phones) else ""
                 fax_val = faxes[i].strip() if i < len(faxes) else ""
                 comment_val = comments[i].strip() if i < len(comments) else ""
 
-                # Speichere immer fürs Vorfüllen
                 form_data["contacts"].append({
                     "email": email_val,
                     "phone": phone_val,
@@ -1531,11 +1534,9 @@ def wizard_person():
 
                 if email_val:
                     if not is_valid_email(email_val):
-                        session.close()
                         raise ValueError(f"Ungültige Email-Adresse: {email_val}")
                     valid_emails.append(email_val)
 
-                # Wenn irgendein Feld ausgefüllt ist, dann merken
                 if any([email_val, phone_val, fax_val, comment_val]):
                     contacts.append({
                         "email": email_val or None,
@@ -1545,10 +1546,43 @@ def wizard_person():
                     })
 
             if not valid_emails:
-                session.close()
                 raise ValueError("Mindestens eine gültige Email muss eingegeben werden.")
 
-            # Speichern in DB
+            # Transponder
+            serials = request.form.getlist("transponder_serial[]")
+            tp_comments = request.form.getlist("transponder_comment[]")
+            transponders = []
+
+            max_tp = max(len(serials), len(tp_comments))
+            for i in range(max_tp):
+                serial = serials[i].strip() if i < len(serials) else ""
+                comment = tp_comments[i].strip() if i < len(tp_comments) else ""
+
+                form_data["transponders"].append({
+                    "serial": serial,
+                    "comment": comment
+                })
+
+                if serial:
+                    transponders.append({
+                        "serial": serial,
+                        "comment": comment or None
+                    })
+
+            # Räume
+            room_guids = request.form.getlist("room_guid[]")
+            rooms = []
+
+            for guid in room_guids:
+                guid = guid.strip()
+                form_data["rooms"].append({"guid": guid})
+                if guid:
+                    room = session.query(Room).filter_by(guid=guid).first()
+                    if not room:
+                        raise ValueError(f"Unbekannter Raum-GUID: {guid}")
+                    rooms.append(room)
+
+            # Person speichern
             new_person = Person(
                 title=form_data["title"] or None,
                 first_name=form_data["first_name"],
@@ -1559,6 +1593,7 @@ def wizard_person():
             session.add(new_person)
             session.flush()
 
+            # Kontakte speichern
             for contact in contacts:
                 session.add(PersonContact(
                     person_id=new_person.id,
@@ -1568,23 +1603,49 @@ def wizard_person():
                     comment=contact["comment"]
                 ))
 
+            # Transponder speichern
+            for tp in transponders:
+                session.add(Transponder(
+                    owner_id=new_person.id,
+                    serial_number=tp["serial"],
+                    comment=tp["comment"]
+                ))
+
+            # Raumzuweisungen speichern
+            for room in rooms:
+                session.add(PersonToRoom(
+                    person_id=new_person.id,
+                    room_id=room.id
+                ))
+
             session.commit()
             success = True
+
+            # Formular zurücksetzen
             form_data = {
                 "title": "",
                 "first_name": "",
                 "last_name": "",
                 "comment": "",
                 "image_url": "",
-                "contacts": []
+                "contacts": [],
+                "transponders": [],
+                "rooms": []
             }
 
-        except Exception as e:
-            session.rollback()
-            error = str(e)
+    except Exception as e:
+        session.rollback()
+        error = str(e)
 
-    session.close()
-    return render_template("person_wizard.html", success=success, error=error, form_data=form_data)
+    finally:
+        session.close()
+
+    return render_template(
+        "person_wizard.html",
+        success=success,
+        error=error,
+        form_data=form_data
+    )
 
 @app.route("/map-editor")
 @login_required
@@ -2586,6 +2647,43 @@ def get_floorplan():
         session.close()
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/delete_person_from_room", methods=["GET"])
+@login_required
+def delete_person_from_room():
+    # Query-Parameter auslesen
+    person_id = request.args.get("person_id", type=int)
+    room_id = request.args.get("room_id", type=int)
+
+    # Validierung der Parameter
+    if person_id is None:
+        return jsonify({"error": "Missing or invalid 'person_id' parameter"}), 400
+    if room_id is None:
+        return jsonify({"error": "Missing or invalid 'room_id' parameter"}), 400
+
+    session = Session()
+
+    try:
+        # Verknüpfungseintrag suchen
+        link = session.query(PersonToRoom).filter(
+            PersonToRoom.person_id == person_id,
+            PersonToRoom.room_id == room_id
+        ).one_or_none()
+
+        if link is None:
+            session.close()
+            return jsonify({"error": f"Link between person_id '{person_id}' and room_id '{room_id}' not found"}), 404
+
+        session.delete(link)
+        session.commit()
+        session.close()
+
+        return jsonify({"status": f"Link between person_id '{person_id}' and room_id '{room_id}' deleted successfully"}), 200
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        session.close()
+        return jsonify({"error": str(e)}), 500
+    
 @app.route("/api/delete_room", methods=["POST"])
 @login_required
 def delete_room():
@@ -3128,7 +3226,10 @@ def search():
     if 'transponder'.startswith(query):
         results.append({'label': '📦 Transponder', 'url': url_for('aggregate_transponder_view')})
     if 'person'.startswith(query):
-        results.append({'label': '📦 Person', 'url': url_for('aggregate_person_view')})
+        results.append({'label': '📦 Person', 'url': url_for('aggregate_persons_view')})
+    if is_admin_user(session):
+        if 'admin'.startswith(query):
+            results.append({'label': '🛠️ Admin', 'url': '/admin'})
 
     # 🔍 Personensuche nach Name, Email, Telefon, Fax
     people = session.query(Person).options(joinedload(Person.contacts)).all()

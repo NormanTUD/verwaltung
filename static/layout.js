@@ -181,46 +181,155 @@ const resultsBox = document.getElementById('sidebarSearchResults');
 
 let timeout = null;
 
-if(SPinput && resultsBox) {
-	SPinput.addEventListener('input', () => {
-		clearTimeout(timeout);
-		const query = SPinput.value.trim();
+if (SPinput && resultsBox) {
+    let timeout = null;
+    let selectedIndex = -1;
 
-		if (query.length === 0) {
-			resultsBox.innerHTML = '';
-			resultsBox.classList.add('hidden');
-			return;
-		}
+    // Hilfsfunktion, um zu prüfen, ob die Taste "normales" Tippen ist
+    function isNormalKey(event) {
+        // Keine Modifikatortasten gedrückt und kein Steuerzeichen
+        if (event.ctrlKey || event.altKey || event.metaKey) {
+            return false;
+        }
+        // Ignoriere Steuer- und Funktionstasten, nur Buchstaben, Zahlen und Zeichen erlauben
+        const key = event.key;
 
-		timeout = setTimeout(() => {
-			fetch(`/search?q=${encodeURIComponent(query)}`)
-				.then(r => r.json())
-				.then(results => {
-					resultsBox.innerHTML = '';
-					if (results.length > 0) {
-						results.forEach(result => {
-							const li = document.createElement('li');
-							li.textContent = result.label;
-							li.className = 'px-3 py-2 hover:bg-gray-200 cursor-pointer';
-							li.onclick = () => {
-								window.location.href = result.url;
-							};
-							resultsBox.appendChild(li);
-						});
-						resultsBox.classList.remove('hidden');
-					} else {
-						resultsBox.classList.add('hidden');
-					}
-				});
-		}, 200);
-	});
+        // Liste der erlaubten Zeichen (Buchstaben, Zahlen, Satzzeichen, Leerzeichen)
+        // Einfacher Check: key.length === 1 -> sichtbares Zeichen (z.B. 'a', '1', '.', ' ')
+        return key.length === 1;
+    }
 
-	document.addEventListener('click', (e) => {
-		if (!resultsBox.contains(e.target) && e.target !== SPinput) {
-			resultsBox.classList.add('hidden');
-		}
-	});
+    // Hilfsfunktion zur Aktualisierung der Auswahl in der Ergebnisliste
+    function updateSelection(index) {
+        const items = resultsBox.querySelectorAll('li');
+        if (items.length === 0) {
+            selectedIndex = -1;
+            return;
+        }
+
+        // Auswahl index begrenzen
+        if (index < 0) {
+            index = items.length - 1;
+        }
+        if (index >= items.length) {
+            index = 0;
+        }
+
+        // Alle entfernen
+        items.forEach((item, i) => {
+            if (i === index) {
+                item.classList.add('bg-blue-500', 'text-white');
+                item.scrollIntoView({ block: 'nearest' });
+            } else {
+                item.classList.remove('bg-blue-500', 'text-white');
+            }
+        });
+        selectedIndex = index;
+    }
+
+    SPinput.addEventListener('keydown', (event) => {
+        if (resultsBox.classList.contains('hidden')) {
+            // Falls Ergebnisbox versteckt ist, nichts tun außer Suche triggern bei normalen Zeichen
+            return;
+        }
+
+        // Pfeiltasten und Enter behandeln
+        switch (event.key) {
+            case 'ArrowDown':
+                event.preventDefault();
+                updateSelection(selectedIndex + 1);
+                break;
+            case 'ArrowUp':
+                event.preventDefault();
+                updateSelection(selectedIndex - 1);
+                break;
+            case 'Enter':
+                if (selectedIndex >= 0) {
+                    event.preventDefault();
+                    const items = resultsBox.querySelectorAll('li');
+                    if (items[selectedIndex]) {
+                        const url = items[selectedIndex].getAttribute('data-url');
+                        if (url) {
+                            window.location.href = url;
+                        }
+                    }
+                }
+                break;
+            case 'Escape':
+                resultsBox.classList.add('hidden');
+                selectedIndex = -1;
+                break;
+        }
+    });
+
+    SPinput.addEventListener('input', (event) => {
+        // Nur starten wenn normaler Tastendruck (kein Ctrl/Alt/Meta)
+        // input Event hat kein event.key, daher diese Prüfung hier nicht möglich
+        // Alternativ: Suche in keydown starten, aber wir wollen debounce – daher erlauben wir hier normal input
+
+        clearTimeout(timeout);
+        const query = SPinput.value.trim();
+
+        if (query.length === 0) {
+            resultsBox.innerHTML = '';
+            resultsBox.classList.add('hidden');
+            selectedIndex = -1;
+            return;
+        }
+
+        timeout = setTimeout(() => {
+            fetch(`/search?q=${encodeURIComponent(query)}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Netzwerkfehler beim Abrufen der Suche');
+                    }
+                    return response.json();
+                })
+                .then(results => {
+                    resultsBox.innerHTML = '';
+                    selectedIndex = -1;
+                    if (Array.isArray(results) && results.length > 0) {
+                        results.forEach(result => {
+                            const li = document.createElement('li');
+                            li.textContent = result.label;
+                            li.className = 'px-3 py-2 hover:bg-gray-200 cursor-pointer';
+                            li.setAttribute('data-url', result.url);
+                            li.onclick = () => {
+                                window.location.href = result.url;
+                            };
+                            li.addEventListener('mouseenter', () => {
+                                // Maus-Hover aktualisiert Auswahl
+                                const items = resultsBox.querySelectorAll('li');
+                                items.forEach((item) => {
+                                    item.classList.remove('bg-blue-500', 'text-white');
+                                });
+                                li.classList.add('bg-blue-500', 'text-white');
+                                selectedIndex = Array.from(items).indexOf(li);
+                            });
+                            resultsBox.appendChild(li);
+                        });
+                        resultsBox.classList.remove('hidden');
+                    } else {
+                        resultsBox.classList.add('hidden');
+                    }
+                })
+                .catch(error => {
+                    console.error('Fehler bei der Suche:', error);
+                    resultsBox.innerHTML = '';
+                    resultsBox.classList.add('hidden');
+                    selectedIndex = -1;
+                });
+        }, 200);
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!resultsBox.contains(event.target) && event.target !== SPinput) {
+            resultsBox.classList.add('hidden');
+            selectedIndex = -1;
+        }
+    });
 }
+
 
 
 document.addEventListener('keydown', function(e) {
@@ -234,6 +343,7 @@ document.addEventListener('keydown', function(e) {
 		active &&
 		(active.tagName === 'INPUT' ||
 			active.tagName === 'TEXTAREA' ||
+			active.tagName === 'SELECT' ||
 			active.isContentEditable)
 	) return;
 

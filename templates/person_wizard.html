@@ -56,6 +56,12 @@
   <h3>Kontakte (Emails, Telefon, Fax, Kommentar)</h3>
   <div id="contacts-container"></div>
   <button type="button" class="btn btn-secondary mb-3" id="add-contact-btn">+ Kontakt hinzufügen</button>
+
+  <hr />
+  <h3>Räume (mit zugeordneten Transpondern)</h3>
+  <div id="rooms-container"></div>
+  <button type="button" class="btn btn-secondary mb-3" id="add-room-btn">+ Raum hinzufügen</button>
+
   <hr />
   <button type="submit" class="btn btn-primary save-new">Person speichern</button>
 </form>
@@ -63,6 +69,7 @@
 <script src="/static/jquery.min.js"></script>
 <script src="/static/toastr.min.js"></script>
 <script>
+	// Kontakt-Zeile bleibt unverändert
 	function createContactRow(data = {}) {
 		return $(`
 		<div class="contact-row">
@@ -91,15 +98,105 @@
 	    `);
 	}
 
+	// Transponder-Zeile innerhalb eines Raums
+	function createTransponderRow(roomIndex, data = {}) {
+		// roomIndex wird für korrektes Name-Mapping benutzt
+		return $(`
+		<div class="transponder-row mb-3 border rounded p-2">
+		    <div class="mb-2">
+		        <label>Seriennummer:</label>
+		        <input type="text" name="transponder_serial[${roomIndex}][]" class="form-control" placeholder="Seriennummer"
+		               value="${data.serial || ''}">
+		    </div>
+		    <div class="mb-2">
+		        <label>Kommentar:</label>
+		        <input type="text" name="transponder_comment[${roomIndex}][]" class="form-control" placeholder="Kommentar"
+		               value="${data.comment || ''}">
+		    </div>
+		    <button type="button" class="btn btn-danger btn-sm remove-transponder-btn">Entfernen</button>
+		</div>
+		`);
+	}
+
+	// Raum-Zeile inkl. Container für Transponder
+	function createRoomRow(data = {}, roomIndex = 0) {
+		let roomIdValue = data.id || '';
+		let transponders = data.transponders || [];
+
+		let room = $(`
+		<div class="room-row mb-4 border rounded p-3" data-room-index="${roomIndex}">
+		    <div class="mb-2">
+		        <label>Raum ID:</label>
+		        <input type="number" name="room_id[]" class="form-control" placeholder="Raum-ID (z.B. 42)" value="${roomIdValue}">
+		    </div>
+		    <div class="transponders-container mb-3">
+		      <h5>Transponder</h5>
+		    </div>
+		    <button type="button" class="btn btn-secondary btn-sm mb-2 add-transponder-btn">+ Transponder hinzufügen</button>
+		    <button type="button" class="btn btn-danger btn-sm remove-room-btn">Raum entfernen</button>
+		</div>
+		`);
+
+		let transpondersContainer = room.find('.transponders-container');
+		for (let i = 0; i < transponders.length; i++) {
+			transpondersContainer.append(createTransponderRow(roomIndex, transponders[i]));
+		}
+		if (transponders.length === 0) {
+			transpondersContainer.append(createTransponderRow(roomIndex));
+		}
+
+		return room;
+	}
+
 	$(document).ready(function () {
+		// Kontakte
 		$('#add-contact-btn').on('click', function () {
 			$('#contacts-container').append(createContactRow());
-
-			applyInvertFilterToElements(theme);
 		});
 
 		$('#contacts-container').on('click', '.remove-contact-btn', function () {
 			$(this).closest('.contact-row').remove();
+		});
+
+		// Räume + Transponder (verschachtelt)
+		let roomCount = 0;
+
+		function reindexRooms() {
+			$('#rooms-container > .room-row').each(function (index) {
+				$(this).attr('data-room-index', index);
+				// Raum ID input bleibt "room_id[]" (gleiche Namen, array)
+				// Transponder inputs anpassen:
+				$(this).find('.transponder-row').each(function () {
+					let serialInput = $(this).find('input[name^="transponder_serial"]');
+					let commentInput = $(this).find('input[name^="transponder_comment"]');
+
+					serialInput.attr('name', `transponder_serial[${index}][]`);
+					commentInput.attr('name', `transponder_comment[${index}][]`);
+				});
+			});
+			roomCount = $('#rooms-container > .room-row').length;
+		}
+
+		$('#add-room-btn').on('click', function () {
+			let newRoom = createRoomRow({}, roomCount);
+			$('#rooms-container').append(newRoom);
+			reindexRooms();
+		});
+
+		$('#rooms-container').on('click', '.remove-room-btn', function () {
+			$(this).closest('.room-row').remove();
+			reindexRooms();
+		});
+
+		$('#rooms-container').on('click', '.add-transponder-btn', function () {
+			let roomDiv = $(this).closest('.room-row');
+			let roomIndex = roomDiv.attr('data-room-index');
+			let transpondersContainer = roomDiv.find('.transponders-container');
+			transpondersContainer.append(createTransponderRow(roomIndex));
+		});
+
+		$('#rooms-container').on('click', '.remove-transponder-btn', function () {
+			$(this).closest('.transponder-row').remove();
 		});
 
 		toastr.options = {
@@ -117,11 +214,15 @@
 			toastr.success("Person erfolgreich gespeichert.");
 			$('#person-form')[0].reset();
 			$('#contacts-container').empty().append(createContactRow());
+			$('#rooms-container').empty().append(createRoomRow({}, 0));
+			roomCount = 1;
 		} else {
+			// Fehler anzeigen
 			if (error) {
 				toastr.error("Fehler: " + error);
 			}
 
+			// Kontakte laden
 			if (formData.contacts && formData.contacts.length > 0) {
 				$('#contacts-container').empty();
 				formData.contacts.forEach(contact => {
@@ -129,6 +230,18 @@
 				});
 			} else {
 				$('#contacts-container').append(createContactRow());
+			}
+
+			// Räume mit Transpondern laden
+			if (formData.rooms && formData.rooms.length > 0) {
+				$('#rooms-container').empty();
+				for (let i = 0; i < formData.rooms.length; i++) {
+					$('#rooms-container').append(createRoomRow(formData.rooms[i], i));
+				}
+				roomCount = formData.rooms.length;
+			} else {
+				$('#rooms-container').append(createRoomRow({}, 0));
+				roomCount = 1;
 			}
 		}
 	});
