@@ -329,8 +329,6 @@ def block_writes_if_data_version_cookie_set(session, flush_context, instances):
         pass
 
 def add_version_filter(query):
-    print("[DEBUG] add_version_filter aufgerufen")
-
     if not has_app_context():
         print("[DEBUG] Kein Flask-App-Kontext aktiv – Versionierung wird übersprungen")
         return query    
@@ -353,8 +351,6 @@ def add_version_filter(query):
         print("[DEBUG] Konnte Modellklasse nicht aus column_descriptions extrahieren")
         return query
 
-    print(f"[DEBUG] Ursprüngliches Modell: {model_class.__name__}")
-
     if model_class.__name__.endswith('Version'):
         print("[DEBUG] Modell ist bereits eine Version-Klasse – Query bleibt unverändert")
         return query
@@ -362,7 +358,6 @@ def add_version_filter(query):
     try:
         ModelVersion = versioning_manager.version_class_map.get(model_class)
         if ModelVersion is None:
-            print("[DEBUG] Keine Version-Klasse gefunden für Modell")
             return query
         print(f"[DEBUG] Zugehörige Version-Klasse: {ModelVersion.__name__}")
     except Exception as e:
@@ -407,13 +402,10 @@ def add_version_filter(query):
 
 @listens_for(Query, "before_compile", retval=True)
 def before_compile_handler(query):
-    print("[DEBUG] before_compile_handler aufgerufen")
     try:
         new_query = add_version_filter(query)
-        print("[DEBUG] before_compile_handler – Query wurde möglicherweise angepasst")
         return new_query
     except Exception as e:
-        print(f"[DEBUG] Fehler im before_compile_handler: {e}")
         return query
 
 def initialize_db_data():
