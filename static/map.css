@@ -139,7 +139,7 @@ html, body {
 }
 .person-circle img {
     width: 80px;
-    height: 80px;
+    height: 77px;
     border-radius: 50%;
     object-fit: cover;
     display: block;
