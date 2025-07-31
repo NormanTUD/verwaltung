@@ -336,7 +336,6 @@ def add_version_filter(query):
         return query    
 
     if not hasattr(g, 'issued_at'):
-        print("[DEBUG] Kein Attribut 'issued_at' in g")
         return query    
 
     if g.issued_at is None:
