@@ -60,13 +60,15 @@ function applyInvertFilterToElements(mode) {
 }
 
 const SPinput = document.getElementById('sidebarSearch');
-SPinput.addEventListener('input', () => {
-	if (SPinput.value.trim() !== '') {
-		SPinput.style.color = 'white';
-	} else {
-		SPinput.style.color = ''; // zurücksetzen
-	}
-});
+if(SPinput) {
+	SPinput.addEventListener('input', () => {
+		if (SPinput.value.trim() !== '') {
+			SPinput.style.color = 'white';
+		} else {
+			SPinput.style.color = ''; // zurücksetzen
+		}
+	});
+}
 
 document.addEventListener('DOMContentLoaded', function () {
 	try {
