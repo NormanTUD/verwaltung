@@ -1684,7 +1684,7 @@ def wizard_person():
             if not form_data["first_name"] or not form_data["last_name"]:
                 raise ValueError("Vorname und Nachname sind Pflichtfelder.")
 
-            # Kontakte
+            # Kontakte aus Formular lesen
             emails = request.form.getlist("email[]")
             phones = request.form.getlist("phone[]")
             faxes = request.form.getlist("fax[]")
@@ -1723,41 +1723,78 @@ def wizard_person():
             if not valid_emails:
                 raise ValueError("Mindestens eine gültige Email muss eingegeben werden.")
 
-            # Transponder
-            serials = request.form.getlist("transponder_serial[]")
-            tp_comments = request.form.getlist("transponder_comment[]")
+            # Transponder: Verschachtelte Arrays korrekt auslesen
+            def extract_multiindex_form_data(prefix: str) -> list[list[str]]:
+                import re
+                from collections import defaultdict
+
+                pattern = re.compile(rf"{re.escape(prefix)}\[(\d+)\]\[\]")
+                grouped_data = defaultdict(list)
+
+                for key in request.form.keys():
+                    match = pattern.match(key)
+                    if match:
+                        index = int(match.group(1))
+                        values = request.form.getlist(key)
+                        grouped_data[index].extend(values)
+
+                return [grouped_data[i] for i in sorted(grouped_data.keys())]
+
+            serials_grouped = extract_multiindex_form_data("transponder_serial")
+            comments_grouped = extract_multiindex_form_data("transponder_comment")
+
+            # Falls keine verschachtelten Arrays vorliegen, alternativ einfache Liste verwenden
+            if not serials_grouped:
+                serials_grouped = [request.form.getlist("transponder_serial[]")]
+            if not comments_grouped:
+                comments_grouped = [request.form.getlist("transponder_comment[]")]
+
             transponders = []
+            form_data["transponders"] = []
 
-            max_tp = max(len(serials), len(tp_comments))
-            for i in range(max_tp):
-                serial = serials[i].strip() if i < len(serials) else ""
-                comment = tp_comments[i].strip() if i < len(tp_comments) else ""
+            # Alle Transpondergruppen iterieren
+            for group_index in range(max(len(serials_grouped), len(comments_grouped))):
+                serials = serials_grouped[group_index] if group_index < len(serials_grouped) else []
+                tp_comments = comments_grouped[group_index] if group_index < len(comments_grouped) else []
 
-                form_data["transponders"].append({
-                    "serial": serial,
-                    "comment": comment
-                })
+                max_tp = max(len(serials), len(tp_comments))
 
-                if serial:
-                    transponders.append({
+                for i in range(max_tp):
+                    serial = serials[i].strip() if i < len(serials) else ""
+                    comment = tp_comments[i].strip() if i < len(tp_comments) else ""
+
+                    form_data["transponders"].append({
                         "serial": serial,
-                        "comment": comment or None
+                        "comment": comment
                     })
 
-            # Räume
-            room_guids = request.form.getlist("room_guid[]")
-            rooms = []
+                    if serial:
+                        transponders.append({
+                            "serial": serial,
+                            "comment": comment or None
+                        })
 
-            for guid in room_guids:
-                guid = guid.strip()
-                form_data["rooms"].append({"guid": guid})
-                if guid:
-                    room = session.query(Room).filter_by(guid=guid).first()
+            # Räume aus Formular (z.B. room_id[] oder room_guid[])
+            room_ids = request.form.getlist("room_id[]") or request.form.getlist("room_guid[]")
+            rooms = []
+            form_data["rooms"] = []
+
+            for rid in room_ids:
+                rid = rid.strip()
+                form_data["rooms"].append({"id": rid})
+                if rid:
+                    # Typumwandlung zu int, falls room_id Integer ist
+                    try:
+                        rid_int = int(rid)
+                    except ValueError:
+                        raise ValueError(f"Ungültige Raum-ID: {rid}")
+
+                    room = session.query(Room).filter_by(id=rid_int).first()
                     if not room:
-                        raise ValueError(f"Unbekannter Raum-GUID: {guid}")
+                        raise ValueError(f"Unbekannte Raum-ID: {rid}")
                     rooms.append(room)
 
-            # Person speichern
+            # Person anlegen
             new_person = Person(
                 title=form_data["title"] or None,
                 first_name=form_data["first_name"],
@@ -1766,32 +1803,35 @@ def wizard_person():
                 image_url=form_data["image_url"] or None
             )
             session.add(new_person)
-            session.flush()
+            session.flush()  # um ID zu bekommen
 
             # Kontakte speichern
             for contact in contacts:
-                session.add(PersonContact(
+                pc = PersonContact(
                     person_id=new_person.id,
                     email=contact["email"],
                     phone=contact["phone"],
                     fax=contact["fax"],
                     comment=contact["comment"]
-                ))
+                )
+                session.add(pc)
 
-            # Transponder speichern
+            # Transponder speichern mit owner_id auf new_person.id
             for tp in transponders:
-                session.add(Transponder(
+                t = Transponder(
                     owner_id=new_person.id,
                     serial_number=tp["serial"],
                     comment=tp["comment"]
-                ))
+                )
+                session.add(t)
 
-            # Raumzuweisungen speichern
+            # Räume verknüpfen (PersonToRoom)
             for room in rooms:
-                session.add(PersonToRoom(
+                ptr = PersonToRoom(
                     person_id=new_person.id,
                     room_id=room.id
-                ))
+                )
+                session.add(ptr)
 
             session.commit()
             success = True
@@ -1808,9 +1848,13 @@ def wizard_person():
                 "rooms": []
             }
 
-    except Exception as e:
+    except (ValueError, SQLAlchemyError) as e:
         session.rollback()
         error = str(e)
+
+    except Exception as e:
+        session.rollback()
+        error = f"Unbekannter Fehler: {e}"
 
     finally:
         session.close()
@@ -3473,6 +3517,28 @@ def get_versions():
         return jsonify([]), 500
     finally:
         session.close()
+
+def extract_multiindex_form_data(prefix: str) -> List[List[str]]:
+    """
+    Extrahiert verschachtelte Formularfelder wie transponder_serial[0][], transponder_serial[1][]
+    und gibt sie als Liste von Listen zurück, z.B. [["123", "234"], ["345"]]
+    """
+    import re
+    from collections import defaultdict
+
+    pattern = re.compile(rf"{re.escape(prefix)}\[(\d+)\]\[\]")
+    grouped_data = defaultdict(list)
+
+    for key in request.form.keys():
+        match = pattern.match(key)
+        if match:
+            index = int(match.group(1))
+            values = request.form.getlist(key)
+            grouped_data[index].extend(values)
+
+    # Sortiere nach Index und gib Liste von Listen zurück
+    result = [grouped_data[i] for i in sorted(grouped_data.keys())]
+    return result
     
 event.listen(Session, "before_flush", block_writes_if_data_version_cookie_set)
 
