@@ -52,7 +52,6 @@ class User(UserMixin, Base):
 
 class Role(Base):
     __tablename__ = 'role'
-    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(String(50), unique=True)
 
