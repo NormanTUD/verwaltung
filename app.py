@@ -1,4 +1,3 @@
-# TODO: mehrseitiger wizard: erstelle person, füge ihr raum hinzu und transponder usw
 # TODO: read only rolle
 
 import sys

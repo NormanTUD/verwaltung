@@ -37,6 +37,7 @@ class User(UserMixin, Base):
     password = Column(String(150))
     role = Column(String(50))
     is_active = Column(Boolean, default=False)
+    readonly = Column(Boolean, default=False)
 
     user_roles = Table(
         'user_roles', Base.metadata,
