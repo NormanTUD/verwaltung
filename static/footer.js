@@ -175,26 +175,34 @@ function updateHiddenFieldValue(config, hiddenElement, form, triggeredBy = null)
 	//log("updating ", hiddenElement, " to ", params, ", triggered by: ", triggeredBy);
 
 	if (config.url) {
+		var failed = false;
 		var newUrl = config.url.replace(/\{(\w+)\}/g, function(match, p1) {
-			return encodeURIComponent(params[p1] || '');
+			if(params[p1]) {
+				return encodeURIComponent(params[p1]);
+			} else {
+				failed = true;
+				return '';
+			}
 		});
 
-		$.get(newUrl, function(data) {
-			console.log("AJAX response data:", data);
-			if (data && data.room_id) {
-				console.log("Setting hidden field to room_id:", data.room_id);
-				hiddenElement.val(data.room_id);
-			} else if (data && data.person_id) {
-				console.log("Setting hidden field to person_id:", data.person_id);
-				hiddenElement.val(data.person_id);
-			} else {
-				console.log("No valid ID found in response, clearing hidden field");
+		if(!failed) {
+			$.get(newUrl, function(data) {
+				console.log("AJAX response data:", data);
+				if (data && data.room_id) {
+					console.log("Setting hidden field to room_id:", data.room_id);
+					hiddenElement.val(data.room_id);
+				} else if (data && data.person_id) {
+					console.log("Setting hidden field to person_id:", data.person_id);
+					hiddenElement.val(data.person_id);
+				} else {
+					console.log("No valid ID found in response, clearing hidden field");
+					hiddenElement.val('');
+				}
+			}).fail(function() {
+				console.log("AJAX request failed");
 				hiddenElement.val('');
-			}
-		}).fail(function() {
-			console.log("AJAX request failed");
-			hiddenElement.val('');
-		});
+			});
+		}
 	} else {
 		var firstField = Object.keys(config.fields)[0];
 		hiddenElement.val(params[firstField] || '');

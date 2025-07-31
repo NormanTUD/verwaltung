@@ -1,3 +1,5 @@
+# TODO: mehrseitiger wizard: erstelle person, füge ihr raum hinzu und transponder usw
+
 import sys
 import traceback
 import re
@@ -11,6 +13,7 @@ from copy import deepcopy
 import csv
 import uuid
 from functools import wraps
+import re
 
 try:
     import venv
@@ -132,7 +135,7 @@ INITIAL_DATA = {
 }
 
 WIZARDS = {
-    "transponder": {
+    "Transponder": {
         "title": "Transponder erstellen",
         "model": Transponder,
         "fields": [
@@ -154,7 +157,7 @@ WIZARDS = {
             }
         ]
     },
-    "abteilung": {
+    "Abteilung": {
         "title": "Abteilung erstellen",
         "model": Abteilung,
         "fields": [
@@ -162,7 +165,7 @@ WIZARDS = {
             {"name": "abteilungsleiter_id", "type": "number", "label": "Abteilungsleiter (Person-ID)"},
         ],
     },
-    "professorship": {
+    "Professur": {
         "title": "Professur erstellen",
         "model": Professorship,
         "fields": [
@@ -170,14 +173,14 @@ WIZARDS = {
             {"name": "name", "type": "text", "label": "Name", "required": True},
         ],
     },
-    "kostenstelle": {
+    "Kostenstelle": {
         "title": "Kostenstelle erstellen",
         "model": Kostenstelle,
         "fields": [
             {"name": "name", "type": "text", "label": "Name", "required": True},
         ],
     },
-    "inventory": {
+    "Inventar": {
         "title": "Inventar erstellen",
         "model": Inventory,
         "fields": [
@@ -197,7 +200,7 @@ WIZARDS = {
             {"name": "abteilung_id", "type": "number", "label": "Abteilungs-ID"},
         ],
     },
-    "person_to_abteilung": {
+    "Person und Abteilung": {
         "title": "Person zu Abteilung zuordnen",
         "model": PersonToAbteilung,
         "fields": [
@@ -205,7 +208,7 @@ WIZARDS = {
             {"name": "abteilung_id", "type": "number", "label": "Abteilung-ID", "required": True},
         ],
     },
-    "object": {
+    "Objekt": {
         "title": "Objekt erstellen",
         "model": Object,
         "fields": [
@@ -214,7 +217,7 @@ WIZARDS = {
             {"name": "category_id", "type": "number", "label": "Kategorie-ID"},
         ],
     },
-    "loan": {
+    "Ausleihe": {
         "title": "Leihgabe erstellen",
         "model": Loan,
         "fields": [
@@ -312,25 +315,51 @@ def initialize_db_data():
 
     session.close()
 
+def is_admin_user(session=None) -> bool:
+    if session is None:
+        session = Session()
+
+    if not current_user.is_authenticated:
+        session.close()
+        return False
+
+    try:
+        user = session.query(User).options(joinedload(User.roles)).filter_by(id=current_user.id).one_or_none()
+        if user is None:
+            print(f"is_admin_user: user {current_user.id} not found")
+            session.close()
+            return False
+
+        roles = [role.name for role in user.roles]
+        print(f"is_admin_user: roles of user {current_user.id}: {roles}")
+        session.close()
+        return 'admin' in roles
+    except Exception as e:
+        print(f"is_admin_user: error: {e}")
+        session.close()
+        return False
+
+from flask import render_template
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated:
-            abort(403)
+            print("admin_required: User is not authenticated")
+            return render_template("admin_required.html"), 403
 
+        session = Session()
         try:
-            # Nutzer mit Rollen aus DB nachladen (vermeidet DetachedInstanceError)
-            user = session(User).query.options(joinedload(User.roles)).get(current_user.id)
-            if user is None:
-                abort(403)
-            if not any(role.name == 'admin' for role in user.roles):
-                abort(403)
+            if not is_admin_user(session):
+                print("admin_required: User is not admin")
+                return render_template("admin_required.html"), 403
         except Exception as e:
-            # optional: log error here
-            abort(403)
+            print(f"admin_required: got an error: {e}")
+            return render_template("admin_required.html"), 403
+        finally:
+            session.close()
 
         return f(*args, **kwargs)
-
     return decorated_function
 
 def parse_buildings_csv(csv_text):
@@ -524,7 +553,6 @@ def insert_tu_dresden_buildings ():
 
     parse_buildings_csv(csv_input)
 
-
 @login_manager.user_loader
 def load_user(user_id):
     session = Session()
@@ -537,13 +565,32 @@ def login():
     session = Session()
     if request.method == 'POST':
         user = session.query(User).filter_by(username=request.form['username']).first()
-        if user and check_password_hash(user.password, request.form['password']):
-            login_user(user)
-            session.close()
-            return redirect(url_for('index'))
-        flash('Login failed')
+        if user:
+            if not user.is_active:
+                flash('Benutzer ist noch nicht aktiviert.')
+            elif check_password_hash(user.password, request.form['password']):
+                login_user(user)
+                session.close()
+                return redirect(url_for('index'))  # Immer index, nicht next
+            else:
+                flash('Falsches Passwort.')
+        else:
+            flash('Benutzer nicht gefunden.')
     session.close()
     return render_template('login.html')
+
+def is_password_complex(password):
+    if len(password) < 8:
+        return False
+    if not re.search(r'[A-Z]', password):  # Großbuchstabe
+        return False
+    if not re.search(r'[a-z]', password):  # Kleinbuchstabe
+        return False
+    if not re.search(r'[0-9]', password):  # Ziffer
+        return False
+    if not re.search(r'[^\w\s]', password):  # Sonderzeichen
+        return False
+    return True
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -552,20 +599,27 @@ def register():
         username = request.form['username']
         password = request.form['password']
 
-        # Check if user already exists
+        # Passwort-Komplexitätsprüfung
+        if not is_password_complex(password):
+            session.close()
+            return render_template(
+                'register.html',
+                error='Passwort muss mindestens 8 Zeichen lang sein und contain Großbuchstaben, Kleinbuchstaben, Zahlen und mindestens ein Sonderzeichen beinhalten.'
+            )
+
+        # Prüfen, ob Benutzername bereits existiert
         existing_user = session.query(User).filter_by(username=username).first()
         if existing_user:
             session.close()
             return render_template('register.html', error='Username already taken.')
 
-        # Hash password
+        # Passwort hashen
         hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
-        new_user = User(username=username, password=hashed_pw)
 
-        # Check if this is the first user
+        # Prüfen, ob dies der erste Benutzer ist
         user_count = session.query(User).count()
         if user_count == 0:
-            # Try to get or create admin role
+            # Admin-Rolle holen oder erstellen
             try:
                 admin_role = session.query(Role).filter_by(name='admin').one()
             except NoResultFound:
@@ -573,9 +627,21 @@ def register():
                 session.add(admin_role)
                 session.commit()
 
-            # Assign admin role to the new user
+            # Erster Benutzer: aktiv und admin
+            new_user = User(
+                username=username,
+                password=hashed_pw,
+                is_active=True,
+                role='admin'
+            )
             new_user.roles.append(admin_role)
-            new_user.role = 'admin'  # optional if you're still using this field
+        else:
+            # Weitere Benutzer: nicht aktiv
+            new_user = User(
+                username=username,
+                password=hashed_pw,
+                is_active=False
+            )
 
         session.add(new_user)
         session.commit()
@@ -601,7 +667,6 @@ def is_valid_email(email):
 
 def column_label(table, col):
     return COLUMN_LABELS.get(f"{table}.{col}", col.replace("_id", "").replace("_", " ").capitalize())
-
 
 def load_user(user_id):
     try:
@@ -638,9 +703,6 @@ def inject_sidebar_data():
         except Exception as e:
             print(f"Unbekannter Fehler beim Laden des Users: {e}")
 
-    print(f"is_authenticated: {is_authenticated}")
-    print(f"is_admin: {is_admin}")
-
     session.close()
 
     return dict(
@@ -651,6 +713,7 @@ def inject_sidebar_data():
     )
 
 @app.route("/")
+@login_required
 def index():
     tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]
 
@@ -661,7 +724,7 @@ def index():
 
     print(wizard_routes)
 
-    return render_template("index.html", tables=tables, wizard_routes=wizard_routes)
+    return render_template("index.html", tables=tables, wizard_routes=wizard_routes, user=current_user)
 
 @app.route('/admin', methods=['GET', 'POST'])
 @login_required
@@ -669,10 +732,6 @@ def index():
 def admin_panel():
     session = Session()
 
-    users = session.query(User).all()
-    roles = session.query(Role).all()
-
-    # Hinzufügen eines neuen Benutzers
     if request.method == 'POST' and 'new_username' in request.form:
         username = request.form['new_username']
         password = request.form['new_password']
@@ -682,7 +741,7 @@ def admin_panel():
             flash('Benutzername existiert bereits.')
         else:
             hashed = generate_password_hash(password)
-            user = User(username=username, password=hashed)
+            user = User(username=username, password=hashed, is_active=False)  # NEU: standardmäßig inaktiv
             if role_id:
                 role = session.query(Role).get(int(role_id))
                 if role:
@@ -693,6 +752,10 @@ def admin_panel():
 
         session.close()
         return redirect(url_for('admin_panel'))
+
+    # WICHTIG: Rollen eager-laden, um DetachedInstanceError zu vermeiden
+    users = session.query(User).options(joinedload(User.roles)).all()
+    roles = session.query(Role).all()
 
     session.close()
     return render_template('admin_panel.html', users=users, roles=roles)
@@ -727,6 +790,11 @@ def update_user(user_id):
         session.close()
         return redirect(url_for('admin_panel'))
 
+    # Aktivieren (falls angefragt und noch nicht aktiv)
+    if 'activate_user' in request.form and not user.is_active:
+        user.is_active = True
+        flash(f"Benutzer {user.username} wurde aktiviert.")
+
     # Benutzername ändern
     new_username = request.form.get('username')
     if new_username and new_username != user.username:
@@ -750,9 +818,31 @@ def update_user(user_id):
             user.roles.append(role)
 
     session.commit()
-    flash("Benutzer aktualisiert.")
     session.close()
     return redirect(url_for('admin_panel'))
+
+from flask import jsonify
+
+@app.route('/admin/activate/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def activate_user(user_id):
+    session = Session()
+    user = session.query(User).get(user_id)
+
+    if not user:
+        session.close()
+        return jsonify(success=False, error="Benutzer nicht gefunden"), 404
+
+    if user.is_active:
+        session.close()
+        return jsonify(success=False, error="Benutzer ist bereits aktiviert"), 400
+
+    user.is_active = True
+    session.commit()
+    session.close()
+
+    return jsonify(success=True)
 
 @app.route('/favicon.ico')
 def favicon():
@@ -813,6 +903,8 @@ def get_fk_options(session, fk_columns):
     return fk_options
 
 def generate_input_field(col, value=None, row_id=None, fk_options=None, table_name=""):
+    col_after_dot = col.name
+
     try:
         input_name = f"{table_name}_{row_id or 'new'}_{col.name}"
         val = "" if value is None else html.escape(str(value))
@@ -828,19 +920,20 @@ def generate_input_field(col, value=None, row_id=None, fk_options=None, table_na
             return f'<select name="{html.escape(input_name)}" class="cell-input">{options_html}</select>', True
 
         col_type_str = str(col.type).upper()
-        if "INTEGER" in col_type_str:
-            return f'<input type="number" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
-        if "FLOAT" in col_type_str or "DECIMAL" in col_type_str or "NUMERIC" in col_type_str:
-            return f'<input type="number" step="any" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
-        if "TEXT" in col_type_str or "VARCHAR" in col_type_str or "CHAR" in col_type_str:
-            return f'<input type="text" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
-        if "DATE" in col_type_str:
-            return f'<input type="date" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
 
-        return f'<input type="text" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
+        if "INTEGER" in col_type_str:
+            return f'<input placeholder="{col_after_dot}" type="number" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
+        if "FLOAT" in col_type_str or "DECIMAL" in col_type_str or "NUMERIC" in col_type_str:
+            return f'<input placeholder="{col_after_dot}" type="number" step="any" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
+        if "TEXT" in col_type_str or "VARCHAR" in col_type_str or "CHAR" in col_type_str:
+            return f'<input placeholder="{col_after_dot}" type="text" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
+        if "DATE" in col_type_str:
+            return f'<input placeholder="{col_after_dot}" type="date" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
+
+        return f'<input placeholder="{col_after_dot}" type="text" name="{html.escape(input_name)}" value="{val}" class="cell-input">', True
     except Exception as e:
         app.logger.error(f"Fehler beim Generieren des Input-Feldes für Spalte {col.name}: {e}")
-        return f'<input type="text" name="{html.escape(input_name)}" value="" class="cell-input">', True
+        return f'<input placeholder="{col_after_dot}" type="text" name="{html.escape(input_name)}" value="" class="cell-input">', True
 
 def get_column_label(table_name, column_name):
     # Hier deine Logik für die Label-Erzeugung
@@ -940,6 +1033,7 @@ def load_static_file(path):
         return ""
 
 @app.route("/table/<table_name>")
+@login_required
 def table_view(table_name):
     if table_name in ["role", "user"]:
         abort(404, description="Tabelle darf nicht angezeigt werden")
@@ -976,6 +1070,7 @@ def table_view(table_name):
     )
 
 @app.route("/add/<table_name>", methods=["POST"])
+@login_required
 def add_entry(table_name):
     session = Session()
     cls = next((c for c in Base.__subclasses__() if c.__tablename__ == table_name), None)
@@ -998,16 +1093,23 @@ def add_entry(table_name):
                 setattr(obj, field, datetime.datetime.fromisoformat(val))
             else:
                 setattr(obj, field, val)
+
         session.add(obj)
         session.commit()
         session.close()
         return jsonify(success=True)
+    except IntegrityError as e:
+        session.rollback()
+        session.close()
+        # Du kannst die Fehlermeldung hier anpassen, z.B. auf Deutsch:
+        return jsonify(success=False, error="Ein Eintrag mit diesen Werten existiert bereits oder eine Einschränkung wurde verletzt.")
     except Exception as e:
         session.rollback()
         session.close()
         return jsonify(success=False, error=str(e))
 
 @app.route("/update/<table_name>", methods=["POST"])
+@login_required
 def update_entry(table_name):
     session = Session()
     cls = next((c for c in Base.__subclasses__() if c.__tablename__ == table_name), None)
@@ -1047,6 +1149,7 @@ def update_entry(table_name):
         return jsonify(success=False, error=str(e))
 
 @app.route("/delete/<table_name>", methods=["POST"])
+@login_required
 def delete_entry(table_name):
     session = Session()
     cls = next((c for c in Base.__subclasses__() if c.__tablename__ == table_name), None)
@@ -1084,13 +1187,91 @@ def delete_entry(table_name):
         session.close()
         return jsonify(success=False, error=str(e))
 
+@app.route("/aggregate/inventory")
+@login_required
+def aggregate_inventory_view():
+    session = None
+    try:
+        session = Session()
 
-@app.route("/aggregate/")
-def aggregate_index():
-    return render_template("aggregate_index.html")  # Optional – nur als Startseite für Aggregates
+        # Query-Parameter auslesen
+        show_only_unreturned = request.args.get("unreturned") == "1"
+        owner_filter = request.args.get("owner", type=int)
+        issuer_filter = request.args.get("issuer", type=int)
+
+        # Grundquery mit Joins
+        query = session.query(Inventory) \
+            .options(
+                joinedload(Inventory.owner),
+                joinedload(Inventory.issuer),
+                joinedload(Inventory.object).joinedload(Object.category),
+                joinedload(Inventory.kostenstelle),
+                joinedload(Inventory.abteilung),
+                joinedload(Inventory.professorship),
+                joinedload(Inventory.room)
+            )
+
+        # Filter anwenden
+        if show_only_unreturned:
+            query = query.filter(Inventory.return_date.is_(None))
+
+        if owner_filter:
+            query = query.filter(Inventory.owner_id == owner_filter)
+
+        if issuer_filter:
+            query = query.filter(Inventory.issuer_id == issuer_filter)
+
+        inventory_list = query.all()
+
+        rows = []
+        for inv in inventory_list:
+            row = {
+                "ID": inv.id,
+                "Seriennummer": inv.serial_number or "-",
+                "Objekt": inv.object.name if inv.object else "-",
+                "Kategorie": _get_category_name(inv.object.category) if inv.object else "-",
+                "Anlagennummer": inv.anlagennummer or "-",
+                "Ausgegeben an": _get_person_name(inv.owner),
+                "Ausgegeben durch": _get_person_name(inv.issuer),
+                "Ausgabedatum": inv.got_date.isoformat() if inv.got_date else "-",
+                "Rückgabedatum": inv.return_date.isoformat() if inv.return_date else "Nicht zurückgegeben",
+                "Raum": _create_room_name(inv.room),
+                "Abteilung": _get_abteilung_name(inv.abteilung),
+                "Professur": _get_professorship_name(inv.professorship),
+                "Kostenstelle": _get_kostenstelle_name(inv.kostenstelle),
+                "Preis": f"{inv.price:.2f} €" if inv.price is not None else "-",
+                "Kommentar": inv.comment or "-"
+            }
+            rows.append(row)
+
+        people_query = session.query(Person).order_by(Person.last_name, Person.first_name).all()
+        people = [{"id": p.id, "name": f"{p.first_name} {p.last_name}"} for p in people_query]
+
+        column_labels = list(rows[0].keys()) if rows else []
+        row_data = [[escape(str(row[col])) for col in column_labels] for row in rows]
+
+        session.close()
+        return render_template(
+            "aggregate_view.html",
+            title="Inventarübersicht",
+            column_labels=column_labels,
+            row_data=row_data,
+            filters={
+                "unreturned": show_only_unreturned,
+                "owner": owner_filter,
+                "issuer": issuer_filter,
+            },
+            people=people,
+            url_for_view=url_for("aggregate_inventory_view")
+        )
+    except Exception as e:
+        app.logger.error(f"Fehler beim Laden der Inventar-Aggregatsansicht: {e}")
+        session.close()
+        return render_template("error.html", message="Fehler beim Laden der Daten.")
 
 
 @app.route("/aggregate/transponder")
+@login_required
 def aggregate_transponder_view():
     session = Session()
 
@@ -1151,13 +1332,11 @@ def aggregate_transponder_view():
         column_labels = list(rows[0].keys()) if rows else []
         column_labels.append("PDF")
 
-
         row_data = [
             [html.escape(str(row[col])) for col in column_labels if col != "PDF"] +
             [f"<a href='http://localhost:5000/generate_pdf/schliessmedien/?issuer_id={issuer.id if issuer else ''}&owner_id={owner.id if owner else ''}&transponder_id={t.id}'><img src='../static/pdf.svg' height=32 width=32></a>"]
             for t, row, owner, issuer in [(t, row, t.owner, t.issuer) for t, row in zip(transponder_list, rows)]
         ]
-
 
         # Filter-Dict zum dynamischen Befüllen des Formulars und Anzeige des Status
         filters = {
@@ -1187,88 +1366,62 @@ def aggregate_transponder_view():
         session.close()
         return render_template("error.html", message="Fehler beim Laden der Daten.")
 
-@app.route("/aggregate/inventory")
-def aggregate_inventory_view():
+@app.route("/aggregate/persons")
+@login_required
+def aggregate_persons_view():
     session = None
     try:
         session = Session()
 
-        # Query-Parameter auslesen
-        show_only_unreturned = request.args.get("unreturned") == "1"
-        owner_filter = request.args.get("owner", type=int)
-        issuer_filter = request.args.get("issuer", type=int)
+        person_id_filter = request.args.get("person_id", type=int)
 
-        # Grundquery mit Joins
-        query = session.query(Inventory) \
+        people_query = session.query(Person) \
             .options(
-                joinedload(Inventory.owner),
-                joinedload(Inventory.issuer),
-                joinedload(Inventory.object).joinedload(Object.category),
-                joinedload(Inventory.kostenstelle),
-                joinedload(Inventory.abteilung),
-                joinedload(Inventory.professorship),
-                joinedload(Inventory.room)
+                joinedload(Person.contacts),
+                joinedload(Person.rooms).joinedload(PersonToRoom.room).joinedload(Room.building),
+                joinedload(Person.departments),
+                joinedload(Person.person_abteilungen).joinedload(PersonToAbteilung.abteilung),
+                joinedload(Person.transponders_issued),
+                joinedload(Person.transponders_owned)
             )
 
-        # Filter anwenden
-        if show_only_unreturned:
-            query = query.filter(Inventory.return_date.is_(None))
+        if person_id_filter:
+            people_query = people_query.filter(Person.id == person_id_filter)
 
-        if owner_filter:
-            query = query.filter(Inventory.owner_id == owner_filter)
-
-        if issuer_filter:
-            query = query.filter(Inventory.issuer_id == issuer_filter)
-
-        inventory_list = query.all()
-
-        # Hilfsfunktionen
-        def person_name(p):
-            if p:
-                return f"{p.first_name} {p.last_name}"
-            return "Unbekannt"
-
-        def category_name(c):
-            return c.name if c else "-"
-
-        def kostenstelle_name(k):
-            return k.name if k else "-"
-
-        def abteilung_name(a):
-            return a.name if a else "-"
-
-        def professorship_name(pf):
-            return pf.name if pf else "-"
-
-        def room_name(r):
-            if r:
-                floor_str = f"{r.floor}.OG" if r.floor is not None else "?"
-                return f"{r.name} ({floor_str})"
-            return "-"
+        people = people_query.all()
 
         rows = []
-        for inv in inventory_list:
+        for p in people:
+            full_name = f"{p.title or ''} {p.first_name} {p.last_name}".strip()
+
+            phones = sorted({c.phone for c in p.contacts if c.phone})
+            faxes = sorted({c.fax for c in p.contacts if c.fax})
+            emails = sorted({c.email for c in p.contacts if c.email})
+
+            rooms = [link.room for link in p.rooms if link.room]
+            room_strs = sorted(set(
+                f"{r.name} ({r.floor}.OG, {r.building.name if r.building else '?'})"
+                for r in rooms
+            ))
+
+            abteilungen_leiter = {a.name for a in p.departments}
+            abteilungen_mitglied = {pta.abteilung.name for pta in p.person_abteilungen}
+            alle_abteilungen = sorted(abteilungen_leiter | abteilungen_mitglied)
+
             row = {
-                "ID": inv.id,
-                "Seriennummer": inv.serial_number or "-",
-                "Objekt": inv.object.name if inv.object else "-",
-                "Kategorie": category_name(inv.object.category) if inv.object else "-",
-                "Anlagennummer": inv.anlagennummer or "-",
-                "Ausgegeben an": person_name(inv.owner),
-                "Ausgegeben durch": person_name(inv.issuer),
-                "Ausgabedatum": inv.got_date.isoformat() if inv.got_date else "-",
-                "Rückgabedatum": inv.return_date.isoformat() if inv.return_date else "Nicht zurückgegeben",
-                "Raum": room_name(inv.room),
-                "Abteilung": abteilung_name(inv.abteilung),
-                "Professur": professorship_name(inv.professorship),
-                "Kostenstelle": kostenstelle_name(inv.kostenstelle),
-                "Preis": f"{inv.price:.2f} €" if inv.price is not None else "-",
-                "Kommentar": inv.comment or "-"
+                "ID": p.id,
+                "Name": full_name,
+                "Telefon(e)": ", ".join(phones) if phones else "-",
+                "Fax(e)": ", ".join(faxes) if faxes else "-",
+                "E-Mail(s)": ", ".join(emails) if emails else "-",
+                "Räume": ", ".join(room_strs) if room_strs else "-",
+                "Abteilungen": ", ".join(alle_abteilungen) if alle_abteilungen else "-",
+                "Leiter von": ", ".join(sorted(abteilungen_leiter)) if abteilungen_leiter else "-",
+                "Ausgegebene Transponder": str(len(p.transponders_issued)),
+                "Erhaltene Transponder": str(len(p.transponders_owned)),
+                "Kommentar": p.comment or "-"
             }
             rows.append(row)
-
-        people_query = session.query(Person).order_by(Person.last_name, Person.first_name).all()
-        people = [{"id": p.id, "name": f"{p.first_name} {p.last_name}"} for p in people_query]
 
         column_labels = list(rows[0].keys()) if rows else []
         row_data = [[escape(str(row[col])) for col in column_labels] for row in rows]
@@ -1276,23 +1429,47 @@ def aggregate_inventory_view():
         session.close()
         return render_template(
             "aggregate_view.html",
-            title="Inventarübersicht",
+            title="Personenübersicht",
             column_labels=column_labels,
             row_data=row_data,
             filters={
-                "unreturned": show_only_unreturned,
-                "owner": owner_filter,
-                "issuer": issuer_filter,
+                "person_id": person_id_filter
             },
-            people=people,
-            url_for_view=url_for("aggregate_inventory_view")
+            url_for_view=url_for("aggregate_persons_view")
         )
+
     except Exception as e:
-        app.logger.error(f"Fehler beim Laden der Inventar-Aggregatsansicht: {e}")
-        session.close()
+        app.logger.error(f"Fehler beim Laden der Personen-Aggregatsansicht: {e}")
+        if session:
+            session.close()
         return render_template("error.html", message="Fehler beim Laden der Daten.")
 
+def _create_room_name(r):
+    if r:
+        floor_str = f"{r.floor}.OG" if r.floor is not None else "?"
+        return f"{r.name} ({floor_str})"
+    return "-"
+
+def _get_professorship_name(pf):
+    return pf.name if pf else "-"
+
+def _get_abteilung_name(a):
+    return a.name if a else "-"
+
+def _get_kostenstelle_name(k):
+    return k.name if k else "-"
+
+def _get_person_name(p):
+    if p:
+        return f"{p.first_name} {p.last_name}"
+    return "Unbekannt"
+
+def _get_category_name(c):
+    return c.name if c else "-"
+
+
 @app.route("/wizard/person", methods=["GET", "POST"])
+@login_required
 def wizard_person():
     session = Session()
     error = None
@@ -1399,6 +1576,7 @@ def wizard_person():
     return render_template("person_wizard.html", success=success, error=error, form_data=form_data)
 
 @app.route("/map-editor")
+@login_required
 def map_editor():
     session = Session()
 
@@ -1494,6 +1672,7 @@ def map_editor():
     )
 
 @app.route("/wizard/<wizard_name>", methods=["GET", "POST"])
+@login_required
 def run_wizard(wizard_name):
     allowed = set(WIZARDS.keys())
 
@@ -1634,7 +1813,6 @@ def get_abteilung_metadata(abteilung_id: int) -> dict:
         session.close()
         return {"error": str(e)}
 
-
 def generate_fields_for_schluesselausgabe_from_metadata(
     issuer: dict,
     owner: dict,
@@ -1754,7 +1932,6 @@ def generate_fields_for_schluesselausgabe_from_metadata(
         data[name] = value
 
     return data
-
 
 def get_transponder_metadata(transponder_id: int) -> dict:
     session = Session()
@@ -1938,6 +2115,7 @@ def fill_pdf_form(template_path, data_dict):
     return output_io
 
 @app.route('/generate_pdf/schliessmedien/')
+@login_required
 def generate_pdf():
     TEMPLATE_PATH = 'pdfs/ausgabe_schliessmedien.pdf'
 
@@ -1990,8 +2168,8 @@ def generate_pdf():
         download_name='ausgabe_schliessmedien_filled.pdf'
     )
 
-
 @app.route("/transponder", methods=["GET"])
+@login_required
 def transponder_form():
     session = Session()
     persons = session.query(Person).order_by(Person.last_name).all()
@@ -2008,6 +2186,7 @@ def transponder_form():
     )
 
 @app.route("/transponder/ausgabe", methods=["POST"])
+@login_required
 def transponder_ausgabe():
     person_id = request.form.get("person_id")
     transponder_id = request.form.get("transponder_id")
@@ -2029,6 +2208,7 @@ def transponder_ausgabe():
     return redirect(url_for("transponder.transponder_form"))
 
 @app.route("/transponder/rueckgabe", methods=["POST"])
+@login_required
 def transponder_rueckgabe():
     transponder_id = request.form.get("transponder_id")
     return_date_str = request.form.get("return_date")
@@ -2049,6 +2229,7 @@ def transponder_rueckgabe():
     return redirect(url_for("transponder.transponder_form"))
 
 @app.route("/user_edit/<handler_name>", methods=["GET", "POST"])
+@login_required
 def gui_edit(handler_name):
     handler, error = get_handler_instance(handler_name)
     if error:
@@ -2109,6 +2290,7 @@ def gui_edit(handler_name):
         handler.session.close()
 
 @app.route('/floorplan')
+@login_required
 def floorplan():
     session = Session()
 
@@ -2197,6 +2379,7 @@ def floorplan():
     )
 
 @app.route("/api/save_or_update_room", methods=["POST"])
+@login_required
 def save_or_update_room():
     session = Session()
     data = request.get_json()
@@ -2223,8 +2406,7 @@ def save_or_update_room():
             _save_room_set_layout(session, room, validated)
             session.commit()
 
-            session.close()
-            return jsonify({
+            ret = jsonify({
                 "status": "success",
                 "room_id": room.id,
                 "room_name": room.name,
@@ -2236,7 +2418,11 @@ def save_or_update_room():
                     "width": validated["width"],
                     "height": validated["height"]
                 }
-            }), 200
+            })
+
+            session.close()
+
+            return ret, 200
 
         except IntegrityError as e:
             session.rollback()
@@ -2339,6 +2525,7 @@ def _save_room_set_layout(session, room, v):
         session.add(layout)
 
 @app.route("/get_floorplan", methods=["GET"])
+@login_required
 def get_floorplan():
     session = Session()
 
@@ -2389,6 +2576,7 @@ def get_floorplan():
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/delete_room", methods=["POST"])
+@login_required
 def delete_room():
     data = request.get_json()
 
@@ -2429,6 +2617,7 @@ def delete_room():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/add_or_update_person', methods=['POST'])
+@login_required
 def add_or_update_person():
     data = request.json
     vorname = data.get('vorname')
@@ -2455,6 +2644,7 @@ def add_or_update_person():
     return jsonify({'message': 'Person gespeichert'}), 200
 
 @app.route("/api/add_person", methods=["POST"])
+@login_required
 def add_person():
     data = request.get_json()
     required_fields = ["first_name", "last_name", "title", "comment", "image_url"]
@@ -2501,9 +2691,8 @@ def add_person():
         session.close()
         return jsonify({"error": str(e)}), 500
 
-
-
 @app.route("/api/save_person_to_room", methods=["POST"])
+@login_required
 def save_person_to_room():
     session = Session()
 
@@ -2666,8 +2855,11 @@ def get_room_id():
             session.add(room)
             session.commit()
 
+        ret = jsonify({"room_id": room.id})
+
         session.close()
-        return jsonify({"room_id": room.id})
+
+        return ret
 
     except SQLAlchemyError as e:
         # Optionale Logging-Ausgabe
@@ -2720,6 +2912,7 @@ def schema():
     return send_file('/tmp/schema.png', mimetype='image/png')
 
 @app.route('/api/get_person_names', methods=['GET'])
+@login_required
 def get_person_names():
     session = Session()
     result = get_names(session, Person, Person.id, [Person.first_name, Person.last_name])
@@ -2727,6 +2920,7 @@ def get_person_names():
     return jsonify(result)
 
 @app.route('/api/get_kostenstelle_names', methods=['GET'])
+@login_required
 def get_kostenstelle_names():
     session = Session()
     result = get_names(session, Kostenstelle, Kostenstelle.id, [Kostenstelle.name])
@@ -2734,6 +2928,7 @@ def get_kostenstelle_names():
     return jsonify(result)
 
 @app.route('/api/get_abteilung_names', methods=['GET'])
+@login_required
 def get_abteilung_names():
     session = Session()
     result = get_names(session, Abteilung, Abteilung.id, [Abteilung.name])
@@ -2741,6 +2936,7 @@ def get_abteilung_names():
     return jsonify(result)
 
 @app.route('/api/get_professorship_names', methods=['GET'])
+@login_required
 def get_professorship_names():
     session = Session()
     result = get_names(session, Professorship, Professorship.id, [Professorship.name])
@@ -2748,6 +2944,7 @@ def get_professorship_names():
     return jsonify(result)
 
 @app.route('/api/get_category_names', methods=['GET'])
+@login_required
 def get_category_names():
     session = Session()
     result = get_names(session, ObjectCategory, ObjectCategory.id, [ObjectCategory.name])
@@ -2755,12 +2952,12 @@ def get_category_names():
     return jsonify(result)
 
 @app.route('/api/get_object_names', methods=['GET'])
+@login_required
 def get_object_names():
     session = Session()
     result = get_names(session, Object, Object.id, [Object.name])
     session.close()
     return jsonify(result)
-
 
 @app.route('/db_info')
 @login_required
@@ -2812,126 +3009,8 @@ def db_info():
 
     return render_template('db_info.html', tables=tables, mermaid=mermaid)
 
-
-
-@app.route("/data_overview", methods=["GET"])
-def data_overview():
-    session: Session = Session()
-    try:
-        # Benutzer pro Rolle
-        users_by_role_raw = (
-            session.query(Role.name, func.count(User.id))
-            .join(Role.users)
-            .group_by(Role.name)
-            .all()
-        )
-        users_by_role: Dict[str, int] = {
-            role: count for role, count in users_by_role_raw
-        }
-
-        # Personen pro Raum
-        persons_by_room_raw = (
-            session.query(Room.name, func.count(PersonToRoom.person_id))
-            .join(PersonToRoom, PersonToRoom.room_id == Room.id)
-            .group_by(Room.name)
-            .all()
-        )
-        persons_by_room: Dict[str, int] = {
-            room: count for room, count in persons_by_room_raw
-        }
-
-        # Inventarobjekte nach Kategorie
-        inventory_by_category_raw = (
-            session.query(ObjectCategory.name, func.count(Inventory.id))
-            .join(Object, Object.category_id == ObjectCategory.id)
-            .join(Inventory, Inventory.object_id == Object.id)
-            .group_by(ObjectCategory.name)
-            .all()
-        )
-        inventory_by_category: Dict[str, int] = {
-            category: count for category, count in inventory_by_category_raw
-        }
-
-        # Personen pro Abteilung
-        persons_by_abteilung_raw = (
-            session.query(Abteilung.name, func.count(PersonToAbteilung.person_id))
-            .join(PersonToAbteilung, PersonToAbteilung.abteilung_id == Abteilung.id)
-            .group_by(Abteilung.name)
-            .all()
-        )
-        persons_by_abteilung: Dict[str, int] = {
-            abteilung: count for abteilung, count in persons_by_abteilung_raw
-        }
-
-        # Personen pro Professur
-        persons_by_professorship_raw = (
-            session.query(Professorship.name, func.count(ProfessorshipToPerson.person_id))
-            .join(ProfessorshipToPerson, ProfessorshipToPerson.professorship_id == Professorship.id)
-            .group_by(Professorship.name)
-            .all()
-        )
-        persons_by_professorship: Dict[str, int] = {
-            professorship: count for professorship, count in persons_by_professorship_raw
-        }
-
-        # Räume pro Gebäude
-        rooms_by_building_raw = (
-            session.query(Building.name, func.count(Room.id))
-            .join(Room, Room.building_id == Building.id)
-            .group_by(Building.name)
-            .all()
-        )
-        rooms_by_building: Dict[str, int] = {
-            building: count for building, count in rooms_by_building_raw
-        }
-
-        # Raumverteilung pro Etage
-        floor_distribution_raw = (
-            session.query(Room.floor, func.count(Room.id))
-            .group_by(Room.floor)
-            .all()
-        )
-        floor_distribution: Dict[str, int] = {
-            str(floor): count for floor, count in floor_distribution_raw
-        }
-
-        # Kontakte pro Person
-        contacts_per_person_raw = (
-            session.query(Person.id, func.count(PersonContact.id))
-            .join(PersonContact, PersonContact.person_id == Person.id)
-            .group_by(Person.id)
-            .all()
-        )
-        contacts_per_person: Dict[str, int] = {
-            f"Person #{pid}": count for pid, count in contacts_per_person_raw
-        }
-
-        # Wie viele Personen sind Abteilungsleiter?
-        abteilungsleiter_count = (
-            session.query(func.count(Abteilung.abteilungsleiter_id.distinct()))
-            .filter(Abteilung.abteilungsleiter_id != None)
-            .scalar()
-        )
-
-        return jsonify({
-            "users_by_role": users_by_role,
-            "persons_by_room": persons_by_room,
-            "inventory_by_category": inventory_by_category,
-            "persons_by_abteilung": persons_by_abteilung,
-            "persons_by_professorship": persons_by_professorship,
-            "rooms_by_building": rooms_by_building,
-            "floor_distribution": floor_distribution,
-            "contacts_per_person": contacts_per_person,
-            "abteilungsleiter_count": abteilungsleiter_count
-        })
-
-    except Exception as e:
-        print(f"❌ Fehler in /data_overview: {e}")
-        return jsonify({"error": "Interner Serverfehler"}), 500
-    finally:
-        session.close()
-
 @app.route("/api/get_person_room_data", methods=["GET"])
+@login_required
 def get_person_room_data():
     session = None
     try:
@@ -3009,6 +3088,74 @@ def get_person_room_data():
             session.close()
         print(f"❌ Fehler in /api/get_person_room_data: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
+@app.route('/search')
+@login_required
+def search():
+    session = Session()
+
+    query = request.args.get('q', '').lower().strip()
+    results = []
+
+    wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
+    wizard_routes.append("/wizard/person")
+    wizard_routes = sorted(set(wizard_routes))
+
+    for route in wizard_routes:
+        label = route.replace('/wizard/', '').capitalize()
+        if query in label.lower():
+            results.append({
+                'label': f'🧙 {label}',
+                'url': route
+            })
+
+    if 'inventar'.startswith(query):
+        results.append({'label': '📦 Inventar', 'url': url_for('aggregate_inventory_view')})
+    if 'transponder'.startswith(query):
+        results.append({'label': '📦 Transponder', 'url': url_for('aggregate_transponder_view')})
+    if 'person'.startswith(query):
+        results.append({'label': '📦 Person', 'url': url_for('aggregate_person_view')})
+
+    # 🔍 Personensuche nach Name, Email, Telefon, Fax
+    people = session.query(Person).options(joinedload(Person.contacts)).all()
+    for person in people:
+        full_name = f"{person.title or ''} {person.first_name} {person.last_name}".strip().lower()
+        matched = False
+
+        if query in full_name:
+            matched = True
+        else:
+            for contact in person.contacts:
+                if any(query in (getattr(contact, attr) or '').lower() for attr in ['email', 'phone', 'fax']):
+                    matched = True
+                    break
+
+        if matched:
+            results.append({
+                'label': f'👤 {person.first_name} {person.last_name}',
+                'url': url_for('aggregate_persons_view', person_id=person.id)
+            })
+
+    # Admin-Zeug
+    if is_admin_user(session):
+        tables = [cls.__tablename__ for cls in Base.__subclasses__() if cls.__tablename__ not in ["role", "user"]]
+        for table in tables:
+            if query in table.lower():
+                results.append({
+                    'label': f'📋 {table.capitalize()}',
+                    'url': url_for('table_view', table_name=table)
+                })
+        if 'map-editor'.startswith(query):
+            results.append({'label': '🗺️ Map-Editor', 'url': '/map-editor'})
+
+    if 'floorplan'.startswith(query):
+        results.append({'label': '🗺️ Floorplan', 'url': '/floorplan'})
+
+    session.close()
+    return jsonify(results)
 
 if __name__ == "__main__":
     insert_tu_dresden_buildings()

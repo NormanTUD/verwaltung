@@ -1,109 +1,136 @@
 {% extends "layout.html" %}
 {% block title %}Person erstellen{% endblock %}
 {% block content %}
-    <h1>Person anlegen</h1>
-    <form method="post" id="person-form">
-        <div class="mb-3">
-            <label for="title" class="form-label">Titel</label>
-            <input type="text" class="form-control" id="title" name="title"
-                   value="{{ form_data.title | default('') }}">
-        </div>
-        <div class="mb-3">
-            <label for="first_name" class="form-label">Vorname *</label>
-            <input type="text" class="form-control" id="first_name" name="first_name" required
-                   value="{{ form_data.first_name | default('') }}">
-        </div>
-        <div class="mb-3">
-            <label for="last_name" class="form-label">Nachname *</label>
-            <input type="text" class="form-control" id="last_name" name="last_name" required
-                   value="{{ form_data.last_name | default('') }}">
-        </div>
-        <div class="mb-3">
-            <label for="comment" class="form-label">Kommentar</label>
-            <textarea class="form-control" id="comment" name="comment">{{ form_data.comment | default('') }}</textarea>
-        </div>
-        <div class="mb-3">
-            <label for="image_url" class="form-label">Bild URL</label>
-            <input type="url" class="form-control" id="image_url" name="image_url"
-                   value="{{ form_data.image_url | default('') }}">
-        </div>
-        <hr />
-        <h3>Kontakte (Emails, Telefon, Fax, Kommentar)</h3>
-        <div id="contacts-container"></div>
-        <button type="button" class="btn btn-secondary mb-3" id="add-contact-btn">+ Kontakt hinzufügen</button>
-        <hr />
-        <button type="submit" class="btn btn-primary">Person speichern</button>
-    </form>
+<h1>Person anlegen</h1>
+<form method="post" id="person-form">
+  <table class="table" style="width: 100%; table-layout: fixed;">
+    <tbody>
+      <tr>
+        <td style="width: 15%;">
+          <label for="title" class="form-label">Titel</label>
+        </td>
+        <td style="width: 35%;">
+          <input type="text" class="form-control" id="title" name="title"
+                 placeholder="Titel eingeben"
+                 value="{{ form_data.title | default('') }}">
+        </td>
+        <td style="width: 15%;">
+          <label for="first_name" class="form-label">Vorname *</label>
+        </td>
+        <td style="width: 35%;">
+          <input type="text" class="form-control" id="first_name" name="first_name" required
+                 placeholder="Vorname eingeben"
+                 value="{{ form_data.first_name | default('') }}">
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <label for="last_name" class="form-label">Nachname *</label>
+        </td>
+        <td>
+          <input type="text" class="form-control" id="last_name" name="last_name" required
+                 placeholder="Nachname eingeben"
+                 value="{{ form_data.last_name | default('') }}">
+        </td>
+        <td>
+          <label for="image_url" class="form-label">Bild URL</label>
+        </td>
+        <td>
+          <input type="url" class="form-control" id="image_url" name="image_url"
+                 placeholder="https://example.com/bild.jpg"
+                 value="{{ form_data.image_url | default('') }}">
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <label for="comment" class="form-label">Kommentar</label>
+        </td>
+        <td colspan="3">
+          <textarea class="form-control" id="comment" name="comment" placeholder="Kommentar eingeben" style="width: 100%;">{{ form_data.comment | default('') }}</textarea>
+        </td>
+      </tr>
+    </tbody>
+  </table>
 
-    <script src="../static/jquery.min.js"></script>
-    <script src="../static/toastr.min.js"></script>
-    <script>
-        function createContactRow(data = {}) {
-            return $(`
-                <div class="contact-row">
-                    <div class="mb-2">
-                        <label>Email:</label>
-                        <input type="email" name="email[]" class="form-control" placeholder="Email"
-                               value="${data.email || ''}">
-                    </div>
-                    <div class="mb-2">
-                        <label>Telefon:</label>
-                        <input type="text" name="phone[]" class="form-control" placeholder="Telefon"
-                               value="${data.phone || ''}">
-                    </div>
-                    <div class="mb-2">
-                        <label>Fax:</label>
-                        <input type="text" name="fax[]" class="form-control" placeholder="Fax"
-                               value="${data.fax || ''}">
-                    </div>
-                    <div class="mb-2">
-                        <label>Kommentar:</label>
-                        <input type="text" name="contact_comment[]" class="form-control" placeholder="Kommentar"
-                               value="${data.comment || ''}">
-                    </div>
-                    <button type="button" class="btn btn-danger btn-sm remove-contact-btn">Entfernen</button>
-                </div>
-            `);
-        }
+  <hr />
+  <h3>Kontakte (Emails, Telefon, Fax, Kommentar)</h3>
+  <div id="contacts-container"></div>
+  <button type="button" class="btn btn-secondary mb-3" id="add-contact-btn">+ Kontakt hinzufügen</button>
+  <hr />
+  <button type="submit" class="btn btn-primary save-new">Person speichern</button>
+</form>
 
-        $(document).ready(function () {
-            $('#add-contact-btn').on('click', function () {
-                $('#contacts-container').append(createContactRow());
-            });
+<script src="/static/jquery.min.js"></script>
+<script src="/static/toastr.min.js"></script>
+<script>
+	function createContactRow(data = {}) {
+		return $(`
+		<div class="contact-row">
+		    <div class="mb-2">
+			<label>Email:</label>
+			<input type="email" name="email[]" class="form-control" placeholder="Email"
+			       value="${data.email || ''}">
+		    </div>
+		    <div class="mb-2">
+			<label>Telefon:</label>
+			<input type="text" name="phone[]" class="form-control" placeholder="Telefon"
+			       value="${data.phone || ''}">
+		    </div>
+		    <div class="mb-2">
+			<label>Fax:</label>
+			<input type="text" name="fax[]" class="form-control" placeholder="Fax"
+			       value="${data.fax || ''}">
+		    </div>
+		    <div class="mb-2">
+			<label>Kommentar:</label>
+			<input type="text" name="contact_comment[]" class="form-control" placeholder="Kommentar"
+			       value="${data.comment || ''}">
+		    </div>
+		    <button type="button" class="btn btn-danger btn-sm remove-contact-btn delete-entry">Entfernen</button>
+		</div>
+	    `);
+	}
 
-            $('#contacts-container').on('click', '.remove-contact-btn', function () {
-                $(this).closest('.contact-row').remove();
-            });
+	$(document).ready(function () {
+		$('#add-contact-btn').on('click', function () {
+			$('#contacts-container').append(createContactRow());
 
-            toastr.options = {
-                closeButton: true,
-                progressBar: true,
-                positionClass: "toast-top-right",
-                timeOut: "5000"
-            };
+			applyInvertFilterToElements(theme);
+		});
 
-            const success = {{ success | tojson }};
-            const error = {{ error | tojson }};
-            const formData = {{ form_data | tojson }};
+		$('#contacts-container').on('click', '.remove-contact-btn', function () {
+			$(this).closest('.contact-row').remove();
+		});
 
-            if (success) {
-                toastr.success("Person erfolgreich gespeichert.");
-                $('#person-form')[0].reset();
-                $('#contacts-container').empty().append(createContactRow());
-            } else {
-                if (error) {
-                    toastr.error("Fehler: " + error);
-                }
+		toastr.options = {
+			closeButton: true,
+			progressBar: true,
+			positionClass: "toast-top-right",
+			timeOut: "5000"
+		};
 
-                if (formData.contacts && formData.contacts.length > 0) {
-                    $('#contacts-container').empty();
-                    formData.contacts.forEach(contact => {
-                        $('#contacts-container').append(createContactRow(contact));
-                    });
-                } else {
-                    $('#contacts-container').append(createContactRow());
-                }
-            }
-        });
-    </script>
+		const success = {{ success | tojson }};
+		const error = {{ error | tojson }};
+		const formData = {{ form_data | tojson }};
+
+		if (success) {
+			toastr.success("Person erfolgreich gespeichert.");
+			$('#person-form')[0].reset();
+			$('#contacts-container').empty().append(createContactRow());
+		} else {
+			if (error) {
+				toastr.error("Fehler: " + error);
+			}
+
+			if (formData.contacts && formData.contacts.length > 0) {
+				$('#contacts-container').empty();
+				formData.contacts.forEach(contact => {
+					$('#contacts-container').append(createContactRow(contact));
+				});
+			} else {
+				$('#contacts-container').append(createContactRow());
+			}
+		}
+	});
+</script>
 {% endblock %}

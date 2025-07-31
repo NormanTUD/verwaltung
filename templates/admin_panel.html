@@ -1,59 +1,118 @@
 {% extends "layout.html" %}
 {% block title %}Aggregat{% endblock %}
 {% block content %}
-		<h1>Admin Panel</h1>
+<h1>Admin Panel</h1>
 
-		<h2>Benutzerliste</h2>
-		<table>
-			<tr>
-				<th>ID</th>
-				<th>Username</th>
-				<th>Rollen</th>
-				<th>Passwort</th>
-				<th>Ändern</th>
-				<th>Löschen</th>
-			</tr>
-			{% for user in users %}
-			<tr>
-				<form action="{{ url_for('update_user', user_id=user.id) }}" method="post">
-					<td>{{ user.id }}</td>
-					<td>
-						<input name="username" value="{{ user.username }}">
-					</td>
-					<td>
-						<select name="role_id">
-							<option value="">Keine</option>
-							{% for role in roles %}
-							<option value="{{ role.id }}" {% if role in user.roles %}selected{% endif %}>{{ role.name }}</option>
-							{% endfor %}
-						</select>
-					</td>
-					<td>
-						<input type="password" name="new_password" placeholder="Neues Passwort">
-					</td>
-					<td class="actions">
-						<button type="submit">Ändern</button>
-					</td>
-					<td class="actions">
-						<a href="{{ url_for('delete_user', user_id=user.id) }}" onclick="return confirm('Wirklich löschen?')">Löschen</a>
-					</td>
-				</form>
-			</tr>
-			{% endfor %}
-		</table>
-
-		<h2>Neuen Benutzer hinzufügen</h2>
-		<div class="add-user-form">
-			<form method="post">
-				<input type="text" name="new_username" placeholder="Benutzername" required>
-				<input type="password" name="new_password" placeholder="Passwort" required>
-				<select name="new_role">
-					<option value="">Keine Rolle</option>
+<h2>Benutzerliste</h2>
+<table>
+	<tr>
+		<th>ID</th>
+		<th>Username</th>
+		<th>Rollen</th>
+		<th>Passwort</th>
+		<th>Aktivieren</th>
+		<th>Ändern</th>
+		<th>Löschen</th>
+	</tr>
+	{% for user in users %}
+	<tr>
+		<form action="{{ url_for('update_user', user_id=user.id) }}" method="post">
+			<td>{{ user.id }}</td>
+			<td>
+				<input class="form-control" name="username" value="{{ user.username }}">
+			</td>
+			<td>
+				<select name="role_id">
+					<option value="">Keine</option>
 					{% for role in roles %}
-					<option value="{{ role.id }}">{{ role.name }}</option>
+					<option value="{{ role.id }}" {% if role in user.roles %}selected{% endif %}>{{ role.name }}</option>
 					{% endfor %}
 				</select>
-				<button type="submit">Hinzufügen</button>
-			</form>
-		</div>
+			</td>
+			<td>
+				<input class="form-control" type="password" name="new_password" placeholder="Neues Passwort">
+			</td>
+			<td>
+				{% if not user.is_active %}
+					<button type="button" class="activate-user save-new" data-user-id="{{ user.id }}">Aktivieren</button>
+				{% else %}
+					Aktiv
+				{% endif %}
+			</td>
+			<td class="actions">
+				<button type="submit">Ändern</button>
+			</td>
+			<td class="actions">
+				<form action="{{ url_for('delete_user', user_id=user.id) }}" method="post" style="display:inline;">
+					<button type="submit" class="delete-entry" onclick="return confirm('Wirklich löschen?')">Löschen</button>
+				</form>
+			</td>
+		</form>
+	</tr>
+	{% endfor %}
+</table>
+
+<h2>Neuen Benutzer hinzufügen</h2>
+<div class="add-user-form">
+	<form method="post">
+		<table>
+			<tr>
+				<td><label for="new_username">Benutzername</label></td>
+				<td><label for="new_password">Passwort</label></td>
+				<td><label for="new_role">Rolle</label></td>
+				<td></td> <!-- Für den Button -->
+			</tr>
+			<tr>
+				<td><input id="new_username" class="form-control" type="text" name="new_username" placeholder="Benutzername" required></td>
+				<td><input id="new_password" class="form-control" type="password" name="new_password" placeholder="Passwort" required></td>
+				<td>
+					<select id="new_role" name="new_role">
+						<option value="">Keine Rolle</option>
+						{% for role in roles %}
+						<option value="{{ role.id }}">{{ role.name }}</option>
+						{% endfor %}
+					</select>
+				</td>
+				<td><button class="save-new" type="submit">Hinzufügen</button></td>
+			</tr>
+		</table>
+	</form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.activate-user').forEach(button => {
+    button.addEventListener('click', () => {
+      const userId = button.dataset.userId;
+      if (!userId) return;
+
+      if (!confirm('Benutzer wirklich aktivieren?')) return;
+
+      fetch(`/admin/activate/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token() if csrf_token is defined else "" }}'
+        },
+        body: JSON.stringify({})
+      })
+      .then(response => {
+        if (!response.ok) throw new Error('Aktivierung fehlgeschlagen');
+        return response.json();
+      })
+      .then(data => {
+        if (data.success) {
+          location.reload();
+        } else {
+          alert('Aktivierung fehlgeschlagen: ' + (data.error || 'Unbekannter Fehler'));
+        }
+      })
+      .catch(err => {
+        alert('Fehler: ' + err.message);
+      });
+    });
+  });
+});
+</script>
+
 {% endblock %}

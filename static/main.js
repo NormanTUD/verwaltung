@@ -70,8 +70,6 @@ function loadFloorplan(buildingId, floor) {
 const rooms = {};
 
 // Räume + Snapzones erzeugen
-
-
 function createLabel(name) {
 	const label = document.createElement("div");
 	label.className = "room-label";
@@ -100,7 +98,6 @@ function createRooms() {
 	});
 }
 
-
 function createRoomElement(data) {
 	const room = document.createElement("div");
 	room.className = "room";
@@ -118,65 +115,6 @@ function createRoomElement(data) {
 	return room;
 }
 
-
-
-
-
-
-function checkObjectRoomAssignment(el) {
-	if (!el.dataset.room) {
-		console.error("Fehler: Objekt hat kein zugewiesenes room-Dataset.");
-		return false;
-	}
-	if (!rooms[el.dataset.room]) {
-		console.error(`Fehler: Raum '${el.dataset.room}' existiert nicht in rooms.`);
-		return false;
-	}
-	console.log(`Objekt ist Raum '${el.dataset.room}' zugewiesen.`);
-	return true;
-}
-
-function checkDragEventListeners(el) {
-	// Da wir keine einfache API haben, um das direkt zu prüfen,
-	// machen wir einen kleinen Test: simulieren wir einen mousedown-Event
-	// und checken, ob startDragging ausgeführt wird.  
-	// (Alternative: Eventlistener speichern und prüfen, oder ein Flag)
-
-	console.warn("Prüfung der Eventlistener kann nur indirekt erfolgen.");
-	// Tipp: Bei Problemen das Drag-Verhalten beobachten.
-}
-
-function checkElementStyles(el) {
-	const style = window.getComputedStyle(el);
-	if (style.position !== "absolute") {
-		console.error(`Fehler: Objekt-Position ist '${style.position}', sollte 'absolute' sein.`);
-	} else {
-		console.log("Objekt hat korrekte CSS-Position: absolute.");
-	}
-	if (style.pointerEvents === "none") {
-		console.error("Fehler: pointer-events ist 'none', Objekt kann keine Mausereignisse erhalten.");
-	}
-	if (style.display === "none") {
-		console.error("Fehler: Objekt hat display:none, ist also nicht sichtbar.");
-	}
-}
-
-function checkParentInDOM(el) {
-	if (!el.parentElement) {
-		console.error("Fehler: Objekt hat kein Parent-Element im DOM.");
-		return false;
-	}
-	if (!floorplan.contains(el)) {
-		console.error("Fehler: Objekt ist nicht (mehr) im floorplan enthalten.");
-		return false;
-	}
-	console.log("Objekt ist korrekt im floorplan enthalten.");
-	return true;
-}
-
-
-
-
 function updateZIndex(obj, room) {
 	obj.style.zIndex = 300;
 }
@@ -192,7 +130,6 @@ function makeDraggable(el) {
 		const offsetY = e.clientY - elRect.top;
 		return { offsetX, offsetY };
 	}
-
 
 	function startDragging(e) {
 		e.preventDefault();
@@ -218,8 +155,6 @@ function makeDraggable(el) {
 		document.addEventListener("mouseup", onMouseUp);
 	}
 
-
-
 	function getMousePosRelativeToViewport(ev) {
 		const floorplanRect = $("#viewport")[0].getBoundingClientRect();
 
@@ -229,7 +164,6 @@ function makeDraggable(el) {
 		//console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
 		return { mouseX, mouseY };
 	}
-
 
 	function getMousePosRelativeToFloorplan(ev) {
 		const floorplanRect = floorplan.getBoundingClientRect();
@@ -377,9 +311,6 @@ function makeDraggable(el) {
 
 	}
 
-
-
-
 	function onMouseUp(ev) {
 		stopDragging();
 	}
@@ -411,14 +342,11 @@ async function loadPersonDatabase() {
 	}
 }
 
-
 const addPersonBtn = document.getElementById("addPersonBtn");
 const personForm = document.getElementById("personForm");
 const dynamicForm = document.getElementById("dynamicPersonForm");
 const confirmPersonBtn = document.getElementById("confirmPersonBtn");
 const existingPersonSelect = document.getElementById("existingPersonSelect");
-
-
 
 // Hilfsfunktion: Formular generieren
 function generateForm(schema, formElement) {
@@ -524,8 +452,6 @@ function handleSelectMode() {
 	createPersonCircle(person);
 }
 
-
-
 function resetForm() {
 	personForm.style.display = "none";
 	dynamicForm.innerHTML = "";
@@ -533,7 +459,26 @@ function resetForm() {
 	console.log("Formular zurückgesetzt.");
 }
 
+async function savePersonToDatabase(newPerson) {
+	try {
+		const response = await fetch('/api/add_or_update_person', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(newPerson)
+		});
 
+		if (!response.ok) {
+			const errorData = await response.json();
+			console.error('Fehler beim Speichern:', errorData.error);
+			return;
+		}
+
+		const result = await response.json();
+		console.log('Person erfolgreich gespeichert:', result.message);
+	} catch (error) {
+		console.error('Netzwerkfehler:', error);
+	}
+}
 
 // Erstelle Person-Kreis und hänge an Floorplan an
 function createPersonCircle(attributes) {
@@ -541,27 +486,7 @@ function createPersonCircle(attributes) {
 	addCircleToFloorplan(circle);
 	makeDraggable(circle);
 	setupContextMenu(circle, attributes);
-
-	async function savePersonToDatabase(newPerson) {
-		try {
-			const response = await fetch('/api/add_or_update_person', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(newPerson)
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json();
-				console.error('Fehler beim Speichern:', errorData.error);
-				return;
-			}
-
-			const result = await response.json();
-			console.log('Person erfolgreich gespeichert:', result.message);
-		} catch (error) {
-			console.error('Netzwerkfehler:', error);
-		}
-	}
+	//add_or_update_person(attributes);
 	applyInvertFilterToElements(theme)
 }
 
@@ -583,7 +508,6 @@ function getPersonRoomDataSync(buildingId, floor) {
 	}
 }
 
-
 function createCircleElement(attributes, position = null) {
 	const circle = document.createElement("div");
 	circle.classList.add("person-circle");
@@ -596,20 +520,6 @@ function createCircleElement(attributes, position = null) {
 	setCirclePosition(circle, position);
 
 	return circle;
-}
-
-function getScrollPosition() {
-	return {
-		x: window.scrollX || window.pageXOffset,
-		y: window.scrollY || window.pageYOffset,
-	};
-}
-
-function getViewportSize() {
-	return {
-		width: window.innerWidth,
-		height: window.innerHeight,
-	};
 }
 
 function getViewportCenterPosition() {
@@ -654,7 +564,6 @@ function createPersonsFromApiData(personDataArray) {
 				// Kreis an Floorplan anhängen
 				floorplan.appendChild(circle);
 
-
 				makeDraggable(circle);
 			}
 		} else {
@@ -694,31 +603,6 @@ function setCirclePosition(circle, position = null) {
 	}
 }
 
-function getCircleStyles() {
-	return {
-		width: "80px",
-		height: "80px",
-		borderRadius: "50%",
-		border: "2px solid #333",
-		display: "flex",
-		flexDirection: "column",
-		justifyContent: "center",
-		alignItems: "center",
-		margin: "0",
-		backgroundColor: "#f0f0f0",
-		boxShadow: "0 0 5px rgba(0,0,0,0.3)",
-		fontFamily: "Arial, sans-serif",
-		textAlign: "center",
-		padding: "10px",
-		position: "absolute",
-		cursor: "grab",
-		zIndex: 10
-	};
-}
-
-
-
-
 function my_escape(str) {
 	if (typeof str !== 'string') {
 		str = String(str ?? ''); // Konvertiert null/undefined zu leerem String
@@ -733,16 +617,6 @@ function my_escape(str) {
 		};
 		return escapeChars[char];
 	});
-}
-
-
-function setCircleContent(circle, attributes) {
-	circle.innerHTML = `
-    <img src="${attributes.image_url || 'https://scads.ai/wp-content/uploads/Bicanski_Andrej-_500x500-400x400.jpg'}" style="max-width: 64px; max-height: 64px; border-radius: 50%;" />
-    <strong>${my_escape(attributes.first_name)} ${my_escape(attributes.last_name)}</strong><br>
-    <span>${my_escape(attributes.title)}</span><br>
-    <span>${my_escape(attributes.comment)}</span>
-  `;
 }
 
 function addCircleToFloorplan(circle) {
@@ -783,8 +657,6 @@ function toggleContextMenu(circle, attributes) {
 	}
 }
 
-
-
 function removeExistingContextMenus() {
 	const menus = document.querySelectorAll(".context-menu");
 	menus.forEach(menu => menu.remove());
@@ -803,8 +675,6 @@ function positionContextMenuAbsolute(circle, menu) {
 	menu.style.left = `${left}px`;
 	menu.style.transform = "translateX(-50%)";
 }
-
-
 
 function buildContextMenu(attributes, personEl) {
 	const menu = document.createElement("div");
@@ -882,14 +752,6 @@ function buildContextMenu(attributes, personEl) {
 	return menu;
 }
 
-
-
-
-
-
-
-
-
 function getContextMenuStyles() {
 	return {
 		position: "absolute",
@@ -907,7 +769,6 @@ function getContextMenuStyles() {
 		textAlign: "left"
 	};
 }
-
 
 function positionContextMenu(circle, menu) {
 	try {
@@ -940,16 +801,6 @@ function cancelBtnFunction() {
 }
 
 cancelObjectBtn.addEventListener("click", cancelBtnFunction);
-
-
-
-
-
-
-
-
-
-
 
 function getInputValue(id) {
 	const input = document.getElementById(id);
@@ -1010,10 +861,6 @@ function createOptionsDiv(options) {
 
 	return div;
 }
-
-
-
-
 
 function appendToContainer(div, containerId = "generatedObjectsContainer") {
 	const container = document.getElementById(containerId);
@@ -1102,10 +949,6 @@ window.addEventListener("DOMContentLoaded", () => {
 	}
 });
 
-
-
-
-
 function checkIfObjectOnPerson(el) {
 	console.log("🚧 Überprüfe, ob 'el' das Zielobjekt ist oder eine Person:");
 
@@ -1175,9 +1018,6 @@ function checkIfObjectOnPerson(el) {
 	}
 }
 
-
-
-
 function updateContextMenuInventory(personEl) {
 	const menu = document.querySelector(".context-menu");
 	if (!menu) {
@@ -1242,10 +1082,6 @@ function updateContextMenuInventory(personEl) {
 	}
 }
 
-
-
-
-
 function removeObjectFromInventory(personEl, itemIndex) {
 	// Person-Attribute parsen
 	let attributes = {};
@@ -1295,7 +1131,6 @@ const cancelPersonBtn = document.getElementById("cancelPersonBtn");
 
 cancelPersonBtn.addEventListener("click", cancelpersonBtnFunction);
 
-
 function cancelpersonBtnFunction() {
 	personForm.style.display = "none";
 	dynamicForm.innerHTML = "";
@@ -1306,7 +1141,6 @@ document.addEventListener("DOMContentLoaded", function() {
 	loadPersonDatabase();
 	load_persons_from_db();
 });
-
 
 document.addEventListener('keydown', function(event) {
   if (event.key === 'Escape') {
