@@ -65,11 +65,17 @@ def restart_with_venv():
         sys.exit(1)
 
 try:
-    from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g
+    from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context
+    from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+
     from sqlalchemy import create_engine, inspect, Date, DateTime, text, func, event
     from sqlalchemy.orm import sessionmaker, joinedload, Session, Query
     from sqlalchemy.orm.exc import NoResultFound, DetachedInstanceError
     from sqlalchemy.exc import SQLAlchemyError
+    from sqlalchemy.event import listens_for
+    from sqlalchemy_schemadisplay import create_schema_graph
+    from sqlalchemy_continuum import TransactionFactory, versioning_manager
+
     from db_defs import *
     from pypdf import PdfReader, PdfWriter
     from pypdf.generic import NameObject
@@ -79,13 +85,9 @@ try:
     import sqlalchemy
     import cryptography
     import aiosqlite
-    from sqlalchemy_schemadisplay import create_schema_graph
     from PIL import Image
     import datetime
 
-    from sqlalchemy_continuum import TransactionFactory, versioning_manager
-
-    from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
     from werkzeug.security import generate_password_hash, check_password_hash
 
     from db_interface import *
@@ -266,15 +268,15 @@ EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 
 def query_with_version(session, model_class):
     # Wenn kein Zeitstempel gesetzt -> aktueller Stand
-    if not hasattr(g, 'db_timestamp') or g.db_timestamp is None:
+    if not hasattr(g, 'issued_at') or g.issued_at is None:
         return session.query(model_class).all()
 
     ModelVersion = version_class(model_class)
 
-    # Versionen abfragen mit filter auf den Zeitstempel aus Cookie (g.db_timestamp)
+    # Versionen abfragen mit filter auf den Zeitstempel aus Cookie (g.issued_at)
     versions = session.query(ModelVersion).\
         join(ModelVersion.transaction).\
-        filter(ModelVersion.transaction.issued_at <= g.db_timestamp).\
+        filter(ModelVersion.transaction.issued_at <= g.issued_at).\
         order_by(ModelVersion.transaction.issued_at.desc()).all()
 
     latest_versions = {}
@@ -286,61 +288,112 @@ def query_with_version(session, model_class):
 
 @app.before_request
 def load_timestamp_from_cookie():
-    timestamp_str = request.cookies.get('db_timestamp')
-    if timestamp_str:
+    session = Session()
+    version_id_str = request.cookies.get('data_version')
+    if version_id_str:
         try:
-            g.db_timestamp = datetime.fromisoformat(timestamp_str)
-        except Exception:
-            g.db_timestamp = None
+            version_id = int(version_id_str)
+            # Hole timestamp zu version_id aus der DB
+            version = session.query(TransactionTable).filter_by(id=version_id).one_or_none()
+            if version and version.issued_at:
+                g.issued_at = version.issued_at
+            else:
+                g.issued_at = None
+        except Exception as e:
+            print(f"[DEBUG] Fehler beim Laden der Version aus Cookie: {e}")
+            g.issued_at = None
     else:
-        g.db_timestamp = None
+        g.issued_at = None
+
+    session.close()
 
 def add_version_filter(query):
-    """
-    Fügt bei gesetztem g.db_timestamp automatisch einen Filter für zeitliche Versionierung hinzu.
-    Nur bei Modellen, die versioniert sind (über sqlalchemy_continuum).
-    """
-    if not hasattr(g, 'db_timestamp') or g.db_timestamp is None:
-        return query  # Kein Zeitfilter, original Query zurückgeben
+    print("[DEBUG] add_version_filter aufgerufen")
 
-    # Prüfen, ob Query auf einem versionierten Model basiert
-    entities = query._entities
-    if not entities:
+    if not has_app_context():
+        print("[DEBUG] Kein Flask-App-Kontext aktiv – Versionierung wird übersprungen")
+        return query    
+
+    if not hasattr(g, 'issued_at'):
+        print("[DEBUG] Kein Attribut 'issued_at' in g")
+        return query    
+
+    if g.issued_at is None:
+        print("[DEBUG] g.issued_at ist None – Query wird nicht verändert")                                                                                                                                                                                               
+        return query                                                                  
+
+    print(f"[DEBUG] g.issued_at gesetzt auf: {g.issued_at}")
+
+    if not query.column_descriptions:
+        print("[DEBUG] Query hat keine column_descriptions – vermutlich leer oder Subquery")
         return query
 
-    # Für simplicity: Wir nehmen nur das erste Model (häufig der Fall)
-    model_class = getattr(entities[0], 'entity_zero', None)
+    model_class = query.column_descriptions[0].get('entity', None)
     if model_class is None:
+        print("[DEBUG] Konnte Modellklasse nicht aus column_descriptions extrahieren")
         return query
 
-    model_class = model_class.class_
+    print(f"[DEBUG] Ursprüngliches Modell: {model_class.__name__}")
 
-    # Version-Klasse des Modells holen (von sqlalchemy_continuum)
-    try:
-        ModelVersion = version_class(model_class)
-    except Exception:
-        return query  # Nicht versioniert, Query nicht ändern
-
-    # Wenn Query schon auf einer Version-Klasse läuft, dann nicht ändern
     if model_class.__name__.endswith('Version'):
+        print("[DEBUG] Modell ist bereits eine Version-Klasse – Query bleibt unverändert")
         return query
 
-    # Ersetze die Query auf ModelVersion mit Filter nach g.db_timestamp
-    # Wichtig: query kann komplex sein, hier nur einfacher Filter-Ansatz
-    filtered_query = query.session.query(ModelVersion).\
-        join(ModelVersion.transaction).\
-        filter(ModelVersion.transaction.issued_at <= g.db_timestamp).\
-        order_by(ModelVersion.transaction.issued_at.desc())
+    try:
+        ModelVersion = versioning_manager.version_class_map.get(model_class)
+        if ModelVersion is None:
+            print("[DEBUG] Keine Version-Klasse gefunden für Modell")
+            return query
+        print(f"[DEBUG] Zugehörige Version-Klasse: {ModelVersion.__name__}")
+    except Exception as e:
+        print(f"[DEBUG] Fehler beim Abrufen der Version-Klasse: {e}")
+        return query
 
-    return filtered_query
+    TransactionClass = getattr(versioning_manager, 'transaction_cls', None)
+    if TransactionClass is None:
+        print("[DEBUG] Transaction-Klasse konnte nicht gefunden werden")
+        return query
+    print(f"[DEBUG] Transaction-Klasse: {TransactionClass}")
 
-@event.listens_for(Query, "before_compile", retval=True)
+
+    # Prüfe, ob Version-Klasse eine Beziehung zu transaction hat
+    if not hasattr(ModelVersion, 'transaction'):
+        print("[DEBUG] Version-Klasse hat keine 'transaction'-Beziehung")
+        return query
+
+    # Prüfe, ob Transaction-Klasse das Attribut issued_at besitzt
+    if not hasattr(TransactionClass, 'issued_at'):
+        print("[DEBUG] Transaction-Klasse hat kein Attribut 'issued_at'")
+        return query
+
+    try:
+        print("[DEBUG] Baue neue Query mit Zeitfilter")
+
+        TransactionAlias = aliased(TransactionClass)
+
+        filtered_query = (
+            query.session.query(ModelVersion)
+            .join(TransactionAlias, ModelVersion.transaction)
+            .filter(TransactionAlias.issued_at <= g.issued_at)
+            .order_by(TransactionAlias.issued_at.desc())
+        )
+
+        print("[DEBUG] Neue Query erfolgreich erstellt")
+        return filtered_query
+
+    except Exception as e:
+        print(f"[DEBUG] Fehler beim Erstellen der gefilterten Query: {e}")
+        return query
+
+@listens_for(Query, "before_compile", retval=True)
 def before_compile_handler(query):
+    print("[DEBUG] before_compile_handler aufgerufen")
     try:
         new_query = add_version_filter(query)
+        print("[DEBUG] before_compile_handler – Query wurde möglicherweise angepasst")
         return new_query
-    except Exception:
-        # Fehler nicht unterbrechen lassen, lieber Original-Query ausführen
+    except Exception as e:
+        print(f"[DEBUG] Fehler im before_compile_handler: {e}")
         return query
 
 def initialize_db_data():
@@ -831,6 +884,9 @@ def inject_sidebar_data():
 @app.route("/")
 @login_required
 def index():
+    insert_tu_dresden_buildings()
+    initialize_db_data()
+
     tables = [
         cls.__tablename__
         for cls in Base.__subclasses__()
@@ -3403,7 +3459,4 @@ def get_versions():
         session.close()
     
 if __name__ == "__main__":
-    insert_tu_dresden_buildings()
-    initialize_db_data()
-
     app.run(debug=True, port=5000)
