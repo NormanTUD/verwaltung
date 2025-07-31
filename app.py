@@ -65,9 +65,9 @@ def restart_with_venv():
         sys.exit(1)
 
 try:
-    from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash
-    from sqlalchemy import create_engine, inspect, Date, DateTime, text, func
-    from sqlalchemy.orm import sessionmaker, joinedload, Session
+    from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g
+    from sqlalchemy import create_engine, inspect, Date, DateTime, text, func, event
+    from sqlalchemy.orm import sessionmaker, joinedload, Session, Query
     from sqlalchemy.orm.exc import NoResultFound, DetachedInstanceError
     from sqlalchemy.exc import SQLAlchemyError
     from db_defs import *
@@ -261,6 +261,85 @@ WIZARDS = {
 }
 
 EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
+
+def query_with_version(session, model_class):
+    # Wenn kein Zeitstempel gesetzt -> aktueller Stand
+    if not hasattr(g, 'db_timestamp') or g.db_timestamp is None:
+        return session.query(model_class).all()
+
+    ModelVersion = version_class(model_class)
+
+    # Versionen abfragen mit filter auf den Zeitstempel aus Cookie (g.db_timestamp)
+    versions = session.query(ModelVersion).\
+        join(ModelVersion.transaction).\
+        filter(ModelVersion.transaction.issued_at <= g.db_timestamp).\
+        order_by(ModelVersion.transaction.issued_at.desc()).all()
+
+    latest_versions = {}
+    for version in versions:
+        if version.id not in latest_versions:
+            latest_versions[version.id] = version
+
+    return list(latest_versions.values())
+
+@app.before_request
+def load_timestamp_from_cookie():
+    timestamp_str = request.cookies.get('db_timestamp')
+    if timestamp_str:
+        try:
+            g.db_timestamp = datetime.fromisoformat(timestamp_str)
+        except Exception:
+            g.db_timestamp = None
+    else:
+        g.db_timestamp = None
+
+def add_version_filter(query):
+    """
+    Fügt bei gesetztem g.db_timestamp automatisch einen Filter für zeitliche Versionierung hinzu.
+    Nur bei Modellen, die versioniert sind (über sqlalchemy_continuum).
+    """
+    if not hasattr(g, 'db_timestamp') or g.db_timestamp is None:
+        return query  # Kein Zeitfilter, original Query zurückgeben
+
+    # Prüfen, ob Query auf einem versionierten Model basiert
+    entities = query._entities
+    if not entities:
+        return query
+
+    # Für simplicity: Wir nehmen nur das erste Model (häufig der Fall)
+    model_class = getattr(entities[0], 'entity_zero', None)
+    if model_class is None:
+        return query
+
+    model_class = model_class.class_
+
+    # Version-Klasse des Modells holen (von sqlalchemy_continuum)
+    try:
+        ModelVersion = version_class(model_class)
+    except Exception:
+        return query  # Nicht versioniert, Query nicht ändern
+
+    # Wenn Query schon auf einer Version-Klasse läuft, dann nicht ändern
+    if model_class.__name__.endswith('Version'):
+        return query
+
+    # Ersetze die Query auf ModelVersion mit Filter nach g.db_timestamp
+    # Wichtig: query kann komplex sein, hier nur einfacher Filter-Ansatz
+    filtered_query = query.session.query(ModelVersion).\
+        join(ModelVersion.transaction).\
+        filter(ModelVersion.transaction.issued_at <= g.db_timestamp).\
+        order_by(ModelVersion.transaction.issued_at.desc())
+
+    return filtered_query
+
+@event.listens_for(Query, "before_compile", retval=True)
+def before_compile_handler(query):
+    try:
+        new_query = add_version_filter(query)
+        return new_query
+    except Exception:
+        # Fehler nicht unterbrechen lassen, lieber Original-Query ausführen
+        return query
 
 def initialize_db_data():
     session = Session()
