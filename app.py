@@ -1,5 +1,3 @@
-# TODO: read only rolle
-
 import sys
 import traceback
 import re
