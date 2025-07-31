@@ -2647,6 +2647,43 @@ def get_floorplan():
         session.close()
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/delete_person_from_room", methods=["GET"])
+@login_required
+def delete_person_from_room():
+    # Query-Parameter auslesen
+    person_id = request.args.get("person_id", type=int)
+    room_id = request.args.get("room_id", type=int)
+
+    # Validierung der Parameter
+    if person_id is None:
+        return jsonify({"error": "Missing or invalid 'person_id' parameter"}), 400
+    if room_id is None:
+        return jsonify({"error": "Missing or invalid 'room_id' parameter"}), 400
+
+    session = Session()
+
+    try:
+        # Verknüpfungseintrag suchen
+        link = session.query(PersonToRoom).filter(
+            PersonToRoom.person_id == person_id,
+            PersonToRoom.room_id == room_id
+        ).one_or_none()
+
+        if link is None:
+            session.close()
+            return jsonify({"error": f"Link between person_id '{person_id}' and room_id '{room_id}' not found"}), 404
+
+        session.delete(link)
+        session.commit()
+        session.close()
+
+        return jsonify({"status": f"Link between person_id '{person_id}' and room_id '{room_id}' deleted successfully"}), 200
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        session.close()
+        return jsonify({"error": str(e)}), 500
+    
 @app.route("/api/delete_room", methods=["POST"])
 @login_required
 def delete_room():
