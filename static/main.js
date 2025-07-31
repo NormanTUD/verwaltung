@@ -777,10 +777,12 @@ function toggleContextMenu(circle, attributes) {
 
 
 function removeExistingContextMenus() {
-	console.log(`removeExistingContextMenus aufgerufen, Menüs gefunden: ${menus.length}`);
-	const menus = document.querySelectorAll(".context-menu");
-	menus.forEach(menu => menu.remove());
+	const foundMenus = document.querySelectorAll(".context-menu");
+	console.log(`removeExistingContextMenus aufgerufen, Menüs gefunden: ${foundMenus.length}`);
+	foundMenus.forEach(menu => menu.remove());
 }
+
+
 
 function positionContextMenuAbsolute(circle, menu) {
 	const circleRect = circle.getBoundingClientRect();
