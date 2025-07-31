@@ -703,9 +703,6 @@ def inject_sidebar_data():
         except Exception as e:
             print(f"Unbekannter Fehler beim Laden des Users: {e}")
 
-    print(f"is_authenticated: {is_authenticated}")
-    print(f"is_admin: {is_admin}")
-
     session.close()
 
     return dict(
