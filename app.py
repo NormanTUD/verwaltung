@@ -1460,30 +1460,32 @@ def aggregate_inventory_view():
 @app.route("/aggregate/transponder")
 @login_required
 def aggregate_transponder_view():
-    session = Session()
-
-    show_only_unreturned = request.args.get("unreturned") == "1"
-    owner_id_filter = request.args.get("owner_id", "").strip()
-    issuer_id_filter = request.args.get("issuer_id", "").strip()
-
+    session = None
     try:
+        session = Session()
+
+        show_only_unreturned = request.args.get("unreturned") == "1"
+        owner_id_filter = request.args.get("owner_id", "").strip()
+        issuer_id_filter = request.args.get("issuer_id", "").strip()
+
         query = session.query(Transponder) \
             .options(
                 joinedload(Transponder.owner),
                 joinedload(Transponder.issuer),
-                joinedload(Transponder.room_links).joinedload(TransponderToRoom.room).joinedload(Room.building)
+                joinedload(Transponder.room_links)
+                    .joinedload(TransponderToRoom.room)
+                    .joinedload(Room.building)
             )
 
         if show_only_unreturned:
             query = query.filter(Transponder.return_date.is_(None))
 
         if owner_id_filter:
-            # Filter direkt auf owner_id (integer)
             try:
                 owner_id_int = int(owner_id_filter)
                 query = query.filter(Transponder.owner_id == owner_id_int)
             except ValueError:
-                # Ungültige Eingabe, kein Filter
+                # Ungültige Eingabe ignorieren
                 pass
 
         if issuer_id_filter:
@@ -1502,11 +1504,23 @@ def aggregate_transponder_view():
             rooms = [link.room for link in t.room_links if link.room]
             buildings = list({r.building.name if r.building else "?" for r in rooms})
 
+            # Input-Felder für owner_id und issuer_id
+            owner_input = (
+                f'<input type="text" name="owner_id" data-update_info="transponder_{t.id}" value="{html.escape(str(owner.id))}" />'
+                if owner else
+                '<input type="text" name="owner_id" data-update_info="transponder_{t.id}" value="" />'
+            )
+            issuer_input = (
+                f'<input type="text" name="issuer_id" data-update_info="transponder_{t.id}" value="{html.escape(str(issuer.id))}" />'
+                if issuer else
+                '<input type="text" name="issuer_id" data-update_info="transponder_{t.id}" value="" />'
+            )
+
             row = {
                 "ID": t.id,
                 "Seriennummer": t.serial_number or "-",
-                "Ausgegeben an": f"{owner.first_name} {owner.last_name}" if owner else "Unbekannt",
-                "Ausgegeben durch": f"{issuer.first_name} {issuer.last_name}" if issuer else "Unbekannt",
+                "Ausgegeben an": owner_input,
+                "Ausgegeben durch": issuer_input,
                 "Ausgabedatum": t.got_date.isoformat() if t.got_date else "-",
                 "Rückgabedatum": t.return_date.isoformat() if t.return_date else "Nicht zurückgegeben",
                 "Gebäude": ", ".join(sorted(buildings)) if buildings else "-",
@@ -1518,11 +1532,29 @@ def aggregate_transponder_view():
         column_labels = list(rows[0].keys()) if rows else []
         column_labels.append("PDF")
 
-        row_data = [
-            [html.escape(str(row[col])) for col in column_labels if col != "PDF"] +
-            [f"<a href='http://localhost:5000/generate_pdf/schliessmedien/?issuer_id={issuer.id if issuer else ''}&owner_id={owner.id if owner else ''}&transponder_id={t.id}'><img src='../static/pdf.svg' height=32 width=32></a>"]
-            for t, row, owner, issuer in [(t, row, t.owner, t.issuer) for t, row in zip(transponder_list, rows)]
-        ]
+        # row_data als Liste von Listen für Template
+        row_data = []
+        for t, row in zip(transponder_list, rows):
+            owner = t.owner
+            issuer = t.issuer
+
+            # Alle Spalten außer PDF escapen NICHT, da Inputs als HTML kommen -> safe rendern im Template
+            row_cells = []
+            for col in column_labels:
+                if col == "PDF":
+                    pdf_link = (
+                        f"<a href='http://localhost:5000/generate_pdf/schliessmedien/?"
+                        f"issuer_id={html.escape(str(issuer.id)) if issuer else ''}&"
+                        f"owner_id={html.escape(str(owner.id)) if owner else ''}&"
+                        f"transponder_id={t.id}'>"
+                        f"<img src='../static/pdf.svg' height=32 width=32></a>"
+                    )
+                    row_cells.append(pdf_link)
+                else:
+                    # row[col] enthält Input HTML oder normalen String
+                    row_cells.append(row[col])
+
+            row_data.append(row_cells)
 
         filters = {
             "Nur nicht zurückgegebene anzeigen": show_only_unreturned,
@@ -1530,7 +1562,6 @@ def aggregate_transponder_view():
             "issuer_id": issuer_id_filter
         }
 
-        session.close()
         return render_template(
             "aggregate_view.html",
             title="Ausgegebene Transponder",
@@ -1547,8 +1578,13 @@ def aggregate_transponder_view():
 
     except Exception as e:
         app.logger.error(f"Fehler beim Laden der Transponder-Aggregatsansicht: {e}")
-        session.close()
+        if session:
+            session.close()
         return render_template("error.html", message="Fehler beim Laden der Daten.")
+
+    finally:
+        if session:
+            session.close()
     
 @app.route("/aggregate/persons")
 @login_required
