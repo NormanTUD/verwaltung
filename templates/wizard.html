@@ -28,7 +28,6 @@
 </form>
 
 <script src="/static/jquery.min.js"></script>
-<script src="/static/toastr.min.js"></script>
 <script>
 	function decodeHtmlEntities(text) {
 		var textarea = document.createElement('textarea');
@@ -110,11 +109,11 @@
 		const error_msg = {{ error | tojson }};
 
 		if (success_msg) {
-			toastr.success("Erfolgreich gespeichert");
+			success("Erfolgreich gespeichert");
 		}
 
 		if (error_msg) {
-			toastr.error("Fehler: " + error_msg);
+			error("Fehler: " + error_msg);
 		}
 	});
 </script>

@@ -69,7 +69,6 @@
 </form>
 
 <script src="/static/jquery.min.js"></script>
-<script src="/static/toastr.min.js"></script>
 <script>
 	// Kontakt-Zeile bleibt unverändert
 	function createContactRow(data = {}) {
@@ -177,8 +176,7 @@
 				$(this).closest('.contact-row').remove();
 				updateContactRemoveButtons();
 			} else {
-				// Optional: Toastr Warnung, dass mind. 1 Kontakt bleiben muss
-				toastr.warning("Mindestens ein Kontakt muss vorhanden sein.");
+				warning("Mindestens ein Kontakt muss vorhanden sein.");
 			}
 		});
 
@@ -234,19 +232,12 @@
 			replace_id_fields_with_proper_fields();
 		});
 
-		toastr.options = {
-			closeButton: true,
-			progressBar: true,
-			positionClass: "toast-top-right",
-			timeOut: "5000"
-		};
-
 		const success = {{ success | tojson }};
 		const error = {{ error | tojson }};
 		const formData = {{ form_data | tojson }};
 
 		if (success) {
-			toastr.success("Person erfolgreich gespeichert.");
+			success("Person erfolgreich gespeichert.");
 			$('#person-form')[0].reset();
 			$('#contacts-container').empty().append(createContactRow());
 			$('#rooms-container').empty().append(createRoomRow({}, 0));
@@ -255,7 +246,7 @@
 		} else {
 			// Fehler anzeigen
 			if (error) {
-				toastr.error("Fehler: " + error);
+				error("Fehler: " + error);
 			}
 
 			// Kontakte laden
