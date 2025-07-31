@@ -208,6 +208,41 @@ function updateHiddenFieldValue(config, hiddenElement, form, triggeredBy = null)
 	}
 }
 
+function autoUpdate(element_name, update_typ, update_id, new_val) {
+	log("==========");
+	log("element_name:", element_name);
+	log("update_typ:", update_typ);
+	log("update_id:", update_id);
+	log("new_val:", new_val);
+
+	try {
+		var baseUrl = "/api/auto_update/";
+		var fullUrl = baseUrl + encodeURIComponent(update_typ)
+			+ "?name=" + encodeURIComponent(element_name)
+			+ "&id=" + encodeURIComponent(update_id)
+			+ "&val=" + encodeURIComponent(new_val);
+
+		log("Request URL:", fullUrl);
+
+		fetch(fullUrl, {
+			method: "GET"
+		})
+			.then(function(response) {
+				if (!response.ok) {
+					throw new Error("HTTP error, status = " + response.status);
+				}
+				return response.json();
+			})
+			.then(function(data) {
+				log("Response data:", data);
+			})
+			.catch(function(error) {
+				log("Fetch error:", error);
+			});
+	} catch (e) {
+		log("Unexpected error:", e);
+	}
+}
 
 function replaceFieldsForElement(element, name, config) {
 	var $element = $(element);
@@ -250,11 +285,7 @@ function replaceFieldsForElement(element, name, config) {
 			var update_typ = update_info.slice(0, update_info.lastIndexOf("_"))
 			var update_id = update_info.slice(update_info.lastIndexOf("_") + 1);
 
-			log("==========");
-			log("element_name:", element_name);
-			log("update_typ:", update_typ);
-			log("update_id:", update_id);
-			log("new_val:", new_val);
+			autoUpdate(element_name, update_typ, update_id, new_val)
 		});
 
 		$element.before(input);

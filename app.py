@@ -3568,6 +3568,98 @@ def extract_multiindex_form_data(prefix: str) -> List[List[str]]:
     # Sortiere nach Index und gib Liste von Listen zurück
     result = [grouped_data[i] for i in sorted(grouped_data.keys())]
     return result
+
+
+@app.route("/api/auto_update/transponder", methods=["GET"])
+def update_transponder_field():
+    session = Session()
+
+    try:
+        element_name = request.args.get("name", type=str)
+        update_id = request.args.get("id", type=int)
+        new_val = request.args.get("val", type=str)
+
+        if not element_name or update_id is None or new_val is None:
+            return jsonify({
+                "error": "Missing one or more required parameters",
+                "required": ["name", "id", "val"]
+            }), 400
+
+        # Column-Definitionen korrekt extrahieren
+        mapper = inspect(Transponder)
+        column_info = {}
+        for attr in mapper.attrs:
+            if hasattr(attr, 'columns'):
+                column_info[attr.key] = attr.columns[0].type
+
+        if element_name not in column_info:
+            return jsonify({"error": f"Invalid column name: '{element_name}'"}), 400
+
+        column_type = column_info[element_name]
+
+        # Objekt holen
+        transponder = session.get(Transponder, update_id)
+        if transponder is None:
+            return jsonify({"error": f"No transponder found with id={update_id}"}), 404
+
+        # Typbasierte Wert-Konvertierung
+        parsed_value = None
+        column_type_name = column_type.__class__.__name__
+
+        if column_type_name in ["Integer", "SmallInteger", "BigInteger"]:
+            try:
+                parsed_value = int(new_val)
+            except ValueError:
+                return jsonify({
+                    "error": f"Invalid integer for column '{element_name}'",
+                    "input": new_val
+                }), 400
+
+        elif column_type_name in ["Text", "String", "Unicode", "UnicodeText"]:
+            parsed_value = new_val
+
+        elif column_type_name == "Date":
+            try:
+                parsed_value = datetime.strptime(new_val, "%Y-%m-%d").date()
+            except ValueError:
+                return jsonify({
+                    "error": f"Invalid date format for '{element_name}'",
+                    "expected_format": "YYYY-MM-DD",
+                    "input": new_val
+                }), 400
+
+        else:
+            return jsonify({
+                "error": f"Unsupported column type '{column_type_name}' for field '{element_name}'"
+            }), 400
+
+        # Wert setzen
+        setattr(transponder, element_name, parsed_value)
+        session.commit()
+
+        return jsonify({
+            "message": f"Field '{element_name}' updated successfully",
+            "id": update_id,
+            "new_value": parsed_value
+        }), 200
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        return jsonify({
+            "error": "Database error",
+            "details": str(e)
+        }), 500
+
+    except Exception as e:
+        session.rollback()
+        return jsonify({
+            "error": "Unhandled exception",
+            "details": str(e),
+            "type": type(e).__name__
+        }), 500
+
+    finally:
+        session.close()
     
 event.listen(Session, "before_flush", block_writes_if_data_version_cookie_set)
 
