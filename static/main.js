@@ -420,10 +420,16 @@ function populateExistingPersonSelect() {
 	personDatabase.forEach((person, index) => {
 		const option = document.createElement("option");
 		option.value = index;
-		option.textContent = `${person.first_name} ${person.last_name} `;
+
+		// Titel, falls vorhanden, sonst leerer String
+		const title = person.title ? person.title + " " : "";
+
+		option.textContent = `${title}${person.first_name} ${person.last_name}`;
 		existingPersonSelect.appendChild(option);
+		console.log(person);
 	});
 }
+
 
 // Anzeigen je nach Modus (select oder new)
 function updateFormMode() {
