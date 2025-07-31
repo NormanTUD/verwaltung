@@ -216,8 +216,6 @@ function autoUpdate(element_name, update_typ, update_id, new_val) {
 			+ "&id=" + encodeURIComponent(update_id)
 			+ "&val=" + encodeURIComponent(new_val);
 
-		log("Request URL:", fullUrl);
-
 		fetch(fullUrl, {
 			method: "GET"
 		})
