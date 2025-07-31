@@ -83,7 +83,7 @@ try:
     from PIL import Image
     import datetime
 
-    from sqlalchemy_continuum import TransactionFactory
+    from sqlalchemy_continuum import TransactionFactory, versioning_manager
 
     from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
     from werkzeug.security import generate_password_hash, check_password_hash
@@ -123,6 +123,8 @@ configure_mappers()
 engine = create_engine("sqlite:///database.db")
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
+
+TransactionTable = versioning_manager.transaction_cls
 
 COLUMN_LABELS = {
     "abteilung.abteilungsleiter_id": "Abteilungsleiter",
@@ -3376,6 +3378,30 @@ def search():
     session.close()
     return jsonify(results)
 
+@app.route('/api/versions')
+def get_versions():
+    session = Session()
+    try:
+        transactions = session.query(TransactionTable).order_by(TransactionTable.id.asc()).all()
+
+        versions = []
+        for t in transactions:
+            timestamp_iso = None
+            if hasattr(t, "issued_at") and isinstance(t.issued_at, datetime.datetime):
+                timestamp_iso = t.issued_at.isoformat()
+
+            versions.append({
+                "id": t.id,
+                "timestamp": timestamp_iso
+            })
+
+        return jsonify(versions)
+    except SQLAlchemyError as e:
+        app.logger.error("Error fetching versions: %s", e)
+        return jsonify([]), 500
+    finally:
+        session.close()
+    
 if __name__ == "__main__":
     insert_tu_dresden_buildings()
     initialize_db_data()
