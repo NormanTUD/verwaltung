@@ -1289,6 +1289,7 @@ floorplan.addEventListener("contextmenu", (event) => {
 			alert("Fehler beim Lesen der Personen-Attribute.");
 			return;
 		}
+		
 		setupContextMenu(circle, attributes);
 	} else {
 		alert("Kein Person Circle getroffen");
