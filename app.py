@@ -737,7 +737,7 @@ def insert_tu_dresden_buildings ():
 @login_manager.user_loader
 def load_user(user_id):
     session = Session()
-    ret = session.query(User).get(int(user_id))
+    ret = session.get(User, int(user_id))
     session.close()
     return ret
 
