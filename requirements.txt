@@ -1,8 +1,8 @@
-aiosqlite
-cryptography
 flask
 flask_login
 flask_sqlalchemy
+cryptography
+aiosqlite
 mysqlclient
 pillow
 pypdf
