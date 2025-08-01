@@ -124,7 +124,13 @@ Transaction = TransactionFactory(Base)
 configure_mappers()
 
 engine = create_engine(args.engine_db)
-Base.metadata.create_all(engine)
+
+try:
+    Base.metadata.create_all(engine, checkfirst=True)
+except AssertionError as e:
+    print("Error trying to create all tables. Did you forget to specify the database, which is needed for my mysql, but not sqlite? Error: {e}")
+    sys.exit(1)
+
 Session = sessionmaker(bind=engine)
 
 TransactionTable = versioning_manager.transaction_cls
