@@ -441,12 +441,7 @@ def before_compile_handler(query):
 def initialize_db_data():
     session = Session()
     try:
-        print("Starte Initialisierung der Daten...")
-
-        # Kostenstelle prüfen und ggf. einfügen
-        print("Prüfe Anzahl der Kostenstellen...")
         kostenstelle_count = session.query(Kostenstelle).count()
-        print(f"Gefundene Kostenstellen: {kostenstelle_count}")
         if kostenstelle_count == 0:
             print("Keine Kostenstellen gefunden, füge neue hinzu...")
             for ks in INITIAL_DATA["kostenstellen"]:
@@ -457,9 +452,7 @@ def initialize_db_data():
             print("Kostenstellen wurden erfolgreich initialisiert.")
 
         # Professorship prüfen und ggf. einfügen
-        print("Prüfe Anzahl der Professuren...")
         professorship_count = session.query(Professorship).count()
-        print(f"Gefundene Professuren: {professorship_count}")
         if professorship_count == 0:
             print("Keine Professuren gefunden, füge neue hinzu...")
             for prof in INITIAL_DATA["professorships"]:
@@ -474,9 +467,7 @@ def initialize_db_data():
             print("Professuren wurden erfolgreich initialisiert.")
 
         # ObjectCategory prüfen und ggf. einfügen
-        print("Prüfe Anzahl der ObjectCategories...")
         object_category_count = session.query(ObjectCategory).count()
-        print(f"Gefundene ObjectCategories: {object_category_count}")
         if object_category_count == 0:
             print("Keine ObjectCategories gefunden, füge neue hinzu...")
             for cat in INITIAL_DATA["object_categories"]:
@@ -487,7 +478,6 @@ def initialize_db_data():
             print("ObjectCategories wurden erfolgreich initialisiert.")
 
         # Abteilung prüfen und ggf. einfügen
-        print("Prüfe Anzahl der Abteilungen...")
         abteilung_count = session.query(Abteilung).count()
         print(f"Gefundene Abteilungen: {abteilung_count}")
         if abteilung_count == 0:
@@ -498,8 +488,6 @@ def initialize_db_data():
                 session.add(obj)
             session.commit()
             print("Abteilungen wurden erfolgreich initialisiert.")
-
-        print("Initialisierung der Daten abgeschlossen.")
 
     except SQLAlchemyError as e:
         session.rollback()
