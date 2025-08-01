@@ -479,7 +479,6 @@ def initialize_db_data():
 
         # Abteilung prüfen und ggf. einfügen
         abteilung_count = session.query(Abteilung).count()
-        print(f"Gefundene Abteilungen: {abteilung_count}")
         if abteilung_count == 0:
             print("Keine Abteilungen gefunden, füge neue hinzu...")
             for abt in INITIAL_DATA["abteilungen"]:
@@ -919,8 +918,6 @@ def index():
     wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
     wizard_routes.append("/wizard/person")
     wizard_routes = sorted(set(wizard_routes))
-
-    print(wizard_routes)
 
     return render_template("index.html", tables=tables, wizard_routes=wizard_routes, user=current_user)
 
