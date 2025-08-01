@@ -123,13 +123,31 @@ Transaction = TransactionFactory(Base)
 
 configure_mappers()
 
-engine = create_engine(args.engine_db)
+full_url = args.engine_db
 
-try:
-    Base.metadata.create_all(engine, checkfirst=True)
-except AssertionError as e:
-    print("Error trying to create all tables. Did you forget to specify the database, which is needed for my mysql, but not sqlite? Error: {e}")
-    sys.exit(1)
+if full_url.startswith("mysql"):
+    if '/' not in full_url.rsplit('@', 1)[-1]:
+        print("Error: Please specify the database name in the URL for MySQL.")
+        sys.exit(1)
+    url_without_db = full_url.rsplit('/', 1)[0] + "/"
+    db_name = full_url.rsplit('/', 1)[1]
+
+    engine = create_engine(url_without_db)
+
+    with engine.connect() as conn:
+        result = conn.execute(text("SHOW DATABASES LIKE :db"), {"db": db_name})
+        exists = result.first() is not None
+        if not exists:
+            print(f"Database '{db_name}' does not exist. Creating it now...")
+            conn.execute(text(f"CREATE DATABASE `{db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
+            print(f"Database '{db_name}' created.")
+        else:
+            print(f"Database '{db_name}' already exists.")
+
+    engine = create_engine(full_url)
+
+else:
+    engine = create_engine(full_url)
 
 Session = sessionmaker(bind=engine)
 
