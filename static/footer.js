@@ -256,7 +256,6 @@ function replaceFieldsForElement(element, name, config) {
 	}
 
 	if (!$element.is(":visible")) {
-		log("Element is not visible, skipping field replacement.");
 		return;
 	}
 
