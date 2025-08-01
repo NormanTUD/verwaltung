@@ -33,19 +33,13 @@ from pathlib import Path
 VENV_PATH = Path.home() / ".verwaltung_venv"
 PYTHON_BIN = VENV_PATH / ("Scripts" if platform.system() == "Windows" else "bin") / ("python.exe" if platform.system() == "Windows" else "python")
 
+def get_from_requirements_txt_file(path="requirements.txt"):
+    with open(path) as f:
+        return [line.strip() for line in f if line.strip() and not line.startswith("#")]
+
 pip_install_modules = [
     PYTHON_BIN, "-m", "pip", "install", "-q", "--upgrade",
-    "flask",
-    "sqlalchemy",
-    "pypdf",
-    "cryptography",
-    "aiosqlite",
-    "pillow",
-    "flask_login",
-    "flask_sqlalchemy",
-    "sqlalchemy_schemadisplay",
-    "sqlalchemy_continuum",
-    "mysql-python"
+    *get_from_requirements_txt_file()
 ]
 
 def create_and_setup_venv():

@@ -1,9 +1,12 @@
-flask
-sqlalchemy
-pypdf
-cryptography
 aiosqlite
+cryptography
+flask
+flask_login
+flask_sqlalchemy
+mysqlclient
 pillow
+pypdf
+sqlalchemy
 sqlalchemy_continuum
+sqlalchemy_schemadisplay
 sqlalchemy_utils
-mysql-python
