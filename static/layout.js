@@ -450,10 +450,14 @@ async function loadVersions() {
 
 	} catch (err) {
 		console.error(err);
-		document.getElementById('versionContainer').style.display = 'none';
-		const noVersionsMessage = document.getElementById('noVersionsMessage');
-		noVersionsMessage.style.display = 'block';
-		noVersionsMessage.textContent = 'Fehler beim Laden der Versionen';
+		const versionContainer = document.getElementById('versionContainer')
+
+		if(versionContainer) {
+			versionContainer.style.display = 'none';
+			const noVersionsMessage = document.getElementById('noVersionsMessage');
+			noVersionsMessage.style.display = 'block';
+			noVersionsMessage.textContent = 'Fehler beim Laden der Versionen';
+		}
 	}
 }
 
