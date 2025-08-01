@@ -72,7 +72,6 @@ if(SPinput) {
 document.addEventListener('DOMContentLoaded', function () {
 	try {
 		const html = document.documentElement;
-		const toast = document.getElementById('toast');
 		const sidebar = document.getElementById('sidebar');
 		const main = document.querySelector('main');
 		const toggleThemeBtn = document.getElementById('toggleThemeBtn');
@@ -83,10 +82,6 @@ document.addEventListener('DOMContentLoaded', function () {
 			return;
 		}
 		if (!toggleThemeBtn) {
-			return;
-		}
-		if (!toast) {
-			console.error('Toast-Element nicht gefunden.');
 			return;
 		}
 		if (!sidebar) {
