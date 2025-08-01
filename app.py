@@ -149,6 +149,12 @@ if full_url.startswith("mysql"):
 else:
     engine = create_engine(full_url)
 
+try:
+    Base.metadata.create_all(engine, checkfirst=True)
+except AssertionError as e:
+    print(f"Error trying to create all tables. Did you forget to specify the database, which is needed for MySQL, but not SQLite? Error: {e}")
+    sys.exit(1)
+
 Session = sessionmaker(bind=engine)
 
 TransactionTable = versioning_manager.transaction_cls
