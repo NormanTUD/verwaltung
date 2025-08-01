@@ -10,6 +10,27 @@
 	border-radius: 8px;
 }
 
+.oasis-header {
+	text-align: center;
+	margin-bottom: 30px;
+	font-family: sans-serif;
+}
+
+.oasis-logo {
+	font-size: 48px;
+}
+
+.oasis-abbr {
+	font-size: 28px;
+	color: #1e90ff;
+}
+
+.oasis-name {
+	font-size: 20px;
+	font-weight: bold;
+	margin-top: 10px;
+}
+
 .register-form .form-group {
 	margin-bottom: 15px;
 }
@@ -34,7 +55,15 @@
 	color: red;
 }
 </style>
+
 <div class="register-container">
+
+	<div class="oasis-header">
+		<div class="oasis-logo" id="oasis-logo">🌊</div>
+		<div class="oasis-abbr">OASIS</div>
+		<div class="oasis-name">Organization of Assets & Staff Integration System</div>
+	</div>
+
 	<form method="POST" class="register-form">
 		<div class="form-group">
 			<label for="username">Username:</label>
@@ -61,4 +90,10 @@
 		{% endif %}
 	</form>
 </div>
+
+<script>
+	var emojis = ["🏝️", "🍹", "⛱️", "🌞", "🌊", "🥥", "😎", "🏊", "🍉", "🏄", "🦜"];
+	var logo = emojis[Math.floor(Math.random() * emojis.length)];
+	document.getElementById("oasis-logo").textContent = logo;
+</script>
 {% endblock %}
