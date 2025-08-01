@@ -112,18 +112,6 @@ document.addEventListener('DOMContentLoaded', function () {
 			}
 		}
 
-		function showToast(message) {
-			toast.textContent = message;
-			toast.classList.remove('hidden');
-			toast.style.opacity = '1';
-			setTimeout(() => {
-				toast.style.opacity = '0';
-				setTimeout(() => {
-					toast.classList.add('hidden');
-				}, 300);
-			}, 2500);
-		}
-
 		function updateThemeButtonIcon() {
 			const isDark = html.classList.contains('dark');
 			toggleThemeBtn.textContent = isDark ? "☀️ Light Mode" : "🌙 Dark Mode";
@@ -137,14 +125,12 @@ document.addEventListener('DOMContentLoaded', function () {
 				applyMainBgClass('dark');
 				applyInvertFilterToElements('dark');
 				updateThemeButtonIcon();
-				showToast("🌙 Dark Mode aktiviert");
 			} else {
 				html.classList.remove('dark');
 				localStorage.setItem('theme', 'light');
 				applyMainBgClass('light');
 				applyInvertFilterToElements('light');
 				updateThemeButtonIcon();
-				showToast("☀️ Light Mode aktiviert");
 			}
 		}
 
@@ -166,7 +152,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
 		if (logoutBtn) {
 			logoutBtn.addEventListener('click', function () {
-				showToast("🚪 Ausgeloggt");
 				// window.location.href = "/logout"; // Optional aktivieren
 			});
 		}
