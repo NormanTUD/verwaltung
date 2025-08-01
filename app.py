@@ -44,7 +44,8 @@ pip_install_modules = [
     "flask_login",
     "flask_sqlalchemy",
     "sqlalchemy_schemadisplay",
-    "sqlalchemy_continuum"
+    "sqlalchemy_continuum",
+    "mysql-python"
 ]
 
 def create_and_setup_venv():

@@ -6,3 +6,4 @@ aiosqlite
 pillow
 sqlalchemy_continuum
 sqlalchemy_utils
+mysql-python
