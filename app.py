@@ -526,7 +526,6 @@ def is_admin_user(session=None) -> bool:
             return False
 
         roles = [role.name for role in user.roles]
-        print(f"is_admin_user: roles of user {current_user.id}: {roles}")
         session.close()
         return 'admin' in roles
     except Exception as e:
