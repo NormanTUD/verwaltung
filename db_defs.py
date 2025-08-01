@@ -34,7 +34,7 @@ class User(UserMixin, Base):
     #__versioned__ = {}
     id = Column(Integer, primary_key=True)
     username = Column(String(150), unique=True)
-    password = Column(String(150))
+    password = Column(String(180))
     role = Column(String(50))
     is_active = Column(Boolean, default=False)
     readonly = Column(Boolean, default=False)
