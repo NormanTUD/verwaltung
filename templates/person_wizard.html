@@ -232,11 +232,11 @@
 			replace_id_fields_with_proper_fields();
 		});
 
-		const success = {{ success | tojson }};
-		const error = {{ error | tojson }};
+		const success_result = {{ success | tojson }};
+		const error_result  = {{ error | tojson }};
 		const formData = {{ form_data | tojson }};
 
-		if (success) {
+		if (success_result) {
 			success("Person erfolgreich gespeichert.");
 			$('#person-form')[0].reset();
 			$('#contacts-container').empty().append(createContactRow());
@@ -245,8 +245,8 @@
 			updateContactRemoveButtons();
 		} else {
 			// Fehler anzeigen
-			if (error) {
-				error("Fehler: " + error);
+			if (error_result) {
+				error("Fehler: " + error_result);
 			}
 
 			// Kontakte laden
