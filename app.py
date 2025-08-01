@@ -15,20 +15,12 @@ from functools import wraps
 import re
 import json
 
-db_mode = os.environ.get('DB_MODE', 'sqlite')
-
 parser = argparse.ArgumentParser(description="Starte die Flask-App mit konfigurierbaren Optionen.")
 parser.add_argument('--debug', action='store_true', help='Aktiviere den Debug-Modus')
 parser.add_argument('--port', type=int, default=5000, help='Port für die App (Standard: 5000)')
 parser.add_argument('--secret', type=str, default='geheim', help='SECRET_KEY für Flask (Standard: "geheim")')
-parser.add_argument('--db', type=str, default='sqlite:///db.sqlite', help='Datenbank-URI für SQLAlchemy')
 parser.add_argument('--engine-db', type=str, default='sqlite:///database.db', help='URI für create_engine()')
 args = parser.parse_args()
-
-if db_mode == 'sqlite':
-    db_uri = f"sqlite:///{os.environ.get('SQLITE_PATH', 'sqlite_data/db.sqlite')}"
-else:
-    db_uri = "mysql+pymysql://myuser:mypass@db/myapp"
 
 try:
     import venv
@@ -124,7 +116,7 @@ except ModuleNotFoundError:
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = args.secret
-app.config['SQLALCHEMY_DATABASE_URI'] = args.db
+app.config['SQLALCHEMY_DATABASE_URI'] = args.engine_db
 
 login_manager = LoginManager()
 login_manager.init_app(app)
