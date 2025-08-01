@@ -310,10 +310,12 @@ if (SPinput && resultsBox) {
 
 document.addEventListener('keydown', function(e) {
 	const searchField = document.getElementById('sidebarSearch');
-
 	if (!searchField) return;
 
-	// Ignoriere Eingabe, wenn gerade ein Eingabefeld oder contentEditable aktiv ist
+	// Wenn Fokus bereits im Eingabefeld ist → nichts tun
+	if (document.activeElement === searchField) return;
+
+	// Eingabe ignorieren, wenn ein anderes Eingabefeld aktiv ist
 	const active = document.activeElement;
 	if (
 		active &&
@@ -323,36 +325,38 @@ document.addEventListener('keydown', function(e) {
 			active.isContentEditable)
 	) return;
 
-	// Ignoriere, wenn Modifier-Tasten gedrückt sind (Alt, Ctrl, Meta, Shift)
-	if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+	// Modifier-Tasten ignorieren
+	if (e.altKey || e.ctrlKey || e.metaKey) return;
 
-	// Nur Buchstaben/Zahlen/Sonderzeichen verarbeiten (nicht z. B. Shift, Alt usw.)
+	// Tasten, die wir explizit NICHT wollen
+	const ignoredKeys = [
+		' ', // Leertaste
+		'ArrowUp',
+		'ArrowDown',
+		'ArrowLeft',
+		'ArrowRight',
+		'PageUp',
+		'PageDown',
+		'Home',
+		'End',
+		'Tab',
+		'Enter',
+		'Shift',
+		'CapsLock',
+		'Alt',
+		'Control',
+		'Meta',
+		'Escape'
+	];
+	if (ignoredKeys.includes(e.key)) return;
+
+	// Prüfen ob Taste ein druckbares Zeichen ist
 	if (e.key.length === 1) {
-		// Fokus setzen
-		if (document.activeElement !== searchField) {
-			searchField.focus();
-			// Cursor ans Ende setzen
-			searchField.setSelectionRange(searchField.value.length, searchField.value.length);
-		}
-
-		// Zeichen ans Ende anhängen (wie echte Eingabe)
-		const value = searchField.value;
-		const start = searchField.selectionStart;
-		const end = searchField.selectionEnd;
-
-		const newValue = value.slice(0, start) + e.key + value.slice(end);
-		searchField.value = newValue;
-
-		// Cursor aktualisieren
-		const cursorPos = start + 1;
-		searchField.setSelectionRange(cursorPos, cursorPos);
-
-		// Events auslösen
-		searchField.dispatchEvent(new Event('input', { bubbles: true }));
-		searchField.dispatchEvent(new Event('change', { bubbles: true }));
-
-		// Standardverhalten verhindern (z. B. Scrollen bei Leertaste)
-		e.preventDefault();
+		// Fokus setzen, Cursor ans Ende
+		searchField.focus();
+		searchField.setSelectionRange(searchField.value.length, searchField.value.length);
+		// Keine weitere Verarbeitung → Zeichen wird vom System wie gewohnt eingegeben
+		// Kein preventDefault → damit das erste Zeichen nicht verloren geht
 	}
 });
 
