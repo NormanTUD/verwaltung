@@ -38,6 +38,16 @@ function getNamesConfig() {
 			},
 			label: "Kostenstelle"
 		},
+		lager_id: {
+			fields: {
+				"lager_id": {
+					name: "Lager",
+					type: "select",
+					options_url_id_dict: "/api/get_lager_names"
+				}
+			},
+			label: "Lager"
+		},
 		object_id: {
 			fields: {
 				"object_id": {

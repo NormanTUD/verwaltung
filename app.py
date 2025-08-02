@@ -3560,6 +3560,14 @@ def get_category_names():
     session.close()
     return jsonify(result)
 
+@app.route('/api/get_lager_names', methods=['GET'])
+@login_required
+def get_lager_names():
+    session = Session()
+    result = get_names(session, Lager, Lager.id, [Lager.name])
+    session.close()
+    return jsonify(result)
+
 @app.route('/api/get_object_names', methods=['GET'])
 @login_required
 def get_object_names():

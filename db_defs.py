@@ -294,7 +294,9 @@ class Object(Base):
 class Lager(Base):
     __tablename__ = "lager"
     __versioned__ = {}
+
     id = Column(Integer, primary_key=True)
+    name = Column(Text)
     raum_id = Column(Integer, ForeignKey("room.id", ondelete="SET NULL"))
 
     __table_args__ = (
