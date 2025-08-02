@@ -3531,7 +3531,7 @@ def schema():
         tables = list(Base.metadata.tables.values())
     else:
         # Tabellen filtern, die nicht auf '_version' enden
-        tables = [t for t in Base.metadata.tables.values() if not t.name.endswith('_version')]
+        tables = [t for t in Base.metadata.tables.values() if not t.name.endswith('_version') and not t.name == "transaction"]
 
     graph = create_schema_graph(
         metadata=Base.metadata,
