@@ -3424,8 +3424,8 @@ def get_person_database():
 @app.route("/api/get_room_id")
 def get_room_id():
     session = Session()
-    building_name = request.args.get("building_name")
-    room_name = request.args.get("room_name")
+    building_name = request.args.get("gebäudename")
+    room_name = request.args.get("raumname")
 
     if not building_name and not room_name:
         session.close()

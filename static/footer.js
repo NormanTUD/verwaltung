@@ -4,14 +4,14 @@ if (!("log" in window)) {
 
 function getNamesConfig() {
 	var names = {
-		room_id: {
+		raum_id: {
 			fields: {
-				"building_name": {
+				"gebäudename": {
 					name: "Gebäudename",
 					type: "select",
 					options_url: "/api/get_building_names"
 				},
-				"room_name": {
+				"raumname": {
 					name: "Raumname",
 					type: "text"
 				}
