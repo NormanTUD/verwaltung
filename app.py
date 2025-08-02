@@ -466,7 +466,7 @@ WIZARDS = {
         title="Kostenstelle erstellen",
     ),
     "Inventar": create_wizard_from_model(
-        Inventory,
+        Inventar,
         title="Inventar erstellen",
     ),
     "Person und Abteilung": create_wizard_from_model(
@@ -524,7 +524,7 @@ WIZARDS = {
         title="Transponder zu Raum zuordnen",
     ),
     "Inventar komplett erfassen": create_wizard_from_model(
-        Inventory,
+        Inventar,
         title="Inventar (mit Zuordnungen) erfassen",
     )
 }
@@ -1630,26 +1630,26 @@ def aggregate_inventory_view():
         issuer_filter = request.args.get("issuer", type=int)
 
         # Grundquery mit Joins
-        query = session.query(Inventory) \
+        query = session.query(Inventar) \
             .options(
-                joinedload(Inventory.owner),
-                joinedload(Inventory.issuer),
-                joinedload(Inventory.object).joinedload(Object.category),
-                joinedload(Inventory.kostenstelle),
-                joinedload(Inventory.abteilung),
-                joinedload(Inventory.professorship),
-                joinedload(Inventory.room)
+                joinedload(Inventar.owner),
+                joinedload(Inventar.issuer),
+                joinedload(Inventar.object).joinedload(Object.category),
+                joinedload(Inventar.kostenstelle),
+                joinedload(Inventar.abteilung),
+                joinedload(Inventar.professorship),
+                joinedload(Inventar.room)
             )
 
         # Filter anwenden
         if show_only_unreturned:
-            query = query.filter(Inventory.rückgabedatum.is_(None))
+            query = query.filter(Inventar.rückgabedatum.is_(None))
 
         if owner_filter:
-            query = query.filter(Inventory.owner_id == owner_filter)
+            query = query.filter(Inventar.owner_id == owner_filter)
 
         if issuer_filter:
-            query = query.filter(Inventory.issuer_id == issuer_filter)
+            query = query.filter(Inventar.issuer_id == issuer_filter)
 
         inventory_list = query.all()
 

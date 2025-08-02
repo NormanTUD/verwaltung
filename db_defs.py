@@ -314,7 +314,7 @@ class ObjectToLager(Base):
         UniqueConstraint("object_id", "lager_id", name="uq_object_to_lager"),
     )
 
-class Inventory(Base):
+class Inventar(Base):
     __tablename__ = "inventory"
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
