@@ -334,6 +334,53 @@ WIZARDS = {
         Loan,
         title="Leihgabe erstellen"
     ),
+
+
+    "Objekt zu Leihgabe": create_wizard_from_model(
+        ObjectToLoan,
+        title="Objekt zu Leihgabe zuordnen",
+    ),
+    "Objektkategorie": create_wizard_from_model(
+        ObjectCategory,
+        title="Objektkategorie erstellen",
+    ),
+    "Lager": create_wizard_from_model(
+        Lager,
+        title="Lager erstellen",
+    ),
+    "Objekt zu Lager": create_wizard_from_model(
+        ObjectToLager,
+        title="Objekt zu Lager zuordnen",
+    ),
+    "Gebäude": create_wizard_from_model(
+        Building,
+        title="Gebäude erstellen",
+    ),
+    "Raum": create_wizard_from_model(
+        Room,
+        title="Raum erstellen",
+    ),
+    "Raumlayout": create_wizard_from_model(
+        RoomLayout,
+        title="Raumlayout definieren",
+    ),
+    "Person zu Raum": create_wizard_from_model(
+        PersonToRoom,
+        title="Person zu Raum zuordnen",
+    ),
+    "Professur zu Person": create_wizard_from_model(
+        ProfessorshipToPerson,
+        title="Professur zu Person zuordnen",
+    ),
+    "Transponder zu Raum": create_wizard_from_model(
+        TransponderToRoom,
+        title="Transponder zu Raum zuordnen",
+    ),
+    "Inventar komplett erfassen": create_wizard_from_model(
+        Inventory,
+        title="Inventar (mit Zuordnungen) erfassen",
+    ),
+
 }
 
 EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
