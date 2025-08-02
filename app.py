@@ -2140,6 +2140,7 @@ def run_wizard(wizard_name):
 
     if wizard_name not in allowed:
         abort(404)
+
     return _wizard_internal(wizard_name)
 
 def convert_datetime_value(field, value):
@@ -2172,7 +2173,7 @@ def _wizard_internal(name):
 
     success = False
     error = None
-    form_data = {}  # Zum Wiederbefüllen der Form
+    form_data = {}
     
     if request.method == "POST":
         try:
@@ -2204,6 +2205,9 @@ def _wizard_internal(name):
                         f: data_lists[f][i].strip() if i < len(data_lists[f]) else None
                         for f in field_names
                     }
+                    pprint("ENTRY:")
+                    pprint(entry)
+                    pprint("=========================")
                     if any(entry.values()):
                         entry[foreign_key] = main_instance.id
                         session.add(table(**entry))
