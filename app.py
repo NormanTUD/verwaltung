@@ -205,7 +205,7 @@ LABEL_OVERRIDES = {
     "loan_id": "Leihgabe-ID",
 }
 
-HIDDEN_FIELD_NAMES = {"version", "Versions", "_version"}
+HIDDEN_FIELD_NAMES = {"version", "Versions", "_version", "guid"}
 
 def get_col_type(col):
     if isinstance(col.type, (Integer, Float)):
