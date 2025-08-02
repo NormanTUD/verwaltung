@@ -78,7 +78,7 @@ class Person(Base):
     transponders_owned = relationship("Transponder", foreign_keys="[Transponder.owner_id]", back_populates="owner")
     departments = relationship("Abteilung", back_populates="leiter")
     person_abteilungen = relationship("PersonToAbteilung", back_populates="person", cascade="all, delete")
-    professorships = relationship("ProfessorshipToPerson", back_populates="person", cascade="all, delete")
+    professorships = relationship("ProfessurToPerson", back_populates="person", cascade="all, delete")
     
     __table_args__ = (
         UniqueConstraint("title", "first_name", "last_name", name="uq_person_name_title"),
@@ -153,32 +153,32 @@ class Kostenstelle(Base):
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(Text)
-    professorships = relationship("Professorship", back_populates="kostenstelle")
+    professorships = relationship("Professur", back_populates="kostenstelle")
     
     __table_args__ = (
         UniqueConstraint("name", name="uq_kostenstelle_name"),
     )
 
-class Professorship(Base):
+class Professur(Base):
     __tablename__ = "professorship"
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
     kostenstelle_id = Column(Integer, ForeignKey("kostenstelle.id", ondelete="SET NULL"))
     name = Column(Text)
     kostenstelle = relationship("Kostenstelle", back_populates="professorships")
-    persons = relationship("ProfessorshipToPerson", back_populates="professorship", cascade="all, delete")
+    persons = relationship("ProfessurToPerson", back_populates="professorship", cascade="all, delete")
     
     __table_args__ = (
         UniqueConstraint("kostenstelle_id", "name", name="uq_professorship_per_kostenstelle"),
     )
 
-class ProfessorshipToPerson(Base):
+class ProfessurToPerson(Base):
     __tablename__ = "professorship_to_person"
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
     professorship_id = Column(Integer, ForeignKey("professorship.id", ondelete="CASCADE"))
     person_id = Column(Integer, ForeignKey("person.id", ondelete="CASCADE"))
-    professorship = relationship("Professorship", back_populates="persons")
+    professorship = relationship("Professur", back_populates="persons")
     person = relationship("Person", back_populates="professorships")
     
     __table_args__ = (
@@ -336,7 +336,7 @@ class Inventory(Base):
     object = relationship("Object", lazy="joined")
     kostenstelle = relationship("Kostenstelle", lazy="joined")
     abteilung = relationship("Abteilung", lazy="joined")
-    professorship = relationship("Professorship", lazy="joined")
+    professorship = relationship("Professur", lazy="joined")
     room = relationship("Room", foreign_keys=[raum_id], lazy="joined")
 
     __table_args__ = (

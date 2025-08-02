@@ -458,7 +458,7 @@ WIZARDS = {
         title="Transponder erstellen",
     ),
     "Professur": create_wizard_from_model(
-        Professorship,
+        Professur,
         title="Professur erstellen",
     ),
     "Kostenstelle": create_wizard_from_model(
@@ -516,7 +516,7 @@ WIZARDS = {
         title="Person zu Raum zuordnen",
     ),
     "Professur zu Person": create_wizard_from_model(
-        ProfessorshipToPerson,
+        ProfessurToPerson,
         title="Professur zu Person zuordnen",
     ),
     "Transponder zu Raum": create_wizard_from_model(
@@ -685,8 +685,8 @@ def initialize_db_data():
             session.commit()
             print("Kostenstellen wurden erfolgreich initialisiert.")
 
-        # Professorship prüfen und ggf. einfügen
-        professorship_count = session.query(Professorship).count()
+        # Professur prüfen und ggf. einfügen
+        professorship_count = session.query(Professur).count()
         if professorship_count == 0:
             print("Keine Professuren gefunden, füge neue hinzu...")
             for prof in INITIAL_DATA["professorships"]:
@@ -695,7 +695,7 @@ def initialize_db_data():
                 if kostenstelle_obj is None:
                     session.close()
                     raise ValueError(f"Kostenstelle '{prof['kostenstelle_name']}' nicht gefunden für Professur '{prof['name']}'")
-                obj = Professorship(name=prof["name"], kostenstelle_id=kostenstelle_obj.id)
+                obj = Professur(name=prof["name"], kostenstelle_id=kostenstelle_obj.id)
                 session.add(obj)
             session.commit()
             print("Professuren wurden erfolgreich initialisiert.")
@@ -3548,7 +3548,7 @@ def get_abteilung_names():
 @login_required
 def get_professorship_names():
     session = Session()
-    result = get_names(session, Professorship, Professorship.id, [Professorship.name])
+    result = get_names(session, Professur, Professur.id, [Professur.name])
     session.close()
     return jsonify(result)
 
