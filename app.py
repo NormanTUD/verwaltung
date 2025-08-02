@@ -176,7 +176,7 @@ INITIAL_DATA = {
         {"name": "Kostenstelle A"},
         {"name": "Kostenstelle B"},
     ],
-    "professorships": [
+    "professuren": [
         {"name": "Professur X", "kostenstelle_name": "Kostenstelle A"},
         {"name": "Professur Y", "kostenstelle_name": "Kostenstelle B"},
     ],
@@ -201,7 +201,7 @@ LABEL_OVERRIDES = {
     "person_id": "Person-ID",
     "abteilung_id": "Abteilung-ID",
     "category_id": "Kategorie-ID",
-    "professorship_id": "Professur-ID",
+    "professur_id": "Professur-ID",
     "loan_id": "Leihgabe-ID",
 }
 
@@ -686,10 +686,10 @@ def initialize_db_data():
             print("Kostenstellen wurden erfolgreich initialisiert.")
 
         # Professur prüfen und ggf. einfügen
-        professorship_count = session.query(Professur).count()
-        if professorship_count == 0:
+        professur_count = session.query(Professur).count()
+        if professur_count == 0:
             print("Keine Professuren gefunden, füge neue hinzu...")
-            for prof in INITIAL_DATA["professorships"]:
+            for prof in INITIAL_DATA["professuren"]:
                 print(f"  - Verarbeite Professur: {prof['name']} mit Kostenstelle '{prof['kostenstelle_name']}'")
                 kostenstelle_obj = session.query(Kostenstelle).filter_by(name=prof["kostenstelle_name"]).first()
                 if kostenstelle_obj is None:
@@ -1637,7 +1637,7 @@ def aggregate_inventory_view():
                 joinedload(Inventar.object).joinedload(Object.category),
                 joinedload(Inventar.kostenstelle),
                 joinedload(Inventar.abteilung),
-                joinedload(Inventar.professorship),
+                joinedload(Inventar.professur),
                 joinedload(Inventar.room)
             )
 
@@ -1667,7 +1667,7 @@ def aggregate_inventory_view():
                 "Rückgabedatum": inv.rückgabedatum.isoformat() if inv.rückgabedatum else "Nicht zurückgegeben",
                 "Raum": _create_room_name(inv.room),
                 "Abteilung": _get_abteilung_name(inv.abteilung),
-                "Professur": _get_professorship_name(inv.professorship),
+                "Professur": _get_professur_name(inv.professur),
                 "Kostenstelle": _get_kostenstelle_name(inv.kostenstelle),
                 "Preis": f"{inv.preis:.2f} €" if inv.preis is not None else "-",
                 "Kommentar": inv.kommentar or "-"
@@ -1909,7 +1909,7 @@ def _create_room_name(r):
         return f"{r.name} ({etage_str})"
     return "-"
 
-def _get_professorship_name(pf):
+def _get_professur_name(pf):
     return pf.name if pf else "-"
 
 def _get_abteilung_name(a):
@@ -2599,7 +2599,7 @@ def get_person_metadata(person_id: int) -> dict:
             "transponders_owned": [],
             "departments": [],
             "person_abteilungen": [],
-            "professorships": []
+            "professuren": []
         }
 
         for contact in person.contacts:
@@ -2645,10 +2645,10 @@ def get_person_metadata(person_id: int) -> dict:
                 "funktion": getattr(pa, "funktion", None)
             })
 
-        for prof in person.professorships:
-            metadata["professorships"].append({
+        for prof in person.professuren:
+            metadata["professuren"].append({
                 "id": prof.id,
-                "professorship_id": getattr(prof, "professorship_id", None),
+                "professur_id": getattr(prof, "professur_id", None),
                 "title": getattr(prof, "title", None)
             })
 
@@ -3544,9 +3544,9 @@ def get_abteilung_names():
     session.close()
     return jsonify(result)
 
-@app.route('/api/get_professorship_names', methods=['GET'])
+@app.route('/api/get_professur_names', methods=['GET'])
 @login_required
-def get_professorship_names():
+def get_professur_names():
     session = Session()
     result = get_names(session, Professur, Professur.id, [Professur.name])
     session.close()

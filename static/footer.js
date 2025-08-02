@@ -68,15 +68,15 @@ function getNamesConfig() {
 			},
 			label: "Kategorie"
 		},
-		professorship_id: {
+		professur_id: {
 			fields: {
-				professorship_id: {
-					name: "Professorship",
+				professur_id: {
+					name: "Professur",
 					type: "select",
-					options_url_id_dict: "/api/get_professorship_names"
+					options_url_id_dict: "/api/get_professur_names"
 				}
 			},
-			label: "Professorship"
+			label: "Professur"
 		},
 		abteilung_id: {
 			fields: {

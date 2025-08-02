@@ -78,7 +78,7 @@ class Person(Base):
     transponders_owned = relationship("Transponder", foreign_keys="[Transponder.owner_id]", back_populates="owner")
     departments = relationship("Abteilung", back_populates="leiter")
     person_abteilungen = relationship("PersonToAbteilung", back_populates="person", cascade="all, delete")
-    professorships = relationship("ProfessurToPerson", back_populates="person", cascade="all, delete")
+    professuren = relationship("ProfessurToPerson", back_populates="person", cascade="all, delete")
     
     __table_args__ = (
         UniqueConstraint("title", "first_name", "last_name", name="uq_person_name_title"),
@@ -153,36 +153,36 @@ class Kostenstelle(Base):
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(Text)
-    professorships = relationship("Professur", back_populates="kostenstelle")
+    professuren = relationship("Professur", back_populates="kostenstelle")
     
     __table_args__ = (
         UniqueConstraint("name", name="uq_kostenstelle_name"),
     )
 
 class Professur(Base):
-    __tablename__ = "professorship"
+    __tablename__ = "professur"
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
     kostenstelle_id = Column(Integer, ForeignKey("kostenstelle.id", ondelete="SET NULL"))
     name = Column(Text)
-    kostenstelle = relationship("Kostenstelle", back_populates="professorships")
-    persons = relationship("ProfessurToPerson", back_populates="professorship", cascade="all, delete")
+    kostenstelle = relationship("Kostenstelle", back_populates="professuren")
+    persons = relationship("ProfessurToPerson", back_populates="professur", cascade="all, delete")
     
     __table_args__ = (
-        UniqueConstraint("kostenstelle_id", "name", name="uq_professorship_per_kostenstelle"),
+        UniqueConstraint("kostenstelle_id", "name", name="uq_professur_per_kostenstelle"),
     )
 
 class ProfessurToPerson(Base):
-    __tablename__ = "professorship_to_person"
+    __tablename__ = "professur_to_person"
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
-    professorship_id = Column(Integer, ForeignKey("professorship.id", ondelete="CASCADE"))
+    professur_id = Column(Integer, ForeignKey("professur.id", ondelete="CASCADE"))
     person_id = Column(Integer, ForeignKey("person.id", ondelete="CASCADE"))
-    professorship = relationship("Professur", back_populates="persons")
-    person = relationship("Person", back_populates="professorships")
+    professur = relationship("Professur", back_populates="persons")
+    person = relationship("Person", back_populates="professuren")
     
     __table_args__ = (
-        UniqueConstraint("person_id", "professorship_id", name="uq_professorship_to_person"),
+        UniqueConstraint("person_id", "professur_id", name="uq_professur_to_person"),
     )
 
 class Building(Base):
@@ -330,7 +330,7 @@ class Inventar(Base):
     kommentar = Column(Text)
     preis = Column(Float)
     raum_id = Column(Integer, ForeignKey("room.id", ondelete="SET NULL"))
-    professorship_id = Column(Integer, ForeignKey("professorship.id", ondelete="SET NULL"))
+    professur_id = Column(Integer, ForeignKey("professur.id", ondelete="SET NULL"))
     abteilung_id = Column(Integer, ForeignKey("abteilung.id", ondelete="SET NULL"))
 
     owner = relationship("Person", foreign_keys=[owner_id], lazy="joined")
@@ -338,7 +338,7 @@ class Inventar(Base):
     object = relationship("Object", lazy="joined")
     kostenstelle = relationship("Kostenstelle", lazy="joined")
     abteilung = relationship("Abteilung", lazy="joined")
-    professorship = relationship("Professur", lazy="joined")
+    professur = relationship("Professur", lazy="joined")
     room = relationship("Room", foreign_keys=[raum_id], lazy="joined")
 
     __table_args__ = (
@@ -347,7 +347,7 @@ class Inventar(Base):
         Index("ix_inventory_object_id", "object_id"),
         Index("ix_inventory_raum_id", "raum_id"),
         Index("ix_inventory_kostenstelle_id", "kostenstelle_id"),
-        Index("ix_inventory_professorship_id", "professorship_id"),
+        Index("ix_inventory_professur_id", "professur_id"),
         Index("ix_inventory_abteilung_id", "abteilung_id"),
     )
 
