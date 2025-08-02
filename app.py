@@ -3512,11 +3512,25 @@ def get_names(session, model, id_field, name_fields):
 
     return result
 
+
 @app.route('/schema')
 @login_required
 @admin_required
 def schema():
-    graph = create_schema_graph(engine=engine, metadata=Base.metadata)
+    show_versions = request.args.get('show_versions', 'false').lower() == 'true'
+
+    if show_versions:
+        # Alle Tabellen anzeigen
+        tables = list(Base.metadata.tables.values())
+    else:
+        # Tabellen filtern, die nicht auf '_version' enden
+        tables = [t for t in Base.metadata.tables.values() if not t.name.endswith('_version')]
+
+    graph = create_schema_graph(
+        metadata=Base.metadata,
+        tables=tables,
+        engine=engine
+    )
     graph.write_png('/tmp/schema.png')
     return send_file('/tmp/schema.png', mimetype='image/png')
 
