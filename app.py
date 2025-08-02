@@ -1643,7 +1643,7 @@ def aggregate_inventory_view():
 
         # Filter anwenden
         if show_only_unreturned:
-            query = query.filter(Inventory.return_date.is_(None))
+            query = query.filter(Inventory.rückgabedatum.is_(None))
 
         if owner_filter:
             query = query.filter(Inventory.owner_id == owner_filter)
@@ -1657,19 +1657,19 @@ def aggregate_inventory_view():
         for inv in inventory_list:
             row = {
                 "ID": inv.id,
-                "Seriennummer": inv.serial_number or "-",
+                "Seriennummer": inv.seriennummer or "-",
                 "Objekt": inv.object.name if inv.object else "-",
                 "Kategorie": _get_category_name(inv.object.category) if inv.object else "-",
                 "Anlagennummer": inv.anlagennummer or "-",
                 "Ausgegeben an": _get_person_name(inv.owner),
                 "Ausgegeben durch": _get_person_name(inv.issuer),
                 "Ausgabedatum": inv.got_date.isoformat() if inv.got_date else "-",
-                "Rückgabedatum": inv.return_date.isoformat() if inv.return_date else "Nicht zurückgegeben",
+                "Rückgabedatum": inv.rückgabedatum.isoformat() if inv.rückgabedatum else "Nicht zurückgegeben",
                 "Raum": _create_room_name(inv.room),
                 "Abteilung": _get_abteilung_name(inv.abteilung),
                 "Professur": _get_professorship_name(inv.professorship),
                 "Kostenstelle": _get_kostenstelle_name(inv.kostenstelle),
-                "Preis": f"{inv.price:.2f} €" if inv.price is not None else "-",
+                "Preis": f"{inv.preis:.2f} €" if inv.preis is not None else "-",
                 "Kommentar": inv.comment or "-"
             }
             rows.append(row)
@@ -1721,7 +1721,7 @@ def aggregate_transponder_view():
             )
 
         if show_only_unreturned:
-            query = query.filter(Transponder.return_date.is_(None))
+            query = query.filter(Transponder.rückgabedatum.is_(None))
 
         if owner_id_filter:
             try:
@@ -1748,8 +1748,8 @@ def aggregate_transponder_view():
             print(f"owner: {owner}")
             print(f"issuer: {issuer}")
 
-            rooms = [link.room for link in t.room_links if link.room]
-            buildings = list({r.building.name if r.building else "?" for r in rooms})
+            räume = [link.room for link in t.room_links if link.room]
+            buildings = list({r.building.name if r.building else "?" for r in räume})
 
             # Input-Felder für owner_id und issuer_id
             owner_input = f'<input type="text" name="owner_id" data-update_info="transponder_{t.id}" value="{html.escape(str(owner))}" />'
@@ -1757,13 +1757,13 @@ def aggregate_transponder_view():
 
             row = {
                 "ID": t.id,
-                "Seriennummer": t.serial_number or "-",
+                "Seriennummer": t.seriennummer or "-",
                 "Ausgegeben an": owner_input,
                 "Ausgegeben durch": issuer_input,
                 "Ausgabedatum": t.got_date.isoformat() if t.got_date else "-",
-                "Rückgabedatum": t.return_date.isoformat() if t.return_date else "Nicht zurückgegeben",
+                "Rückgabedatum": t.rückgabedatum.isoformat() if t.rückgabedatum else "Nicht zurückgegeben",
                 "Gebäude": ", ".join(sorted(buildings)) if buildings else "-",
-                "Räume": ", ".join(sorted(set(f"{r.name} ({r.floor}.OG)" for r in rooms))) if rooms else "-",
+                "Räume": ", ".join(sorted(set(f"{r.name} ({r.etage}.OG)" for r in räume))) if rooms else "-",
                 "Kommentar": t.comment or "-",
             }
             rows.append(row)
@@ -1837,7 +1837,7 @@ def aggregate_persons_view():
         people_query = session.query(Person) \
             .options(
                 joinedload(Person.contacts),
-                joinedload(Person.rooms).joinedload(PersonToRoom.room).joinedload(Room.building),
+                joinedload(Person.räume).joinedload(PersonToRoom.room).joinedload(Room.building),
                 joinedload(Person.departments),
                 joinedload(Person.person_abteilungen).joinedload(PersonToAbteilung.abteilung),
                 joinedload(Person.transponders_issued),
@@ -1857,10 +1857,10 @@ def aggregate_persons_view():
             faxes = sorted({c.fax for c in p.contacts if c.fax})
             emails = sorted({c.email for c in p.contacts if c.email})
 
-            rooms = [link.room for link in p.rooms if link.room]
+            räume = [link.room for link in p.rooms if link.room]
             room_strs = sorted(set(
-                f"{r.name} ({r.floor}.OG, {r.building.name if r.building else '?'})"
-                for r in rooms
+                f"{r.name} ({r.etage}.OG, {r.building.name if r.building else '?'})"
+                for r in räume
             ))
 
             abteilungen_leiter = {a.name for a in p.departments}
@@ -1905,8 +1905,8 @@ def aggregate_persons_view():
 
 def _create_room_name(r):
     if r:
-        floor_str = f"{r.floor}.OG" if r.floor is not None else "?"
-        return f"{r.name} ({floor_str})"
+        etage_str = f"{r.etage}.OG" if r.etage is not None else "?"
+        return f"{r.name} ({etage_str})"
     return "-"
 
 def _get_professorship_name(pf):
@@ -1941,7 +1941,7 @@ def wizard_person():
         "image_url": "",
         "contacts": [],
         "transponders": [],
-        "rooms": []
+        "räume": []
     }
 
     try:
@@ -2048,12 +2048,12 @@ def wizard_person():
 
             # Räume aus Formular (z.B. room_id[] oder room_guid[])
             room_ids = request.form.getlist("room_id[]") or request.form.getlist("room_guid[]")
-            rooms = []
-            form_data["rooms"] = []
+            räume = []
+            form_data["räume"] = []
 
             for rid in room_ids:
                 rid = rid.strip()
-                form_data["rooms"].append({"id": rid})
+                form_data["räume"].append({"id": rid})
                 if rid:
                     # Typumwandlung zu int, falls room_id Integer ist
                     try:
@@ -2064,7 +2064,7 @@ def wizard_person():
                     room = session.query(Room).filter_by(id=rid_int).first()
                     if not room:
                         raise ValueError(f"Unbekannte Raum-ID: {rid}")
-                    rooms.append(room)
+                    räume.append(room)
 
             # Person anlegen
             new_person = Person(
@@ -2092,13 +2092,13 @@ def wizard_person():
             for tp in transponders:
                 t = Transponder(
                     owner_id=new_person.id,
-                    serial_number=tp["serial"],
+                    seriennummer=tp["serial"],
                     comment=tp["comment"]
                 )
                 session.add(t)
 
             # Räume verknüpfen (PersonToRoom)
-            for room in rooms:
+            for room in räume:
                 ptr = PersonToRoom(
                     person_id=new_person.id,
                     room_id=room.id
@@ -2117,7 +2117,7 @@ def wizard_person():
                 "image_url": "",
                 "contacts": [],
                 "transponders": [],
-                "rooms": []
+                "räume": []
             }
 
     except (ValueError, SQLAlchemyError) as e:
@@ -2144,14 +2144,14 @@ def map_editor():
     session = Session()
 
     building_id_param = request.args.get("building_id")
-    floor_param = request.args.get("floor")
+    etage_param = request.args.get("etage")
 
-    floorplan_dir = os.path.join("static", "floorplans")
+    etageplan_dir = os.path.join("static", "etageplans")
 
-    # floorplans als Struktur: { building_id: [floor1, floor2, ...] }
+    # etageplans als Struktur: { building_id: [etage1, etage2, ...] }
     building_map = {}
 
-    for filename in os.listdir(floorplan_dir):
+    for filename in os.listdir(etageplan_dir):
         if filename.startswith("b") and "_f" in filename and filename.endswith(".png"):
             try:
                 parts = filename.removeprefix("b").removesuffix(".png").split("_f")
@@ -2174,29 +2174,29 @@ def map_editor():
         session.close()
         return f"Error loading building names: {str(e)}", 500
 
-    # Kein Gebäude oder Floor gewählt → Auswahlseite rendern
-    if building_id_param is None or floor_param is None:
+    # Kein Gebäude oder etage gewählt → Auswahlseite rendern
+    if building_id_param is None or etage_param is None:
         session.close()
         return render_template(
             "map_editor.html",
-            floorplans={},
+            etageplans={},
             image_url=None,
             image_width=None,
             image_height=None,
             building_id=None,
             building_names=building_names,
-            floor=None,
+            etage=None,
             building_map=building_map
         )
 
     try:
         building_id = int(building_id_param)
-        floor = int(floor_param)
+        etage = int(etage_param)
     except ValueError:
-        return "Invalid 'building_id' or 'floor' – must be integers", 400
+        return "Invalid 'building_id' or 'etage' – must be integers", 400
 
-    filename = f"b{building_id}_f{floor}.png"
-    image_path = os.path.join(floorplan_dir, filename)
+    filename = f"b{building_id}_f{etage}.png"
+    image_path = os.path.join(etageplan_dir, filename)
 
     if not os.path.exists(image_path):
         session.close()
@@ -2209,7 +2209,7 @@ def map_editor():
         session.close()
         return f"Error opening image: {str(e)}", 500
 
-    image_url = f"static/floorplans/b{building_id}_f{floor}.png"
+    image_url = f"static/etageplans/b{building_id}_f{etage}.png"
 
     image_width = 1
     image_height = 1
@@ -2224,12 +2224,12 @@ def map_editor():
 
     return render_template(
         "map_editor.html",
-        floorplans={},
+        etageplans={},
         image_url=image_url,
         image_width=image_width,
         image_height=image_height,
         building_id=building_id,
-        floor=floor,
+        etage=etage,
         building_map=building_map,
         building_names=building_names
     )
@@ -2463,33 +2463,33 @@ def generate_fields_for_schluesselausgabe_from_metadata(
 
         elif name.startswith("GebäudeRow"):
             index = int(name.replace("GebäudeRow", "")) - 1
-            rooms = transponder.get("rooms", [])
-            if 0 <= index < len(rooms):
-                building = rooms[index].get("building")
+            räume = transponder.get("rooms", [])
+            if 0 <= index < len(räume):
+                building = räume[index].get("building")
                 if building:
                     value = building.get("name", "")
 
         elif name.startswith("RaumRow"):
             index = int(name.replace("RaumRow", "")) - 1
-            rooms = transponder.get("rooms", [])
-            if 0 <= index < len(rooms):
-                value = rooms[index].get("name", "")
+            räume = transponder.get("rooms", [])
+            if 0 <= index < len(räume):
+                value = räume[index].get("name", "")
 
         elif name.startswith("SerienNrSchlüsselNrRow"):
             index = int(name.replace("SerienNrSchlüsselNrRow", "")) - 1
-            rooms = transponder.get("rooms", [])
-            if 0 <= index < len(rooms):
-                room = rooms[index]
+            räume = transponder.get("rooms", [])
+            if 0 <= index < len(räume):
+                room = räume[index]
                 has_building = room.get("building", {}).get("name")
                 has_room = room.get("name")
-                if has_building and has_room and transponder.get("serial_number"):
-                    value = transponder["serial_number"]
+                if has_building and has_room and transponder.get("seriennummer"):
+                    value = transponder["seriennummer"]
 
         elif name.startswith("AnzahlRow"):
             index = int(name.replace("AnzahlRow", "")) - 1
-            rooms = transponder.get("rooms", [])
-            if 0 <= index < len(rooms):
-                room = rooms[index]
+            räume = transponder.get("rooms", [])
+            if 0 <= index < len(räume):
+                room = räume[index]
                 has_building = room.get("building", {}).get("name")
                 has_room = room.get("name")
                 if has_building and has_room:
@@ -2500,8 +2500,8 @@ def generate_fields_for_schluesselausgabe_from_metadata(
                 value = transponder["got_date"].strftime("%d.%m.%Y")
 
         elif name == "Datum Übernehmende:r":
-            if transponder.get("return_date"):
-                value = transponder["return_date"].strftime("%d.%m.%Y")
+            if transponder.get("rückgabedatum"):
+                value = transponder["rückgabedatum"].strftime("%d.%m.%Y")
 
         elif name == "Weitere Anmerkungen":
             if transponder.get("comment"):
@@ -2523,14 +2523,14 @@ def get_transponder_metadata(transponder_id: int) -> dict:
 
         metadata = {
             "id": transponder.id,
-            "serial_number": transponder.serial_number,
+            "seriennummer": transponder.seriennummer,
             "got_date": transponder.got_date,
-            "return_date": transponder.return_date,
+            "rückgabedatum": transponder.rückgabedatum,
             "comment": transponder.comment,
 
             "issuer": None,
             "owner": None,
-            "rooms": []
+            "räume": []
         }
 
         if transponder.issuer is not None:
@@ -2555,7 +2555,7 @@ def get_transponder_metadata(transponder_id: int) -> dict:
             room_data = {
                 "id": room.id,
                 "name": room.name,
-                "floor": room.floor,
+                "etage": room.etage,
                 "building": None
             }
 
@@ -2567,7 +2567,7 @@ def get_transponder_metadata(transponder_id: int) -> dict:
                     "abkuerzung": room.building.abkuerzung
                 }
 
-            metadata["rooms"].append(room_data)
+            metadata["räume"].append(room_data)
 
         session.close()
 
@@ -2597,7 +2597,7 @@ def get_person_metadata(person_id: int) -> dict:
             "image_url": person.image_url,
 
             "contacts": [],
-            "rooms": [],
+            "räume": [],
             "transponders_issued": [],
             "transponders_owned": [],
             "departments": [],
@@ -2614,8 +2614,8 @@ def get_person_metadata(person_id: int) -> dict:
                 "comment": contact.comment
             })
 
-        for room in person.rooms:
-            metadata["rooms"].append({
+        for room in person.räume:
+            metadata["räume"].append({
                 "id": room.id,
                 "room_id": getattr(room, "room_id", None),  # adapt if necessary
                 "comment": getattr(room, "comment", None)
@@ -2749,7 +2749,7 @@ def transponder_form():
     persons = session.query(Person).order_by(Person.last_name).all()
     transponders = session.query(Transponder).options(
         joinedload(Transponder.owner)
-    ).order_by(Transponder.serial_number).all()
+    ).order_by(Transponder.seriennummer).all()
 
     session.close()
     return render_template("transponder_form.html",
@@ -2785,13 +2785,13 @@ def transponder_ausgabe():
 @login_required
 def transponder_rueckgabe():
     transponder_id = request.form.get("transponder_id")
-    return_date_str = request.form.get("return_date")
+    rückgabedatum_str = request.form.get("rückgabedatum")
 
     session = Session()
 
     try:
         transponder = session.session.get(Transponder, int(transponder_id))
-        transponder.return_date = date.fromisoformat(return_date_str)
+        transponder.rückgabedatum = date.fromisoformat(rückgabedatum_str)
         transponder.owner_id = None
         session.commit()
         flash("Transponder erfolgreich zurückgenommen.", "success")
@@ -2863,32 +2863,32 @@ def gui_edit(handler_name):
     finally:
         handler.session.close()
 
-@app.route('/floorplan')
+@app.route('/etageplan')
 @login_required
-def floorplan():
+def etageplan():
     session = Session()
 
     building_id_param = request.args.get("building_id")
-    floor_param = request.args.get("floor")
+    etage_param = request.args.get("etage")
 
     building_id = None
-    floor = None
+    etage = None
 
     # Versuche ints aus Parametern zu machen
     try:
         if building_id_param is not None:
             building_id = int(building_id_param)
-        if floor_param is not None:
-            floor = int(floor_param)
+        if etage_param is not None:
+            etage = int(etage_param)
     except ValueError:
         session.close()
-        return "Invalid 'building_id' or 'floor' – must be integers", 400
+        return "Invalid 'building_id' or 'etage' – must be integers", 400
 
     # Lade alle verfügbaren Gebäude & Etagen
-    floorplan_dir = os.path.join("static", "floorplans")
+    etageplan_dir = os.path.join("static", "etageplans")
     building_map = {}
 
-    for filename in os.listdir(floorplan_dir):
+    for filename in os.listdir(etageplan_dir):
         if filename.startswith("b") and "_f" in filename and filename.endswith(".png"):
             try:
                 parts = filename.removeprefix("b").removesuffix(".png").split("_f")
@@ -2912,23 +2912,23 @@ def floorplan():
         session.close()
         return f"Error loading building names: {str(e)}", 500
 
-    # Wenn Gebäude oder Etage fehlen, einfach das Template mit Auswahlfeldern rendern (ohne Floorplan-Bild)
-    if building_id is None or floor is None:
+    # Wenn Gebäude oder Etage fehlen, einfach das Template mit Auswahlfeldern rendern (ohne etageplan-Bild)
+    if building_id is None or etage is None:
         session.close()
         return render_template(
-            "floorplan.html",
+            "etageplan.html",
             image_url=None,
             image_width=None,
             image_height=None,
             building_id=building_id,
-            floor=floor,
+            etage=etage,
             building_map=building_map,
             building_names=building_names
         )
 
     # Prüfe, ob Bild existiert
-    filename = f"b{building_id}_f{floor}.png"
-    image_path = os.path.join("static", "floorplans", filename)
+    filename = f"b{building_id}_f{etage}.png"
+    image_path = os.path.join("static", "etageplans", filename)
 
     if not os.path.exists(image_path):
         return f"Image not found: {filename}", 404
@@ -2942,12 +2942,12 @@ def floorplan():
 
     # Template mit Bild rendern
     return render_template(
-        "floorplan.html",
-        image_url=f"/static/floorplans/{filename}",
+        "etageplan.html",
+        image_url=f"/static/etageplans/{filename}",
         image_width=width,
         image_height=height,
         building_id=building_id,
-        floor=floor,
+        etage=etage,
         building_map=building_map,
         building_names=building_names
     )
@@ -2985,7 +2985,7 @@ def save_or_update_room():
                 "room_id": room.id,
                 "room_name": room.name,
                 "guid": room.guid,
-                "floor": room.floor,
+                "etage": room.etage,
                 "layout": {
                     "x": validated["x"],
                     "y": validated["y"],
@@ -3016,9 +3016,9 @@ def _save_room_validate_input(data):
         if not isinstance(data.get(key), (int, float)):
             raise ValueError("Invalid or missing layout data")
 
-    floor = data.get("floor")
-    if floor is not None and not isinstance(floor, int):
-        raise ValueError("Invalid floor – must be an integer")
+    etage = data.get("etage")
+    if etage is not None and not isinstance(etage, int):
+        raise ValueError("Invalid etage – must be an integer")
 
     guid = data.get("guid")
     if guid is not None and not isinstance(guid, str):
@@ -3033,7 +3033,7 @@ def _save_room_validate_input(data):
         "height": data["height"],
         "id": data.get("id"),
         "old_name": data.get("old_name"),
-        "floor": floor,
+        "etage": etage,
         "guid": guid
     }
 
@@ -3061,7 +3061,7 @@ def _save_room_create(session, v):
     room = Room(
         name=v["name"],
         building_id=v["building_id"],
-        floor=v["floor"],
+        etage=v["etage"],
         guid=v["guid"] or str(uuid.uuid4())
     )
     session.add(room)
@@ -3077,8 +3077,8 @@ def _save_room_create(session, v):
 def _save_room_update_fields(room, v):
     if v["name"] != room.name:
         room.name = v["name"]
-    if v["floor"] is not None:
-        room.floor = v["floor"]
+    if v["etage"] is not None:
+        room.etage = v["etage"]
     if v["guid"] and room.guid != v["guid"]:
         room.guid = v["guid"]
 
@@ -3098,37 +3098,37 @@ def _save_room_set_layout(session, room, v):
         )
         session.add(layout)
 
-@app.route("/get_floorplan", methods=["GET"])
+@app.route("/get_etageplan", methods=["GET"])
 @login_required
-def get_floorplan():
+def get_etageplan():
     session = Session()
 
     building_id_param = request.args.get("building_id")
-    floor_param = request.args.get("floor")
+    etage = request.args.get("etage")
 
     try:
         building_id = int(building_id_param) if building_id_param is not None else None
-        floor = int(floor_param) if floor_param is not None else None
+        etage = int(etage) if etage is not None else None
     except ValueError:
         session.close()
-        return jsonify({"error": "Invalid 'building_id' or 'floor' – must be integers"}), 400
+        return jsonify({"error": "Invalid 'building_id' or 'etage' – must be integers"}), 400
 
-    if building_id is None or floor is None:
+    if building_id is None or etage is None:
         session.close()
-        return jsonify({"error": "Both 'building_id' and 'floor' parameters are required"}), 400
+        return jsonify({"error": "Both 'building_id' and 'etage' parameters are required"}), 400
     try:
         query = session.query(Room).join(RoomLayout).filter(
             Room.building_id == building_id,
-            Room.floor == floor
+            Room.etage == etage
         )
 
-        rooms = query.all()
+        räume = query.all()
 
         result = []
-        for room in rooms:
+        for room in räume:
             layout = room.layout
             if layout is None:
-                continue  # skip rooms without layout
+                continue  # skip räume without layout
 
             result.append({
                 "id": room.id,
@@ -3139,7 +3139,7 @@ def get_floorplan():
                 "height": layout.height,
                 "guid": room.guid,
                 "building_id": room.building_id,
-                "floor": room.floor
+                "etage": room.etage
             })
 
         session.close()
@@ -3410,7 +3410,7 @@ def get_person_database():
                 "first_name": person.first_name or "",
                 "last_name": person.last_name or "",
                 "title": person.title or "",
-                "floor": 0,
+                "etage": 0,
                 "comment": person.comment or "",
                 "id": person.id,
                 "image_url": person.image_url or "" 
@@ -3461,7 +3461,7 @@ def get_room_id():
             room = Room(
                 building_id=building.id,
                 name=room_name,
-                floor=0,
+                etage=0,
                 guid=new_guid,
             )
             session.add(room)
@@ -3629,26 +3629,26 @@ def get_person_room_data():
         session = Session()
 
         building_id = request.args.get("building_id", type=int)
-        floor = request.args.get("floor", type=int)
+        etage = request.args.get("etage", type=int)
 
-        if building_id is None or floor is None:
+        if building_id is None or etage is None:
             if session:
                 session.close()
-            return jsonify({"error": "Missing building_id or floor parameter"}), 400
+            return jsonify({"error": "Missing building_id or etage parameter"}), 400
 
-        rooms = session.query(Room).options(
+        räume = session.query(Room).options(
             joinedload(Room.layout),
             joinedload(Room.person_links)
                 .joinedload(PersonToRoom.person)
                 .joinedload(Person.contacts)
         ).filter(
             Room.building_id == building_id,
-            Room.floor == floor
+            Room.etage == etage
         ).all()
 
         person_dict_map = {}
 
-        for room in rooms:
+        for room in räume:
             room_info = room.to_dict()
             layout_info = room.layout.to_dict() if room.layout else {}
 
@@ -3660,7 +3660,7 @@ def get_person_room_data():
                     person_dict_map[person_id] = {
                         "person": person.to_dict(),
                         "contacts": [c.to_dict() for c in person.contacts],
-                        "rooms": []
+                        "räume": []
                     }
 
                 x_value = ptr.x
@@ -3675,7 +3675,7 @@ def get_person_room_data():
                 if "y" in room_info:
                     del room_info["y"]
 
-                person_dict_map[person_id]["rooms"].append({
+                person_dict_map[person_id]["räume"].append({
                     "room": room_info,
                     "layout": layout_info,
                     "x": x_value,
@@ -3771,8 +3771,8 @@ def search():
         if 'map-editor'.startswith(query):
             results.append({'label': '🗺️ Map-Editor', 'url': '/map-editor'})
 
-    if 'floorplan'.startswith(query):
-        results.append({'label': '🗺️ Floorplan', 'url': '/floorplan'})
+    if 'etageplan'.startswith(query):
+        results.append({'label': '🗺️ etageplan', 'url': '/etageplan'})
 
     session.close()
     return jsonify(results)

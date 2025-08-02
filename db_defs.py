@@ -69,11 +69,11 @@ class Person(Base):
     title = Column(Text)
     first_name = Column(Text)
     last_name = Column(Text)
-    comment = Column(Text)
+    kommentar = Column(Text)
     image_url = Column(Text)
 
     contacts = relationship("PersonContact", back_populates="person", cascade="all, delete")
-    rooms = relationship("PersonToRoom", back_populates="person", cascade="all, delete")
+    räume = relationship("PersonToRoom", back_populates="person", cascade="all, delete")
     transponders_issued = relationship("Transponder", foreign_keys="[Transponder.issuer_id]", back_populates="issuer")
     transponders_owned = relationship("Transponder", foreign_keys="[Transponder.owner_id]", back_populates="owner")
     departments = relationship("Abteilung", back_populates="leiter")
@@ -109,7 +109,7 @@ class PersonContact(Base):
     phone = Column(Text)
     fax = Column(Text)
     email = Column(Text)
-    comment = Column(Text)
+    kommentar = Column(Text)
     person = relationship("Person", back_populates="contacts")
     
     __table_args__ = (
@@ -190,9 +190,9 @@ class Building(Base):
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(Text)
-    building_number = Column(Text)
-    abkuerzung = Column(Text)
-    rooms = relationship("Room", back_populates="building")
+    gebäudenummer = Column(Text)
+    abkürzung = Column(Text)
+    räume = relationship("Room", back_populates="building")
 
 class Room(Base):
     __tablename__ = "room"
@@ -200,8 +200,8 @@ class Room(Base):
     id = Column(Integer, primary_key=True)
     building_id = Column(Integer, ForeignKey("building.id", ondelete="SET NULL"))
     name = Column(Text)
-    floor = Column(Integer)
-    building = relationship("Building", back_populates="rooms")
+    etage = Column(Integer)
+    building = relationship("Building", back_populates="räume")
     person_links = relationship("PersonToRoom", back_populates="room", cascade="all, delete")
     transponder_links = relationship("TransponderToRoom", back_populates="room", cascade="all, delete")
     layout = relationship("RoomLayout", back_populates="room", uselist=False, cascade="all, delete")
@@ -211,7 +211,7 @@ class Room(Base):
         UniqueConstraint("building_id", "name", name="uq_room_per_building"),
         UniqueConstraint("guid", name="uq_guid"),
         Index("ix_room_building_id", "building_id"),
-        Index("ix_room_floor", "floor"),
+        Index("ix_room_etage", "etage"),
         Index("ix_room_guid", "guid"),
     )
 
@@ -223,7 +223,7 @@ class PersonToRoom(Base):
     room_id = Column(Integer, ForeignKey("room.id", ondelete="CASCADE"))
     x = Column(Integer)
     y = Column(Integer)
-    person = relationship("Person", back_populates="rooms")
+    person = relationship("Person", back_populates="räume")
     room = relationship("Room", back_populates="person_links")
     
     __table_args__ = (
@@ -239,15 +239,15 @@ class Transponder(Base):
     issuer_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
     owner_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
     got_date = Column(Date)
-    return_date = Column("return_date", Date)
-    serial_number = Column(Text)
-    comment = Column(Text)
+    rückgabedatum = Column("rückgabedatum", Date)
+    seriennummer = Column(Text)
+    kommentar = Column(Text)
     issuer = relationship("Person", foreign_keys=[issuer_id], back_populates="transponders_issued")
     owner = relationship("Person", foreign_keys=[owner_id], back_populates="transponders_owned")
     room_links = relationship("TransponderToRoom", back_populates="transponder", cascade="all, delete")
     
     __table_args__ = (
-        UniqueConstraint("serial_number", name="uq_transponder_serial"),
+        UniqueConstraint("seriennummer", name="uq_transponder_serial"),
         Index("ix_transponder_owner_id", "owner_id"),
         Index("ix_transponder_issuer_id", "issuer_id"),
     )
@@ -272,7 +272,7 @@ class ObjectCategory(Base):
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(Text)
-    objects = relationship("Object", back_populates="category")
+    objekte = relationship("Object", back_populates="category")
     
     __table_args__ = (
         UniqueConstraint("name", name="uq_object_category_name"),
@@ -283,9 +283,9 @@ class Object(Base):
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(Text)
-    price = Column(Float)
+    preis = Column(Float)
     category_id = Column(Integer, ForeignKey("object_category.id", ondelete="SET NULL"))
-    category = relationship("ObjectCategory", back_populates="objects")
+    category = relationship("ObjectCategory", back_populates="objekte")
     
     __table_args__ = (
         UniqueConstraint("name", "category_id", name="uq_object_per_category"),
@@ -321,12 +321,12 @@ class Inventory(Base):
     issuer_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
     acquisition_date = Column(Date)
     got_date = Column(Date)
-    return_date = Column("return_date", Date)
-    serial_number = Column(Text)
+    rückgabedatum = Column("rückgabedatum", Date)
+    seriennummer = Column(Text)
     kostenstelle_id = Column(Integer, ForeignKey("kostenstelle.id", ondelete="SET NULL"))
     anlagennummer = Column(Text)
-    comment = Column(Text)
-    price = Column(Float)
+    kommentar = Column(Text)
+    preis = Column(Float)
     raum_id = Column(Integer, ForeignKey("room.id", ondelete="SET NULL"))
     professorship_id = Column(Integer, ForeignKey("professorship.id", ondelete="SET NULL"))
     abteilung_id = Column(Integer, ForeignKey("abteilung.id", ondelete="SET NULL"))
@@ -372,19 +372,19 @@ class Loan(Base):
     id = Column(Integer, primary_key=True)
     owner_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
     issuer_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
-    loan_date = Column(Date)
-    return_date = Column(Date)
-    comment = Column(Text)
+    leihdatum = Column(Date)
+    rückgabedatum = Column(Date)
+    kommentar = Column(Text)
 
     person = relationship("Person", foreign_keys=[owner_id], lazy="joined")
     issuer = relationship("Person", foreign_keys=[issuer_id], lazy="joined")
-    objects = relationship("ObjectToLoan", back_populates="loan", cascade="all, delete")
+    objekte = relationship("ObjectToLoan", back_populates="loan", cascade="all, delete")
 
     __table_args__ = (
         Index("ix_loan_person_id", "owner_id"),
         Index("ix_loan_issuer_id", "issuer_id"),
-        Index("ix_loan_loan_date", "loan_date"),
-        Index("ix_loan_return_date", "return_date"),
+        Index("ix_loan_leihdatum", "leihdatum"),
+        Index("ix_loan_rückgabedatum", "rückgabedatum"),
     )
 
 class ObjectToLoan(Base):
@@ -394,7 +394,7 @@ class ObjectToLoan(Base):
     loan_id = Column(Integer, ForeignKey("loan.id", ondelete="CASCADE"))
     object_id = Column(Integer, ForeignKey("object.id", ondelete="SET NULL"))
     object = relationship("Object", lazy="joined")
-    loan = relationship("Loan", back_populates="objects")
+    loan = relationship("Loan", back_populates="objekte")
 
     __table_args__ = (
         UniqueConstraint("loan_id", "object_id", name="uq_loan_object"),
