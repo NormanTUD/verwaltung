@@ -226,25 +226,74 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
     mapper = class_mapper(model)
     fields = []
 
+    # Erst alle Columns durchgehen
     for prop in mapper.iterate_properties:
         if isinstance(prop, ColumnProperty):
             col = prop.columns[0]
-            if col.name == "id":
-                continue  # skip primary key
 
+            # FK-Spalten überspringen, wenn diese schon durch Beziehung abgedeckt werden (s.u.)
+            # z.B. id (primary key) überspringen
+            if col.primary_key:
+                continue
+
+            # Prüfe, ob die Spalte durch eine Beziehung ersetzt werden soll
+            # (siehe unten, eine Liste der FK-Spalten, die ersetzt werden)
+            if fields_override and col.name in fields_override:
+                # Override verwenden, falls gewünscht
+                field = {
+                    "name": col.name,
+                    "type": get_col_type(col),
+                    "label": labelize(col.name),
+                }
+                field.update(fields_override[col.name])
+                fields.append(field)
+                continue
+
+            # Wenn die Spalte eine FK ist, die von einer Beziehung abgedeckt wird, überspringen
+            fk_columns_of_relationships = set()
+            for rel in mapper.relationships:
+                fk_cols = [fk.name for fk in rel._calculated_foreign_keys]
+                fk_columns_of_relationships.update(fk_cols)
+
+            if col.name in fk_columns_of_relationships:
+                # Diese FK-Spalte kommt als Relation-Feld, also hier überspringen
+                continue
+
+            # Normales Feld für Spalte
             field = {
                 "name": col.name,
                 "type": get_col_type(col),
                 "label": labelize(col.name),
             }
-
             if not col.nullable:
                 field["required"] = True
-
-            if fields_override and col.name in fields_override:
-                field.update(fields_override[col.name])
-
             fields.append(field)
+
+    # Jetzt Beziehungen als Felder hinzufügen, die FK-Spalten als Namen bekommen
+    for rel in mapper.relationships:
+        # Nur wenn es sich um eine Many-to-One oder One-to-One handelt (also uselist=False)
+        # Oder generell alle Beziehungen, je nach Bedarf
+        # Hier nur Beziehungen mit genau einer FK-Spalte
+        fk_cols = [fk.name for fk in rel._calculated_foreign_keys]
+        if len(fk_cols) != 1:
+            continue
+
+        fk_col_name = fk_cols[0]
+
+        # Feldname = FK-Spaltenname (z.B. "abteilungsleiter_id")
+        # Label = Beziehungsname (z.B. "Leiter")
+        field = {
+            "name": fk_col_name,
+            "type": "relation",
+            "label": labelize(rel.key),
+            "relation": rel.mapper.class_,
+        }
+
+        # Override falls gewünscht
+        if fields_override and fk_col_name in fields_override:
+            field.update(fields_override[fk_col_name])
+
+        fields.append(field)
 
     wizard = {
         "title": title or f"{model.__name__} erstellen",
@@ -256,19 +305,18 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
 
     return wizard
 
+
 def guess_subforms(model):
     subforms = []
     mapper = inspect(model)
 
     for rel in mapper.relationships:
-        # Wir wollen nur One-to-Many (also listenartige Beziehungen)
         if not rel.uselist:
-            continue
+            continue  # Nur One-to-Many
 
-        # z. B. Transponder.room_links → TransponderToRoom
         related_model = rel.mapper.class_
 
-        # Finde die ForeignKey-Spalte, die zurück auf das Hauptmodell zeigt
+        # Finde die FK-Spalte, die zurück auf das Hauptmodell zeigt
         fk_column = None
         for col in related_model.__table__.columns:
             for fk in col.foreign_keys:
@@ -279,21 +327,24 @@ def guess_subforms(model):
                 break
 
         if not fk_column:
-            continue  # keine passende Beziehung gefunden
+            continue
 
-        # Nur einfache Felder extrahieren (z. B. room_id, object_id)
+        # Felder extrahieren (ohne ID und FK zurück)
         fields = []
         for col in related_model.__table__.columns:
-            if col.name == "id" or col.name == fk_column:
+            if col.name in ("id", fk_column):
                 continue
-            if isinstance(col.type, Integer):
-                fields.append({"name": col.name, "type": "number", "label": col.name.replace("_", " ").title()})
-            else:
-                fields.append({"name": col.name, "type": "text", "label": col.name.replace("_", " ").title()})
+
+            field_type = "number" if isinstance(col.type, Integer) else "text"
+            fields.append({
+                "name": col.name,
+                "type": field_type,
+                "label": labelize(col.name),
+            })
 
         subforms.append({
             "name": rel.key,
-            "label": rel.key.replace("_", " ").title(),
+            "label": labelize(rel.key),  # <-- genau hier!
             "table": related_model,
             "foreign_key": fk_column,
             "fields": fields,
@@ -380,8 +431,10 @@ WIZARDS = {
         Inventory,
         title="Inventar (mit Zuordnungen) erfassen",
     ),
-
 }
+
+from pprint import pprint
+pprint(WIZARDS)
 
 EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 
