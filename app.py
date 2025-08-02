@@ -76,6 +76,8 @@ try:
     from sqlalchemy.event import listens_for
     from sqlalchemy_schemadisplay import create_schema_graph
     from sqlalchemy_continuum import TransactionFactory, versioning_manager
+    from sqlalchemy.orm import class_mapper, ColumnProperty, RelationshipProperty
+    from sqlalchemy import Integer, Text, Date, Float, Boolean, ForeignKey
 
     from db_defs import *
     from pypdf import PdfReader, PdfWriter
@@ -188,18 +190,78 @@ INITIAL_DATA = {
     ]
 }
 
+
+LABEL_OVERRIDES = {
+    "issuer_id": "Ausgeber",
+    "owner_id": "Besitzer",
+    "abteilungsleiter_id": "Abteilungsleiter (Person-ID)",
+    "kostenstelle_id": "Kostenstelle-ID",
+    "object_id": "Objekt-ID",
+    "room_id": "Raum-ID",
+    "person_id": "Person-ID",
+    "abteilung_id": "Abteilung-ID",
+    "category_id": "Kategorie-ID",
+    "professorship_id": "Professur-ID",
+    "loan_id": "Leihgabe-ID",
+}
+
+def get_col_type(col):
+    if isinstance(col.type, (Integer, Float)):
+        return "number"
+    elif isinstance(col.type, (Text, String)):
+        return "text"
+    elif isinstance(col.type, Date):
+        return "date"
+    elif isinstance(col.type, Boolean):
+        return "checkbox"
+    return "text"
+
+def labelize(col_name):
+    return LABEL_OVERRIDES.get(
+        col_name,
+        col_name.replace('_id', '').replace('_', ' ').capitalize()
+    )
+
+def create_wizard_from_model(model, *, title=None, fields_override=None, subforms=None):
+    mapper = class_mapper(model)
+    fields = []
+
+    for prop in mapper.iterate_properties:
+        if isinstance(prop, ColumnProperty):
+            col = prop.columns[0]
+            if col.name == "id":
+                continue  # skip primary key
+
+            field = {
+                "name": col.name,
+                "type": get_col_type(col),
+                "label": labelize(col.name),
+            }
+
+            if not col.nullable:
+                field["required"] = True
+
+            if fields_override and col.name in fields_override:
+                field.update(fields_override[col.name])
+
+            fields.append(field)
+
+    wizard = {
+        "title": title or f"{model.__name__} erstellen",
+        "table": model,
+        "fields": fields,
+    }
+
+    if subforms:
+        wizard["subforms"] = subforms
+
+    return wizard
+
 WIZARDS = {
-    "Transponder": {
-        "title": "Transponder erstellen",
-        "table": Transponder,
-        "fields": [
-            {"name": "issuer_id", "type": "number", "label": "Ausgeber", "required": True},
-            {"name": "owner_id", "type": "number", "label": "Besitzer"},
-            {"name": "serial_number", "type": "text", "label": "Seriennummer"},
-            {"name": "got_date", "type": "date", "label": "Ausgabedatum"},
-            {"name": "return_date", "type": "date", "label": "Rückgabedatum"},
-        ],
-        "subforms": [
+    "Transponder": create_wizard_from_model(
+        Transponder,
+        title="Transponder erstellen",
+        subforms=[
             {
                 "name": "room_links",
                 "label": "Zugeordnete Räume",
@@ -210,78 +272,35 @@ WIZARDS = {
                 ]
             }
         ]
-    },
-    "Abteilung": {
-        "title": "Abteilung erstellen",
-        "table": Abteilung,
-        "fields": [
-            {"name": "name", "type": "text", "label": "Name", "required": True},
-            {"name": "abteilungsleiter_id", "type": "number", "label": "Abteilungsleiter (Person-ID)"},
-        ],
-    },
-    "Professur": {
-        "title": "Professur erstellen",
-        "table": Professorship,
-        "fields": [
-            {"name": "kostenstelle_id", "type": "number", "label": "Kostenstelle-ID"},
-            {"name": "name", "type": "text", "label": "Name", "required": True},
-        ],
-    },
-    "Kostenstelle": {
-        "title": "Kostenstelle erstellen",
-        "table": Kostenstelle,
-        "fields": [
-            {"name": "name", "type": "text", "label": "Name", "required": True},
-        ],
-    },
-    "Inventar": {
-        "title": "Inventar erstellen",
-        "table": Inventory,
-        "fields": [
-            {"name": "owner_id", "type": "number", "label": "Besitzer (Person-ID)"},
-            {"name": "object_id", "type": "number", "label": "Objekt-ID", "required": True},
-            {"name": "issuer_id", "type": "number", "label": "Ausgeber (Person-ID)"},
-            {"name": "acquisition_date", "type": "date", "label": "Anschaffungsdatum"},
-            {"name": "got_date", "type": "date", "label": "Erhalten am"},
-            {"name": "return_date", "type": "date", "label": "Rückgabedatum"},
-            {"name": "serial_number", "type": "text", "label": "Seriennummer"},
-            {"name": "kostenstelle_id", "type": "number", "label": "Kostenstelle-ID"},
-            {"name": "anlagennummer", "type": "text", "label": "Anlagennummer"},
-            {"name": "comment", "type": "textarea", "label": "Kommentar"},
-            {"name": "price", "type": "number", "label": "Preis"},
-            {"name": "room_id", "type": "number", "label": "Raum-ID"},
-            {"name": "professorship_id", "type": "number", "label": "Professur-ID"},
-            {"name": "abteilung_id", "type": "number", "label": "Abteilungs-ID"},
-        ],
-    },
-    "Person und Abteilung": {
-        "title": "Person zu Abteilung zuordnen",
-        "table": PersonToAbteilung,
-        "fields": [
-            {"name": "person_id", "type": "number", "label": "Person-ID", "required": True},
-            {"name": "abteilung_id", "type": "number", "label": "Abteilung-ID", "required": True},
-        ],
-    },
-    "Objekt": {
-        "title": "Objekt erstellen",
-        "table": Object,
-        "fields": [
-            {"name": "name", "type": "text", "label": "Name", "required": True},
-            {"name": "price", "type": "number", "label": "Preis"},
-            {"name": "category_id", "type": "number", "label": "Kategorie-ID"},
-        ],
-    },
-    "Ausleihe": {
-        "title": "Leihgabe erstellen",
-        "table": Loan,
-        "fields": [
-            {"name": "person_id", "type": "number", "label": "Empfänger (Person-ID)", "required": True},
-            {"name": "issuer_id", "type": "number", "label": "Ausgeber (Person-ID)"},
-            {"name": "loan_date", "type": "date", "label": "Ausleihdatum"},
-            {"name": "return_date", "type": "date", "label": "Rückgabedatum"},
-            {"name": "comment", "type": "textarea", "label": "Kommentar"},
-        ],
-        "subforms": [
+    ),
+    "Abteilung": create_wizard_from_model(
+        Abteilung,
+        title="Abteilung erstellen",
+    ),
+    "Professur": create_wizard_from_model(
+        Professorship,
+        title="Professur erstellen",
+    ),
+    "Kostenstelle": create_wizard_from_model(
+        Kostenstelle,
+        title="Kostenstelle erstellen",
+    ),
+    "Inventar": create_wizard_from_model(
+        Inventory,
+        title="Inventar erstellen",
+    ),
+    "Person und Abteilung": create_wizard_from_model(
+        PersonToAbteilung,
+        title="Person zu Abteilung zuordnen",
+    ),
+    "Objekt": create_wizard_from_model(
+        Object,
+        title="Objekt erstellen",
+    ),
+    "Ausleihe": create_wizard_from_model(
+        Loan,
+        title="Leihgabe erstellen",
+        subforms=[
             {
                 "name": "objects",
                 "label": "Verliehene Objekte",
@@ -292,7 +311,7 @@ WIZARDS = {
                 ]
             }
         ]
-    },
+    ),
 }
 
 EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
@@ -2020,13 +2039,16 @@ def convert_datetime_value(field, value):
         return datetime.datetime.strptime(value, "%Y-%m-%dT%H:%M")
     return value
 
-def get_json_safe_config(config):
-    safe = deepcopy(config)
-    for sub in safe.get("subforms", []):
-        sub.pop("model", None)
-        sub.pop("foreign_key", None)
-    safe.pop("model", None)
-    return safe
+def get_json_safe_config(wizard):
+    def strip(obj):
+        if isinstance(obj, dict):
+            return {k: strip(v) for k, v in obj.items() if k != "table"}
+        elif isinstance(obj, list):
+            return [strip(i) for i in obj]
+        else:
+            return obj
+
+    return strip(wizard)
 
 def _wizard_internal(name):
     session = Session()
@@ -2092,6 +2114,7 @@ def _wizard_internal(name):
         
     session.close()
 
+    print("form_data:")
     print(form_data)
 
     return render_template(
