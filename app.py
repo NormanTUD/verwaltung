@@ -205,6 +205,8 @@ LABEL_OVERRIDES = {
     "loan_id": "Leihgabe-ID",
 }
 
+HIDDEN_FIELD_NAMES = {"version", "Versions", "_version"}
+
 def get_col_type(col):
     if isinstance(col.type, (Integer, Float)):
         return "number"
@@ -226,20 +228,21 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
     mapper = class_mapper(model)
     fields = []
 
-    # Erst alle Columns durchgehen
+    fk_columns_of_relationships = set()
+    for rel in mapper.relationships:
+        fk_cols = [fk.name for fk in rel._calculated_foreign_keys]
+        fk_columns_of_relationships.update(fk_cols)
+
     for prop in mapper.iterate_properties:
         if isinstance(prop, ColumnProperty):
             col = prop.columns[0]
 
-            # FK-Spalten überspringen, wenn diese schon durch Beziehung abgedeckt werden (s.u.)
-            # z.B. id (primary key) überspringen
             if col.primary_key:
                 continue
+            if col.name in HIDDEN_FIELD_NAMES:
+                continue
 
-            # Prüfe, ob die Spalte durch eine Beziehung ersetzt werden soll
-            # (siehe unten, eine Liste der FK-Spalten, die ersetzt werden)
             if fields_override and col.name in fields_override:
-                # Override verwenden, falls gewünscht
                 field = {
                     "name": col.name,
                     "type": get_col_type(col),
@@ -249,17 +252,9 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
                 fields.append(field)
                 continue
 
-            # Wenn die Spalte eine FK ist, die von einer Beziehung abgedeckt wird, überspringen
-            fk_columns_of_relationships = set()
-            for rel in mapper.relationships:
-                fk_cols = [fk.name for fk in rel._calculated_foreign_keys]
-                fk_columns_of_relationships.update(fk_cols)
-
             if col.name in fk_columns_of_relationships:
-                # Diese FK-Spalte kommt als Relation-Feld, also hier überspringen
                 continue
 
-            # Normales Feld für Spalte
             field = {
                 "name": col.name,
                 "type": get_col_type(col),
@@ -269,19 +264,14 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
                 field["required"] = True
             fields.append(field)
 
-    # Jetzt Beziehungen als Felder hinzufügen, die FK-Spalten als Namen bekommen
     for rel in mapper.relationships:
-        # Nur wenn es sich um eine Many-to-One oder One-to-One handelt (also uselist=False)
-        # Oder generell alle Beziehungen, je nach Bedarf
-        # Hier nur Beziehungen mit genau einer FK-Spalte
         fk_cols = [fk.name for fk in rel._calculated_foreign_keys]
         if len(fk_cols) != 1:
             continue
-
         fk_col_name = fk_cols[0]
+        if fk_col_name in HIDDEN_FIELD_NAMES:
+            continue
 
-        # Feldname = FK-Spaltenname (z.B. "abteilungsleiter_id")
-        # Label = Beziehungsname (z.B. "Leiter")
         field = {
             "name": fk_col_name,
             "type": "relation",
@@ -289,7 +279,6 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
             "relation": rel.mapper.class_,
         }
 
-        # Override falls gewünscht
         if fields_override and fk_col_name in fields_override:
             field.update(fields_override[fk_col_name])
 
@@ -301,12 +290,14 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
         "fields": fields,
     }
 
-    wizard["subforms"] = guess_subforms(model)
+    # Übergib die Blacklist an guess_subforms, damit redundante Felder gefiltert werden
+    wizard["subforms"] = guess_subforms(model, exclude_fields=HIDDEN_FIELD_NAMES.union(set(f["name"] for f in fields)))
 
     return wizard
 
 
-def guess_subforms(model):
+def guess_subforms(model, exclude_fields=None):
+    exclude_fields = exclude_fields or set()
     subforms = []
     mapper = inspect(model)
 
@@ -316,7 +307,6 @@ def guess_subforms(model):
 
         related_model = rel.mapper.class_
 
-        # Finde die FK-Spalte, die zurück auf das Hauptmodell zeigt
         fk_column = None
         for col in related_model.__table__.columns:
             for fk in col.foreign_keys:
@@ -329,10 +319,10 @@ def guess_subforms(model):
         if not fk_column:
             continue
 
-        # Felder extrahieren (ohne ID und FK zurück)
         fields = []
         for col in related_model.__table__.columns:
-            if col.name in ("id", fk_column):
+            # Überspringe id, FK-Spalte und alles in exclude_fields
+            if col.name == "id" or col.name == fk_column or col.name in exclude_fields:
                 continue
 
             field_type = "number" if isinstance(col.type, Integer) else "text"
@@ -344,7 +334,7 @@ def guess_subforms(model):
 
         subforms.append({
             "name": rel.key,
-            "label": labelize(rel.key),  # <-- genau hier!
+            "label": labelize(rel.key),
             "table": related_model,
             "foreign_key": fk_column,
             "fields": fields,
