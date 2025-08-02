@@ -37,6 +37,7 @@ class User(UserMixin, Base):
     password = Column(String(180))
     role = Column(String(50))
     is_active = Column(Boolean, default=False)
+    person_id = Column(Integer, ForeignKey("person.id", ondelete="CASCADE"))
     readonly = Column(Boolean, default=False)
 
     user_roles = Table(
