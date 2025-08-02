@@ -1670,7 +1670,7 @@ def aggregate_inventory_view():
                 "Professur": _get_professorship_name(inv.professorship),
                 "Kostenstelle": _get_kostenstelle_name(inv.kostenstelle),
                 "Preis": f"{inv.preis:.2f} €" if inv.preis is not None else "-",
-                "Kommentar": inv.comment or "-"
+                "Kommentar": inv.kommentar or "-"
             }
             rows.append(row)
 
@@ -1764,7 +1764,7 @@ def aggregate_transponder_view():
                 "Rückgabedatum": t.rückgabedatum.isoformat() if t.rückgabedatum else "Nicht zurückgegeben",
                 "Gebäude": ", ".join(sorted(buildings)) if buildings else "-",
                 "Räume": ", ".join(sorted(set(f"{r.name} ({r.etage}.OG)" for r in räume))) if rooms else "-",
-                "Kommentar": t.comment or "-",
+                "Kommentar": t.kommentar or "-",
             }
             rows.append(row)
 
@@ -1878,7 +1878,7 @@ def aggregate_persons_view():
                 "Leiter von": ", ".join(sorted(abteilungen_leiter)) if abteilungen_leiter else "-",
                 "Ausgegebene Transponder": str(len(p.transponders_issued)),
                 "Erhaltene Transponder": str(len(p.transponders_owned)),
-                "Kommentar": p.comment or "-"
+                "Kommentar": p.kommentar or "-"
             }
             rows.append(row)
 
@@ -1937,7 +1937,7 @@ def wizard_person():
         "title": "",
         "first_name": "",
         "last_name": "",
-        "comment": "",
+        "kommentar": "",
         "image_url": "",
         "contacts": [],
         "transponders": [],
@@ -1950,7 +1950,7 @@ def wizard_person():
             form_data["title"] = request.form.get("title", "").strip()
             form_data["first_name"] = request.form.get("first_name", "").strip()
             form_data["last_name"] = request.form.get("last_name", "").strip()
-            form_data["comment"] = request.form.get("comment", "").strip()
+            form_data["kommentar"] = request.form.get("kommentar", "").strip()
             form_data["image_url"] = request.form.get("image_url", "").strip()
 
             if not form_data["first_name"] or not form_data["last_name"]:
@@ -1960,23 +1960,23 @@ def wizard_person():
             emails = request.form.getlist("email[]")
             phones = request.form.getlist("phone[]")
             faxes = request.form.getlist("fax[]")
-            comments = request.form.getlist("contact_comment[]")
+            kommentars = request.form.getlist("contact_kommentar[]")
 
             contacts = []
             valid_emails = []
-            max_len = max(len(emails), len(phones), len(faxes), len(comments))
+            max_len = max(len(emails), len(phones), len(faxes), len(kommentars))
 
             for i in range(max_len):
                 email_val = emails[i].strip() if i < len(emails) else ""
                 phone_val = phones[i].strip() if i < len(phones) else ""
                 fax_val = faxes[i].strip() if i < len(faxes) else ""
-                comment_val = comments[i].strip() if i < len(comments) else ""
+                kommentar_val = kommentars[i].strip() if i < len(kommentars) else ""
 
                 form_data["contacts"].append({
                     "email": email_val,
                     "phone": phone_val,
                     "fax": fax_val,
-                    "comment": comment_val
+                    "kommentar": kommentar_val
                 })
 
                 if email_val:
@@ -1984,12 +1984,12 @@ def wizard_person():
                         raise ValueError(f"Ungültige Email-Adresse: {email_val}")
                     valid_emails.append(email_val)
 
-                if any([email_val, phone_val, fax_val, comment_val]):
+                if any([email_val, phone_val, fax_val, kommentar_val]):
                     contacts.append({
                         "email": email_val or None,
                         "phone": phone_val or None,
                         "fax": fax_val or None,
-                        "comment": comment_val or None
+                        "kommentar": kommentar_val or None
                     })
 
             if not valid_emails:
@@ -2013,37 +2013,37 @@ def wizard_person():
                 return [grouped_data[i] for i in sorted(grouped_data.keys())]
 
             serials_grouped = extract_multiindex_form_data("transponder_serial")
-            comments_grouped = extract_multiindex_form_data("transponder_comment")
+            kommentars_grouped = extract_multiindex_form_data("transponder_kommentar")
 
             # Falls keine verschachtelten Arrays vorliegen, alternativ einfache Liste verwenden
             if not serials_grouped:
                 serials_grouped = [request.form.getlist("transponder_serial[]")]
-            if not comments_grouped:
-                comments_grouped = [request.form.getlist("transponder_comment[]")]
+            if not kommentars_grouped:
+                kommentars_grouped = [request.form.getlist("transponder_kommentar[]")]
 
             transponders = []
             form_data["transponders"] = []
 
             # Alle Transpondergruppen iterieren
-            for group_index in range(max(len(serials_grouped), len(comments_grouped))):
+            for group_index in range(max(len(serials_grouped), len(kommentars_grouped))):
                 serials = serials_grouped[group_index] if group_index < len(serials_grouped) else []
-                tp_comments = comments_grouped[group_index] if group_index < len(comments_grouped) else []
+                tp_kommentars = kommentars_grouped[group_index] if group_index < len(kommentars_grouped) else []
 
-                max_tp = max(len(serials), len(tp_comments))
+                max_tp = max(len(serials), len(tp_kommentars))
 
                 for i in range(max_tp):
                     serial = serials[i].strip() if i < len(serials) else ""
-                    comment = tp_comments[i].strip() if i < len(tp_comments) else ""
+                    kommentar = tp_kommentars[i].strip() if i < len(tp_kommentars) else ""
 
                     form_data["transponders"].append({
                         "serial": serial,
-                        "comment": comment
+                        "kommentar": kommentar
                     })
 
                     if serial:
                         transponders.append({
                             "serial": serial,
-                            "comment": comment or None
+                            "kommentar": kommentar or None
                         })
 
             # Räume aus Formular (z.B. room_id[] oder room_guid[])
@@ -2071,7 +2071,7 @@ def wizard_person():
                 title=form_data["title"] or None,
                 first_name=form_data["first_name"],
                 last_name=form_data["last_name"],
-                comment=form_data["comment"] or None,
+                kommentar=form_data["kommentar"] or None,
                 image_url=form_data["image_url"] or None
             )
             session.add(new_person)
@@ -2084,7 +2084,7 @@ def wizard_person():
                     email=contact["email"],
                     phone=contact["phone"],
                     fax=contact["fax"],
-                    comment=contact["comment"]
+                    kommentar=contact["kommentar"]
                 )
                 session.add(pc)
 
@@ -2093,7 +2093,7 @@ def wizard_person():
                 t = Transponder(
                     owner_id=new_person.id,
                     seriennummer=tp["serial"],
-                    comment=tp["comment"]
+                    kommentar=tp["kommentar"]
                 )
                 session.add(t)
 
@@ -2113,7 +2113,7 @@ def wizard_person():
                 "title": "",
                 "first_name": "",
                 "last_name": "",
-                "comment": "",
+                "kommentar": "",
                 "image_url": "",
                 "contacts": [],
                 "transponders": [],
@@ -2504,8 +2504,8 @@ def generate_fields_for_schluesselausgabe_from_metadata(
                 value = transponder["rückgabedatum"].strftime("%d.%m.%Y")
 
         elif name == "Weitere Anmerkungen":
-            if transponder.get("comment"):
-                value = transponder["comment"]
+            if transponder.get("kommentar"):
+                value = transponder["kommentar"]
 
         data[name] = value
 
@@ -2526,7 +2526,7 @@ def get_transponder_metadata(transponder_id: int) -> dict:
             "seriennummer": transponder.seriennummer,
             "got_date": transponder.got_date,
             "rückgabedatum": transponder.rückgabedatum,
-            "comment": transponder.comment,
+            "kommentar": transponder.kommentar,
 
             "issuer": None,
             "owner": None,
@@ -2593,7 +2593,7 @@ def get_person_metadata(person_id: int) -> dict:
             "title": person.title,
             "first_name": person.first_name,
             "last_name": person.last_name,
-            "comment": person.comment,
+            "kommentar": person.kommentar,
             "image_url": person.image_url,
 
             "contacts": [],
@@ -2611,14 +2611,14 @@ def get_person_metadata(person_id: int) -> dict:
                 "phone": contact.phone,
                 "fax": contact.fax,
                 "email": contact.email,
-                "comment": contact.comment
+                "kommentar": contact.kommentar
             })
 
         for room in person.räume:
             metadata["räume"].append({
                 "id": room.id,
                 "room_id": getattr(room, "room_id", None),  # adapt if necessary
-                "comment": getattr(room, "comment", None)
+                "kommentar": getattr(room, "kommentar", None)
             })
 
         for transponder in person.transponders_issued:
@@ -3258,7 +3258,7 @@ def add_or_update_person():
 @login_required
 def add_person():
     data = request.get_json()
-    required_fields = ["first_name", "last_name", "title", "comment", "image_url"]
+    required_fields = ["first_name", "last_name", "title", "kommentar", "image_url"]
     for field in required_fields:
         if field not in data:
             session.close()
@@ -3270,7 +3270,7 @@ def add_person():
             first_name=data["first_name"],
             last_name=data["last_name"],
             title=data["title"],
-            comment=data["comment"],
+            kommentar=data["kommentar"],
             image_url=data["image_url"]
         )
         session.add(person)
@@ -3329,7 +3329,7 @@ def save_person_to_room():
 
         # 1. Person suchen oder anlegen
         title = person_data.get("title")
-        comment = person_data.get("comment")
+        kommentar = person_data.get("kommentar")
 
         person = session.query(Person).filter_by(
             first_name=person_data["first_name"],
@@ -3342,7 +3342,7 @@ def save_person_to_room():
                 first_name=person_data["first_name"],
                 last_name=person_data["last_name"],
                 title=title,
-                comment=comment,
+                kommentar=kommentar,
                 image_url=person_data["image_url"]
             )
             session.add(person)
@@ -3411,7 +3411,7 @@ def get_person_database():
                 "last_name": person.last_name or "",
                 "title": person.title or "",
                 "etage": 0,
-                "comment": person.comment or "",
+                "kommentar": person.kommentar or "",
                 "id": person.id,
                 "image_url": person.image_url or "" 
             })
