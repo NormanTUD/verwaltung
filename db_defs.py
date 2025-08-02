@@ -368,18 +368,18 @@ class Loan(Base):
     __tablename__ = "loan"
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
-    person_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
+    owner_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
     issuer_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
     loan_date = Column(Date)
     return_date = Column(Date)
     comment = Column(Text)
 
-    person = relationship("Person", foreign_keys=[person_id], lazy="joined")
+    person = relationship("Person", foreign_keys=[owner_id], lazy="joined")
     issuer = relationship("Person", foreign_keys=[issuer_id], lazy="joined")
     objects = relationship("ObjectToLoan", back_populates="loan", cascade="all, delete")
 
     __table_args__ = (
-        Index("ix_loan_person_id", "person_id"),
+        Index("ix_loan_person_id", "owner_id"),
         Index("ix_loan_issuer_id", "issuer_id"),
         Index("ix_loan_loan_date", "loan_date"),
         Index("ix_loan_return_date", "return_date"),
