@@ -191,7 +191,7 @@ INITIAL_DATA = {
 WIZARDS = {
     "Transponder": {
         "title": "Transponder erstellen",
-        "model": Transponder,
+        "table": Transponder,
         "fields": [
             {"name": "issuer_id", "type": "number", "label": "Ausgeber", "required": True},
             {"name": "owner_id", "type": "number", "label": "Besitzer"},
@@ -203,7 +203,7 @@ WIZARDS = {
             {
                 "name": "room_links",
                 "label": "Zugeordnete Räume",
-                "model": TransponderToRoom,
+                "table": TransponderToRoom,
                 "foreign_key": "transponder_id",
                 "fields": [
                     {"name": "room_id", "type": "number", "label": "Raum-ID"},
@@ -213,7 +213,7 @@ WIZARDS = {
     },
     "Abteilung": {
         "title": "Abteilung erstellen",
-        "model": Abteilung,
+        "table": Abteilung,
         "fields": [
             {"name": "name", "type": "text", "label": "Name", "required": True},
             {"name": "abteilungsleiter_id", "type": "number", "label": "Abteilungsleiter (Person-ID)"},
@@ -221,7 +221,7 @@ WIZARDS = {
     },
     "Professur": {
         "title": "Professur erstellen",
-        "model": Professorship,
+        "table": Professorship,
         "fields": [
             {"name": "kostenstelle_id", "type": "number", "label": "Kostenstelle-ID"},
             {"name": "name", "type": "text", "label": "Name", "required": True},
@@ -229,14 +229,14 @@ WIZARDS = {
     },
     "Kostenstelle": {
         "title": "Kostenstelle erstellen",
-        "model": Kostenstelle,
+        "table": Kostenstelle,
         "fields": [
             {"name": "name", "type": "text", "label": "Name", "required": True},
         ],
     },
     "Inventar": {
         "title": "Inventar erstellen",
-        "model": Inventory,
+        "table": Inventory,
         "fields": [
             {"name": "owner_id", "type": "number", "label": "Besitzer (Person-ID)"},
             {"name": "object_id", "type": "number", "label": "Objekt-ID", "required": True},
@@ -256,7 +256,7 @@ WIZARDS = {
     },
     "Person und Abteilung": {
         "title": "Person zu Abteilung zuordnen",
-        "model": PersonToAbteilung,
+        "table": PersonToAbteilung,
         "fields": [
             {"name": "person_id", "type": "number", "label": "Person-ID", "required": True},
             {"name": "abteilung_id", "type": "number", "label": "Abteilung-ID", "required": True},
@@ -264,7 +264,7 @@ WIZARDS = {
     },
     "Objekt": {
         "title": "Objekt erstellen",
-        "model": Object,
+        "table": Object,
         "fields": [
             {"name": "name", "type": "text", "label": "Name", "required": True},
             {"name": "price", "type": "number", "label": "Preis"},
@@ -273,7 +273,7 @@ WIZARDS = {
     },
     "Ausleihe": {
         "title": "Leihgabe erstellen",
-        "model": Loan,
+        "table": Loan,
         "fields": [
             {"name": "person_id", "type": "number", "label": "Empfänger (Person-ID)", "required": True},
             {"name": "issuer_id", "type": "number", "label": "Ausgeber (Person-ID)"},
@@ -285,7 +285,7 @@ WIZARDS = {
             {
                 "name": "objects",
                 "label": "Verliehene Objekte",
-                "model": ObjectToLoan,
+                "table": ObjectToLoan,
                 "foreign_key": "loan_id",
                 "fields": [
                     {"name": "object_id", "type": "number", "label": "Objekt-ID"},
@@ -2042,7 +2042,7 @@ def _wizard_internal(name):
     
     if request.method == "POST":
         try:
-            main_model = config["model"]
+            main_model = config["table"]
             # Hauptdaten aus dem Formular lesen
             main_data = {
                 f["name"]: convert_datetime_value(f, request.form.get(f["name"], "").strip() or None)
@@ -2060,7 +2060,7 @@ def _wizard_internal(name):
             session.flush()
             
             for sub in config.get("subforms", []):
-                model = sub["model"]
+                table = sub["table"]
                 foreign_key = sub["foreign_key"]
                 field_names = [f["name"] for f in sub["fields"]]
                 data_lists = {f: request.form.getlist(f + "[]") for f in field_names}
@@ -2072,7 +2072,7 @@ def _wizard_internal(name):
                     }
                     if any(entry.values()):
                         entry[foreign_key] = main_instance.id
-                        session.add(model(**entry))
+                        session.add(table(**entry))
             
             session.commit()
             success = True
