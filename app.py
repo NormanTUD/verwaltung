@@ -1388,6 +1388,7 @@ def prepare_table_data(session, cls, table_name):
     row_html = []
     row_ids = []
     table_has_missing_inputs = False
+    missing_input_info = {}  # NEU
 
     for row in rows:
         row_inputs = []
@@ -1409,10 +1410,8 @@ def prepare_table_data(session, cls, table_name):
 
             try:
                 value = getattr(row, col_name)
-            except AttributeError:
-                value = None
             except Exception as e:
-                app.logger.error(f"Fehler beim Zugriff auf Spalte {col_name} der Tabelle {table_name}: {e}")
+                app.logger.error(f"Fehler beim Zugriff auf Spalte {col_name}: {e}")
                 value = None
 
             label = get_column_label(table_name, col.name)
@@ -1426,10 +1425,12 @@ def prepare_table_data(session, cls, table_name):
                 )
                 if not valid:
                     table_has_missing_inputs = True
+                    missing_input_info.setdefault(col.name, []).append(row_id)
             except Exception as e:
                 app.logger.error(f"Fehler bei der Generierung des Input-Felds für {col.name}: {e}")
                 input_html = '<input value="Error">'
-                valid = True
+                table_has_missing_inputs = True
+                missing_input_info.setdefault(col.name, []).append(row_id)
 
             row_inputs.append((input_html, label))
         row_html.append(row_inputs)
@@ -1444,15 +1445,19 @@ def prepare_table_data(session, cls, table_name):
             )
             if not valid:
                 table_has_missing_inputs = True
+                missing_input_info.setdefault(col.name, []).append("new_entry")
         except Exception as e:
             app.logger.error(f"Fehler bei der Generierung des neuen Input-Felds für {col.name}: {e}")
             input_html = '<input value="Error">'
+            table_has_missing_inputs = True
+            missing_input_info.setdefault(col.name, []).append("new_entry")
+
         label = get_column_label(table_name, col.name)
         new_entry_inputs.append((input_html, label))
 
     column_labels = [get_column_label(table_name, col.name) for col in columns]
 
-    return column_labels, row_html, new_entry_inputs, row_ids, table_has_missing_inputs
+    return column_labels, row_html, new_entry_inputs, row_ids, table_has_missing_inputs, missing_input_info
 
 def load_static_file(path):
     try:
@@ -1474,18 +1479,20 @@ def table_view(table_name):
         session.close()
         abort(404, description="Tabelle nicht gefunden")
 
-    column_labels, row_html, new_entry_inputs, row_ids, table_has_missing_inputs = prepare_table_data(session, cls, table_name)
+    # Erweiterte Rückgabe mit missing_input_info
+    column_labels, row_html, new_entry_inputs, row_ids, table_has_missing_inputs, missing_input_info = prepare_table_data(session, cls, table_name)
 
     javascript_code = load_static_file("static/table_scripts.js").replace("{{ table_name }}", table_name)
 
     row_data = list(zip(row_html, row_ids))
 
     missing_data_messages = []
-    if table_has_missing_inputs:
-        link = url_for("table_view", table_name=table_name)
-        missing_data_messages.append(
-            '<div class="warning">⚠️ Fehlende Eingabeoptionen für Tabelle</div>'
-        )
+    if table_has_missing_inputs and missing_input_info:
+        missing_data_messages.append('<div class="warning">⚠️ Fehlende Eingaben:</div><ul>')
+        for col_name, problem_ids in missing_input_info.items():
+            pretty_ids = ", ".join(str(i) for i in problem_ids)
+            missing_data_messages.append(f"<li><strong>{col_name}</strong>: fehlend in {pretty_ids}</li>")
+        missing_data_messages.append("</ul>")
 
     session.close()
 
