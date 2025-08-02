@@ -798,21 +798,21 @@ def parse_buildings_csv(csv_text):
 
         if not header_found:
             # Prüfen, ob erste Zeile die Header ist
-            if row[0].strip().lower() == "gebaeude_name" and row[1].strip().lower() == "abkuerzung":
+            if row[0].strip().lower() == "gebaeude_name" and row[1].strip().lower() == "abkürzung":
                 header_found = True
                 continue  # Header überspringen
             else:
                 raise ValueError("Ungültige Header-Zeile: " + str(row))
 
         gebaeude_name = row[0].strip()
-        abkuerzung = row[1].strip()
+        abkürzung = row[1].strip()
 
-        if not gebaeude_name or not abkuerzung:
+        if not gebaeude_name or not abkürzung:
             continue  # Zeile überspringen, wenn leer
 
         building_insert = {
             "name": gebaeude_name,
-            "abkuerzung": abkuerzung
+            "abkürzung": abkürzung
         }
 
         handler = BuildingHandler(session)
@@ -821,7 +821,7 @@ def parse_buildings_csv(csv_text):
     session.close()
 
 def insert_tu_dresden_buildings ():
-    csv_input = '''gebaeude_name,abkuerzung
+    csv_input = '''gebaeude_name,abkürzung
 "Abstellgeb."," Pienner Str. 38a"
 "Andreas-Pfitzmann-Bau","APB"
 "Andreas-Schubert-Bau","ASB"
@@ -2561,7 +2561,7 @@ def get_transponder_metadata(transponder_id: int) -> dict:
                     "id": room.building.id,
                     "name": room.building.name,
                     "building_number": room.building.building_number,
-                    "abkuerzung": room.building.abkuerzung
+                    "abkürzung": room.building.abkürzung
                 }
 
             metadata["räume"].append(room_data)
@@ -3443,7 +3443,7 @@ def get_room_id():
         # Gebäude suchen oder anlegen
         building = session.query(Building).filter_by(name=building_name).first()
         if not building:
-            building = Building(name=building_name, building_number="", abkuerzung="")
+            building = Building(name=building_name, building_number="", abkürzung="")
             session.add(building)
             session.commit()
 
