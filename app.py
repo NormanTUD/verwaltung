@@ -1663,7 +1663,7 @@ def aggregate_inventory_view():
                 "Anlagennummer": inv.anlagennummer or "-",
                 "Ausgegeben an": _get_person_name(inv.owner),
                 "Ausgegeben durch": _get_person_name(inv.issuer),
-                "Ausgabedatum": inv.got_date.isoformat() if inv.got_date else "-",
+                "Ausgabedatum": inv.erhaltungsdatum.isoformat() if inv.erhaltungsdatum else "-",
                 "Rückgabedatum": inv.rückgabedatum.isoformat() if inv.rückgabedatum else "Nicht zurückgegeben",
                 "Raum": _create_room_name(inv.room),
                 "Abteilung": _get_abteilung_name(inv.abteilung),
@@ -1760,7 +1760,7 @@ def aggregate_transponder_view():
                 "Seriennummer": t.seriennummer or "-",
                 "Ausgegeben an": owner_input,
                 "Ausgegeben durch": issuer_input,
-                "Ausgabedatum": t.got_date.isoformat() if t.got_date else "-",
+                "Ausgabedatum": t.erhaltungsdatum.isoformat() if t.erhaltungsdatum else "-",
                 "Rückgabedatum": t.rückgabedatum.isoformat() if t.rückgabedatum else "Nicht zurückgegeben",
                 "Gebäude": ", ".join(sorted(buildings)) if buildings else "-",
                 "Räume": ", ".join(sorted(set(f"{r.name} ({r.etage}.OG)" for r in räume))) if rooms else "-",
@@ -2493,8 +2493,8 @@ def generate_fields_for_schluesselausgabe_from_metadata(
                     value = "1"
 
         elif name == "Datum Übergebende:r":
-            if transponder.get("got_date"):
-                value = transponder["got_date"].strftime("%d.%m.%Y")
+            if transponder.get("erhaltungsdatum"):
+                value = transponder["erhaltungsdatum"].strftime("%d.%m.%Y")
 
         elif name == "Datum Übernehmende:r":
             if transponder.get("rückgabedatum"):
@@ -2521,7 +2521,7 @@ def get_transponder_metadata(transponder_id: int) -> dict:
         metadata = {
             "id": transponder.id,
             "seriennummer": transponder.seriennummer,
-            "got_date": transponder.got_date,
+            "erhaltungsdatum": transponder.erhaltungsdatum,
             "rückgabedatum": transponder.rückgabedatum,
             "kommentar": transponder.kommentar,
 
@@ -2761,14 +2761,14 @@ def transponder_form():
 def transponder_ausgabe():
     person_id = request.form.get("person_id")
     transponder_id = request.form.get("transponder_id")
-    got_date_str = request.form.get("got_date")
+    erhaltungsdatum_str = request.form.get("erhaltungsdatum")
 
     session = Session()
 
     try:
         transponder = session.get(Transponder, int(transponder_id))
         transponder.owner_id = int(person_id)
-        transponder.got_date = date.fromisoformat(got_date_str)
+        transponder.erhaltungsdatum = date.fromisoformat(erhaltungsdatum_str)
         session.session.commit()
         flash("Transponder erfolgreich ausgegeben.", "success")
     except Exception as e:
