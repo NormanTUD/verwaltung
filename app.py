@@ -2308,9 +2308,6 @@ def _wizard_internal(name):
                         f: data_lists[f][i].strip() if i < len(data_lists[f]) else None
                         for f in field_names
                     }
-                    pprint("ENTRY:")
-                    pprint(entry)
-                    pprint("=========================")
                     if any(entry.values()):
                         entry[foreign_key] = main_instance.id
                         session.add(table(**entry))
