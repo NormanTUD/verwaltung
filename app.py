@@ -252,26 +252,59 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
         "fields": fields,
     }
 
-    if subforms:
-        wizard["subforms"] = subforms
+    wizard["subforms"] = guess_subforms(model)
 
     return wizard
+
+def guess_subforms(model):
+    subforms = []
+    mapper = inspect(model)
+
+    for rel in mapper.relationships:
+        # Wir wollen nur One-to-Many (also listenartige Beziehungen)
+        if not rel.uselist:
+            continue
+
+        # z. B. Transponder.room_links → TransponderToRoom
+        related_model = rel.mapper.class_
+
+        # Finde die ForeignKey-Spalte, die zurück auf das Hauptmodell zeigt
+        fk_column = None
+        for col in related_model.__table__.columns:
+            for fk in col.foreign_keys:
+                if fk.column.table == model.__table__:
+                    fk_column = col.name
+                    break
+            if fk_column:
+                break
+
+        if not fk_column:
+            continue  # keine passende Beziehung gefunden
+
+        # Nur einfache Felder extrahieren (z. B. room_id, object_id)
+        fields = []
+        for col in related_model.__table__.columns:
+            if col.name == "id" or col.name == fk_column:
+                continue
+            if isinstance(col.type, Integer):
+                fields.append({"name": col.name, "type": "number", "label": col.name.replace("_", " ").title()})
+            else:
+                fields.append({"name": col.name, "type": "text", "label": col.name.replace("_", " ").title()})
+
+        subforms.append({
+            "name": rel.key,
+            "label": rel.key.replace("_", " ").title(),
+            "table": related_model,
+            "foreign_key": fk_column,
+            "fields": fields,
+        })
+
+    return subforms
 
 WIZARDS = {
     "Transponder": create_wizard_from_model(
         Transponder,
         title="Transponder erstellen",
-        subforms=[
-            {
-                "name": "room_links",
-                "label": "Zugeordnete Räume",
-                "table": TransponderToRoom,
-                "foreign_key": "transponder_id",
-                "fields": [
-                    {"name": "room_id", "type": "number", "label": "Raum-ID"},
-                ]
-            }
-        ]
     ),
     "Abteilung": create_wizard_from_model(
         Abteilung,
@@ -299,18 +332,7 @@ WIZARDS = {
     ),
     "Ausleihe": create_wizard_from_model(
         Loan,
-        title="Leihgabe erstellen",
-        subforms=[
-            {
-                "name": "objects",
-                "label": "Verliehene Objekte",
-                "table": ObjectToLoan,
-                "foreign_key": "loan_id",
-                "fields": [
-                    {"name": "object_id", "type": "number", "label": "Objekt-ID"},
-                ]
-            }
-        ]
+        title="Leihgabe erstellen"
     ),
 }
 
