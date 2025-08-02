@@ -1763,7 +1763,7 @@ def aggregate_transponder_view():
                 "Ausgabedatum": t.erhaltungsdatum.isoformat() if t.erhaltungsdatum else "-",
                 "Rückgabedatum": t.rückgabedatum.isoformat() if t.rückgabedatum else "Nicht zurückgegeben",
                 "Gebäude": ", ".join(sorted(buildings)) if buildings else "-",
-                "Räume": ", ".join(sorted(set(f"{r.name} ({r.etage}.OG)" for r in räume))) if rooms else "-",
+                "Räume": ", ".join(sorted(set(f"{r.name} ({r.etage}.OG)" for r in räume))) if räume else "-",
                 "Kommentar": t.kommentar or "-",
             }
             rows.append(row)
@@ -1857,7 +1857,7 @@ def aggregate_persons_view():
             faxes = sorted({c.fax for c in p.contacts if c.fax})
             emails = sorted({c.email for c in p.contacts if c.email})
 
-            räume = [link.room for link in p.rooms if link.room]
+            räume = [link.room for link in p.räume if link.room]
             room_strs = sorted(set(
                 f"{r.name} ({r.etage}.OG, {r.building.name if r.building else '?'})"
                 for r in räume
@@ -2460,7 +2460,7 @@ def generate_fields_for_schluesselausgabe_from_metadata(
 
         elif name.startswith("GebäudeRow"):
             index = int(name.replace("GebäudeRow", "")) - 1
-            räume = transponder.get("rooms", [])
+            räume = transponder.get("räume", [])
             if 0 <= index < len(räume):
                 building = räume[index].get("building")
                 if building:
@@ -2468,13 +2468,13 @@ def generate_fields_for_schluesselausgabe_from_metadata(
 
         elif name.startswith("RaumRow"):
             index = int(name.replace("RaumRow", "")) - 1
-            räume = transponder.get("rooms", [])
+            räume = transponder.get("räume", [])
             if 0 <= index < len(räume):
                 value = räume[index].get("name", "")
 
         elif name.startswith("SerienNrSchlüsselNrRow"):
             index = int(name.replace("SerienNrSchlüsselNrRow", "")) - 1
-            räume = transponder.get("rooms", [])
+            räume = transponder.get("räume", [])
             if 0 <= index < len(räume):
                 room = räume[index]
                 has_building = room.get("building", {}).get("name")
@@ -2484,7 +2484,7 @@ def generate_fields_for_schluesselausgabe_from_metadata(
 
         elif name.startswith("AnzahlRow"):
             index = int(name.replace("AnzahlRow", "")) - 1
-            räume = transponder.get("rooms", [])
+            räume = transponder.get("räume", [])
             if 0 <= index < len(räume):
                 room = räume[index]
                 has_building = room.get("building", {}).get("name")
