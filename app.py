@@ -380,9 +380,9 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
                 continue
 
             # Wenn das Feld bereits durch FK abgedeckt ist
-            if col.name in fk_columns_of_relationships:
-                print(f"⚠️  Ignoriere FK-Feld (wird separat als Relation behandelt): {col.name}")
-                continue
+            #if col.name in fk_columns_of_relationships:
+            #    print(f"⚠️  Ignoriere FK-Feld (wird separat als Relation behandelt): {col.name}")
+            #    continue
 
             # Normales Feld
             field = {
