@@ -126,6 +126,7 @@ class Abteilung(Base):
     id = Column(Integer, primary_key=True)
     name = Column(Text)
     abteilungsleiter_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
+
     leiter = relationship("Person", back_populates="departments")
     persons = relationship("PersonToAbteilung", back_populates="abteilung", cascade="all, delete")
     
@@ -139,6 +140,7 @@ class PersonToAbteilung(Base):
     id = Column(Integer, primary_key=True)
     person_id = Column(Integer, ForeignKey("person.id", ondelete="CASCADE"))
     abteilung_id = Column(Integer, ForeignKey("abteilung.id", ondelete="CASCADE"))
+
     person = relationship("Person", back_populates="person_abteilungen")
     abteilung = relationship("Abteilung", back_populates="persons")
     

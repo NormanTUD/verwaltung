@@ -224,104 +224,47 @@ def labelize(col_name):
         col_name.replace('_id', '').replace('_', ' ').capitalize()
     )
 
-def create_wizard_from_model(model, *, title=None, fields_override=None, subforms=None):
-    mapper = class_mapper(model)
-    fields = []
+def is_join_table_model(model):
+    cols = list(model.__table__.columns)
+    if len(cols) < 2:
+        return False
+    fk_cols = [col for col in cols if col.foreign_keys]
+    # mindestens zwei FKs und alle außer evtl. 'id' sind FKs
+    return len(fk_cols) >= 2 and all(col.foreign_keys or col.name == 'id' for col in cols)
 
-    fk_columns_of_relationships = set()
-    for rel in mapper.relationships:
-        fk_cols = [fk.name for fk in rel._calculated_foreign_keys]
-        fk_columns_of_relationships.update(fk_cols)
-
-    for prop in mapper.iterate_properties:
-        if isinstance(prop, ColumnProperty):
-            col = prop.columns[0]
-
-            if col.primary_key:
-                continue
-            if col.name in HIDDEN_FIELD_NAMES:
-                continue
-
-            if fields_override and col.name in fields_override:
-                field = {
-                    "name": col.name,
-                    "type": get_col_type(col),
-                    "label": labelize(col.name),
-                }
-                field.update(fields_override[col.name])
-                fields.append(field)
-                continue
-
-            if col.name in fk_columns_of_relationships:
-                continue
-
-            field = {
-                "name": col.name,
-                "type": get_col_type(col),
-                "label": labelize(col.name),
-            }
-            if not col.nullable:
-                field["required"] = True
-            fields.append(field)
-
-    for rel in mapper.relationships:
-        fk_cols = [fk.name for fk in rel._calculated_foreign_keys]
-        if len(fk_cols) != 1:
-            continue
-        fk_col_name = fk_cols[0]
-        if fk_col_name in HIDDEN_FIELD_NAMES:
-            continue
-
-        field = {
-            "name": fk_col_name,
-            "type": "relation",
-            "label": labelize(rel.key),
-            "relation": rel.mapper.class_,
-        }
-
-        if fields_override and fk_col_name in fields_override:
-            field.update(fields_override[fk_col_name])
-
-        fields.append(field)
-
-    wizard = {
-        "title": title or f"{model.__name__} erstellen",
-        "table": model,
-        "fields": fields,
-    }
-
-    # Übergib die Blacklist an guess_subforms, damit redundante Felder gefiltert werden
-    wizard["subforms"] = guess_subforms(model, exclude_fields=HIDDEN_FIELD_NAMES.union(set(f["name"] for f in fields)))
-
-    return wizard
-
-
-def guess_subforms(model, exclude_fields=None):
+def guess_subforms(model, exclude_fields=None, exclude_relationships=None):
     exclude_fields = exclude_fields or set()
+    exclude_relationships = exclude_relationships or set()
     subforms = []
     mapper = inspect(model)
 
     for rel in mapper.relationships:
-        if not rel.uselist:
-            continue  # Nur One-to-Many
+        if not rel.uselist or rel.key in exclude_relationships:
+            continue
 
         related_model = rel.mapper.class_
 
+        if is_continuum_version_class(related_model):
+            continue
+
+        if is_join_table_model(related_model):
+            continue
+
+        # Versuche FK-Spalte im related_model zu finden, die auf dieses Modell zeigt
         fk_column = None
+        fk_count = 0
         for col in related_model.__table__.columns:
             for fk in col.foreign_keys:
                 if fk.column.table == model.__table__:
                     fk_column = col.name
-                    break
-            if fk_column:
-                break
+                    fk_count += 1
 
-        if not fk_column:
+        if fk_count != 1:
             continue
 
+        # Baue Felder für Subform
         fields = []
         for col in related_model.__table__.columns:
-            # Überspringe id, FK-Spalte und alles in exclude_fields
             if col.name == "id" or col.name == fk_column or col.name in exclude_fields:
                 continue
 
@@ -342,14 +285,177 @@ def guess_subforms(model, exclude_fields=None):
 
     return subforms
 
+def guess_subforms(model, exclude_fields=None, exclude_relationships=None):
+    exclude_fields = exclude_fields or set()
+    exclude_relationships = exclude_relationships or set()
+    subforms = []
+    mapper = inspect(model)
+
+    for rel in mapper.relationships:
+        # Ignoriere nicht-uselist oder explizit ausgeschlossene Relationen
+        if not rel.uselist or rel.key in exclude_relationships:
+            continue
+
+        related_model = rel.mapper.class_
+
+        # Ignoriere Continuum-Versionstabellen
+        if is_continuum_version_class(related_model):
+            continue
+
+        # Versuche FK-Spalte im related_model zu finden, die auf dieses Modell zeigt
+        fk_column = None
+        fk_count = 0
+        for col in related_model.__table__.columns:
+            for fk in col.foreign_keys:
+                if fk.column.table == model.__table__:
+                    fk_column = col.name
+                    fk_count += 1
+        # Wenn kein oder mehrere passende FKs → ungeeignet als Subform
+        if fk_count != 1:
+            continue
+
+        # Baue Felder für Subform
+        fields = []
+        for col in related_model.__table__.columns:
+            # Überspringe id, FK-Spalte und ausgeschlossene Felder
+            if col.name == "id" or col.name == fk_column or col.name in exclude_fields:
+                continue
+
+            field_type = "number" if isinstance(col.type, Integer) else "text"
+            fields.append({
+                "name": col.name,
+                "type": field_type,
+                "label": labelize(col.name),
+            })
+
+        subforms.append({
+            "name": rel.key,
+            "label": labelize(rel.key),
+            "table": related_model,
+            "foreign_key": fk_column,
+            "fields": fields,
+        })
+
+    return subforms
+
+def is_continuum_version_class(klass):
+    return klass.__name__.endswith("Version")
+
+def create_wizard_from_model(model, *, title=None, fields_override=None, subforms=None):
+    print(f"🔧 Starte Wizard-Erstellung für: {model.__name__}")
+    mapper = class_mapper(model)
+    fields = []
+
+    # Wir sammeln FK-Spalten von Beziehungen, damit wir die nicht doppelt als normale Felder behandeln
+    fk_columns_of_relationships = set()
+    for rel in mapper.relationships:
+        if is_continuum_version_class(rel.mapper.class_):
+            print(f"⚠️  Ignoriere Continuum-Beziehung: {rel.key}")
+            continue
+        fk_cols = [fk.name for fk in rel._calculated_foreign_keys]
+        fk_columns_of_relationships.update(fk_cols)
+
+    # Felder aus Columns extrahieren
+    for prop in mapper.iterate_properties:
+        if isinstance(prop, ColumnProperty):
+            col = prop.columns[0]
+
+            if col.primary_key:
+                print(f"⚠️  Ignoriere Primärschlüssel: {col.name}")
+                continue
+            if col.name in HIDDEN_FIELD_NAMES:
+                print(f"⚠️  Ignoriere verstecktes Feld: {col.name}")
+                continue
+
+            # Falls Field überschrieben werden soll
+            if fields_override and col.name in fields_override:
+                print(f"✳️  Feld überschrieben durch override: {col.name}")
+                field = {
+                    "name": col.name,
+                    "type": get_col_type(col),
+                    "label": labelize(col.name),
+                }
+                field.update(fields_override[col.name])
+                fields.append(field)
+                continue
+
+            # Wenn das Feld bereits durch FK abgedeckt ist
+            if col.name in fk_columns_of_relationships:
+                print(f"⚠️  Ignoriere FK-Feld (wird separat als Relation behandelt): {col.name}")
+                continue
+
+            # Normales Feld
+            field = {
+                "name": col.name,
+                "type": get_col_type(col),
+                "label": labelize(col.name),
+            }
+            if not col.nullable:
+                field["required"] = True
+            print(f"✅ Normales Feld: {col.name}")
+            fields.append(field)
+
+
+    for rel in mapper.relationships:
+        if is_continuum_version_class(rel.mapper.class_):
+            print(f"⚠️  Ignoriere Continuum-Beziehung: {rel.key}")
+            continue
+        fk_cols = [fk.name for fk in rel._calculated_foreign_keys]
+        if len(fk_cols) != 1:
+            continue
+        fk_col_name = fk_cols[0]
+
+        # Wenn die FK-Spalte als Column im Modell existiert → Beziehung redundant → überspringen
+        if any(col.name == fk_col_name for col in mapper.columns):
+            print(f"⚠️  Ignoriere Beziehung {rel.key}, da Column {fk_col_name} schon vorhanden ist")
+            continue
+
+        if fk_col_name in HIDDEN_FIELD_NAMES:
+            continue
+
+        # One-to-many = Subform → ignorieren hier
+        if rel.uselist:
+            print(f"⚠️  Ignoriere One-to-Many-Beziehung (kommt als Subform): {rel.key}")
+            continue
+
+        field = {
+            "name": fk_col_name,
+            "type": "relation",
+            "label": labelize(rel.key),
+            "relation": rel.mapper.class_,
+        }
+
+        if fields_override and fk_col_name in fields_override:
+            field.update(fields_override[fk_col_name])
+
+        print(f"✅ Beziehung als Feld: {rel.key} → FK: {fk_col_name}")
+        fields.append(field)
+
+
+
+    wizard = {
+        "title": title or f"{model.__name__} erstellen",
+        "table": model,
+        "fields": fields,
+    }
+
+    # Subforms erzeugen (z.B. Kinder wie Räume zur Person)
+    blacklist_fields = HIDDEN_FIELD_NAMES.union(set(f["name"] for f in fields))
+    print(f"\n📦 Subform-Erstellung mit Ausschluss folgender Felder: {blacklist_fields}")
+    wizard["subforms"] = guess_subforms(model, exclude_fields=blacklist_fields)
+
+    print(f"🎉 Wizard für {model.__name__} enthält {len(fields)} Felder und {len(wizard['subforms'])} Subforms\n")
+    return wizard
+
 WIZARDS = {
-    "Transponder": create_wizard_from_model(
-        Transponder,
-        title="Transponder erstellen",
-    ),
     "Abteilung": create_wizard_from_model(
         Abteilung,
         title="Abteilung erstellen",
+    ),
+
+    "Transponder": create_wizard_from_model(
+        Transponder,
+        title="Transponder erstellen",
     ),
     "Professur": create_wizard_from_model(
         Professorship,
@@ -420,11 +526,8 @@ WIZARDS = {
     "Inventar komplett erfassen": create_wizard_from_model(
         Inventory,
         title="Inventar (mit Zuordnungen) erfassen",
-    ),
+    )
 }
-
-from pprint import pprint
-pprint(WIZARDS)
 
 EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 
