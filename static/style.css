@@ -362,6 +362,5 @@ ul {
 
 .raum {
 	position: absolute;
-	z-index: 999999;
 	border: 1px solid gray;
 }

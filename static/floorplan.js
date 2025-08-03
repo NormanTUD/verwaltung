@@ -197,7 +197,6 @@ function createRäume() {
 	räumeData.forEach(data => {
 		const raum = createRaum(data);
 		floorplan.appendChild(raum);
-		log("appending to floorplan:", raum);
 
 		räume[data.name] = {
 			el: raum,
