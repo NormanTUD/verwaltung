@@ -13,12 +13,12 @@
 		{% endfor %}
 	</select>
 
-	<label for="floorSelect">Etage:</label>
-	<select id="floorSelect" {% if not floor %}disabled{% endif %}>
+	<label for="etageSelect">Etage:</label>
+	<select id="etageSelect" {% if not etage %}disabled{% endif %}>
 		<option value="">-- Bitte wählen --</option>
 		{% if building_id %}
 		{% for f in building_map[building_id]|sort %}
-		<option value="{{ f }}" {% if floor == f %}selected{% endif %}>{{ f }}</option>
+		<option value="{{ f }}" {% if etage == f %}selected{% endif %}>{{ f }}</option>
 		{% endfor %}
 		{% endif %}
 	</select>
@@ -67,11 +67,11 @@
 	<script>
 		document.getElementById("buildingSelect").addEventListener("change", function() {
 			let buildingId = this.value;
-			let floorSelect = document.getElementById("floorSelect");
-			floorSelect.innerHTML = '<option value="">-- Bitte wählen --</option>';
+			let etageSelect = document.getElementById("etageSelect");
+			etageSelect.innerHTML = '<option value="">-- Bitte wählen --</option>';
 
 			if (!buildingId) {
-				floorSelect.disabled = true;
+				etageSelect.disabled = true;
 				// Seite neu laden ohne Parameter (optional)
 				window.location.href = window.location.pathname;
 				return;
@@ -79,23 +79,23 @@
 
 			// Etagen aus building_map laden (aus Template-Variablen)
 			const buildingMap = {{ building_map | tojson }};
-			const floors = buildingMap[buildingId] || [];
-			floors.sort((a, b) => a - b);
+			const etages = buildingMap[buildingId] || [];
+			etages.sort((a, b) => a - b);
 
-			for (let f of floors) {
+			for (let f of etages) {
 				let opt = document.createElement("option");
 				opt.value = f;
 				opt.textContent = f;
-				floorSelect.appendChild(opt);
+				etageSelect.appendChild(opt);
 			}
-			floorSelect.disabled = false;
+			etageSelect.disabled = false;
 		});
 
-		document.getElementById("floorSelect").addEventListener("change", function() {
-			let floor = this.value;
+		document.getElementById("etageSelect").addEventListener("change", function() {
+			let etage = this.value;
 			let buildingId = document.getElementById("buildingSelect").value;
-			if (buildingId && floor) {
-				window.location.href = `?building_id=${buildingId}&floor=${floor}`;
+			if (buildingId && etage) {
+				window.location.href = `?building_id=${buildingId}&etage=${etage}`;
 			}
 		});
 	</script>
