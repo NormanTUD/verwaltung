@@ -462,9 +462,6 @@ WIZARDS = {
     )
 }
 
-from pprint import pprint
-pprint(WIZARDS)
-
 EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 
 def query_with_version(session, model_class):
