@@ -3,18 +3,24 @@
 {% block content %}
 <h1>{{ config.title }}</h1>
 <form method="post" id="wizard-form">
-	{% for field in config.fields %}
-	<div class="mb-3">
-		<label class="form-label">{{ field.label }}</label>
-		{# Wert aus form_data holen, falls vorhanden #}
-		{% set value = form_data[field.name][0] if form_data and field.name in form_data else '' %}
-		{% if field.type == 'textarea' %}
-		<textarea class="form-control" name="{{ field.name }}" {% if field.required %}required{% endif %}>{{ value }}</textarea>
-		{% else %}
-		<input type="{{ field.type }}" class="form-control" name="{{ field.name }}" value="{{ value }}" {% if field.required %}required{% endif %}>
-		{% endif %}
-	</div>
-	{% endfor %}
+	<table class="table">
+		<tbody>
+		{% for field in config.fields %}
+			<tr>
+				<td><label class="form-label">{{ field.label }}</label></td>
+				<td>
+					{% set value = form_data[field.name][0] if form_data and field.name in form_data else '' %}
+					{% if field.type == 'textarea' %}
+						<textarea class="form-control" name="{{ field.name }}" {% if field.required %}required{% endif %}>{{ value }}</textarea>
+					{% else %}
+						<input type="{{ field.type }}" class="form-control" name="{{ field.name }}" value="{{ value }}" {% if field.required %}required{% endif %}>
+					{% endif %}
+				</td>
+			</tr>
+		{% endfor %}
+		</tbody>
+	</table>
+
 
 	{% for sub in config.subforms %}
 	<hr>

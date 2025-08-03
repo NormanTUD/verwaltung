@@ -2278,9 +2278,6 @@ def _wizard_internal(name):
         
     session.close()
 
-    print("form_data:")
-    print(form_data)
-
     return render_template(
         "wizard.html",
         config=config,
