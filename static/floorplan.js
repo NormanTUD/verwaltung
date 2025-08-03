@@ -79,7 +79,6 @@ function removeFromOldRaum(el) {
 }
 
 function addToNewRaum(el, newRaum) {
-	console.trace();
 	newRaum.objects.push(el);
 	log("newRaum:", newRaum);
 	el.dataset.raum = newRaum.el.dataset.id;
@@ -256,8 +255,77 @@ function makeDraggable(el) {
 			console.log("No raum found on drag end");
 		}
 		checkIfObjectOnPerson(el);
-
 	}
+
+	function checkIfObjectOnPerson(el) {
+		console.log("🚧 Überprüfe, ob 'el' das Zielobjekt ist oder eine Person:");
+
+		if (el.classList.contains("person-circle")) {
+			console.warn("⚠️ Das verschobene Element ist eine Person! Es sollte kein Person-Element entfernt werden.");
+			return;
+		}
+
+		const objRect = el.getBoundingClientRect();
+		const objCenterX = objRect.left + objRect.width / 2;
+		const objCenterY = objRect.top + objRect.height / 2;
+
+		console.log("🔍 Objekt-Mitte:", objCenterX, objCenterY);
+
+		const personEls = document.querySelectorAll('.person-circle');
+		let found = false;
+
+		personEls.forEach(person => {
+			const personRect = person.getBoundingClientRect();
+
+			const hit =
+				objCenterX >= personRect.left &&
+				objCenterX <= personRect.right &&
+				objCenterY >= personRect.top &&
+				objCenterY <= personRect.bottom;
+
+			console.log(`👤 Prüfe Person ${person.id || "[kein ID]"}: Treffer?`, hit);
+
+			if (hit) {
+				found = true;
+
+				// Objekt zum Inventar hinzufügen
+				const attributes = JSON.parse(person.dataset.attributes || "{}");
+
+				if (!attributes.inventory) {
+					attributes.inventory = [];
+				}
+
+				const objectOptions = JSON.parse(el.dataset.attributes || "{}");
+				attributes.inventory.push(objectOptions);
+				person.dataset.attributes = JSON.stringify(attributes);
+
+				console.log("📦 Objekt zum Inventar hinzugefügt:", objectOptions);
+
+				// Objekt aus DOM entfernen (Objekt verschwindet vom Floorplan)
+				el.remove();
+				console.log("🗑️ Objekt wurde aus DOM entfernt");
+
+				// Optional: dataset.inventory auch aktualisieren, falls du es nutzt
+				try {
+					let inventory = JSON.parse(person.dataset.inventory || "[]");
+					inventory.push(objectOptions);
+					person.dataset.inventory = JSON.stringify(inventory);
+				} catch (err) {
+					console.warn("⚠️ Fehler beim Parsen von inventory, setze auf leer");
+				}
+
+				// Kontextmenü updaten (falls offen)
+				updateContextMenuInventory(person);
+
+				return;
+			}
+		});
+
+		if (!found) {
+			console.log("❌ Objekt befindet sich auf keiner Person.");
+		}
+	}
+
 
 	function onMouseUp(ev) {
 		stopDragging();
@@ -761,7 +829,6 @@ function toggleContextMenu(circle, attributes) {
 
 function removeExistingContextMenus() {
 	const foundMenus = document.querySelectorAll(".context-menu");
-	console.log(`removeExistingContextMenus aufgerufen, Menüs gefunden: ${foundMenus.length}`);
 	foundMenus.forEach(menu => menu.remove());
 }
 
@@ -1052,75 +1119,6 @@ window.addEventListener("DOMContentLoaded", () => {
 		appendToContainer(newDiv);
 	}
 });
-
-function checkIfObjectOnPerson(el) {
-	console.log("🚧 Überprüfe, ob 'el' das Zielobjekt ist oder eine Person:");
-
-	if (el.classList.contains("person-circle")) {
-		console.warn("⚠️ Das verschobene Element ist eine Person! Es sollte kein Person-Element entfernt werden.");
-		return;
-	}
-
-	const objRect = el.getBoundingClientRect();
-	const objCenterX = objRect.left + objRect.width / 2;
-	const objCenterY = objRect.top + objRect.height / 2;
-
-	console.log("🔍 Objekt-Mitte:", objCenterX, objCenterY);
-
-	const personEls = document.querySelectorAll('.person-circle');
-	let found = false;
-
-	personEls.forEach(person => {
-		const personRect = person.getBoundingClientRect();
-
-		const hit =
-			objCenterX >= personRect.left &&
-			objCenterX <= personRect.right &&
-			objCenterY >= personRect.top &&
-			objCenterY <= personRect.bottom;
-
-		console.log(`👤 Prüfe Person ${person.id || "[kein ID]"}: Treffer?`, hit);
-
-		if (hit) {
-			found = true;
-
-			// Objekt zum Inventar hinzufügen
-			const attributes = JSON.parse(person.dataset.attributes || "{}");
-
-			if (!attributes.inventory) {
-				attributes.inventory = [];
-			}
-
-			const objectOptions = JSON.parse(el.dataset.attributes || "{}");
-			attributes.inventory.push(objectOptions);
-			person.dataset.attributes = JSON.stringify(attributes);
-
-			console.log("📦 Objekt zum Inventar hinzugefügt:", objectOptions);
-
-			// Objekt aus DOM entfernen (Objekt verschwindet vom Floorplan)
-			el.remove();
-			console.log("🗑️ Objekt wurde aus DOM entfernt");
-
-			// Optional: dataset.inventory auch aktualisieren, falls du es nutzt
-			try {
-				let inventory = JSON.parse(person.dataset.inventory || "[]");
-				inventory.push(objectOptions);
-				person.dataset.inventory = JSON.stringify(inventory);
-			} catch (err) {
-				console.warn("⚠️ Fehler beim Parsen von inventory, setze auf leer");
-			}
-
-			// Kontextmenü updaten (falls offen)
-			updateContextMenuInventory(person);
-
-			return;
-		}
-	});
-
-	if (!found) {
-		console.log("❌ Objekt befindet sich auf keiner Person.");
-	}
-}
 
 function updateContextMenuInventory(personEl) {
 	const menu = document.querySelector(".context-menu");
