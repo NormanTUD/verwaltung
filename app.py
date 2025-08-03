@@ -2217,7 +2217,7 @@ def get_floorplan():
 
     session = Session()
     try:
-        query = session.query(Raum).join(Raum).filter(
+        query = session.query(Raum).join(Raum.layout).filter(
             Raum.building_id == building_id,
             Raum.etage == etage
         )
@@ -2249,7 +2249,6 @@ def get_floorplan():
 
     finally:
         session.close()
-
 
 @app.route("/map-editor")
 @login_required
