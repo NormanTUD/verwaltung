@@ -86,6 +86,8 @@ try:
     from sqlalchemy.orm.strategy_options import Load
 
     from sqlalchemy.orm import Session
+    from sqlalchemy.orm.attributes import flag_modified
+
     import sqlalchemy.exc
 
     from db_defs import *
@@ -4084,6 +4086,84 @@ def get_replace_config_dict():
             names[alias] = names["person_id"]
 
     return names
+
+
+# Helper: map tabellennamen zu Models
+def get_model_by_tablename(name):
+    for cls in db.Model._decl_class_registry.values():
+        if hasattr(cls, "__tablename__") and cls.__tablename__ == name:
+            return cls
+    return None
+
+# Merge-Funktion
+def merge_model_entries(session, model, ids_to_merge, target_id):
+    if target_id in ids_to_merge:
+        ids_to_merge.remove(target_id)
+    if not ids_to_merge:
+        return
+
+    model_name = model.__tablename__
+    related_models = session.registry.mappers
+
+    for related_mapper in related_models:
+        for prop in related_mapper.attrs:
+            if hasattr(prop, "columns"):
+                for col in prop.columns:
+                    if col.foreign_keys:
+                        for fk in col.foreign_keys:
+                            if fk.column.table.name == model_name:
+                                related_cls = related_mapper.class_
+                                fk_col = col.name
+                                q = session.query(related_cls).filter(getattr(related_cls, fk_col).in_(ids_to_merge))
+                                for obj in q.all():
+                                    setattr(obj, fk_col, target_id)
+                                    flag_modified(obj, fk_col)
+                                break
+
+    for id_ in ids_to_merge:
+        obj = session.get(model, id_)
+        if obj:
+            session.delete(obj)
+
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise
+
+@app.route("/merge", methods=["GET", "POST"])
+def merge_interface():
+    session = Session()
+
+    all_tables = [
+        mapper.class_.__tablename__
+        for mapper in Base.registry.mappers
+        if mapper.class_.__tablename__ not in EXCLUDE_TABLES
+    ]
+
+    selected_table = request.args.get("table")
+
+    Model = get_model_by_tablename(selected_table) if selected_table else None
+    entries = session.query(Model).all() if Model else []
+
+    if request.method == "POST":
+        selected_ids = list(map(int, request.form.getlist("merge_ids")))
+        target_id = int(request.form["target_id"])
+        if target_id not in selected_ids:
+            flash("Ziel-ID muss Teil der ausgewählten Einträge sein.", "error")
+        else:
+            try:
+                merge_model_entries(session, Base, selected_ids, target_id)
+                flash("Merge erfolgreich durchgeführt.", "success")
+                return redirect(url_for("merge_interface", table=selected_table))
+            except Exception as e:
+                flash(f"Fehler beim Mergen: {e}", "error")
+
+    return render_template("merge_generic.html",
+                           tables=all_tables,
+                           selected_table=selected_table,
+                           entries=entries)
+
 
 event.listen(Session, "before_flush", block_writes_if_user_readonly)
 event.listen(Session, "before_flush", block_writes_if_data_version_cookie_set)
