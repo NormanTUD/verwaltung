@@ -3365,12 +3365,12 @@ def save_person_to_raum():
     session = Session()
     try:
         data = request.get_json()
-        if not data or "id" not in data or "person_id" not in data:
+        if not data or "raum" not in data or "person" not in data:
             session.close()
-            return jsonify({"error": f"Request body must include both 'id' and 'person_id' fields, got: {data}"}), 400
+            return jsonify({"error": f"Request body must include both 'raum' and 'person' fields, got: {data}"}), 400
 
-        raum_id = data["id"]
-        person_data = data["person_id"]
+        raum_id = data["raum"]
+        person_data = data["person"]
         required_fields = ["vorname", "nachname", "image_url"]
 
         for field in required_fields:
@@ -3428,7 +3428,6 @@ def save_person_to_raum():
         }
 
         session.close()
-
         return jsonify(struct), 200
 
     except IntegrityError as e:
