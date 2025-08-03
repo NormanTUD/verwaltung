@@ -192,8 +192,8 @@ INITIAL_DATA = {
 
 
 LABEL_OVERRIDES = {
-    "issuer_id": "Ausgeber",
-    "owner_id": "Besitzer",
+    "ausgeber_id": "Ausgeber",
+    "besitzer_id": "Besitzer",
     "abteilungsleiter_id": "Abteilungsleiter (Person-ID)",
     "kostenstelle_id": "Kostenstelle-ID",
     "object_id": "Objekt-ID",
@@ -1574,14 +1574,14 @@ def aggregate_inventory_view():
 
         # Query-Parameter auslesen
         show_only_unreturned = request.args.get("unreturned") == "1"
-        owner_filter = request.args.get("owner", type=int)
-        issuer_filter = request.args.get("issuer", type=int)
+        besitzer_filter = request.args.get("besitzer", type=int)
+        ausgeber_filter = request.args.get("ausgeber", type=int)
 
         # Grundquery mit Joins
         query = session.query(Inventar) \
             .options(
-                joinedload(Inventar.owner),
-                joinedload(Inventar.issuer),
+                joinedload(Inventar.besitzer),
+                joinedload(Inventar.ausgeber),
                 joinedload(Inventar.object).joinedload(Object.category),
                 joinedload(Inventar.kostenstelle),
                 joinedload(Inventar.abteilung),
@@ -1593,11 +1593,11 @@ def aggregate_inventory_view():
         if show_only_unreturned:
             query = query.filter(Inventar.rückgabedatum.is_(None))
 
-        if owner_filter:
-            query = query.filter(Inventar.owner_id == owner_filter)
+        if besitzer_filter:
+            query = query.filter(Inventar.besitzer_id == besitzer_filter)
 
-        if issuer_filter:
-            query = query.filter(Inventar.issuer_id == issuer_filter)
+        if ausgeber_filter:
+            query = query.filter(Inventar.ausgeber_id == ausgeber_filter)
 
         inventory_list = query.all()
 
@@ -1609,8 +1609,8 @@ def aggregate_inventory_view():
                 "Objekt": inv.object.name if inv.object else "-",
                 "Kategorie": _get_category_name(inv.object.category) if inv.object else "-",
                 "Anlagennummer": inv.anlagennummer or "-",
-                "Ausgegeben an": _get_person_name(inv.owner),
-                "Ausgegeben durch": _get_person_name(inv.issuer),
+                "Ausgegeben an": _get_person_name(inv.besitzer),
+                "Ausgegeben durch": _get_person_name(inv.ausgeber),
                 "Ausgabedatum": inv.erhaltungsdatum.isoformat() if inv.erhaltungsdatum else "-",
                 "Rückgabedatum": inv.rückgabedatum.isoformat() if inv.rückgabedatum else "Nicht zurückgegeben",
                 "Raum": _create_room_name(inv.room),
@@ -1636,8 +1636,8 @@ def aggregate_inventory_view():
             row_data=row_data,
             filters={
                 "unreturned": show_only_unreturned,
-                "owner": owner_filter,
-                "issuer": issuer_filter,
+                "besitzer": besitzer_filter,
+                "ausgeber": ausgeber_filter,
             },
             people=people,
             url_for_view=url_for("aggregate_inventory_view")
@@ -1656,13 +1656,13 @@ def aggregate_transponder_view():
         session = Session()
 
         show_only_unreturned = request.args.get("unreturned") == "1"
-        owner_id_filter = request.args.get("owner_id", "").strip()
-        issuer_id_filter = request.args.get("issuer_id", "").strip()
+        besitzer_id_filter = request.args.get("besitzer_id", "").strip()
+        ausgeber_id_filter = request.args.get("ausgeber_id", "").strip()
 
         query = session.query(Transponder) \
             .options(
-                joinedload(Transponder.owner),
-                joinedload(Transponder.issuer),
+                joinedload(Transponder.besitzer),
+                joinedload(Transponder.ausgeber),
                 joinedload(Transponder.room_links)
                     .joinedload(TransponderToRoom.room)
                     .joinedload(Room.building)
@@ -1671,18 +1671,18 @@ def aggregate_transponder_view():
         if show_only_unreturned:
             query = query.filter(Transponder.rückgabedatum.is_(None))
 
-        if owner_id_filter:
+        if besitzer_id_filter:
             try:
-                owner_id_int = int(owner_id_filter)
-                query = query.filter(Transponder.owner_id == owner_id_int)
+                besitzer_id_int = int(besitzer_id_filter)
+                query = query.filter(Transponder.besitzer_id == besitzer_id_int)
             except ValueError:
                 # Ungültige Eingabe ignorieren
                 pass
 
-        if issuer_id_filter:
+        if ausgeber_id_filter:
             try:
-                issuer_id_int = int(issuer_id_filter)
-                query = query.filter(Transponder.issuer_id == issuer_id_int)
+                ausgeber_id_int = int(ausgeber_id_filter)
+                query = query.filter(Transponder.ausgeber_id == ausgeber_id_int)
             except ValueError:
                 pass
 
@@ -1690,24 +1690,24 @@ def aggregate_transponder_view():
 
         rows = []
         for t in transponder_list:
-            owner = t.owner_id
-            issuer = t.issuer_id
+            besitzer = t.besitzer_id
+            ausgeber = t.ausgeber_id
 
-            print(f"owner: {owner}")
-            print(f"issuer: {issuer}")
+            print(f"besitzer: {besitzer}")
+            print(f"ausgeber: {ausgeber}")
 
             räume = [link.room for link in t.room_links if link.room]
             buildings = list({r.building.name if r.building else "?" for r in räume})
 
-            # Input-Felder für owner_id und issuer_id
-            owner_input = f'<input type="text" name="owner_id" data-update_info="transponder_{t.id}" value="{html.escape(str(owner))}" />'
-            issuer_input = f'<input type="text" name="issuer_id" data-update_info="transponder_{t.id}" value="{html.escape(str(issuer))}" />'
+            # Input-Felder für besitzer_id und ausgeber_id
+            besitzer_input = f'<input type="text" name="besitzer_id" data-update_info="transponder_{t.id}" value="{html.escape(str(besitzer))}" />'
+            ausgeber_input = f'<input type="text" name="ausgeber_id" data-update_info="transponder_{t.id}" value="{html.escape(str(ausgeber))}" />'
 
             row = {
                 "ID": t.id,
                 "Seriennummer": t.seriennummer or "-",
-                "Ausgegeben an": owner_input,
-                "Ausgegeben durch": issuer_input,
+                "Ausgegeben an": besitzer_input,
+                "Ausgegeben durch": ausgeber_input,
                 "Ausgabedatum": t.erhaltungsdatum.isoformat() if t.erhaltungsdatum else "-",
                 "Rückgabedatum": t.rückgabedatum.isoformat() if t.rückgabedatum else "Nicht zurückgegeben",
                 "Gebäude": ", ".join(sorted(buildings)) if buildings else "-",
@@ -1722,8 +1722,8 @@ def aggregate_transponder_view():
         # row_data als Liste von Listen für Template
         row_data = []
         for t, row in zip(transponder_list, rows):
-            owner = t.owner
-            issuer = t.issuer
+            besitzer = t.besitzer
+            ausgeber = t.ausgeber
 
             # Alle Spalten außer PDF escapen NICHT, da Inputs als HTML kommen -> safe rendern im Template
             row_cells = []
@@ -1731,8 +1731,8 @@ def aggregate_transponder_view():
                 if col == "PDF":
                     pdf_link = (
                         f"<a href='http://localhost:5000/generate_pdf/schliessmedien/?"
-                        f"issuer_id={html.escape(str(issuer.id)) if issuer else ''}&"
-                        f"owner_id={html.escape(str(owner.id)) if owner else ''}&"
+                        f"ausgeber_id={html.escape(str(ausgeber.id)) if ausgeber else ''}&"
+                        f"besitzer_id={html.escape(str(besitzer.id)) if besitzer else ''}&"
                         f"transponder_id={t.id}'>"
                         f"<img src='../static/pdf.svg' height=32 width=32></a>"
                     )
@@ -1745,8 +1745,8 @@ def aggregate_transponder_view():
 
         filters = {
             "Nur nicht zurückgegebene anzeigen": show_only_unreturned,
-            "owner_id": owner_id_filter,
-            "issuer_id": issuer_id_filter
+            "besitzer_id": besitzer_id_filter,
+            "ausgeber_id": ausgeber_id_filter
         }
 
         return render_template(
@@ -1758,8 +1758,8 @@ def aggregate_transponder_view():
             toggle_url=url_for(
                 "aggregate_transponder_view",
                 unreturned="0" if show_only_unreturned else "1",
-                owner_id=owner_id_filter,
-                issuer_id=issuer_id_filter
+                besitzer_id=besitzer_id_filter,
+                ausgeber_id=ausgeber_id_filter
             )
         )
 
@@ -2036,10 +2036,10 @@ def wizard_person():
                 )
                 session.add(pc)
 
-            # Transponder speichern mit owner_id auf new_person.id
+            # Transponder speichern mit besitzer_id auf new_person.id
             for tp in transponders:
                 t = Transponder(
-                    owner_id=new_person.id,
+                    besitzer_id=new_person.id,
                     seriennummer=tp["serial"],
                     kommentar=tp["kommentar"]
                 )
@@ -2332,8 +2332,8 @@ def get_abteilung_metadata(abteilung_id: int) -> dict:
         return {"error": str(e)}
 
 def generate_fields_for_schluesselausgabe_from_metadata(
-    issuer: dict,
-    owner: dict,
+    ausgeber: dict,
+    besitzer: dict,
     transponder: dict,
     abteilung: dict = None
 ) -> dict:
@@ -2385,8 +2385,8 @@ def generate_fields_for_schluesselausgabe_from_metadata(
                 value = abteilung["name"]
 
         elif name == "Text3":
-            first_name = issuer.get("first_name", "")
-            last_name = issuer.get("last_name", "")
+            first_name = ausgeber.get("first_name", "")
+            last_name = ausgeber.get("last_name", "")
             if last_name and first_name:
                 value = f"{last_name}, {first_name}"
             elif last_name:
@@ -2395,16 +2395,16 @@ def generate_fields_for_schluesselausgabe_from_metadata(
                 value = f"{first_name}"
 
         elif name == "Text4":
-            value = extract_contact_string(issuer)
+            value = extract_contact_string(ausgeber)
 
         elif name == "Text5":
             value = abteilung.get("name", "") if abteilung else ""
 
         elif name == "Text7":
-            value = owner.get("last_name", "") + ", " + owner.get("first_name", "") if owner else ""
+            value = besitzer.get("last_name", "") + ", " + besitzer.get("first_name", "") if besitzer else ""
 
         elif name == "Text8":
-            value = extract_contact_string(owner)
+            value = extract_contact_string(besitzer)
 
         elif name.startswith("GebäudeRow"):
             index = int(name.replace("GebäudeRow", "")) - 1
@@ -2473,25 +2473,25 @@ def get_transponder_metadata(transponder_id: int) -> dict:
             "rückgabedatum": transponder.rückgabedatum,
             "kommentar": transponder.kommentar,
 
-            "issuer": None,
-            "owner": None,
+            "ausgeber": None,
+            "besitzer": None,
             "räume": []
         }
 
-        if transponder.issuer is not None:
-            metadata["issuer"] = {
-                "id": transponder.issuer.id,
-                "first_name": transponder.issuer.first_name,
-                "last_name": transponder.issuer.last_name,
-                "title": transponder.issuer.title
+        if transponder.ausgeber is not None:
+            metadata["ausgeber"] = {
+                "id": transponder.ausgeber.id,
+                "first_name": transponder.ausgeber.first_name,
+                "last_name": transponder.ausgeber.last_name,
+                "title": transponder.ausgeber.title
             }
 
-        if transponder.owner is not None:
-            metadata["owner"] = {
-                "id": transponder.owner.id,
-                "first_name": transponder.owner.first_name,
-                "last_name": transponder.owner.last_name,
-                "title": transponder.owner.title
+        if transponder.besitzer is not None:
+            metadata["besitzer"] = {
+                "id": transponder.besitzer.id,
+                "first_name": transponder.besitzer.first_name,
+                "last_name": transponder.besitzer.last_name,
+                "title": transponder.besitzer.title
             }
 
         for link in transponder.room_links:
@@ -2570,14 +2570,14 @@ def get_person_metadata(person_id: int) -> dict:
             metadata["transponders_issued"].append({
                 "id": transponder.id,
                 "number": getattr(transponder, "number", None),
-                "owner_id": transponder.owner_id
+                "besitzer_id": transponder.besitzer_id
             })
 
         for transponder in person.transponders_owned:
             metadata["transponders_owned"].append({
                 "id": transponder.id,
                 "number": getattr(transponder, "number", None),
-                "issuer_id": transponder.issuer_id
+                "ausgeber_id": transponder.ausgeber_id
             })
 
         for dept in person.departments:
@@ -2642,8 +2642,8 @@ def fill_pdf_form(template_path, data_dict):
 def generate_pdf():
     TEMPLATE_PATH = 'pdfs/ausgabe_schliessmedien.pdf'
 
-    issuer_id = request.args.get('issuer_id')
-    owner_id = request.args.get('owner_id')
+    ausgeber_id = request.args.get('ausgeber_id')
+    besitzer_id = request.args.get('besitzer_id')
     transponder_id = request.args.get('transponder_id')
 
     missing = []
@@ -2656,15 +2656,15 @@ def generate_pdf():
             missing=missing
         ), 400
 
-    issuer = get_person_metadata(issuer_id)
-    owner = get_person_metadata(owner_id)
+    ausgeber = get_person_metadata(ausgeber_id)
+    besitzer = get_person_metadata(besitzer_id)
     transponder = get_transponder_metadata(transponder_id)
 
     not_found = []
-    if issuer is None:
-        not_found.append(f"Keine Person mit issuer_id: {issuer_id}")
-    if owner is None:
-        not_found.append(f"Keine Person mit owner_id: {owner_id}")
+    if ausgeber is None:
+        not_found.append(f"Keine Person mit ausgeber_id: {ausgeber_id}")
+    if besitzer is None:
+        not_found.append(f"Keine Person mit besitzer_id: {besitzer_id}")
     if transponder is None:
         not_found.append(f"Kein Transponder mit transponder_id: {transponder_id}")
 
@@ -2674,7 +2674,7 @@ def generate_pdf():
             not_found=not_found
         ), 404
 
-    field_data = generate_fields_for_schluesselausgabe_from_metadata(issuer, owner, transponder, )
+    field_data = generate_fields_for_schluesselausgabe_from_metadata(ausgeber, besitzer, transponder, )
 
     filled_pdf = fill_pdf_form(TEMPLATE_PATH, field_data)
     if filled_pdf is None:
@@ -2693,7 +2693,7 @@ def transponder_form():
     session = Session()
     persons = session.query(Person).order_by(Person.last_name).all()
     transponders = session.query(Transponder).options(
-        joinedload(Transponder.owner)
+        joinedload(Transponder.besitzer)
     ).order_by(Transponder.seriennummer).all()
 
     session.close()
@@ -2715,7 +2715,7 @@ def transponder_ausgabe():
 
     try:
         transponder = session.get(Transponder, int(transponder_id))
-        transponder.owner_id = int(person_id)
+        transponder.besitzer_id = int(person_id)
         transponder.erhaltungsdatum = date.fromisoformat(erhaltungsdatum_str)
         session.session.commit()
         flash("Transponder erfolgreich ausgegeben.", "success")
@@ -2737,7 +2737,7 @@ def transponder_rueckgabe():
     try:
         transponder = session.session.get(Transponder, int(transponder_id))
         transponder.rückgabedatum = date.fromisoformat(rückgabedatum_str)
-        transponder.owner_id = None
+        transponder.besitzer_id = None
         session.commit()
         flash("Transponder erfolgreich zurückgenommen.", "success")
     except Exception as e:
@@ -3949,7 +3949,7 @@ def get_replace_configs_json():
         names.update(extract_foreign_keys(model))
 
     if "person_id" in names:
-        for alias in ["issuer_id", "owner_id", "abteilungsleiter_id"]:
+        for alias in ["ausgeber_id", "besitzer_id", "abteilungsleiter_id"]:
             names[alias] = names["person_id"]
 
     return jsonify(names)

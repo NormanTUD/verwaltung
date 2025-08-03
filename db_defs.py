@@ -75,8 +75,8 @@ class Person(Base):
 
     contacts = relationship("PersonContact", back_populates="person", cascade="all, delete")
     räume = relationship("PersonToRoom", back_populates="person", cascade="all, delete")
-    transponders_issued = relationship("Transponder", foreign_keys="[Transponder.issuer_id]", back_populates="issuer")
-    transponders_owned = relationship("Transponder", foreign_keys="[Transponder.owner_id]", back_populates="owner")
+    transponders_issued = relationship("Transponder", foreign_keys="[Transponder.ausgeber_id]", back_populates="ausgeber")
+    transponders_owned = relationship("Transponder", foreign_keys="[Transponder.besitzer_id]", back_populates="besitzer")
     departments = relationship("Abteilung", back_populates="leiter")
     person_abteilungen = relationship("PersonToAbteilung", back_populates="person", cascade="all, delete")
     professuren = relationship("ProfessurToPerson", back_populates="person", cascade="all, delete")
@@ -237,20 +237,20 @@ class Transponder(Base):
     __tablename__ = "transponder"
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
-    issuer_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
-    owner_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
+    ausgeber_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
+    besitzer_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
     erhaltungsdatum = Column(Date)
     rückgabedatum = Column("rückgabedatum", Date)
     seriennummer = Column(Text)
     kommentar = Column(Text)
-    issuer = relationship("Person", foreign_keys=[issuer_id], back_populates="transponders_issued")
-    owner = relationship("Person", foreign_keys=[owner_id], back_populates="transponders_owned")
+    ausgeber = relationship("Person", foreign_keys=[ausgeber_id], back_populates="transponders_issued")
+    besitzer = relationship("Person", foreign_keys=[besitzer_id], back_populates="transponders_owned")
     room_links = relationship("TransponderToRoom", back_populates="transponder", cascade="all, delete")
     
     __table_args__ = (
         UniqueConstraint("seriennummer", name="uq_transponder_serial"),
-        Index("ix_transponder_owner_id", "owner_id"),
-        Index("ix_transponder_issuer_id", "issuer_id"),
+        Index("ix_transponder_besitzer_id", "besitzer_id"),
+        Index("ix_transponder_ausgeber_id", "ausgeber_id"),
     )
 
 class TransponderToRoom(Base):
@@ -319,9 +319,9 @@ class Inventar(Base):
     __tablename__ = "inventory"
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
-    owner_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
+    besitzer_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
     object_id = Column(Integer, ForeignKey("object.id", ondelete="SET NULL"))
-    issuer_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
+    ausgeber_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
     anschaffungsdatum = Column(Date)
     erhaltungsdatum = Column(Date)
     rückgabedatum = Column("rückgabedatum", Date)
@@ -334,8 +334,8 @@ class Inventar(Base):
     professur_id = Column(Integer, ForeignKey("professur.id", ondelete="SET NULL"))
     abteilung_id = Column(Integer, ForeignKey("abteilung.id", ondelete="SET NULL"))
 
-    owner = relationship("Person", foreign_keys=[owner_id], lazy="joined")
-    issuer = relationship("Person", foreign_keys=[issuer_id], lazy="joined")
+    besitzer = relationship("Person", foreign_keys=[besitzer_id], lazy="joined")
+    ausgeber = relationship("Person", foreign_keys=[ausgeber_id], lazy="joined")
     object = relationship("Object", lazy="joined")
     kostenstelle = relationship("Kostenstelle", lazy="joined")
     abteilung = relationship("Abteilung", lazy="joined")
@@ -343,8 +343,8 @@ class Inventar(Base):
     room = relationship("Room", foreign_keys=[raum_id], lazy="joined")
 
     __table_args__ = (
-        Index("ix_inventory_owner_id", "owner_id"),
-        Index("ix_inventory_issuer_id", "issuer_id"),
+        Index("ix_inventory_besitzer_id", "besitzer_id"),
+        Index("ix_inventory_ausgeber_id", "ausgeber_id"),
         Index("ix_inventory_object_id", "object_id"),
         Index("ix_inventory_raum_id", "raum_id"),
         Index("ix_inventory_kostenstelle_id", "kostenstelle_id"),
@@ -373,19 +373,19 @@ class Loan(Base):
     __tablename__ = "loan"
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
-    owner_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
-    issuer_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
+    besitzer_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
+    ausgeber_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
     leihdatum = Column(Date)
     rückgabedatum = Column(Date)
     kommentar = Column(Text)
 
-    person = relationship("Person", foreign_keys=[owner_id], lazy="joined")
-    issuer = relationship("Person", foreign_keys=[issuer_id], lazy="joined")
+    person = relationship("Person", foreign_keys=[besitzer_id], lazy="joined")
+    ausgeber = relationship("Person", foreign_keys=[ausgeber_id], lazy="joined")
     objekte = relationship("ObjectToLoan", back_populates="loan", cascade="all, delete")
 
     __table_args__ = (
-        Index("ix_loan_person_id", "owner_id"),
-        Index("ix_loan_issuer_id", "issuer_id"),
+        Index("ix_loan_person_id", "besitzer_id"),
+        Index("ix_loan_ausgeber_id", "ausgeber_id"),
         Index("ix_loan_leihdatum", "leihdatum"),
         Index("ix_loan_rückgabedatum", "rückgabedatum"),
     )
