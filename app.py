@@ -445,10 +445,6 @@ WIZARDS = {
         ObjectToLager,
         title="Objekt zu Lager zuordnen",
     ),
-    "Gebäude": create_wizard_from_model(
-        Building,
-        title="Gebäude erstellen",
-    ),
     "Raumlayout": create_wizard_from_model(
         RoomLayout,
         title="Raumlayout definieren",
