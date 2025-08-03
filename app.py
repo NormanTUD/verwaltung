@@ -232,7 +232,7 @@ def is_join_table_model(model):
     # mindestens zwei FKs und alle außer evtl. 'id' sind FKs
     return len(fk_cols) >= 2 and all(col.foreign_keys or col.name == 'id' for col in cols)
 
-def guess_subforms(model, exclude_fields=None, exclude_relationships=None):
+def get_subforms(model, exclude_fields=None, exclude_relationships=None):
     exclude_fields = exclude_fields or set()
     exclude_relationships = exclude_relationships or set()
     subforms = []
@@ -285,7 +285,7 @@ def guess_subforms(model, exclude_fields=None, exclude_relationships=None):
 
     return subforms
 
-def guess_subforms(model, exclude_fields=None, exclude_relationships=None):
+def get_subforms(model, exclude_fields=None, exclude_relationships=None):
     exclude_fields = exclude_fields or set()
     exclude_relationships = exclude_relationships or set()
     subforms = []
@@ -442,7 +442,7 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
     # Subforms erzeugen (z.B. Kinder wie Räume zur Person)
     blacklist_fields = HIDDEN_FIELD_NAMES.union(set(f["name"] for f in fields))
     print(f"\n📦 Subform-Erstellung mit Ausschluss folgender Felder: {blacklist_fields}")
-    wizard["subforms"] = guess_subforms(model, exclude_fields=blacklist_fields)
+    wizard["subforms"] = get_subforms(model, exclude_fields=blacklist_fields)
 
     print(f"🎉 Wizard für {model.__name__} enthält {len(fields)} Felder und {len(wizard['subforms'])} Subforms\n")
     return wizard
@@ -452,7 +452,8 @@ WIZARDS = {
         Abteilung,
         title="Abteilung erstellen",
     ),
-
+}
+"""
     "Transponder": create_wizard_from_model(
         Transponder,
         title="Transponder erstellen",
@@ -524,6 +525,7 @@ WIZARDS = {
         title="Inventar (mit Zuordnungen) erfassen",
     )
 }
+"""
 
 EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 
