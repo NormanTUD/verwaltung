@@ -154,6 +154,7 @@ class Kostenstelle(Base):
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(Text)
+
     professuren = relationship("Professur", back_populates="kostenstelle")
     
     __table_args__ = (
