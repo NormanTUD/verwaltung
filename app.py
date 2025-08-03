@@ -4055,6 +4055,7 @@ def get_replace_configs_json():
             target = rel.mapper.class_
             fk_column = list(rel.local_columns)[0]
             fk_name = fk_column.name
+
             if hasattr(target, "__tablename__"):
                 target_table = target.__tablename__
 
@@ -4063,14 +4064,17 @@ def get_replace_configs_json():
                     result[special["key"]] = special
                     continue
 
+                # Einheitliches Format: fields als Liste von Dicts
                 result[fk_name] = {
-                    "fields": {
-                        fk_name: {
-                            "name": target_table.capitalize(),
-                            "type": "select",
-                            "options_url_id_dict": make_api_url(target_table)
+                    "fields": [
+                        {
+                            fk_name: {
+                                "name": target_table.capitalize(),
+                                "type": "select",
+                                "options_url_id_dict": make_api_url(target_table)
+                            }
                         }
-                    },
+                    ],
                     "label": target_table.capitalize()
                 }
 
