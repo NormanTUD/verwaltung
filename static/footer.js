@@ -74,7 +74,7 @@ function createInputField(fieldConfig, fieldName, onOptionsLoaded, default_value
 		return $('<input>', {
 			type: 'text',
 			class: 'auto_generated_field',
-			name: `generated_{fieldName}`,
+			name: `generated_${fieldName}`,
 			placeholder: fieldConfig.name
 		});
 	}
