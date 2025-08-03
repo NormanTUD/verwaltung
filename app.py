@@ -1101,7 +1101,7 @@ def inject_sidebar_data():
     tables = [
         cls.__tablename__
         for cls in Base.__subclasses__()
-        if hasattr(cls, '__tablename__') and cls.__tablename__ not in ["role", "user"]
+        if hasattr(cls, '__tablename__') and cls.__tablename__ not in ["role", "user", "transactions"]
     ]
 
     wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
