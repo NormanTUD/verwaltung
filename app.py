@@ -4132,6 +4132,8 @@ def merge_model_entries(session, model, ids_to_merge, target_id):
         raise
 
 @app.route("/merge", methods=["GET", "POST"])
+@login_required
+@admin_required
 def merge_interface():
     session = Session()
 
