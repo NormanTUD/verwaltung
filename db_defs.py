@@ -154,12 +154,19 @@ class Kostenstelle(Base):
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(Text)
+    professur_id = Column(Integer, ForeignKey("professur.id", ondelete="CASCADE"))
 
-    professuren = relationship("Professur", back_populates="kostenstelle")
-    
+    professuren = relationship(
+        "Professur",
+        back_populates="kostenstelle",
+        foreign_keys="[Professur.kostenstelle_id]"
+    )
+
     __table_args__ = (
         UniqueConstraint("name", name="uq_kostenstelle_name"),
+        UniqueConstraint("professur_id", name="uq_professur"),
     )
+
 
 class Professur(Base):
     __tablename__ = "professur"
@@ -167,9 +174,25 @@ class Professur(Base):
     id = Column(Integer, primary_key=True)
     kostenstelle_id = Column(Integer, ForeignKey("kostenstelle.id", ondelete="SET NULL"))
     name = Column(Text)
-    kostenstelle = relationship("Kostenstelle", back_populates="professuren")
-    persons = relationship("ProfessurToPerson", back_populates="professur", cascade="all, delete")
-    
+
+    kostenstelle = relationship(
+        "Kostenstelle",
+        back_populates="professuren",  # wie du hattest, neu definiert
+        foreign_keys=[kostenstelle_id]
+    )
+
+    kostenstelle = relationship(
+        "Kostenstelle",
+        back_populates="professuren",
+        foreign_keys=[kostenstelle_id]
+    )
+
+    persons = relationship(
+        "ProfessurToPerson",
+        back_populates="professur",
+        cascade="all, delete"
+    )
+
     __table_args__ = (
         UniqueConstraint("kostenstelle_id", "name", name="uq_professur_per_kostenstelle"),
     )

@@ -275,13 +275,14 @@ def get_subforms(model, exclude_fields=None, exclude_relationships=None):
                 "label": labelize(col.name),
             })
 
-        subforms.append({
-            "name": rel.key,
-            "label": labelize(rel.key),
-            "table": related_model,
-            "foreign_key": fk_column,
-            "fields": fields,
-        })
+        if len(fields):
+            subforms.append({
+                "name": rel.key,
+                "label": labelize(rel.key),
+                "table": related_model,
+                "foreign_key": fk_column,
+                "fields": fields,
+            })
 
     return subforms
 
@@ -394,7 +395,7 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
     print(f"🎉 Wizard für {model.__name__} enthält {len(fields)} Felder und {len(wizard['subforms'])} Subforms\n")
     return wizard
 
-WIZARDS = {
+"""
     "Abteilung": create_wizard_from_model(
         Abteilung,
         title="Abteilung erstellen",
@@ -407,10 +408,15 @@ WIZARDS = {
         Professur,
         title="Professur erstellen",
     ),
+"""
+WIZARDS = {
     "Kostenstelle": create_wizard_from_model(
         Kostenstelle,
         title="Kostenstelle erstellen",
     ),
+}
+
+"""
     "Inventar": create_wizard_from_model(
         Inventar,
         title="Inventar erstellen",
@@ -460,6 +466,10 @@ WIZARDS = {
         title="Inventar (mit Zuordnungen) erfassen",
     )
 }
+"""
+
+from pprint import pprint
+pprint(WIZARDS)
 
 EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 
