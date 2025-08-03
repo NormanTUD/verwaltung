@@ -427,12 +427,6 @@ WIZARDS = {
         Loan,
         title="Leihgabe erstellen"
     ),
-
-
-    "Objekt zu Leihgabe": create_wizard_from_model(
-        ObjectToLoan,
-        title="Objekt zu Leihgabe zuordnen",
-    ),
     "Objektkategorie": create_wizard_from_model(
         ObjectCategory,
         title="Objektkategorie erstellen",
