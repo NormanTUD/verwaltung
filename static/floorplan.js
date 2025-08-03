@@ -1,6 +1,7 @@
 // TODO: Snapping mit mehreren Snapfeldern geht noch nicht
 
 let params;
+const räume = {};
 
 try {
 	params = new URLSearchParams(window.location.search);
@@ -15,6 +16,367 @@ let etage_str = params.get("etage");
 let building_id = parseInt(building_id_str, 10);
 let etage = parseInt(etage_str, 10);
 
+function getElementMouseOffset(e, el) {
+	const elRect = el.getBoundingClientRect();
+	const offsetX = e.clientX - elRect.left;
+	const offsetY = e.clientY - elRect.top;
+	return { offsetX, offsetY };
+}
+
+function startDragging(e) {
+	e.preventDefault();
+
+	dragging = true;
+	el.style.cursor = "grabbing";
+	//console.log("Dragging started");
+
+	const offsets = getElementMouseOffset(e, el);
+	dragOffsetX = offsets.offsetX;
+	dragOffsetY = offsets.offsetY;
+
+	//log(`startDragging: Element mouse offset: ${dragOffsetX}, ${dragOffsetY}`);
+
+	//log(e.target.offsetParent);
+
+	if (e.target.offsetParent.classList.contains("person-circle")) {
+		document.addEventListener("mousemove", onMouseMove);
+	} else {
+		document.addEventListener("mousemove", onMouseMoveViewport)
+	}
+	document.addEventListener("mousemove", onMouseMoveViewport);
+	document.addEventListener("mouseup", onMouseUp);
+}
+
+function getMousePosRelativeToViewport(ev) {
+	const floorplanRect = $("#viewport")[0].getBoundingClientRect();
+
+	let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
+	let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
+
+	//console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
+	return { mouseX, mouseY };
+}
+
+function getMousePosRelativeToFloorplan(ev) {
+	const floorplanRect = floorplan.getBoundingClientRect();
+
+	let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
+	let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
+
+	//console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
+	return { mouseX, mouseY };
+}
+
+function scaleAndClampPosition(mouseX, mouseY) {
+	let x = mouseX / scale;
+	let y = mouseY / scale;
+
+	x = Math.min(Math.max(0, x), floorplan.offsetWidth - el.offsetWidth);
+	y = Math.min(Math.max(0, y), floorplan.offsetHeight - el.offsetHeight);
+
+	//console.log("Scaled and clamped position:", { x, y });
+	return { x, y };
+}
+
+function moveElement(x, y) {
+	el.style.left = x + "px";
+	el.style.top = y + "px";
+	el.dataset.snapped = "false";
+	//console.log(`Element moved to (${x}, ${y})`);
+}
+
+function onMouseMoveViewport(ev) {
+	if (!dragging) return;
+
+	const { mouseX, mouseY } = getMousePosRelativeToViewport(ev);
+
+	//log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
+
+	const { x, y } = scaleAndClampPosition(mouseX, mouseY);
+
+	//log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
+
+	moveElement(x, y);
+}
+
+function onMouseMove(ev) {
+	if (!dragging) return;
+
+	const { mouseX, mouseY } = getMousePosRelativeToFloorplan(ev);
+
+	//log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
+
+	const { x, y } = scaleAndClampPosition(mouseX, mouseY);
+
+	//log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
+
+	moveElement(x, y);
+}
+
+function findRaumContainingElementCenter(el) {
+	const objRect = el.getBoundingClientRect();
+	const cx = objRect.left + objRect.width / 2;
+	const cy = objRect.top + objRect.height / 2;
+	//console.log("Element center coordinates:", { cx, cy });
+
+	let foundRaum = null;
+	Object.values(räume).forEach(raum => {
+		const rRect = raum.el.getBoundingClientRect();
+		if (cx > rRect.left && cx < rRect.right && cy > rRect.top && cy < rRect.bottom) {
+			foundRaum = raum;
+			//console.log("Found raum containing element:", raum.el.dataset.name);
+		}
+	});
+	if (!foundRaum) console.log("No raum found containing element");
+	return foundRaum;
+}
+
+function removeFromOldRaum(el) {
+	const attributes = JSON.parse(el.dataset.attributes || "{}");
+	const personId = attributes.id;
+	const raumId = attributes.raum_id;  // Das ist die Zahl, die das Backend braucht
+
+	if (!personId || !raumId) {
+		console.warn("Fehlende Person- oder Raum-ID beim Entfernen aus altem Raum");
+		return;
+	}
+
+	// Entferne das Element aus dem lokalen Raum-Objekt, falls vorhanden
+	const oldRaumName = el.dataset.raum;
+	if (räume[oldRaumName]) {
+		räume[oldRaumName].objects = räume[oldRaumName].objects.filter(o => o !== el);
+		console.log(`Removed element from old raum: ${oldRaumName}`);
+	}
+
+	// API-Call mit korrekter Raum-ID (Zahl)
+	const url = `/api/delete_person_from_raum?person_id=${personId}&raum_id=${raumId}`;
+	fetch(url, { method: "GET" })
+		.then(response => {
+			if (!response.ok) throw new Error(`API Fehler: ${response.status}`);
+			return response.json();
+		})
+		.then(data => {
+			console.log("Person wurde aus altem Raum entfernt:", data);
+
+			// Raum-ID im attributes auf null setzen, weil Person jetzt aus diesem Raum raus ist
+			attributes.raum_id = null;
+			el.dataset.attributes = JSON.stringify(attributes);
+		})
+		.catch(err => {
+			console.error("Fehler beim Entfernen der Person aus dem alten Raum:", err);
+		});
+}
+
+function addToNewRaum(el, newRaum) {
+	console.trace();
+	newRaum.objects.push(el);
+	log("newRaum:", newRaum);
+	el.dataset.raum = newRaum.el.dataset.id;
+	console.log(`Added element to new raum: ${newRaum.el.dataset.id}`, el);
+
+	// Nur fortfahren, wenn es sich um eine Person handelt
+	if (!el.classList.contains("person-circle")) {
+		return;
+	}
+
+	var attributes = JSON.parse(el.dataset.attributes || "{}");
+
+	const payload = {
+		raum: newRaum.el.dataset.id,
+		person: attributes,
+		x: parseInt($(el).css("left")),
+		y: parseInt($(el).css("top"))
+	};
+
+	if (payload.raum === undefined) {
+		alert("payload.raum ist undefined!");
+		return;
+	}
+
+	fetch("/api/save_person_to_raum", {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json"
+		},
+		body: JSON.stringify(payload)
+	})
+		.then(response => {
+			if (!response.ok) throw new Error("Netzwerkantwort war nicht OK");
+			return response.json();
+		})
+		.then(data => {
+			console.log("Erfolgreich gespeichert:", data);
+
+			var currentAttributes = $(el).attr('data-attributes');
+			var attributesObj = currentAttributes ? JSON.parse(currentAttributes) : {};
+			attributesObj.raum_id = data.raum_id;
+			$(el).attr('data-attributes', JSON.stringify(attributesObj));
+		})
+		.catch(error => {
+			console.error("Fehler beim Speichern:", error);
+		});
+}
+
+function stopDragging() {
+	if (!dragging) return;
+	dragging = false;
+	el.style.cursor = "grab";
+	//console.log("Dragging stopped");
+
+	document.removeEventListener("mousemove", onMouseMove);
+	document.removeEventListener("mouseup", onMouseUp);
+
+	const foundRaum = findRaumContainingElementCenter(el);
+
+	if (foundRaum) {
+		//console.log("Found raum on drag end:", foundRaum);
+
+		removeFromOldRaum(el);
+		addToNewRaum(el, foundRaum);
+
+		updateZIndex(el, foundRaum);
+		// snapObjectToZone(el, foundRaum); ← DAS WEG!
+	} else {
+		console.log("No raum found on drag end");
+	}
+	checkIfObjectOnPerson(el);
+
+}
+
+function onMouseUp(ev) {
+	stopDragging();
+}
+
+// Hilfsfunktion: Formular generieren
+function generateForm(schema, formElement) {
+	formElement.innerHTML = ""; // Formular leeren
+
+	schema.forEach(field => {
+		const label = document.createElement("label");
+		label.textContent = field.label;
+		label.style.display = "block"; // Label als Block, damit das Input darunter steht
+
+		const input = document.createElement("input");
+		input.type = "text";
+		input.name = field.key;
+		input.style.display = "block"; // Input als Block, damit es unter dem Label steht
+		input.style.marginBottom = "10px"; // Abstand nach unten
+
+		formElement.appendChild(label);
+		formElement.appendChild(input);
+	});
+}
+
+// Bestehende Personen in Select füllen
+function populateExistingPersonSelect() {
+	existingPersonSelect.innerHTML = "";
+	personDatabase.forEach((person, index) => {
+		const option = document.createElement("option");
+		option.value = index;
+
+		// Titel, falls vorhanden, sonst leerer String
+		const title = person.title ? person.title + " " : "";
+
+		option.textContent = `${title}${person.vorname} ${person.nachname}`;
+		existingPersonSelect.appendChild(option);
+		console.log(person);
+	});
+}
+
+// Anzeigen je nach Modus (select oder new)
+function updateFormMode() {
+	const mode = document.querySelector('input[name="mode"]:checked').value;
+
+	if (mode === "select") {
+		dynamicForm.style.display = "none";
+		document.getElementById("selectPersonArea").style.display = "block";
+	} else {
+		generateForm(personSchema, dynamicForm);
+		dynamicForm.style.display = "block";
+		document.getElementById("selectPersonArea").style.display = "none";
+	}
+}
+
+function createLabel(name) {
+	const label = document.createElement("div");
+	label.className = "raum-label";
+	//label.textContent = "Raum " + name; 
+	return label;
+}
+
+function createRaum(data) {
+	const raum = createRaumElement(data);
+	const label = createLabel(data.name);
+
+	raum.appendChild(label);
+
+	return raum;
+}
+
+function createRäume() {
+	räumeData.forEach(data => {
+		const raum = createRaum(data);
+		floorplan.appendChild(raum);
+
+		räume[data.name] = {
+			el: raum,
+			objects: [], // ← Wichtig: Wird zur Laufzeit ergänzt, keine Änderung an räumeData nötig
+		};
+	});
+}
+
+function createRaumElement(data) {
+	const raum = document.createElement("div");
+	raum.className = "raum";
+	raum.style.left = data.x + "px";
+	raum.style.top = data.y + "px";
+
+	if (data.width) {
+		raum.style.width = data.width + "px";
+	}
+	if (data.height) {
+		raum.style.height = data.height + "px";
+	}
+
+	raum.dataset.name = data.name;
+	raum.dataset.id = data.id;
+	return raum;
+}
+
+function updateZIndex(obj, raum) {
+	obj.style.zIndex = 300;
+}
+
+function makeDraggable(el) {
+	let dragging = false;
+	let dragOffsetX = 0;
+	let dragOffsetY = 0;
+
+	el.addEventListener("mousedown", (e) => {
+		if (e.button === 2) return; // Rechtsklick -> Kontextmenü bleibt erlaubt
+		removeExistingContextMenus(); // ❗ Kontextmenü schließen beim Start des Drag
+		startDragging(e); // Drag starten
+	});
+}
+
+async function loadPersonDatabase() {
+	try {
+		const response = await fetch("/api/get_person_database");
+		if (!response.ok) {
+			throw new Error("Fehler beim Laden der Personendaten");
+		}
+
+		const data = await response.json();
+		personDatabase = data;
+
+		//console.log("✅ Personendaten erfolgreich geladen:", personDatabase);
+		return personDatabase; // optional: Rückgabe, falls du die Daten weiterverwenden willst
+	} catch (error) {
+		console.error("❌ Fehler beim Laden der Personendaten:", error);
+		return [];
+	}
+}
+
 if (!isNaN(building_id) && !isNaN(etage)) {
 	const floorplan = document.getElementById("floorplan");
 	let scale = 1;
@@ -27,7 +389,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 	let startOffsetX = 0;
 	let startOffsetY = 0;
 
-	var raumsData = [];
+	var räumeData = [];
 
 	function loadFloorplan() {
 		if (typeof building_id !== "number" || typeof etage !== "number") {
@@ -49,392 +411,23 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 					throw new Error("Antwort ist kein Array: " + JSON.stringify(data));
 				}
 
-				raumsData = data;
+				räumeData = data;
 
-				createRaums();
+				createRäume();
 			})
 			.catch(function (error) {
 				console.error("Fehler beim Laden des Floorplans:", error);
 			});
 	}
 
-	const raums = {};
-
-	// Räume erzeugen
-	function createLabel(name) {
-		const label = document.createElement("div");
-		label.className = "raum-label";
-		//label.textContent = "Raum " + name; 
-		return label;
-	}
-
-	function createRaum(data) {
-		const raum = createRaumElement(data);
-		const label = createLabel(data.name);
-
-		raum.appendChild(label);
-
-		return raum;
-	}
-
-	function createRaums() {
-		raumsData.forEach(data => {
-			const raum = createRaum(data);
-			floorplan.appendChild(raum);
-
-			raums[data.name] = {
-				el: raum,
-				objects: [], // ← Wichtig: Wird zur Laufzeit ergänzt, keine Änderung an raumsData nötig
-			};
-		});
-	}
-
-	function createRaumElement(data) {
-		const raum = document.createElement("div");
-		raum.className = "raum";
-		raum.style.left = data.x + "px";
-		raum.style.top = data.y + "px";
-
-		if (data.width) {
-			raum.style.width = data.width + "px";
-		}
-		if (data.height) {
-			raum.style.height = data.height + "px";
-		}
-
-		raum.dataset.name = data.name;
-		raum.dataset.id = data.id;
-		return raum;
-	}
-
-	function updateZIndex(obj, raum) {
-		obj.style.zIndex = 300;
-	}
-
-	function makeDraggable(el) {
-		let dragging = false;
-		let dragOffsetX = 0;
-		let dragOffsetY = 0;
-
-		function getElementMouseOffset(e, el) {
-			const elRect = el.getBoundingClientRect();
-			const offsetX = e.clientX - elRect.left;
-			const offsetY = e.clientY - elRect.top;
-			return { offsetX, offsetY };
-		}
-
-		function startDragging(e) {
-			e.preventDefault();
-
-			dragging = true;
-			el.style.cursor = "grabbing";
-			//console.log("Dragging started");
-
-			const offsets = getElementMouseOffset(e, el);
-			dragOffsetX = offsets.offsetX;
-			dragOffsetY = offsets.offsetY;
-
-			//log(`startDragging: Element mouse offset: ${dragOffsetX}, ${dragOffsetY}`);
-
-			//log(e.target.offsetParent);
-
-			if (e.target.offsetParent.classList.contains("person-circle")) {
-				document.addEventListener("mousemove", onMouseMove);
-			} else {
-				document.addEventListener("mousemove", onMouseMoveViewport)
-			}
-			document.addEventListener("mousemove", onMouseMoveViewport);
-			document.addEventListener("mouseup", onMouseUp);
-		}
-
-		function getMousePosRelativeToViewport(ev) {
-			const floorplanRect = $("#viewport")[0].getBoundingClientRect();
-
-			let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
-			let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
-
-			//console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
-			return { mouseX, mouseY };
-		}
-
-		function getMousePosRelativeToFloorplan(ev) {
-			const floorplanRect = floorplan.getBoundingClientRect();
-
-			let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
-			let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
-
-			//console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
-			return { mouseX, mouseY };
-		}
-
-		function scaleAndClampPosition(mouseX, mouseY) {
-			let x = mouseX / scale;
-			let y = mouseY / scale;
-
-			x = Math.min(Math.max(0, x), floorplan.offsetWidth - el.offsetWidth);
-			y = Math.min(Math.max(0, y), floorplan.offsetHeight - el.offsetHeight);
-
-			//console.log("Scaled and clamped position:", { x, y });
-			return { x, y };
-		}
-
-		function moveElement(x, y) {
-			el.style.left = x + "px";
-			el.style.top = y + "px";
-			el.dataset.snapped = "false";
-			//console.log(`Element moved to (${x}, ${y})`);
-		}
-
-		function onMouseMoveViewport(ev) {
-			if (!dragging) return;
-
-			const { mouseX, mouseY } = getMousePosRelativeToViewport(ev);
-
-			//log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
-
-			const { x, y } = scaleAndClampPosition(mouseX, mouseY);
-
-			//log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
-
-			moveElement(x, y);
-		}
-
-		function onMouseMove(ev) {
-			if (!dragging) return;
-
-			const { mouseX, mouseY } = getMousePosRelativeToFloorplan(ev);
-
-			//log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
-
-			const { x, y } = scaleAndClampPosition(mouseX, mouseY);
-
-			//log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
-
-			moveElement(x, y);
-		}
-
-		function findRaumContainingElementCenter(el) {
-			const objRect = el.getBoundingClientRect();
-			const cx = objRect.left + objRect.width / 2;
-			const cy = objRect.top + objRect.height / 2;
-			//console.log("Element center coordinates:", { cx, cy });
-
-			let foundRaum = null;
-			Object.values(raums).forEach(raum => {
-				const rRect = raum.el.getBoundingClientRect();
-				if (cx > rRect.left && cx < rRect.right && cy > rRect.top && cy < rRect.bottom) {
-					foundRaum = raum;
-					//console.log("Found raum containing element:", raum.el.dataset.name);
-				}
-			});
-			if (!foundRaum) console.log("No raum found containing element");
-			return foundRaum;
-		}
-
-		function removeFromOldRaum(el) {
-			const attributes = JSON.parse(el.dataset.attributes || "{}");
-			const personId = attributes.id;
-			const raumId = attributes.raum_id;  // Das ist die Zahl, die das Backend braucht
-
-			if (!personId || !raumId) {
-				console.warn("Fehlende Person- oder Raum-ID beim Entfernen aus altem Raum");
-				return;
-			}
-
-			// Entferne das Element aus dem lokalen Raum-Objekt, falls vorhanden
-			const oldRaumName = el.dataset.raum;
-			if (raums[oldRaumName]) {
-				raums[oldRaumName].objects = raums[oldRaumName].objects.filter(o => o !== el);
-				console.log(`Removed element from old raum: ${oldRaumName}`);
-			}
-
-			// API-Call mit korrekter Raum-ID (Zahl)
-			const url = `/api/delete_person_from_raum?person_id=${personId}&raum_id=${raumId}`;
-			fetch(url, { method: "GET" })
-				.then(response => {
-					if (!response.ok) throw new Error(`API Fehler: ${response.status}`);
-					return response.json();
-				})
-				.then(data => {
-					console.log("Person wurde aus altem Raum entfernt:", data);
-
-					// Raum-ID im attributes auf null setzen, weil Person jetzt aus diesem Raum raus ist
-					attributes.raum_id = null;
-					el.dataset.attributes = JSON.stringify(attributes);
-				})
-				.catch(err => {
-					console.error("Fehler beim Entfernen der Person aus dem alten Raum:", err);
-				});
-		}
-
-
-
-		function addToNewRaum(el, newRaum) {
-			console.trace();
-			newRaum.objects.push(el);
-			log("newRaum:", newRaum);
-			el.dataset.raum = newRaum.el.dataset.id;
-			console.log(`Added element to new raum: ${newRaum.el.dataset.id}`, el);
-
-			// Nur fortfahren, wenn es sich um eine Person handelt
-			if (!el.classList.contains("person-circle")) {
-				return;
-			}
-
-			var attributes = JSON.parse(el.dataset.attributes || "{}");
-
-			const payload = {
-				raum: newRaum.el.dataset.id,
-				person: attributes,
-				x: parseInt($(el).css("left")),
-				y: parseInt($(el).css("top"))
-			};
-
-			if (payload.raum === undefined) {
-				alert("payload.raum ist undefined!");
-				return;
-			}
-
-			fetch("/api/save_person_to_raum", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json"
-				},
-				body: JSON.stringify(payload)
-			})
-				.then(response => {
-					if (!response.ok) throw new Error("Netzwerkantwort war nicht OK");
-					return response.json();
-				})
-				.then(data => {
-					console.log("Erfolgreich gespeichert:", data);
-
-					var currentAttributes = $(el).attr('data-attributes');
-					var attributesObj = currentAttributes ? JSON.parse(currentAttributes) : {};
-					attributesObj.raum_id = data.raum_id;
-					$(el).attr('data-attributes', JSON.stringify(attributesObj));
-				})
-				.catch(error => {
-					console.error("Fehler beim Speichern:", error);
-				});
-		}
-
-		function stopDragging() {
-			if (!dragging) return;
-			dragging = false;
-			el.style.cursor = "grab";
-			//console.log("Dragging stopped");
-
-			document.removeEventListener("mousemove", onMouseMove);
-			document.removeEventListener("mouseup", onMouseUp);
-
-			const foundRaum = findRaumContainingElementCenter(el);
-
-			if (foundRaum) {
-				//console.log("Found raum on drag end:", foundRaum);
-
-				removeFromOldRaum(el);
-				addToNewRaum(el, foundRaum);
-
-				updateZIndex(el, foundRaum);
-				// snapObjectToZone(el, foundRaum); ← DAS WEG!
-			} else {
-				console.log("No raum found on drag end");
-				if (raums[el.dataset.raum]) {
-					// snapObjectToZone(el, raums[el.dataset.raum]); ← AUCH WEG!
-				}
-			}
-			checkIfObjectOnPerson(el);
-
-		}
-
-		function onMouseUp(ev) {
-			stopDragging();
-		}
-
-		el.addEventListener("mousedown", (e) => {
-			if (e.button === 2) return; // Rechtsklick -> Kontextmenü bleibt erlaubt
-			removeExistingContextMenus(); // ❗ Kontextmenü schließen beim Start des Drag
-			startDragging(e); // Drag starten
-		});
-	}
 	// Globale Personendatenbank
 	let personDatabase = [];
-
-	async function loadPersonDatabase() {
-		try {
-			const response = await fetch("/api/get_person_database");
-			if (!response.ok) {
-				throw new Error("Fehler beim Laden der Personendaten");
-			}
-
-			const data = await response.json();
-			personDatabase = data;
-
-			//console.log("✅ Personendaten erfolgreich geladen:", personDatabase);
-			return personDatabase; // optional: Rückgabe, falls du die Daten weiterverwenden willst
-		} catch (error) {
-			console.error("❌ Fehler beim Laden der Personendaten:", error);
-			return [];
-		}
-	}
 
 	const addPersonBtn = document.getElementById("addPersonBtn");
 	const personForm = document.getElementById("personForm");
 	const dynamicForm = document.getElementById("dynamicPersonForm");
 	const confirmPersonBtn = document.getElementById("confirmPersonBtn");
 	const existingPersonSelect = document.getElementById("existingPersonSelect");
-
-	// Hilfsfunktion: Formular generieren
-	function generateForm(schema, formElement) {
-		formElement.innerHTML = ""; // Formular leeren
-
-		schema.forEach(field => {
-			const label = document.createElement("label");
-			label.textContent = field.label;
-			label.style.display = "block"; // Label als Block, damit das Input darunter steht
-
-			const input = document.createElement("input");
-			input.type = "text";
-			input.name = field.key;
-			input.style.display = "block"; // Input als Block, damit es unter dem Label steht
-			input.style.marginBottom = "10px"; // Abstand nach unten
-
-			formElement.appendChild(label);
-			formElement.appendChild(input);
-		});
-	}
-
-	// Bestehende Personen in Select füllen
-	function populateExistingPersonSelect() {
-		existingPersonSelect.innerHTML = "";
-		personDatabase.forEach((person, index) => {
-			const option = document.createElement("option");
-			option.value = index;
-
-			// Titel, falls vorhanden, sonst leerer String
-			const title = person.title ? person.title + " " : "";
-
-			option.textContent = `${title}${person.vorname} ${person.nachname}`;
-			existingPersonSelect.appendChild(option);
-			console.log(person);
-		});
-	}
-
-
-	// Anzeigen je nach Modus (select oder new)
-	function updateFormMode() {
-		const mode = document.querySelector('input[name="mode"]:checked').value;
-
-		if (mode === "select") {
-			dynamicForm.style.display = "none";
-			document.getElementById("selectPersonArea").style.display = "block";
-		} else {
-			generateForm(personSchema, dynamicForm);
-			dynamicForm.style.display = "block";
-			document.getElementById("selectPersonArea").style.display = "none";
-		}
-	}
 
 	if (addPersonBtn) {
 		addPersonBtn.addEventListener("click", () => {
@@ -593,7 +586,6 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 				});
 		});
 
-
 		circle.appendChild(closeBtn);
 
 		// 🖼️ Bild oder Name
@@ -615,11 +607,6 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 		setCirclePosition(circle, position);
 		return circle;
 	}
-
-
-
-
-
 
 	function getViewportCenterPosition() {
 		return {
@@ -652,8 +639,8 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 				continue;
 			}
 
-			if (Array.isArray(personEntry.raums) && personEntry.raums.length > 0) {
-				for (const raumEntry of personEntry.raums) {
+			if (Array.isArray(personEntry.räume) && personEntry.räume.length > 0) {
+				for (const raumEntry of personEntry.räume) {
 
 					log("raumEntry:", raumEntry);
 					const layout = raumEntry.layout || null;
@@ -745,7 +732,6 @@ function setupContextMenu(circle, attributes) {
 	}
 }
 
-
 function toggleContextMenu(circle, attributes) {
 	try {
 		console.log("toggleContextMenu aufgerufen mit circle:", circle);
@@ -772,14 +758,11 @@ function toggleContextMenu(circle, attributes) {
 	}
 }
 
-
 function removeExistingContextMenus() {
 	const foundMenus = document.querySelectorAll(".context-menu");
 	console.log(`removeExistingContextMenus aufgerufen, Menüs gefunden: ${foundMenus.length}`);
 	foundMenus.forEach(menu => menu.remove());
 }
-
-
 
 function positionContextMenuAbsolute(circle, menu) {
 	const circleRect = circle.getBoundingClientRect();
@@ -1268,10 +1251,6 @@ document.addEventListener('keydown', function (event) {
 		cancelBtnFunction();
 	}
 });
-
-
-
-
 
 window.addEventListener("DOMContentLoaded", () => {
 	const people = document.querySelectorAll(".person-circle");

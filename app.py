@@ -3735,7 +3735,7 @@ def get_person_raum_data():
                     del room_info["y"]
 
                 person_dict_map[person_id]["räume"].append({
-                    "room": room_info,
+                    "raum": room_info,
                     "layout": layout_info,
                     "x": x_value,
                     "y": y_value
@@ -3751,13 +3751,13 @@ def get_person_raum_data():
         if session:
             session.rollback()
             session.close()
-        print(f"❌ SQLAlchemy Fehler in /api/get_person_room_data: {e}")
+        print(f"❌ SQLAlchemy Fehler in /api/get_person_raum_data: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
     except Exception as e:
         if session:
             session.close()
-        print(f"❌ Fehler in /api/get_person_room_data: {e}")
+        print(f"❌ Fehler in /api/get_person_raum_data: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
 @app.errorhandler(404)
