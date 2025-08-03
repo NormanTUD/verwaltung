@@ -27,7 +27,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 	let startOffsetX = 0;
 	let startOffsetY = 0;
 
-	var roomsData = [];
+	var raumsData = [];
 
 	function loadFloorplan() {
 		if (typeof building_id !== "number" || typeof etage !== "number") {
@@ -49,65 +49,65 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 					throw new Error("Antwort ist kein Array: " + JSON.stringify(data));
 				}
 
-				roomsData = data;
+				raumsData = data;
 
-				createRooms();
+				createRaums();
 			})
 			.catch(function (error) {
 				console.error("Fehler beim Laden des Floorplans:", error);
 			});
 	}
 
-	const rooms = {};
+	const raums = {};
 
 	// Räume erzeugen
 	function createLabel(name) {
 		const label = document.createElement("div");
-		label.className = "room-label";
+		label.className = "raum-label";
 		//label.textContent = "Raum " + name; 
 		return label;
 	}
 
-	function createRoom(data) {
-		const room = createRoomElement(data);
+	function createRaum(data) {
+		const raum = createRaumElement(data);
 		const label = createLabel(data.name);
 
-		room.appendChild(label);
+		raum.appendChild(label);
 
-		return room;
+		return raum;
 	}
 
-	function createRooms() {
-		roomsData.forEach(data => {
-			const room = createRoom(data);
-			floorplan.appendChild(room);
+	function createRaums() {
+		raumsData.forEach(data => {
+			const raum = createRaum(data);
+			floorplan.appendChild(raum);
 
-			rooms[data.name] = {
-				el: room,
-				objects: [], // ← Wichtig: Wird zur Laufzeit ergänzt, keine Änderung an roomsData nötig
+			raums[data.name] = {
+				el: raum,
+				objects: [], // ← Wichtig: Wird zur Laufzeit ergänzt, keine Änderung an raumsData nötig
 			};
 		});
 	}
 
-	function createRoomElement(data) {
-		const room = document.createElement("div");
-		room.className = "room";
-		room.style.left = data.x + "px";
-		room.style.top = data.y + "px";
+	function createRaumElement(data) {
+		const raum = document.createElement("div");
+		raum.className = "raum";
+		raum.style.left = data.x + "px";
+		raum.style.top = data.y + "px";
 
 		if (data.width) {
-			room.style.width = data.width + "px";
+			raum.style.width = data.width + "px";
 		}
 		if (data.height) {
-			room.style.height = data.height + "px";
+			raum.style.height = data.height + "px";
 		}
 
-		room.dataset.name = data.name;
-		room.dataset.id = data.id;
-		return room;
+		raum.dataset.name = data.name;
+		raum.dataset.id = data.id;
+		return raum;
 	}
 
-	function updateZIndex(obj, room) {
+	function updateZIndex(obj, raum) {
 		obj.style.zIndex = 300;
 	}
 
@@ -213,43 +213,43 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 			moveElement(x, y);
 		}
 
-		function findRoomContainingElementCenter(el) {
+		function findRaumContainingElementCenter(el) {
 			const objRect = el.getBoundingClientRect();
 			const cx = objRect.left + objRect.width / 2;
 			const cy = objRect.top + objRect.height / 2;
 			//console.log("Element center coordinates:", { cx, cy });
 
-			let foundRoom = null;
-			Object.values(rooms).forEach(room => {
-				const rRect = room.el.getBoundingClientRect();
+			let foundRaum = null;
+			Object.values(raums).forEach(raum => {
+				const rRect = raum.el.getBoundingClientRect();
 				if (cx > rRect.left && cx < rRect.right && cy > rRect.top && cy < rRect.bottom) {
-					foundRoom = room;
-					//console.log("Found room containing element:", room.el.dataset.name);
+					foundRaum = raum;
+					//console.log("Found raum containing element:", raum.el.dataset.name);
 				}
 			});
-			if (!foundRoom) console.log("No room found containing element");
-			return foundRoom;
+			if (!foundRaum) console.log("No raum found containing element");
+			return foundRaum;
 		}
 
-		function removeFromOldRoom(el) {
+		function removeFromOldRaum(el) {
 			const attributes = JSON.parse(el.dataset.attributes || "{}");
 			const personId = attributes.id;
-			const roomId = attributes.room_id;  // Das ist die Zahl, die das Backend braucht
+			const raumId = attributes.raum_id;  // Das ist die Zahl, die das Backend braucht
 
-			if (!personId || !roomId) {
+			if (!personId || !raumId) {
 				console.warn("Fehlende Person- oder Raum-ID beim Entfernen aus altem Raum");
 				return;
 			}
 
 			// Entferne das Element aus dem lokalen Raum-Objekt, falls vorhanden
-			const oldRoomName = el.dataset.room;
-			if (rooms[oldRoomName]) {
-				rooms[oldRoomName].objects = rooms[oldRoomName].objects.filter(o => o !== el);
-				console.log(`Removed element from old room: ${oldRoomName}`);
+			const oldRaumName = el.dataset.raum;
+			if (raums[oldRaumName]) {
+				raums[oldRaumName].objects = raums[oldRaumName].objects.filter(o => o !== el);
+				console.log(`Removed element from old raum: ${oldRaumName}`);
 			}
 
 			// API-Call mit korrekter Raum-ID (Zahl)
-			const url = `/api/delete_person_from_room?person_id=${personId}&room_id=${roomId}`;
+			const url = `/api/delete_person_from_raum?person_id=${personId}&raum_id=${raumId}`;
 			fetch(url, { method: "GET" })
 				.then(response => {
 					if (!response.ok) throw new Error(`API Fehler: ${response.status}`);
@@ -259,7 +259,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 					console.log("Person wurde aus altem Raum entfernt:", data);
 
 					// Raum-ID im attributes auf null setzen, weil Person jetzt aus diesem Raum raus ist
-					attributes.room_id = null;
+					attributes.raum_id = null;
 					el.dataset.attributes = JSON.stringify(attributes);
 				})
 				.catch(err => {
@@ -269,12 +269,12 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 
 
 
-		function addToNewRoom(el, newRoom) {
+		function addToNewRaum(el, newRaum) {
 			console.trace();
-			newRoom.objects.push(el);
-			log("newRoom:", newRoom);
-			el.dataset.room = newRoom.el.dataset.id;
-			console.log(`Added element to new room: ${newRoom.el.dataset.id}`, el);
+			newRaum.objects.push(el);
+			log("newRaum:", newRaum);
+			el.dataset.raum = newRaum.el.dataset.id;
+			console.log(`Added element to new raum: ${newRaum.el.dataset.id}`, el);
 
 			// Nur fortfahren, wenn es sich um eine Person handelt
 			if (!el.classList.contains("person-circle")) {
@@ -284,18 +284,18 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 			var attributes = JSON.parse(el.dataset.attributes || "{}");
 
 			const payload = {
-				room: newRoom.el.dataset.id,
+				raum: newRaum.el.dataset.id,
 				person: attributes,
 				x: parseInt($(el).css("left")),
 				y: parseInt($(el).css("top"))
 			};
 
-			if (payload.room === undefined) {
-				alert("payload.room ist undefined!");
+			if (payload.raum === undefined) {
+				alert("payload.raum ist undefined!");
 				return;
 			}
 
-			fetch("/api/save_person_to_room", {
+			fetch("/api/save_person_to_raum", {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json"
@@ -311,7 +311,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 
 					var currentAttributes = $(el).attr('data-attributes');
 					var attributesObj = currentAttributes ? JSON.parse(currentAttributes) : {};
-					attributesObj.room_id = data.room_id;
+					attributesObj.raum_id = data.raum_id;
 					$(el).attr('data-attributes', JSON.stringify(attributesObj));
 				})
 				.catch(error => {
@@ -328,20 +328,20 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 			document.removeEventListener("mousemove", onMouseMove);
 			document.removeEventListener("mouseup", onMouseUp);
 
-			const foundRoom = findRoomContainingElementCenter(el);
+			const foundRaum = findRaumContainingElementCenter(el);
 
-			if (foundRoom) {
-				//console.log("Found room on drag end:", foundRoom);
+			if (foundRaum) {
+				//console.log("Found raum on drag end:", foundRaum);
 
-				removeFromOldRoom(el);
-				addToNewRoom(el, foundRoom);
+				removeFromOldRaum(el);
+				addToNewRaum(el, foundRaum);
 
-				updateZIndex(el, foundRoom);
-				// snapObjectToZone(el, foundRoom); ← DAS WEG!
+				updateZIndex(el, foundRaum);
+				// snapObjectToZone(el, foundRaum); ← DAS WEG!
 			} else {
-				console.log("No room found on drag end");
-				if (rooms[el.dataset.room]) {
-					// snapObjectToZone(el, rooms[el.dataset.room]); ← AUCH WEG!
+				console.log("No raum found on drag end");
+				if (raums[el.dataset.raum]) {
+					// snapObjectToZone(el, raums[el.dataset.raum]); ← AUCH WEG!
 				}
 			}
 			checkIfObjectOnPerson(el);
@@ -533,9 +533,9 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 		applyInvertFilterToElements(theme)
 	}
 
-	function getPersonRoomDataSync() {
+	function getPersonRaumDataSync() {
 		var xhr = new XMLHttpRequest();
-		var url = "/api/get_person_room_data?building_id=" + encodeURIComponent(building_id) + "&etage=" + encodeURIComponent(etage);
+		var url = "/api/get_person_raum_data?building_id=" + encodeURIComponent(building_id) + "&etage=" + encodeURIComponent(etage);
 		xhr.open("GET", url, false); // synchron
 		try {
 			xhr.send(null);
@@ -568,14 +568,14 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 
 			const attrs = JSON.parse(circle.dataset.attributes);
 			const personId = attrs.id; // ggf anpassen, wenn anders benannt
-			const roomId = attrs.room_id; // nehme an etage ist roomId
+			const raumId = attrs.raum_id; // nehme an etage ist raumId
 
-			if (!personId || roomId === undefined) {
-				console.error("Person ID oder Raum ID fehlt:", personId, roomId);
+			if (!personId || raumId === undefined) {
+				console.error("Person ID oder Raum ID fehlt:", personId, raumId);
 				return;
 			}
 
-			const url = `/api/delete_person_from_room?person_id=${personId}&room_id=${roomId}`;
+			const url = `/api/delete_person_from_raum?person_id=${personId}&raum_id=${raumId}`;
 
 			fetch(url, { method: 'GET' })
 				.then(response => {
@@ -629,7 +629,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 	}
 
 	function load_persons_from_db() {
-		const personData = getPersonRoomDataSync(building_id, etage);
+		const personData = getPersonRaumDataSync(building_id, etage);
 
 		if (personData) {
 			createPersonsFromApiData(personData);
@@ -652,14 +652,14 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 				continue;
 			}
 
-			if (Array.isArray(personEntry.rooms) && personEntry.rooms.length > 0) {
-				for (const roomEntry of personEntry.rooms) {
+			if (Array.isArray(personEntry.raums) && personEntry.raums.length > 0) {
+				for (const raumEntry of personEntry.raums) {
 
-					log("roomEntry:", roomEntry);
-					const layout = roomEntry.layout || null;
+					log("raumEntry:", raumEntry);
+					const layout = raumEntry.layout || null;
 					const position = extractPositionFromLayout(layout);
 
-					personAttributes["room_id"] = roomEntry.room.id || null;
+					personAttributes["raum_id"] = raumEntry.raum.id || null;
 
 					const circle = createCircleElement(personAttributes, position);
 
@@ -948,7 +948,7 @@ function createOptionsDiv(options) {
 	div.style.visibility = "hidden";
 
 	div.dataset.attributes = JSON.stringify(options);
-	div.dataset.room = "";
+	div.dataset.raum = "";
 
 	div.innerHTML = `
 	    <p><strong>Option 1:</strong> ${options.option1}</p>

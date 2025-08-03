@@ -3206,9 +3206,9 @@ def get_floorplan():
         session.close()
         return jsonify({"error": str(e)}), 500
 
-@app.route("/api/delete_person_from_room", methods=["GET"])
+@app.route("/api/delete_person_from_raum", methods=["GET"])
 @login_required
-def delete_person_from_room():
+def delete_person_from_raum():
     # Query-Parameter auslesen
     person_id = request.args.get("person_id", type=int)
     raum_id = request.args.get("raum_id", type=int)
@@ -3359,9 +3359,9 @@ def add_person():
         session.close()
         return jsonify({"error": str(e)}), 500
 
-@app.route("/api/save_person_to_room", methods=["POST"])
+@app.route("/api/save_person_to_raum", methods=["POST"])
 @login_required
-def save_person_to_room():
+def save_person_to_raum():
     session = Session()
 
     try:
@@ -3689,9 +3689,9 @@ def db_info():
 
     return render_template('db_info.html', tables=tables, mermaid=mermaid)
 
-@app.route("/api/get_person_room_data", methods=["GET"])
+@app.route("/api/get_person_raum_data", methods=["GET"])
 @login_required
-def get_person_room_data():
+def get_person_raum_data():
     session = None
     try:
         session = Session()
