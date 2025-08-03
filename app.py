@@ -203,7 +203,6 @@ INITIAL_DATA = {
     ]
 }
 
-
 LABEL_OVERRIDES = {
     "ausgeber_id": "Ausgeber",
     "besitzer_id": "Besitzer",
@@ -356,7 +355,6 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
             print(f"✅ Normales Feld: {col.name}")
             fields.append(field)
 
-
     for rel in mapper.relationships:
         if is_continuum_version_class(rel.mapper.class_):
             print(f"⚠️  Ignoriere Continuum-Beziehung: {rel.key}")
@@ -391,8 +389,6 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
 
         print(f"✅ Beziehung als Feld: {rel.key} → FK: {fk_col_name}")
         fields.append(field)
-
-
 
     wizard = {
         "title": title or f"{model.__name__} erstellen",
@@ -580,7 +576,6 @@ def add_version_filter(query):
         return query
     print(f"[DEBUG] Transaction-Klasse: {TransactionClass}")
 
-
     # Prüfe, ob Version-Klasse eine Beziehung zu transaction hat
     if not hasattr(ModelVersion, 'transaction'):
         print("[DEBUG] Version-Klasse hat keine 'transaction'-Beziehung")
@@ -699,7 +694,6 @@ def is_admin_user(session=None) -> bool:
         print(f"is_admin_user: error: {e}")
         session.close()
         return False
-
 
 def admin_required(f):
     @wraps(f)
@@ -1641,17 +1635,6 @@ def generate_aggregate_views(base, model_config={}):
 
     return views
 
-
-# Hilfsfunktionen für Inventar & Transponder
-def _get_person_name(p):
-    return f"{p.vorname} {p.nachname}" if p else "-"
-
-def _get_kategorie_name(k): return k.name if k else "-"
-def _get_abteilung_name(a): return a.name if a else "-"
-def _get_professur_name(p): return p.name if p else "-"
-def _get_kostenstelle_name(k): return k.name if k else "-"
-def _create_room_name(r): return f"{r.name} ({r.etage}.OG)" if r else "-"
-
 AGGREGATE_VIEWS = generate_aggregate_views(Base, {
     "inventar": {
         "title": "Inventarübersicht",
@@ -1775,7 +1758,6 @@ AGGREGATE_VIEWS = generate_aggregate_views(Base, {
         }
     },
 
-
     "raum": {
         "title": "Raumübersicht",
         "filters": {
@@ -1815,8 +1797,6 @@ AGGREGATE_VIEWS = generate_aggregate_views(Base, {
             "Objekte": ", ".join(obj.name for obj in getattr(l, "objects", [])) or "-"
         }
     },
-
-
 })
 
 def is_load_on_versions(opt):
@@ -1841,7 +1821,6 @@ def path_contains_versions(opt):
     except Exception:
         pass
     return False
-
 
 def is_option_on_versions(opt):
     """
@@ -3598,7 +3577,6 @@ def get_names(session, model, id_field, name_fields):
 
     return result
 
-
 @app.route('/schema')
 @login_required
 @admin_required
@@ -3915,7 +3893,6 @@ def extract_multiindex_form_data(prefix: str) -> List[List[str]]:
     # Sortiere nach Index und gib Liste von Listen zurück
     result = [grouped_data[i] for i in sorted(grouped_data.keys())]
     return result
-
 
 @app.route("/api/auto_update/transponder", methods=["GET"])
 def update_transponder_field():
