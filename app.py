@@ -3482,60 +3482,42 @@ def schema():
     graph.write_png('/tmp/schema.png')
     return send_file('/tmp/schema.png', mimetype='image/png')
 
-@app.route('/api/get_person_names', methods=['GET'])
+@app.route('/api/get_names/<table_name>', methods=['GET'])
 @login_required
-def get_person_names():
-    session = Session()
-    result = get_names(session, Person, Person.id, [Person.first_name, Person.last_name])
-    session.close()
-    return jsonify(result)
+def get_names_dynamic(table_name):
+    IGNORED_TABLES = {"transactions", "user", "roles"}
+    if table_name in IGNORED_TABLES:
+        return abort(404, "Table not found")
 
-@app.route('/api/get_kostenstelle_names', methods=['GET'])
-@login_required
-def get_kostenstelle_names():
-    session = Session()
-    result = get_names(session, Kostenstelle, Kostenstelle.id, [Kostenstelle.name])
-    session.close()
-    return jsonify(result)
+    model = None
+    for mapper in Base.registry.mappers:
+        cls = mapper.class_
+        if hasattr(cls, '__tablename__') and cls.__tablename__ == table_name:
+            model = cls
+            break
 
-@app.route('/api/get_abteilung_names', methods=['GET'])
-@login_required
-def get_abteilung_names():
-    session = Session()
-    result = get_names(session, Abteilung, Abteilung.id, [Abteilung.name])
-    session.close()
-    return jsonify(result)
+    if model is None:
+        return abort(404, "Table not found")
 
-@app.route('/api/get_professur_names', methods=['GET'])
-@login_required
-def get_professur_names():
-    session = Session()
-    result = get_names(session, Professur, Professur.id, [Professur.name])
-    session.close()
-    return jsonify(result)
+    id_col = getattr(model, 'id', None)
+    if id_col is None:
+        return abort(500, "No id column found")
 
-@app.route('/api/get_category_names', methods=['GET'])
-@login_required
-def get_category_names():
-    session = Session()
-    result = get_names(session, ObjectCategory, ObjectCategory.id, [ObjectCategory.name])
-    session.close()
-    return jsonify(result)
+    name_cols = []
+    for col in class_mapper(model).columns:
+        col_name = col.key.lower()
+        if 'name' in col_name or 'first' in col_name or 'last' in col_name:
+            name_cols.append(getattr(model, col.key))
 
-@app.route('/api/get_lager_names', methods=['GET'])
-@login_required
-def get_lager_names():
-    session = Session()
-    result = get_names(session, Lager, Lager.id, [Lager.name])
-    session.close()
-    return jsonify(result)
+    if not name_cols:
+        return abort(500, "No name columns found")
 
-@app.route('/api/get_object_names', methods=['GET'])
-@login_required
-def get_object_names():
     session = Session()
-    result = get_names(session, Object, Object.id, [Object.name])
-    session.close()
+    try:
+        result = get_names(session, model, id_col, name_cols)
+    finally:
+        session.close()
+
     return jsonify(result)
 
 @app.route('/db_info')
@@ -3899,7 +3881,7 @@ def block_writes_if_user_readonly(session, flush_context, instances):
 
 @app.route("/api/get_replace_configs")
 def get_replace_configs_json():
-    def make_api_url(name): return f"/api/get_{name}_names"
+    def make_api_url(name): return f"/api/get_names/{name}"
 
     SPECIAL_CASES = {
         "room": {
@@ -3909,7 +3891,7 @@ def get_replace_configs_json():
                 "gebäudename": {
                     "name": "Gebäudename",
                     "type": "select",
-                    "options_url": "/api/get_building_names"
+                    "options_url": "/api/get_names/building"
                 },
                 "raumname": {
                     "name": "Raumname",
