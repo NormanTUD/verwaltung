@@ -33,7 +33,7 @@
         </select>
 
         <p><strong>Einträge zum Zusammenführen:</strong></p>
-	<select name="target_id" required>
+	<select name="merge_ids" required>
 	    {% for entry in entries %}
 		<option value="{{ entry.id }}">{{ entry_display(entry) }}</option>
 	    {% endfor %}

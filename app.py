@@ -4131,7 +4131,7 @@ def merge_model_entries(session, model, ids_to_merge, target_id):
         return
 
     model_name = model.__tablename__
-    related_models = session.registry.mappers
+    related_models = Base.registry.mappers
 
     for related_mapper in related_models:
         for prop in related_mapper.attrs:
@@ -4165,38 +4165,44 @@ def merge_model_entries(session, model, ids_to_merge, target_id):
 def merge_interface():
     session = Session()
 
+    # Alle Tabellen ermitteln, außer die ignorierten und Versions-Tabellen
     all_tables = [
         mapper.class_.__tablename__
         for mapper in Base.registry.mappers
         if hasattr(mapper.class_, "__tablename__")
         and mapper.class_.__tablename__ is not None
         and mapper.class_.__tablename__ not in IGNORED_TABLES
-        and not mapper.class_.__name__.endswith("Version")  # optional: continuum Version-Tabellen ignorieren
+        and not mapper.class_.__name__.endswith("Version")  # continuum Version-Tabellen ignorieren
     ]
 
     selected_table = request.args.get("table")
-
     Model = get_model_by_tablename(selected_table) if selected_table else None
     entries = session.query(Model).all() if Model else []
 
     if request.method == "POST":
         selected_ids = list(map(int, request.form.getlist("merge_ids")))
         target_id = int(request.form["target_id"])
-        if target_id not in selected_ids:
-            flash("Ziel-ID muss Teil der ausgewählten Einträge sein.", "error")
+
+        # Sicherstellen, dass target_id nicht in selected_ids ist
+        if target_id in selected_ids:
+            selected_ids.remove(target_id)
+
+        if not selected_ids:
+            flash("Bitte mindestens einen Eintrag zum Zusammenführen auswählen.", "error")
         else:
             try:
-                merge_model_entries(session, Base, selected_ids, target_id)
+                merge_model_entries(session, Model, selected_ids, target_id)
                 flash("Merge erfolgreich durchgeführt.", "success")
                 return redirect(url_for("merge_interface", table=selected_table))
             except Exception as e:
                 flash(f"Fehler beim Mergen: {e}", "error")
 
-    return render_template("merge_generic.html",
-                           tables=all_tables,
-                           selected_table=selected_table,
-                           entries=entries)
-
+    return render_template(
+        "merge_generic.html",
+        tables=all_tables,
+        selected_table=selected_table,
+        entries=entries,
+    )
 
 event.listen(Session, "before_flush", block_writes_if_user_readonly)
 event.listen(Session, "before_flush", block_writes_if_data_version_cookie_set)
