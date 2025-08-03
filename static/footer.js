@@ -57,6 +57,15 @@ function createInputField(fieldConfig, fieldName, onOptionsLoaded, default_value
 						selected: option === default_value
 					}));
 				}
+			} else if (typeof data === 'object' && data !== null && Object.values(data).every(v => typeof v === 'string')) {
+				// Fall 3: Daten sind ein Objekt mit numerischen Keys und String-Werten
+				for (var id in data) {
+					select.append($('<option>', {
+						value: id,
+						text: data[id],
+						selected: id === default_value
+					}));
+				}
 			}
 
 			if (typeof onOptionsLoaded === "function") {
