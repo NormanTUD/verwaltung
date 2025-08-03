@@ -503,10 +503,6 @@ WIZARDS = {
         Building,
         title="Gebäude erstellen",
     ),
-    "Raum": create_wizard_from_model(
-        Room,
-        title="Raum erstellen",
-    ),
     "Raumlayout": create_wizard_from_model(
         RoomLayout,
         title="Raumlayout definieren",
