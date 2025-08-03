@@ -68,8 +68,8 @@ class Person(Base):
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
     title = Column(Text)
-    first_name = Column(Text)
-    last_name = Column(Text)
+    vorname = Column(Text)
+    nachname = Column(Text)
     kommentar = Column(Text)
     image_url = Column(Text)
 
@@ -82,7 +82,7 @@ class Person(Base):
     professuren = relationship("ProfessurToPerson", back_populates="person", cascade="all, delete")
     
     __table_args__ = (
-        UniqueConstraint("title", "first_name", "last_name", name="uq_person_name_title"),
+        UniqueConstraint("title", "vorname", "nachname", name="uq_person_name_title"),
     )
 
     def get_all(self) -> List:

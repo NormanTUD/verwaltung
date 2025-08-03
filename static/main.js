@@ -415,7 +415,7 @@ if (!isNaN(building_id) && !isNaN(floor)) {
 			// Titel, falls vorhanden, sonst leerer String
 			const title = person.title ? person.title + " " : "";
 
-			option.textContent = `${title}${person.first_name} ${person.last_name}`;
+			option.textContent = `${title}${person.vorname} ${person.nachname}`;
 			existingPersonSelect.appendChild(option);
 			console.log(person);
 		});
@@ -600,7 +600,7 @@ if (!isNaN(building_id) && !isNaN(floor)) {
 		if (attributes.image_url) {
 			const img = document.createElement("img");
 			img.src = attributes.image_url;
-			img.alt = `${attributes.first_name} ${attributes.last_name}`;
+			img.alt = `${attributes.vorname} ${attributes.nachname}`;
 			img.style.zIndex = "1"; // liegt unter dem Button
 			circle.appendChild(img);
 		} else {
@@ -608,7 +608,7 @@ if (!isNaN(building_id) && !isNaN(floor)) {
 			nameSpan.className = "no-image";
 			nameSpan.style.color = "black";
 			nameSpan.style.zIndex = "1";
-			nameSpan.innerHTML = `${attributes.first_name}<br>${attributes.last_name}`;
+			nameSpan.innerHTML = `${attributes.vorname}<br>${attributes.nachname}`;
 			circle.appendChild(nameSpan);
 		}
 
@@ -805,8 +805,8 @@ function buildContextMenu(attributes, personEl) {
 
 	// Grundstruktur mit allen Attributen
 	menu.innerHTML = `
-	    <div><strong>Vorname:</strong> ${my_escape(attributes.first_name || "")}</div>
-	    <div><strong>Nachname:</strong> ${my_escape(attributes.last_name || "")}</div>
+	    <div><strong>Vorname:</strong> ${my_escape(attributes.vorname || "")}</div>
+	    <div><strong>Nachname:</strong> ${my_escape(attributes.nachname || "")}</div>
 	    <div><strong>Titel:</strong> ${my_escape(attributes.title || "")}</div>
 	    <div><strong>Kommentar:</strong> ${my_escape(attributes.comment || "")}</div>
 

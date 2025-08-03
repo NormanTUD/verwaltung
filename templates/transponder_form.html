@@ -28,7 +28,7 @@
                     <label for="person_id_ausgabe" class="form-label">Person</label>
                     <select name="person_id" id="person_id_ausgabe" class="form-select" required>
                         {% for person in persons %}
-                            <option value="{{ person.id }}">{{ person.first_name }} {{ person.last_name }}</option>
+                            <option value="{{ person.id }}">{{ person.vorname }} {{ person.nachname }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -61,7 +61,7 @@
                     <select name="transponder_id" id="transponder_id_rueckgabe" class="form-select" required>
                         {% for transponder in transponders %}
                             {% if transponder.owner %}
-                                <option value="{{ transponder.id }}">{{ transponder.serial_number }} ({{ transponder.owner.first_name }} {{ transponder.owner.last_name }})</option>
+                                <option value="{{ transponder.id }}">{{ transponder.serial_number }} ({{ transponder.owner.vorname }} {{ transponder.owner.nachname }})</option>
                             {% endif %}
                         {% endfor %}
                     </select>

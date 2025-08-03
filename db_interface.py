@@ -263,8 +263,8 @@ class PersonWithContactHandler(AbstractDBHandler):
         try:
             stmt = select(Person).where(
                 Person.title == person_data.get("title"),
-                Person.first_name == person_data.get("first_name"),
-                Person.last_name == person_data.get("last_name")
+                Person.vorname == person_data.get("vorname"),
+                Person.nachname == person_data.get("nachname")
             )
             existing_person = self.session.execute(stmt).scalars().first()
             if existing_person:
@@ -273,8 +273,8 @@ class PersonWithContactHandler(AbstractDBHandler):
 
             new_person = Person(
                 title=person_data.get("title"),
-                first_name=person_data.get("first_name"),
-                last_name=person_data.get("last_name"),
+                vorname=person_data.get("vorname"),
+                nachname=person_data.get("nachname"),
                 created_at=person_data.get("created_at") or datetime.datetime.utcnow(),
                 comment=person_data.get("comment"),
                 image_url=person_data.get("image_url")
@@ -326,25 +326,25 @@ class PersonWithContactHandler(AbstractDBHandler):
                 return False
 
             new_title = person.title
-            new_first_name = person.first_name
-            new_last_name = person.last_name
+            new_vorname = person.vorname
+            new_nachname = person.nachname
 
             if column == "title":
                 new_title = value
-            elif column == "first_name":
-                new_first_name = value
-            elif column == "last_name":
-                new_last_name = value
+            elif column == "vorname":
+                new_vorname = value
+            elif column == "nachname":
+                new_nachname = value
 
             stmt = select(Person).where(
                 Person.id != person_id,
                 Person.title == new_title,
-                Person.first_name == new_first_name,
-                Person.last_name == new_last_name
+                Person.vorname == new_vorname,
+                Person.nachname == new_nachname
             )
             existing = self.session.execute(stmt).scalars().first()
             if existing:
-                print(f"❌ Abgelehnt: Person mit (title={new_title}, first_name={new_first_name}, last_name={new_last_name}) existiert bereits (ID={existing.id})")
+                print(f"❌ Abgelehnt: Person mit (title={new_title}, vorname={new_vorname}, nachname={new_nachname}) existiert bereits (ID={existing.id})")
                 return False
 
             setattr(person, column, value)

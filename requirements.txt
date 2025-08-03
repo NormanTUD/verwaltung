@@ -10,3 +10,4 @@ sqlalchemy
 sqlalchemy_continuum
 sqlalchemy_schemadisplay
 sqlalchemy_utils
+inflect

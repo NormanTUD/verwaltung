@@ -14,6 +14,7 @@ import uuid
 from functools import wraps
 import re
 import json
+from collections import defaultdict
 
 parser = argparse.ArgumentParser(description="Starte die Flask-App mit konfigurierbaren Optionen.")
 parser.add_argument('--debug', action='store_true', help='Aktiviere den Debug-Modus')
@@ -79,6 +80,12 @@ try:
     from sqlalchemy.orm import class_mapper, ColumnProperty, RelationshipProperty
     from sqlalchemy import Integer, Text, Date, Float, Boolean, ForeignKey
 
+    from sqlalchemy.orm.strategy_options import Load
+    from sqlalchemy.orm.strategy_options import Load
+
+    from sqlalchemy.orm import Session
+    import sqlalchemy.exc
+
     from db_defs import *
     from pypdf import PdfReader, PdfWriter
     from pypdf.generic import NameObject
@@ -92,6 +99,10 @@ try:
     import datetime
 
     from werkzeug.security import generate_password_hash, check_password_hash
+
+    import inflect
+
+    from markupsafe import escape
 
     from db_interface import *
 except ModuleNotFoundError:
@@ -126,6 +137,8 @@ Transaction = TransactionFactory(Base)
 configure_mappers()
 
 full_url = args.engine_db
+
+inflect_engine = inflect.engine()
 
 if full_url.startswith("mysql"):
     if '/' not in full_url.rsplit('@', 1)[-1]:
@@ -163,12 +176,12 @@ TransactionTable = versioning_manager.transaction_cls
 
 COLUMN_LABELS = {
     "abteilung.abteilungsleiter_id": "Abteilungsleiter",
-    "person.first_name": "Vorname",
-    "person.last_name": "Nachname"
+    "person.vorname": "Vorname",
+    "person.nachname": "Nachname"
 }
 
 FK_DISPLAY_COLUMNS = {
-    "person": ["title", "first_name", "last_name"]
+    "person": ["title", "vorname", "nachname"]
 }
 
 INITIAL_DATA = {
@@ -1556,19 +1569,93 @@ def delete_entry(table_name):
         session.close()
         return jsonify(success=False, error=str(e))
 
-AGGREGATE_VIEWS = {
+def generate_aggregate_views(base, model_config={}):
+    views = {}
+    mapper_registry = base.registry if hasattr(base, 'registry') else registry()
+
+    for mapper in mapper_registry.mappers:
+        cls = mapper.class_
+        model_name = cls.__name__.lower()
+        config = model_config.get(model_name, {})
+        insp = inspect(cls)
+
+        # Title
+        title = config.get("title") or (
+            f"{inflect_engine.plural(cls.__name__)}übersicht"
+            if cls.__name__.endswith("r") else f"{cls.__name__}übersicht"
+        )
+
+        # joinedload options
+        options = config.get("options")
+        if options is None:
+            options = [joinedload(getattr(cls, rel.key)) for rel in insp.relationships]
+
+        # Filters
+        filters = config.get("filters", {})
+
+        # Filter Function
+        filter_func = config.get("filter_func", lambda q, f: q)
+
+        # Map Function
+        def make_map_func(model):
+            def map_func(obj):
+                result = {}
+                for col in inspect(model).columns:
+                    val = getattr(obj, col.key)
+                    if val is None:
+                        result[col.key] = "-"
+                    elif hasattr(val, "isoformat"):
+                        result[col.key] = val.isoformat()
+                    elif isinstance(val, float):
+                        result[col.key] = f"{val:.2f}"
+                    else:
+                        result[col.key] = str(val)
+                return result
+            return map_func
+
+        map_func = config.get("map_func", make_map_func(cls))
+
+        # Add Columns
+        add_columns = config.get("add_columns", [])
+
+        # Extra Context
+        extra_context_func = config.get("extra_context_func")
+
+        # Entry zusammenbauen
+        entry = {
+            "model": cls,
+            "title": title,
+            "options": options,
+            "filters": filters,
+            "filter_func": filter_func,
+            "map_func": map_func
+        }
+
+        if add_columns:
+            entry["add_columns"] = add_columns
+
+        if extra_context_func:
+            entry["extra_context_func"] = extra_context_func
+
+        views[model_name] = entry
+
+    return views
+
+
+# Hilfsfunktionen für Inventar & Transponder
+def _get_person_name(p):
+    return f"{p.vorname} {p.nachname}" if p else "-"
+
+def _get_kategorie_name(k): return k.name if k else "-"
+def _get_abteilung_name(a): return a.name if a else "-"
+def _get_professur_name(p): return p.name if p else "-"
+def _get_kostenstelle_name(k): return k.name if k else "-"
+def _create_room_name(r): return f"{r.name} ({r.etage}.OG)" if r else "-"
+
+# AGGREGATE_VIEWS wird hier erstellt
+AGGREGATE_VIEWS = generate_aggregate_views(Base, {
     "inventory": {
-        "model": Inventar,
         "title": "Inventarübersicht",
-        "options": [
-            joinedload(Inventar.besitzer),
-            joinedload(Inventar.ausgeber),
-            joinedload(Inventar.object).joinedload(Object.kategorie),
-            joinedload(Inventar.kostenstelle),
-            joinedload(Inventar.abteilung),
-            joinedload(Inventar.professur),
-            joinedload(Inventar.room),
-        ],
         "filters": {
             "show_only_unreturned": (bool, "unreturned"),
             "besitzer_filter": (int, "besitzer"),
@@ -1601,16 +1688,8 @@ AGGREGATE_VIEWS = {
     },
 
     "transponder": {
-        "model": Transponder,
         "title": "Ausgegebene Transponder",
         "add_columns": ["PDF"],
-        "options": [
-            joinedload(Transponder.besitzer),
-            joinedload(Transponder.ausgeber),
-            joinedload(Transponder.room_links)
-                .joinedload(TransponderToRaum.room)
-                .joinedload(Raum.building)
-        ],
         "filters": {
             "show_only_unreturned": (bool, "unreturned"),
             "besitzer_id_filter": (int, "besitzer_id"),
@@ -1644,47 +1723,102 @@ AGGREGATE_VIEWS = {
         }
     },
 
-    "persons": {
-        "model": Person,
+    "person": {
         "title": "Personenübersicht",
-        "filters": {
-            "person_id_filter": (int, "person_id"),
-        },
-        "options": [
-            joinedload(Person.contacts),
-            joinedload(Person.räume)
-                .joinedload(PersonToRaum.room)
-                .joinedload(Raum.building),
-            joinedload(Person.departments),
-            joinedload(Person.person_abteilungen)
-                .joinedload(PersonToAbteilung.abteilung),
-            joinedload(Person.transponders_issued),
-            joinedload(Person.transponders_owned)
-        ],
-        "filter_func": lambda q, f: q.filter(Person.id == f["person_id_filter"]) if f.get("person_id_filter") else q,
         "map_func": lambda p: {
             "ID": p.id,
-            "Name": f"{p.title or ''} {p.first_name} {p.last_name}".strip(),
-            "Telefon(e)": ", ".join(sorted({c.phone for c in p.contacts if c.phone})) or "-",
-            "Fax(e)": ", ".join(sorted({c.fax for c in p.contacts if c.fax})) or "-",
-            "E-Mail(s)": ", ".join(sorted({c.email for c in p.contacts if c.email})) or "-",
-            "Räume": ", ".join(sorted({f"{r.name} ({r.etage}.OG, {r.building.name if r.building else '?'})" for link in p.räume if (r := link.room)})) or "-",
-            "Abteilungen": ", ".join(sorted({a.name for a in p.departments} | {pta.abteilung.name for pta in p.person_abteilungen})) or "-",
-            "Leiter von": ", ".join(sorted({a.name for a in p.departments})) or "-",
-            "Mitglied in": ", ".join(sorted({pta.abteilung.name for pta in p.person_abteilungen})) or "-",
+            "Vorname": p.vorname or "-",
+            "Nachname": p.nachname or "-",
+            "Email": next((c.email for c in p.contacts if c.email), "-"),
+            "Telefon": next((c.phone for c in p.contacts if c.phone), "-"),
             "Kommentar": p.kommentar or "-"
         }
     }
-}
+
+
+})
+
+
+def is_load_on_versions(opt):
+    try:
+        path = getattr(opt, '_path', [])
+        keys = [step.key for step in path if hasattr(step, 'key')]
+        if "versions" in keys:
+            return True
+    except Exception:
+        pass
+    return False
+
+def path_contains_versions(opt):
+    try:
+        path = getattr(opt, '_path', [])
+        for step in path:
+            if getattr(step, 'key', None) == "versions":
+                return True
+        to_bind = getattr(opt, '_to_bind', None)
+        if to_bind and path_contains_versions(to_bind):
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def is_option_on_versions(opt):
+    """
+    Prüft, ob eine SQLAlchemy Ladeoption (z.B. joinedload, subqueryload, selectinload, Load)
+    auf den 'versions' Relationship-Pfad zielt.
+
+    Funktioniert für joinedload('versions'), joinedload(Model.versions), Load(...).
+    """
+    # Prüfe den Pfad (path) der Option, falls vorhanden
+    if isinstance(opt, Load):
+        # .path ist ein tuple von Attributen/Strings, z.B. ('versions',) oder ('parent', 'versions')
+        for element in opt.path:
+            # element kann Attribut oder String sein
+            if hasattr(element, 'key'):
+                if element.key == "versions":
+                    return True
+            elif element == "versions":
+                return True
+        return False
+    # joinedload etc. können unterschiedliche Klassen sein, wir versuchen .path zu lesen
+    if hasattr(opt, 'path'):
+        for element in opt.path:
+            if hasattr(element, 'key'):
+                if element.key == "versions":
+                    return True
+            elif element == "versions":
+                return True
+    # Falls es ein string ist oder anderes, prüfen wir nicht
+    return False
 
 def create_aggregate_view(view_id):
     config = AGGREGATE_VIEWS[view_id]
 
     def view_func():
         session = Session()
-        query = session.query(config["model"]).options(*(config.get("options", [])))
 
-        # Filter auslesen
+        raw_options = config.get("options", [])
+        print(f"[DEBUG] Loaded raw options for view_id={view_id}: {raw_options}")
+
+        # Filter out eager loading options that load 'versions' relationship robustly
+        options = []
+        for opt in raw_options:
+            if is_option_on_versions(opt):
+                print("[DEBUG] Skipping eager load on 'versions' relationship due to SQLAlchemy-Continuum limitation")
+                continue
+            options.append(opt)
+
+        print(f"[DEBUG] Final options applied (after filtering): {options}")
+
+        try:
+            query = session.query(config["model"]).options(*options)
+            print(f"[DEBUG] Query successfully created with options")
+        except Exception as e:
+            print(f"[ERROR] Exception during query creation with options: {e}")
+            raise
+
+        # Filter aus Request-Parametern parsen
         filters = {}
         for key, (typ, param) in config.get("filters", {}).items():
             val = request.args.get(param)
@@ -1697,17 +1831,38 @@ def create_aggregate_view(view_id):
                     filters[key] = None
             else:
                 filters[key] = val if val is not None else None
+        print(f"[DEBUG] Parsed filters: {filters}")
 
-        # Filterfunktion anwenden
-        query = config["filter_func"](query, filters)
+        try:
+            query = config["filter_func"](query, filters)
+            print("[DEBUG] Filter function applied successfully")
+        except Exception as e:
+            print(f"[ERROR] Exception during filter_func application: {e}")
+            raise
 
-        # Daten abfragen & mappen
-        data_list = query.all()
-        rows = [config["map_func"](obj) for obj in data_list]
+        try:
+            data_list = query.all()
+            print(f"[DEBUG] Query executed, {len(data_list)} rows fetched")
+        except sqlalchemy.exc.InvalidRequestError as e:
+            if "versions" in str(e):
+                print("[ERROR] Query failed due to eager loading of 'versions' relationship. Please remove such options.")
+            raise
+        except Exception as e:
+            print(f"[ERROR] Exception during query execution: {e}")
+            raise
+
+        rows = []
+        try:
+            rows = [config["map_func"](obj) for obj in data_list]
+            print(f"[DEBUG] map_func applied to all rows")
+        except Exception as e:
+            print(f"[ERROR] Exception during map_func application: {e}")
+            raise
+
         column_labels = list(rows[0].keys()) if rows else []
-
         if "add_columns" in config:
             column_labels += config["add_columns"]
+        print(f"[DEBUG] Column labels: {column_labels}")
 
         row_data = []
         for obj, row in zip(data_list, rows):
@@ -1729,11 +1884,18 @@ def create_aggregate_view(view_id):
         }
 
         if "extra_context_func" in config:
-            ctx.update(config["extra_context_func"]())
+            try:
+                extra = config["extra_context_func"]()
+                ctx.update(extra)
+                print("[DEBUG] extra_context_func applied")
+            except Exception as e:
+                print(f"[ERROR] Exception during extra_context_func: {e}")
+                raise
 
         return render_template("aggregate_view.html", **ctx)
 
     return view_func
+
 
 @app.route("/aggregate/inventory")
 @login_required
@@ -1748,7 +1910,7 @@ def aggregate_transponder_view():
 @app.route("/aggregate/persons")
 @login_required
 def aggregate_persons_view():
-    return create_aggregate_view("persons")()
+    return create_aggregate_view("person")()
 
 def _create_room_name(r):
     if r:
@@ -1767,7 +1929,7 @@ def _get_kostenstelle_name(k):
 
 def _get_person_name(p):
     if p:
-        return f"{p.first_name} {p.last_name}"
+        return f"{p.vorname} {p.nachname}"
     return "Unbekannt"
 
 def _get_kategorie_name(c):
@@ -1782,8 +1944,8 @@ def wizard_person():
 
     form_data = {
         "title": "",
-        "first_name": "",
-        "last_name": "",
+        "vorname": "",
+        "nachname": "",
         "kommentar": "",
         "image_url": "",
         "contacts": [],
@@ -1795,12 +1957,12 @@ def wizard_person():
         if request.method == "POST":
             # Grunddaten
             form_data["title"] = request.form.get("title", "").strip()
-            form_data["first_name"] = request.form.get("first_name", "").strip()
-            form_data["last_name"] = request.form.get("last_name", "").strip()
+            form_data["vorname"] = request.form.get("vorname", "").strip()
+            form_data["nachname"] = request.form.get("nachname", "").strip()
             form_data["kommentar"] = request.form.get("kommentar", "").strip()
             form_data["image_url"] = request.form.get("image_url", "").strip()
 
-            if not form_data["first_name"] or not form_data["last_name"]:
+            if not form_data["vorname"] or not form_data["nachname"]:
                 raise ValueError("Vorname und Nachname sind Pflichtfelder.")
 
             # Kontakte aus Formular lesen
@@ -1844,9 +2006,6 @@ def wizard_person():
 
             # Transponder: Verschachtelte Arrays korrekt auslesen
             def extract_multiindex_form_data(prefix: str) -> list[list[str]]:
-                import re
-                from collections import defaultdict
-
                 pattern = re.compile(rf"{re.escape(prefix)}\[(\d+)\]\[\]")
                 grouped_data = defaultdict(list)
 
@@ -1916,8 +2075,8 @@ def wizard_person():
             # Person anlegen
             new_person = Person(
                 title=form_data["title"] or None,
-                first_name=form_data["first_name"],
-                last_name=form_data["last_name"],
+                vorname=form_data["vorname"],
+                nachname=form_data["nachname"],
                 kommentar=form_data["kommentar"] or None,
                 image_url=form_data["image_url"] or None
             )
@@ -1958,8 +2117,8 @@ def wizard_person():
             # Formular zurücksetzen
             form_data = {
                 "title": "",
-                "first_name": "",
-                "last_name": "",
+                "vorname": "",
+                "nachname": "",
                 "kommentar": "",
                 "image_url": "",
                 "contacts": [],
@@ -2204,8 +2363,8 @@ def get_abteilung_metadata(abteilung_id: int) -> dict:
         if abteilung.leiter is not None:
             metadata["abteilungsleiter"] = {
                 "id": abteilung.leiter.id,
-                "first_name": abteilung.leiter.first_name,
-                "last_name": abteilung.leiter.last_name,
+                "vorname": abteilung.leiter.vorname,
+                "nachname": abteilung.leiter.nachname,
                 "title": abteilung.leiter.title
             }
 
@@ -2215,8 +2374,8 @@ def get_abteilung_metadata(abteilung_id: int) -> dict:
             if person:
                 metadata["personen"].append({
                     "id": person.id,
-                    "first_name": person.first_name,
-                    "last_name": person.last_name,
+                    "vorname": person.vorname,
+                    "nachname": person.nachname,
                     "title": person.title
                 })
 
@@ -2281,14 +2440,14 @@ def generate_fields_for_schluesselausgabe_from_metadata(
                 value = abteilung["name"]
 
         elif name == "Text3":
-            first_name = ausgeber.get("first_name", "")
-            last_name = ausgeber.get("last_name", "")
-            if last_name and first_name:
-                value = f"{last_name}, {first_name}"
-            elif last_name:
-                value = f"{last_name}"
-            elif first_name:
-                value = f"{first_name}"
+            vorname = ausgeber.get("vorname", "")
+            nachname = ausgeber.get("nachname", "")
+            if nachname and vorname:
+                value = f"{nachname}, {vorname}"
+            elif nachname:
+                value = f"{nachname}"
+            elif vorname:
+                value = f"{vorname}"
 
         elif name == "Text4":
             value = extract_contact_string(ausgeber)
@@ -2297,7 +2456,7 @@ def generate_fields_for_schluesselausgabe_from_metadata(
             value = abteilung.get("name", "") if abteilung else ""
 
         elif name == "Text7":
-            value = besitzer.get("last_name", "") + ", " + besitzer.get("first_name", "") if besitzer else ""
+            value = besitzer.get("nachname", "") + ", " + besitzer.get("vorname", "") if besitzer else ""
 
         elif name == "Text8":
             value = extract_contact_string(besitzer)
@@ -2377,16 +2536,16 @@ def get_transponder_metadata(transponder_id: int) -> dict:
         if transponder.ausgeber is not None:
             metadata["ausgeber"] = {
                 "id": transponder.ausgeber.id,
-                "first_name": transponder.ausgeber.first_name,
-                "last_name": transponder.ausgeber.last_name,
+                "vorname": transponder.ausgeber.vorname,
+                "nachname": transponder.ausgeber.nachname,
                 "title": transponder.ausgeber.title
             }
 
         if transponder.besitzer is not None:
             metadata["besitzer"] = {
                 "id": transponder.besitzer.id,
-                "first_name": transponder.besitzer.first_name,
-                "last_name": transponder.besitzer.last_name,
+                "vorname": transponder.besitzer.vorname,
+                "nachname": transponder.besitzer.nachname,
                 "title": transponder.besitzer.title
             }
 
@@ -2432,8 +2591,8 @@ def get_person_metadata(person_id: int) -> dict:
         metadata = {
             "id": person.id,
             "title": person.title,
-            "first_name": person.first_name,
-            "last_name": person.last_name,
+            "vorname": person.vorname,
+            "nachname": person.nachname,
             "kommentar": person.kommentar,
             "image_url": person.image_url,
 
@@ -2587,7 +2746,7 @@ def generate_pdf():
 @login_required
 def transponder_form():
     session = Session()
-    persons = session.query(Person).order_by(Person.last_name).all()
+    persons = session.query(Person).order_by(Person.nachname).all()
     transponders = session.query(Transponder).options(
         joinedload(Transponder.besitzer)
     ).order_by(Transponder.seriennummer).all()
@@ -3099,7 +3258,7 @@ def add_or_update_person():
 @login_required
 def add_person():
     data = request.get_json()
-    required_fields = ["first_name", "last_name", "title", "kommentar", "image_url"]
+    required_fields = ["vorname", "nachname", "title", "kommentar", "image_url"]
     for field in required_fields:
         if field not in data:
             session.close()
@@ -3108,8 +3267,8 @@ def add_person():
     session = Session()
     try:
         person = Person(
-            first_name=data["first_name"],
-            last_name=data["last_name"],
+            vorname=data["vorname"],
+            nachname=data["nachname"],
             title=data["title"],
             kommentar=data["kommentar"],
             image_url=data["image_url"]
@@ -3124,8 +3283,8 @@ def add_person():
         # Wenn UNIQUE constraint verletzt wurde, Person suchen und ID zurückgeben
         if "UNIQUE constraint failed" in str(e.orig):
             existing_person = session.query(Person).filter_by(
-                first_name=data["first_name"],
-                last_name=data["last_name"],
+                vorname=data["vorname"],
+                nachname=data["nachname"],
                 title=data["title"]
             ).first()
             session.close()
@@ -3157,7 +3316,7 @@ def save_person_to_room():
 
         room_name = data["room"]
         person_data = data["person"]
-        required_fields = ["first_name", "last_name", "image_url"]
+        required_fields = ["vorname", "nachname", "image_url"]
 
         for field in required_fields:
             if field not in person_data:
@@ -3173,15 +3332,15 @@ def save_person_to_room():
         kommentar = person_data.get("kommentar")
 
         person = session.query(Person).filter_by(
-            first_name=person_data["first_name"],
-            last_name=person_data["last_name"],
+            vorname=person_data["vorname"],
+            nachname=person_data["nachname"],
             title=title
         ).first()
 
         if not person:
             person = Person(
-                first_name=person_data["first_name"],
-                last_name=person_data["last_name"],
+                vorname=person_data["vorname"],
+                nachname=person_data["nachname"],
                 title=title,
                 kommentar=kommentar,
                 image_url=person_data["image_url"]
@@ -3248,8 +3407,8 @@ def get_person_database():
         result = []
         for person in persons:
             result.append({
-                "first_name": person.first_name or "",
-                "last_name": person.last_name or "",
+                "vorname": person.vorname or "",
+                "nachname": person.nachname or "",
                 "title": person.title or "",
                 "etage": 0,
                 "kommentar": person.kommentar or "",
@@ -3338,7 +3497,7 @@ def get_names(session, model, id_field, name_fields):
     :param session: DB-Session
     :param model: SQLAlchemy-Modellklasse (z.B. Person, Object)
     :param id_field: Feld für die ID (z.B. Person.id)
-    :param name_fields: Liste von Feldern, aus denen der Name zusammengesetzt wird (z.B. [Person.first_name, Person.last_name])
+    :param name_fields: Liste von Feldern, aus denen der Name zusammengesetzt wird (z.B. [Person.vorname, Person.nachname])
     :return: dict {id: name}
     """
     query_fields = [id_field] + name_fields
@@ -3590,7 +3749,7 @@ def search():
     # 🔍 Personensuche nach Name, Email, Telefon, Fax
     people = session.query(Person).options(joinedload(Person.contacts)).all()
     for person in people:
-        full_name = f"{person.title or ''} {person.first_name} {person.last_name}".strip().lower()
+        full_name = f"{person.title or ''} {person.vorname} {person.nachname}".strip().lower()
         matched = False
 
         if query in full_name:
@@ -3603,7 +3762,7 @@ def search():
 
         if matched:
             results.append({
-                'label': f'👤 {person.first_name} {person.last_name}',
+                'label': f'👤 {person.vorname} {person.nachname}',
                 'url': url_for('aggregate_persons_view', person_id=person.id)
             })
 
@@ -3659,8 +3818,6 @@ def extract_multiindex_form_data(prefix: str) -> List[List[str]]:
     Extrahiert verschachtelte Formularfelder wie transponder_serial[0][], transponder_serial[1][]
     und gibt sie als Liste von Listen zurück, z.B. [["123", "234"], ["345"]]
     """
-    import re
-    from collections import defaultdict
 
     pattern = re.compile(rf"{re.escape(prefix)}\[(\d+)\]\[\]")
     grouped_data = defaultdict(list)
