@@ -4022,21 +4022,27 @@ def get_replace_configs_json():
         "room": {
             "key": "raum_id",
             "label": "Gebäude+Etage+Raum",
-            "fields": {
-                "gebäudename": {
-                    "name": "Gebäudename",
-                    "type": "select",
-                    "options_url": "/api/get_names/building"
+            "fields": [
+                {
+                    "gebäudename": {
+                        "name": "Gebäudename",
+                        "type": "select",
+                        "options_url": "/api/get_names/building"
+                    }
                 },
-                "floor": {
-                    "name": "Etage",
-                    "type": "text"
+                {
+                    "floor": {
+                        "name": "Etage",
+                        "type": "text"
+                    }
                 },
-                "raumname": {
-                    "name": "Raumname",
-                    "type": "text"
+                {
+                    "raumname": {
+                        "name": "Raumname",
+                        "type": "text"
+                    }
                 }
-            },
+            ],
             "url": "/api/get_raum_id?building_name={building_name}&room_name={room_name}"
         }
     }

@@ -175,47 +175,43 @@ function autoUpdate(element_name, update_typ, update_id, new_val) {
 
 function replaceFieldsForElement(element, name, config) {
 	var $element = $(element);
-	var original_value = $(element).attr("value");
+	var original_value = $element.attr("value");
 	var update_info = $element.data("update_info");
 	var element_name = $element.attr("name");
 
-	if(Object.keys(config).includes("label")) {
+	if (Object.keys(config).includes("label")) {
 		var $parentLabel = $element.parent().find("label");
 		if ($parentLabel.length > 0) {
 			$parentLabel.text(config.label);
 		}
 	}
 
-	if (!$element.is(":visible")) {
-		return;
-	}
+	if (!$element.is(":visible")) return;
 
 	var form = $element.closest('form');
-
 	var inputs = [];
-	var i = 0;
 
 	function onInputChange() {
 		updateHiddenFieldValue(config, $element, form);
 	}
 
-	for (let fieldName in config.fields) {
-		let fieldConfig = config.fields[fieldName];
+	// Jetzt korrekt über das Array von Feldern iterieren
+	for (let fieldDef of config.fields) {
+		// Jeder fieldDef ist ein Objekt mit genau einem Key
+		let fieldName = Object.keys(fieldDef)[0];
+		let fieldConfig = fieldDef[fieldName];
 
-		let input = createInputField(fieldConfig, fieldName, function(selectElement) {
+		let input = createInputField(fieldConfig, fieldName, function() {
 			onInputChange();
 		}, original_value);
 
 		$(input).on("change", function (e) {
-			var target = e.currentTarget;
-			var new_val = $(target).val();
-			if(update_info) {
-				var update_typ = update_info.slice(0, update_info.lastIndexOf("_"))
+			var new_val = $(e.currentTarget).val();
+			if (update_info) {
+				var update_typ = update_info.slice(0, update_info.lastIndexOf("_"));
 				var update_id = update_info.slice(update_info.lastIndexOf("_") + 1);
-
-				autoUpdate(element_name, update_typ, update_id, new_val)
+				autoUpdate(element_name, update_typ, update_id, new_val);
 			}
-
 			$element.val(new_val);
 		});
 
@@ -228,15 +224,9 @@ function replaceFieldsForElement(element, name, config) {
 				updateHiddenFieldValue(config, hiddenElement, form, this);
 			};
 		})($element));
-
-
-
-		i++;
 	}
 
 	$element.hide();
-
-	// Direkt nach Erzeugung einmal initial updaten (für Textfelder oder Select mit sofort ausgewähltem Wert)
 	onInputChange();
 }
 
@@ -256,10 +246,8 @@ async function replace_id_fields_with_proper_fields() {
 		}
 	}
 
-
 	applyInvertFilterToElements(theme);
 }
-
 
 $( document ).ready(function() {
 	const path = location.pathname;
