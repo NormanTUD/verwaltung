@@ -3445,7 +3445,6 @@ def save_person_to_raum():
             "error": f"Unexpected server error: {e}",
             "details": str(e)
         }), 500
-
         
 @app.route("/api/get_person_database", methods=["GET"])
 def get_person_database():
