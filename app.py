@@ -285,59 +285,6 @@ def get_subforms(model, exclude_fields=None, exclude_relationships=None):
 
     return subforms
 
-def get_subforms(model, exclude_fields=None, exclude_relationships=None):
-    exclude_fields = exclude_fields or set()
-    exclude_relationships = exclude_relationships or set()
-    subforms = []
-    mapper = inspect(model)
-
-    for rel in mapper.relationships:
-        # Ignoriere nicht-uselist oder explizit ausgeschlossene Relationen
-        if not rel.uselist or rel.key in exclude_relationships:
-            continue
-
-        related_model = rel.mapper.class_
-
-        # Ignoriere Continuum-Versionstabellen
-        if is_continuum_version_class(related_model):
-            continue
-
-        # Versuche FK-Spalte im related_model zu finden, die auf dieses Modell zeigt
-        fk_column = None
-        fk_count = 0
-        for col in related_model.__table__.columns:
-            for fk in col.foreign_keys:
-                if fk.column.table == model.__table__:
-                    fk_column = col.name
-                    fk_count += 1
-        # Wenn kein oder mehrere passende FKs → ungeeignet als Subform
-        if fk_count != 1:
-            continue
-
-        # Baue Felder für Subform
-        fields = []
-        for col in related_model.__table__.columns:
-            # Überspringe id, FK-Spalte und ausgeschlossene Felder
-            if col.name == "id" or col.name == fk_column or col.name in exclude_fields:
-                continue
-
-            field_type = "number" if isinstance(col.type, Integer) else "text"
-            fields.append({
-                "name": col.name,
-                "type": field_type,
-                "label": labelize(col.name),
-            })
-
-        subforms.append({
-            "name": rel.key,
-            "label": labelize(rel.key),
-            "table": related_model,
-            "foreign_key": fk_column,
-            "fields": fields,
-        })
-
-    return subforms
-
 def is_continuum_version_class(klass):
     return klass.__name__.endswith("Version")
 
@@ -452,8 +399,6 @@ WIZARDS = {
         Abteilung,
         title="Abteilung erstellen",
     ),
-}
-"""
     "Transponder": create_wizard_from_model(
         Transponder,
         title="Transponder erstellen",
@@ -525,7 +470,6 @@ WIZARDS = {
         title="Inventar (mit Zuordnungen) erfassen",
     )
 }
-"""
 
 EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 
