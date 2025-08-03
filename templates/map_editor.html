@@ -15,12 +15,12 @@
 		</select>
 
 
-		<label for="floorSelect">Etage:</label>
-		<select id="floorSelect" {% if not floor %}disabled{% endif %}>
+		<label for="etageSelect">Etage:</label>
+		<select id="etageSelect" {% if not etage %}disabled{% endif %}>
 			<option value="">-- Bitte wählen --</option>
 			{% if building_id %}
 			{% for f in building_map[building_id]|sort %}
-			<option value="{{ f }}" {% if floor == f %}selected{% endif %}>{{ f }}</option>
+			<option value="{{ f }}" {% if etage == f %}selected{% endif %}>{{ f }}</option>
 			{% endfor %}
 			{% endif %}
 		</select>
@@ -52,41 +52,41 @@
 
 		const buildingMap = {{ building_map | tojson }};
 		const buildingSelect = document.getElementById("buildingSelect");
-		const floorSelect = document.getElementById("floorSelect");
+		const etageSelect = document.getElementById("etageSelect");
 		const goBtn = document.getElementById("goBtn");
 
-		function updateFloorOptions() {
+		function updateEtageOptions() {
 			const building = buildingSelect.value;
-			floorSelect.innerHTML = '<option value="">-- Bitte wählen --</option>';
-			floorSelect.disabled = true;
+			etageSelect.innerHTML = '<option value="">-- Bitte wählen --</option>';
+			etageSelect.disabled = true;
 			goBtn.disabled = true;
 
 			if (building && buildingMap[building]) {
-				buildingMap[building].sort((a, b) => a - b).forEach(floor => {
+				buildingMap[building].sort((a, b) => a - b).forEach(etage => {
 					const opt = document.createElement("option");
-					opt.value = floor;
-					opt.textContent = floor;
-					floorSelect.appendChild(opt);
+					opt.value = etage;
+					opt.textContent = etage;
+					etageSelect.appendChild(opt);
 				});
-				floorSelect.disabled = false;
+				etageSelect.disabled = false;
 			}
 		}
 
-		buildingSelect.addEventListener("change", updateFloorOptions);
-		floorSelect.addEventListener("change", () => {
-			goBtn.disabled = floorSelect.value === "";
+		buildingSelect.addEventListener("change", updateEtageOptions);
+		etageSelect.addEventListener("change", () => {
+			goBtn.disabled = etageSelect.value === "";
 		});
 
 		goBtn.addEventListener("click", () => {
 			const b = buildingSelect.value;
-			const f = floorSelect.value;
+			const f = etageSelect.value;
 			if (b && f) {
-				window.location.href = `/map-editor?building_id=${b}&floor=${f}`;
+				window.location.href = `/map-editor?building_id=${b}&etage=${f}`;
 			}
 		});
 
 		// Initial aktivieren, falls beide gesetzt
-		if (buildingSelect.value && floorSelect.value) {
+		if (buildingSelect.value && etageSelect.value) {
 			goBtn.disabled = false;
 		}
 
@@ -107,7 +107,7 @@
 			let params = getUrlParams();
 
 			let buildingSelect = document.getElementById("buildingSelect");
-			let floorSelect = document.getElementById("floorSelect");
+			let etageSelect = document.getElementById("etageSelect");
 
 			if (params.building_id) {
 				let val = params.building_id;
@@ -119,19 +119,19 @@
 				}
 			}
 
-			if (params.floor) {
-				let val = params.floor;
-				for (let i = 0; i < floorSelect.options.length; i++) {
-					if (floorSelect.options[i].value === val) {
-						floorSelect.selectedIndex = i;
+			if (params.etage) {
+				let val = params.etage;
+				for (let i = 0; i < etageSelect.options.length; i++) {
+					if (etageSelect.options[i].value === val) {
+						etageSelect.selectedIndex = i;
 						break;
 					}
 				}
 			}
 
-			// Optional: Floor-Select aktivieren, wenn Building gesetzt ist
-			if (params.building_id && floorSelect.disabled) {
-				floorSelect.disabled = false;
+			// Optional: Etage-Select aktivieren, wenn Building gesetzt ist
+			if (params.building_id && etageSelect.disabled) {
+				etageSelect.disabled = false;
 			}
 		});
 	</script>
