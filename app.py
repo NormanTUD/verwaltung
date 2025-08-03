@@ -1714,7 +1714,21 @@ AGGREGATE_VIEWS = generate_aggregate_views(Base, {
             "Nachname": p.nachname or "-",
             "Email": next((c.email for c in p.contacts if c.email), "-"),
             "Telefon": next((c.phone for c in p.contacts if c.phone), "-"),
-            "Kommentar": p.kommentar or "-"
+            "Fax": next((c.fax for c in p.contacts if c.fax), "-"),
+            "Kommentar": p.kommentar or "-",
+            "Abteilungen": ", ".join([a.abteilung.name for a in p.person_abteilungen]) or "-",
+            "Leitet Abteilungen": ", ".join([a.name for a in p.departments]) or "-",
+            "Professuren": ", ".join([pp.professur.name for pp in p.professuren]) or "-",
+            "Räume": ", ".join(
+                [f"{r.room.building.abkürzung or r.room.building.name or '?'}-{r.room.name}"
+                 for r in p.räume if r.room and r.room.building]
+            ) or "-",
+            "Transponder-Besitz": ", ".join(
+                [f"{t.seriennummer or '?'}" for t in p.transponders_owned]
+            ) or "-",
+            "Transponder-Ausgaben": ", ".join(
+                [f"{t.seriennummer or '?'}" for t in p.transponders_issued]
+            ) or "-",
         }
     },
 
