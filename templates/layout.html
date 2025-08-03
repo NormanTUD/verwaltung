@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html lang="de" class="no-js transition-colors {% if theme == 'dark' %}dark{% endif %}">
 	<head>
+		<style>
+			html {
+				background-color: #111; /* z.B. Dunkelgrau statt Weiß */
+			}
+			html.dark {
+				background-color: #111;
+			}
+			html:not(.dark) {
+				background-color: white;
+			}
+		</style>
+
 		<meta charset="UTF-8">
 		<title>Verwaltung &mdash; {% block title %}Meine Seite{% endblock %}</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1">
