@@ -47,36 +47,25 @@ html, body {
     width: 200px;
 }
 #addPersonBtn {
-    position: fixed;
-    top: 12.5px;
-    right: 240px;
     z-index: 9999;
     width: 200px;
-    height: 30px;
-    padding: 10px 15px;
     background: #007bff;
     color: white;
     border: none;
     border-radius: 6px;
     cursor: pointer;
-    display: flex;                /* NEU */
     align-items: center;         /* vertikal zentrieren */
     justify-content: center;     /* horizontal zentrieren */
 }
 
 #addBtn {
-    top: 12.5px; right: 20px;
     z-index: 9999;
-    padding: 10px 15px;
     background: #007bff;
     color: white;
     border: none;
     border-radius: 6px;
     cursor: pointer;
     width: 200px;
-    position: fixed; /* Fixiert den Button */
-    height: 30px;
-    display: flex;                /* NEU */
     align-items: center;         /* vertikal zentrieren */
     justify-content: center;     /* horizontal zentrieren */
 }

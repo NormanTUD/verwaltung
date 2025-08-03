@@ -3363,16 +3363,14 @@ def add_person():
 @login_required
 def save_person_to_raum():
     session = Session()
-
     try:
         data = request.get_json()
-
-        if not data or "room" not in data or "person" not in data:
+        if not data or "id" not in data or "person_id" not in data:
             session.close()
-            return jsonify({"error": "Request body must include both 'room' and 'person' fields"}), 400
+            return jsonify({"error": f"Request body must include both 'id' and 'person_id' fields, got: {data}"}), 400
 
-        room_name = data["room"]
-        person_data = data["person"]
+        raum_id = data["id"]
+        person_data = data["person_id"]
         required_fields = ["vorname", "nachname", "image_url"]
 
         for field in required_fields:
@@ -3380,11 +3378,9 @@ def save_person_to_raum():
                 session.close()
                 return jsonify({"error": f"Missing required field in person data: '{field}'"}), 400
 
-        # x und y auslesen, wenn vorhanden, sonst default auf None
         x = data.get("x")
         y = data.get("y")
 
-        # 1. Person suchen oder anlegen
         title = person_data.get("title")
         kommentar = person_data.get("kommentar")
 
@@ -3405,16 +3401,13 @@ def save_person_to_raum():
             session.add(person)
             session.flush()
 
-        # 2. Raum finden
-        room = session.query(Raum).filter_by(id=room_name).first()
+        room = session.query(Raum).filter_by(id=raum_id).first()
         if not room:
             session.close()
-            return jsonify({"error": f"Raum '{room_name}' not found"}), 404
+            return jsonify({"error": f"Raum '{raum_id}' not found"}), 404
 
-        # 3. Vorherige Raum-Zuordnung(en) für diese Person löschen
         session.query(PersonToRaum).filter_by(person_id=person.id).delete()
 
-        # 4. Neue Verbindung anlegen mit x und y
         link = PersonToRaum(
             person_id=person.id,
             raum_id=room.id,
