@@ -294,27 +294,17 @@ class TransponderToRaum(Base):
 
 class ObjectKategorie(Base):
     __tablename__ = "object_kategorie"
-    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(Text)
-    objekte = relationship("Object", back_populates="kategorie")
-    
-    __table_args__ = (
-        UniqueConstraint("name", name="uq_object_kategorie_name"),
-    )
+    # keine relationship hier
 
 class Object(Base):
     __tablename__ = "object"
-    __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(Text)
     preis = Column(Float)
     kategorie_id = Column(Integer, ForeignKey("object_kategorie.id", ondelete="SET NULL"))
-    kategorie = relationship("ObjectKategorie", back_populates="objekte")
-    
-    __table_args__ = (
-        UniqueConstraint("name", "kategorie_id", name="uq_object_per_kategorie"),
-    )
+    kategorie = relationship("ObjectKategorie")
 
 class Lager(Base):
     __tablename__ = "lager"
