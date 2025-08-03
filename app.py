@@ -1556,119 +1556,32 @@ def delete_entry(table_name):
         session.close()
         return jsonify(success=False, error=str(e))
 
-def aggregate_view(
-    session,
-    base_query,
-    filter_funcs,
-    row_mapper,
-    request_filters,
-    title,
-    extra_context=None,
-    column_labels=None,
-    add_columns=None,
-):
-    """
-    session: SQLAlchemy Session
-    base_query: SQLAlchemy Query (z.B. session.query(Model).options(...))
-    filter_funcs: Liste von Funktionen (query, filters) -> query, um Filter anzuwenden
-    row_mapper: Funktion (db_obj) -> dict für eine Zeile
-    request_filters: dict mit key: (type, param_name) zum Auslesen von request.args
-    title: string für Titel im Template
-    extra_context: dict, zusätzliche Template-Variablen
-    column_labels: falls None, wird aus erster Zeile ermittelt
-    add_columns: Liste von Spalten, die an column_labels angehängt werden (z.B. "PDF")
-    """
-
-    try:
-        # Filter aus Request lesen
-        filters = {}
-        for key, (typ, param) in request_filters.items():
-            val = request.args.get(param)
-            if typ == bool:
-                filters[key] = (val == "1")
-            elif typ == int:
-                try:
-                    filters[key] = int(val)
-                except (ValueError, TypeError):
-                    filters[key] = None
-            else:  # str oder sonst
-                filters[key] = val if val is not None else None
-
-        # Filter auf Query anwenden
-        query = base_query
-        for f in filter_funcs:
-            query = f(query, filters)
-
-        # Query ausführen
-        data_list = query.all()
-
-        # Daten transformieren
-        rows = [row_mapper(obj) for obj in data_list]
-
-        if not rows:
-            column_labels_local = []
-        else:
-            column_labels_local = column_labels or list(rows[0].keys())
-
-        if add_columns:
-            column_labels_local += add_columns
-
-        # row_data für Template vorbereiten (Escape Strings, außer HTML-Input Felder)
-        row_data = []
-        for obj, row in zip(data_list, rows):
-            row_cells = []
-            for col in column_labels_local:
-                val = row.get(col, "-")
-                # Falls val ist ein Input (HTML), wird hier nicht escaped ->
-                # kannst eigene Logik ergänzen, z.B. per isinstance prüfen
-                if isinstance(val, str) and val.startswith('<input'):
-                    row_cells.append(val)  # safe rendern im Template
-                else:
-                    row_cells.append(escape(str(val)))
-            row_data.append(row_cells)
-
-        ctx = {
-            "title": title,
-            "column_labels": column_labels_local,
-            "row_data": row_data,
-            "filters": filters,
-            "url_for_view": request.endpoint and url_for(request.endpoint),
-        }
-
-        if extra_context:
-            ctx.update(extra_context)
-
-        return render_template("aggregate_view.html", **ctx)
-
-    except Exception as e:
-        app.logger.error(f"Fehler beim Laden der Aggregatsansicht '{title}': {e}")
-        return render_template("error.html", message="Fehler beim Laden der Daten.")
-@app.route("/aggregate/inventory")
-@login_required
-def aggregate_inventory_view():
-    session = Session()
-
-    base_query = session.query(Inventar).options(
-        joinedload(Inventar.besitzer),
-        joinedload(Inventar.ausgeber),
-        joinedload(Inventar.object).joinedload(Object.kategorie),
-        joinedload(Inventar.kostenstelle),
-        joinedload(Inventar.abteilung),
-        joinedload(Inventar.professur),
-        joinedload(Inventar.room)
-    )
-
-    def apply_filters(query, filters):
-        if filters.get("show_only_unreturned"):
-            query = query.filter(Inventar.rückgabedatum.is_(None))
-        if filters.get("besitzer_filter"):
-            query = query.filter(Inventar.besitzer_id == filters["besitzer_filter"])
-        if filters.get("ausgeber_filter"):
-            query = query.filter(Inventar.ausgeber_id == filters["ausgeber_filter"])
-        return query
-
-    def map_row(inv):
-        return {
+AGGREGATE_VIEWS = {
+    "inventory": {
+        "model": Inventar,
+        "title": "Inventarübersicht",
+        "options": [
+            joinedload(Inventar.besitzer),
+            joinedload(Inventar.ausgeber),
+            joinedload(Inventar.object).joinedload(Object.kategorie),
+            joinedload(Inventar.kostenstelle),
+            joinedload(Inventar.abteilung),
+            joinedload(Inventar.professur),
+            joinedload(Inventar.room),
+        ],
+        "filters": {
+            "show_only_unreturned": (bool, "unreturned"),
+            "besitzer_filter": (int, "besitzer"),
+            "ausgeber_filter": (int, "ausgeber"),
+        },
+        "filter_func": lambda q, f: (
+            q.filter(Inventar.rückgabedatum.is_(None)) if f.get("show_only_unreturned") else q
+        ).filter(
+            Inventar.besitzer_id == f["besitzer_filter"]
+        ) if f.get("besitzer_filter") else q.filter(
+            Inventar.ausgeber_id == f["ausgeber_filter"]
+        ) if f.get("ausgeber_filter") else q,
+        "map_func": lambda inv: {
             "ID": inv.id,
             "Seriennummer": inv.seriennummer or "-",
             "Objekt": inv.object.name if inv.object else "-",
@@ -1685,145 +1598,157 @@ def aggregate_inventory_view():
             "Preis": f"{inv.preis:.2f} €" if inv.preis is not None else "-",
             "Kommentar": inv.kommentar or "-"
         }
+    },
 
-    return aggregate_view(
-        session=session,
-        base_query=base_query,
-        filter_funcs=[apply_filters],
-        row_mapper=map_row,
-        request_filters={
-            "show_only_unreturned": (bool, "unreturned"),
-            "besitzer_filter": (int, "besitzer"),
-            "ausgeber_filter": (int, "ausgeber")
-        },
-        title="Inventarübersicht"
-    )
-@app.route("/aggregate/transponder")
-@login_required
-def aggregate_transponder_view():
-    session = Session()
-
-    base_query = session.query(Transponder).options(
-        joinedload(Transponder.besitzer),
-        joinedload(Transponder.ausgeber),
-        joinedload(Transponder.room_links)
-            .joinedload(TransponderToRaum.room)
-            .joinedload(Raum.building)
-    )
-
-    def apply_filters(query, filters):
-        if filters.get("show_only_unreturned"):
-            query = query.filter(Transponder.rückgabedatum.is_(None))
-        if filters.get("besitzer_id_filter"):
-            query = query.filter(Transponder.besitzer_id == filters["besitzer_id_filter"])
-        if filters.get("ausgeber_id_filter"):
-            query = query.filter(Transponder.ausgeber_id == filters["ausgeber_id_filter"])
-        return query
-
-    def map_row(t):
-        besitzer = t.besitzer_id
-        ausgeber = t.ausgeber_id
-
-        räume = [link.room for link in t.room_links if link.room]
-        buildings = list({r.building.name if r.building else "?" for r in räume})
-
-        besitzer_input = f'<input type="text" name="besitzer_id" data-update_info="transponder_{t.id}" value="{html.escape(str(besitzer))}" />'
-        ausgeber_input = f'<input type="text" name="ausgeber_id" data-update_info="transponder_{t.id}" value="{html.escape(str(ausgeber))}" />'
-
-        return {
-            "ID": t.id,
-            "Seriennummer": t.seriennummer or "-",
-            "Ausgegeben an": besitzer_input,
-            "Ausgegeben durch": ausgeber_input,
-            "Ausgabedatum": t.erhaltungsdatum.isoformat() if t.erhaltungsdatum else "-",
-            "Rückgabedatum": t.rückgabedatum.isoformat() if t.rückgabedatum else "Nicht zurückgegeben",
-            "Gebäude": ", ".join(sorted(buildings)) if buildings else "-",
-            "Räume": ", ".join(sorted(set(f"{r.name} ({r.etage}.OG)" for r in räume))) if räume else "-",
-            "Kommentar": t.kommentar or "-",
-        }
-
-    extra_context = {
-        "toggle_url": url_for(
-            "aggregate_transponder_view",
-            unreturned="0" if request.args.get("unreturned") == "1" else "1",
-            besitzer_id=request.args.get("besitzer_id", ""),
-            ausgeber_id=request.args.get("ausgeber_id", "")
-        )
-    }
-
-    return aggregate_view(
-        session=session,
-        base_query=base_query,
-        filter_funcs=[apply_filters],
-        row_mapper=map_row,
-        request_filters={
+    "transponder": {
+        "model": Transponder,
+        "title": "Ausgegebene Transponder",
+        "add_columns": ["PDF"],
+        "options": [
+            joinedload(Transponder.besitzer),
+            joinedload(Transponder.ausgeber),
+            joinedload(Transponder.room_links)
+                .joinedload(TransponderToRaum.room)
+                .joinedload(Raum.building)
+        ],
+        "filters": {
             "show_only_unreturned": (bool, "unreturned"),
             "besitzer_id_filter": (int, "besitzer_id"),
             "ausgeber_id_filter": (int, "ausgeber_id")
         },
-        title="Ausgegebene Transponder",
-        extra_context=extra_context,
-        add_columns=["PDF"]
-    )
+        "filter_func": lambda q, f: (
+            q.filter(Transponder.rückgabedatum.is_(None)) if f.get("show_only_unreturned") else q
+        ).filter(
+            Transponder.besitzer_id == f["besitzer_id_filter"]
+        ) if f.get("besitzer_id_filter") else q.filter(
+            Transponder.ausgeber_id == f["ausgeber_id_filter"]
+        ) if f.get("ausgeber_id_filter") else q,
+        "map_func": lambda t: {
+            "ID": t.id,
+            "Seriennummer": t.seriennummer or "-",
+            "Ausgegeben an": f'<input type="text" name="besitzer_id" data-update_info="transponder_{t.id}" value="{html.escape(str(t.besitzer_id))}" />',
+            "Ausgegeben durch": f'<input type="text" name="ausgeber_id" data-update_info="transponder_{t.id}" value="{html.escape(str(t.ausgeber_id))}" />',
+            "Ausgabedatum": t.erhaltungsdatum.isoformat() if t.erhaltungsdatum else "-",
+            "Rückgabedatum": t.rückgabedatum.isoformat() if t.rückgabedatum else "Nicht zurückgegeben",
+            "Gebäude": ", ".join(sorted({r.building.name if r.building else "?" for link in t.room_links if (r := link.room)})) or "-",
+            "Räume": ", ".join(sorted({f"{r.name} ({r.etage}.OG)" for link in t.room_links if (r := link.room)})) or "-",
+            "Kommentar": t.kommentar or "-"
+        },
+        "extra_context_func": lambda: {
+            "toggle_url": url_for(
+                "aggregate_transponder_view",
+                unreturned="0" if request.args.get("unreturned") == "1" else "1",
+                besitzer_id=request.args.get("besitzer_id", ""),
+                ausgeber_id=request.args.get("ausgeber_id", "")
+            )
+        }
+    },
+
+    "persons": {
+        "model": Person,
+        "title": "Personenübersicht",
+        "filters": {
+            "person_id_filter": (int, "person_id"),
+        },
+        "options": [
+            joinedload(Person.contacts),
+            joinedload(Person.räume)
+                .joinedload(PersonToRaum.room)
+                .joinedload(Raum.building),
+            joinedload(Person.departments),
+            joinedload(Person.person_abteilungen)
+                .joinedload(PersonToAbteilung.abteilung),
+            joinedload(Person.transponders_issued),
+            joinedload(Person.transponders_owned)
+        ],
+        "filter_func": lambda q, f: q.filter(Person.id == f["person_id_filter"]) if f.get("person_id_filter") else q,
+        "map_func": lambda p: {
+            "ID": p.id,
+            "Name": f"{p.title or ''} {p.first_name} {p.last_name}".strip(),
+            "Telefon(e)": ", ".join(sorted({c.phone for c in p.contacts if c.phone})) or "-",
+            "Fax(e)": ", ".join(sorted({c.fax for c in p.contacts if c.fax})) or "-",
+            "E-Mail(s)": ", ".join(sorted({c.email for c in p.contacts if c.email})) or "-",
+            "Räume": ", ".join(sorted({f"{r.name} ({r.etage}.OG, {r.building.name if r.building else '?'})" for link in p.räume if (r := link.room)})) or "-",
+            "Abteilungen": ", ".join(sorted({a.name for a in p.departments} | {pta.abteilung.name for pta in p.person_abteilungen})) or "-",
+            "Leiter von": ", ".join(sorted({a.name for a in p.departments})) or "-",
+            "Mitglied in": ", ".join(sorted({pta.abteilung.name for pta in p.person_abteilungen})) or "-",
+            "Kommentar": p.kommentar or "-"
+        }
+    }
+}
+
+def create_aggregate_view(view_id):
+    config = AGGREGATE_VIEWS[view_id]
+
+    def view_func():
+        session = Session()
+        query = session.query(config["model"]).options(*(config.get("options", [])))
+
+        # Filter auslesen
+        filters = {}
+        for key, (typ, param) in config.get("filters", {}).items():
+            val = request.args.get(param)
+            if typ == bool:
+                filters[key] = (val == "1")
+            elif typ == int:
+                try:
+                    filters[key] = int(val)
+                except (ValueError, TypeError):
+                    filters[key] = None
+            else:
+                filters[key] = val if val is not None else None
+
+        # Filterfunktion anwenden
+        query = config["filter_func"](query, filters)
+
+        # Daten abfragen & mappen
+        data_list = query.all()
+        rows = [config["map_func"](obj) for obj in data_list]
+        column_labels = list(rows[0].keys()) if rows else []
+
+        if "add_columns" in config:
+            column_labels += config["add_columns"]
+
+        row_data = []
+        for obj, row in zip(data_list, rows):
+            row_cells = []
+            for col in column_labels:
+                val = row.get(col, "-")
+                if isinstance(val, str) and val.startswith("<input"):
+                    row_cells.append(val)
+                else:
+                    row_cells.append(escape(str(val)))
+            row_data.append(row_cells)
+
+        ctx = {
+            "title": config["title"],
+            "column_labels": column_labels,
+            "row_data": row_data,
+            "filters": filters,
+            "url_for_view": request.endpoint and url_for(request.endpoint),
+        }
+
+        if "extra_context_func" in config:
+            ctx.update(config["extra_context_func"]())
+
+        return render_template("aggregate_view.html", **ctx)
+
+    return view_func
+
+@app.route("/aggregate/inventory")
+@login_required
+def aggregate_inventory_view():
+    return create_aggregate_view("inventory")()
+
+@app.route("/aggregate/transponder")
+@login_required
+def aggregate_transponder_view():
+    return create_aggregate_view("transponder")()
+
 @app.route("/aggregate/persons")
 @login_required
 def aggregate_persons_view():
-    session = Session()
-
-    base_query = session.query(Person).options(
-        joinedload(Person.contacts),
-        joinedload(Person.räume).joinedload(PersonToRaum.room).joinedload(Raum.building),
-        joinedload(Person.departments),
-        joinedload(Person.person_abteilungen).joinedload(PersonToAbteilung.abteilung),
-        joinedload(Person.transponders_issued),
-        joinedload(Person.transponders_owned)
-    )
-
-    def apply_filters(query, filters):
-        if filters.get("person_id_filter"):
-            query = query.filter(Person.id == filters["person_id_filter"])
-        return query
-
-    def map_row(p):
-        full_name = f"{p.title or ''} {p.first_name} {p.last_name}".strip()
-
-        phones = sorted({c.phone for c in p.contacts if c.phone})
-        faxes = sorted({c.fax for c in p.contacts if c.fax})
-        emails = sorted({c.email for c in p.contacts if c.email})
-
-        räume = [link.room for link in p.räume if link.room]
-        room_strs = sorted(set(
-            f"{r.name} ({r.etage}.OG, {r.building.name if r.building else '?'})"
-            for r in räume
-        ))
-
-        abteilungen_leiter = {a.name for a in p.departments}
-        abteilungen_mitglied = {pta.abteilung.name for pta in p.person_abteilungen}
-        alle_abteilungen = sorted(abteilungen_leiter | abteilungen_mitglied)
-
-        return {
-            "ID": p.id,
-            "Name": full_name,
-            "Telefon(e)": ", ".join(phones) if phones else "-",
-            "Fax(e)": ", ".join(faxes) if faxes else "-",
-            "E-Mail(s)": ", ".join(emails) if emails else "-",
-            "Räume": ", ".join(room_strs) if room_strs else "-",
-            "Abteilungen": ", ".join(alle_abteilungen) if alle_abteilungen else "-",
-            "Leiter von": ", ".join(sorted(abteilungen_leiter)) if abteilungen_leiter else "-",
-            "Mitglied in": ", ".join(sorted(abteilungen_mitglied)) if abteilungen_mitglied else "-",
-            "Kommentar": p.kommentar or "-"
-        }
-
-    return aggregate_view(
-        session=session,
-        base_query=base_query,
-        filter_funcs=[apply_filters],
-        row_mapper=map_row,
-        request_filters={
-            "person_id_filter": (int, "person_id"),
-        },
-        title="Personenübersicht"
-    )
+    return create_aggregate_view("persons")()
 
 def _create_room_name(r):
     if r:
