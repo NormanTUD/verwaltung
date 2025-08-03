@@ -1,27 +1,21 @@
 if (!("log" in window)) {
     window.log = console.log;
 }
+
 async function getNamesConfig() {
-  try {
-    const response = await fetch("/api/get_replace_configs");
-    if (!response.ok) {
-      error(`Failed to load config: ${response.status} ${response.statusText}`);
-      return null;
-    }
-    const names = await response.json();
+	try {
+		const response = await fetch("/api/get_replace_configs");
+		if (!response.ok) {
+			error(`Failed to load config: ${response.status} ${response.statusText}`);
+			return null;
+		}
+		const names = await response.json();
 
-    // Alias person_id keys wie bisher
-    if (names["person_id"]) {
-      names["issuer_id"] = names["person_id"];
-      names["owner_id"] = names["person_id"];
-      names["abteilungsleiter_id"] = names["person_id"];
-    }
-
-    return names;
-  } catch (err) {
-    error(`Error loading config: ${err.message}`);
-    return null;
-  }
+		return names;
+	} catch (err) {
+		error(`Error loading config: ${err.message}`);
+		return null;
+	}
 }
 
 function getElementsByName(name) {
@@ -250,15 +244,18 @@ async function replace_id_fields_with_proper_fields() {
 	var names = await getNamesConfig();
 
 	for (let name of Object.keys(names)) {
-		var elements = getElementsByName(name);
+		var elementsExact = getElementsByName(name);
+		var elementsArray = getElementsByName(name + "[]");
 
-		// Wichtig: jedes element separat mit eigenem Kontext behandeln
+		var elements = Array.from(elementsExact).concat(Array.from(elementsArray));
+
 		for (let k = 0; k < elements.length; k++) {
 			let element = $(elements[k]);
 			let config = names[name];
 			replaceFieldsForElement(element, name, config);
 		}
 	}
+
 
 	applyInvertFilterToElements(theme);
 }
