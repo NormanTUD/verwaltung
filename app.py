@@ -2201,55 +2201,6 @@ def wizard_person():
         form_data=form_data
     )
 
-@app.route("/get_floorplan", methods=["GET"])
-def get_floorplan():
-    building_id_param = request.args.get("building_id")
-    etage_param = request.args.get("etage")
-
-    try:
-        building_id = int(building_id_param) if building_id_param is not None else None
-        etage = int(etage_param) if etage_param is not None else None
-    except ValueError:
-        return jsonify({"error": "Invalid 'building_id' or 'etage' – must be integers"}), 400
-
-    if building_id is None or etage is None:
-        return jsonify({"error": "Both 'building_id' and 'etage' parameters are required"}), 400
-
-    session = Session()
-    try:
-        query = session.query(Raum).join(Raum.layout).filter(
-            Raum.building_id == building_id,
-            Raum.etage == etage
-        )
-
-        rooms = query.all()
-
-        result = []
-        for room in rooms:
-            layout = room.layout
-            if layout is None:
-                continue  # skip rooms without layout
-
-            result.append({
-                "id": f"r{room.id}",
-                "name": room.name,
-                "x": layout.x,
-                "y": layout.y,
-                "width": layout.width,
-                "height": layout.height,
-                "guid": room.guid,
-                "building_id": room.building_id,
-                "etage": room.etage
-            })
-
-        return jsonify(result), 200
-
-    except SQLAlchemyError as e:
-        return jsonify({"error": str(e)}), 500
-
-    finally:
-        session.close()
-
 @app.route("/map-editor")
 @login_required
 def map_editor():
@@ -2969,7 +2920,7 @@ def gui_edit(handler_name):
     finally:
         handler.session.close()
 
-@app.route('/etageplan')
+@app.route('/floorplan')
 @login_required
 def etageplan():
     session = Session()
@@ -2991,7 +2942,7 @@ def etageplan():
         return "Invalid 'building_id' or 'etage' – must be integers", 400
 
     # Lade alle verfügbaren Gebäude & Etagen
-    etageplan_dir = os.path.join("static", "floorplan")
+    etageplan_dir = os.path.join("static", "floorplans")
     building_map = {}
 
     for filename in os.listdir(etageplan_dir):
@@ -3022,7 +2973,7 @@ def etageplan():
     if building_id is None or etage is None:
         session.close()
         return render_template(
-            "etageplan.html",
+            "floorplan.html",
             image_url=None,
             image_width=None,
             image_height=None,
@@ -3034,7 +2985,7 @@ def etageplan():
 
     # Prüfe, ob Bild existiert
     filename = f"b{building_id}_f{etage}.png"
-    image_path = os.path.join("static", "floorplan", filename)
+    image_path = os.path.join("static", "floorplans", filename)
 
     if not os.path.exists(image_path):
         return f"Image not found: {filename}", 404
@@ -3048,7 +2999,7 @@ def etageplan():
 
     # Template mit Bild rendern
     return render_template(
-        "etageplan.html",
+        "floorplan.html",
         image_url=f"/static/floorplans/{filename}",
         image_width=width,
         image_height=height,
@@ -3204,9 +3155,9 @@ def _save_room_set_layout(session, room, v):
         )
         session.add(layout)
 
-@app.route("/get_etageplan", methods=["GET"])
+@app.route("/get_floorplan", methods=["GET"])
 @login_required
-def get_etageplan():
+def get_floorplan():
     session = Session()
 
     building_id_param = request.args.get("building_id")
