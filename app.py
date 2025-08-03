@@ -66,7 +66,7 @@ def restart_with_venv():
         sys.exit(1)
 
 try:
-    from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context
+    from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context, Response
     from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 
     from sqlalchemy import create_engine, inspect, Date, DateTime, text, func, event
@@ -696,7 +696,6 @@ def is_admin_user(session=None) -> bool:
         session.close()
         return False
 
-from flask import render_template
 
 def admin_required(f):
     @wraps(f)
@@ -3881,7 +3880,6 @@ def update_transponder_field():
         session.close()
     
 def _readonly_block_check():
-    from flask_login import current_user
     if getattr(current_user, 'readonly', False):
         raise RuntimeError("Schreiboperationen sind deaktiviert: Benutzer ist im Readonly-Modus.")
 
@@ -3898,6 +3896,81 @@ def block_writes_if_user_readonly(session, flush_context, instances):
     except Exception:
         # Kein Flask-Kontext (z. B. bei Alembic), dann ignorieren
         pass
+
+@app.route("/api/get_replace_configs")
+def get_replace_configs_json():
+    def make_api_url(name): return f"/api/get_{name}_names"
+
+    SPECIAL_CASES = {
+        "room": {
+            "key": "raum_id",
+            "label": "Gebäude+Raum",
+            "fields": {
+                "gebäudename": {
+                    "name": "Gebäudename",
+                    "type": "select",
+                    "options_url": "/api/get_building_names"
+                },
+                "raumname": {
+                    "name": "Raumname",
+                    "type": "text"
+                }
+            },
+            "url": "/api/get_room_id?building_name={building_name}&room_name={room_name}"
+        }
+    }
+
+    def extract_foreign_keys(model):
+        result = {}
+        inspected = inspect(model)
+
+        for rel in inspected.relationships:
+            target = rel.mapper.class_
+            fk_column = list(rel.local_columns)[0]
+            fk_name = fk_column.name
+            if hasattr(target, "__tablename__"):
+                target_table = target.__tablename__
+
+                if target_table in SPECIAL_CASES:
+                    special = SPECIAL_CASES[target_table]
+                    result[special["key"]] = special
+                    continue
+
+                result[fk_name] = {
+                    "fields": {
+                        fk_name: {
+                            "name": target_table.capitalize(),
+                            "type": "select",
+                            "options_url_id_dict": make_api_url(target_table)
+                        }
+                    },
+                    "label": target_table.capitalize()
+                }
+
+        return result
+
+    def is_valid_model(cls):
+        return (
+            isinstance(cls, type)
+            and hasattr(cls, "__tablename__")
+            and not cls.__name__.endswith("Version")
+        )
+
+    MODELS = [
+        mapper.class_
+        for mapper in Base.registry.mappers
+        if is_valid_model(mapper.class_)
+    ]
+
+    names = {}
+    for model in MODELS:
+        names.update(extract_foreign_keys(model))
+
+    if "person_id" in names:
+        for alias in ["issuer_id", "owner_id", "abteilungsleiter_id"]:
+            names[alias] = names["person_id"]
+
+    return jsonify(names)
 
 event.listen(Session, "before_flush", block_writes_if_user_readonly)
 event.listen(Session, "before_flush", block_writes_if_data_version_cookie_set)

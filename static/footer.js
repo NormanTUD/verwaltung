@@ -1,100 +1,27 @@
 if (!("log" in window)) {
     window.log = console.log;
 }
+async function getNamesConfig() {
+  try {
+    const response = await fetch("/api/get_replace_configs");
+    if (!response.ok) {
+      error(`Failed to load config: ${response.status} ${response.statusText}`);
+      return null;
+    }
+    const names = await response.json();
 
-function getNamesConfig() {
-	var names = {
-		raum_id: {
-			fields: {
-				"gebäudename": {
-					name: "Gebäudename",
-					type: "select",
-					options_url: "/api/get_building_names"
-				},
-				"raumname": {
-					name: "Raumname",
-					type: "text"
-				}
-			},
-			label: "Gebäude+Raum",
-			url: "/api/get_room_id?building_name={building_name}&room_name={room_name}"
-		},
-		person_id: {
-			fields: {
-				"person_name": {
-					name: "Person",
-					type: "select",
-					options_url_id_dict: "/api/get_person_names"
-				},
-			}
-		},
-		kostenstelle_id: {
-			fields: {
-				kostenstelle_id: {
-					name: "Objekt",
-					type: "select",
-					options_url_id_dict: "/api/get_kostenstelle_names"
-				}
-			},
-			label: "Kostenstelle"
-		},
-		lager_id: {
-			fields: {
-				"lager_id": {
-					name: "Lager",
-					type: "select",
-					options_url_id_dict: "/api/get_lager_names"
-				}
-			},
-			label: "Lager"
-		},
-		object_id: {
-			fields: {
-				"object_id": {
-					name: "Objekt",
-					type: "select",
-					options_url_id_dict: "/api/get_object_names"
-				}
-			},
-			label: "Objekt"
-		},
-		category_id: {
-			fields: {
-				category_id: {
-					name: "Kategorie",
-					type: "select",
-					options_url_id_dict: "/api/get_category_names"
-				}
-			},
-			label: "Kategorie"
-		},
-		professur_id: {
-			fields: {
-				professur_id: {
-					name: "Professur",
-					type: "select",
-					options_url_id_dict: "/api/get_professur_names"
-				}
-			},
-			label: "Professur"
-		},
-		abteilung_id: {
-			fields: {
-				abteilung_id: {
-					name: "Abteilung",
-					type: "select",
-					options_url_id_dict: "/api/get_abteilung_names"
-				}
-			},
-			label: "Abteilung"
-		}
-	};
+    // Alias person_id keys wie bisher
+    if (names["person_id"]) {
+      names["issuer_id"] = names["person_id"];
+      names["owner_id"] = names["person_id"];
+      names["abteilungsleiter_id"] = names["person_id"];
+    }
 
-	names['issuer_id'] = names['person_id'];
-	names['owner_id'] = names['person_id'];
-	names['abteilungsleiter_id'] = names['person_id'];
-
-	return names;
+    return names;
+  } catch (err) {
+    error(`Error loading config: ${err.message}`);
+    return null;
+  }
 }
 
 function getElementsByName(name) {
@@ -319,8 +246,8 @@ function replaceFieldsForElement(element, name, config) {
 	onInputChange();
 }
 
-function replace_id_fields_with_proper_fields() {
-	var names = getNamesConfig();
+async function replace_id_fields_with_proper_fields() {
+	var names = await getNamesConfig();
 
 	for (let name of Object.keys(names)) {
 		var elements = getElementsByName(name);
@@ -338,23 +265,23 @@ function replace_id_fields_with_proper_fields() {
 
 
 $( document ).ready(function() {
-	replace_id_fields_with_proper_fields();
+	replace_id_fields_with_proper_fields().then(() => {
+		$('.module-toggle').on('change', function () {
+			var target = $(this).data('target');
+			if ($(this).is(':checked')) {
+				$(target).slideDown(200);
+			} else {
+				$(target).slideUp(200);
+			}
+		});
 
-	$('.module-toggle').on('change', function () {
-		var target = $(this).data('target');
-		if ($(this).is(':checked')) {
-			$(target).slideDown(200);
-		} else {
-			$(target).slideUp(200);
-		}
-	});
-
-	// Initialstatus erzwingen
-	$('.module-toggle').each(function () {
-		var target = $(this).data('target');
-		if (!$(this).is(':checked')) {
-			$(target).hide();
-		}
+		// Initialstatus erzwingen
+		$('.module-toggle').each(function () {
+			var target = $(this).data('target');
+			if (!$(this).is(':checked')) {
+				$(target).hide();
+			}
+		});
 	});
 });
 
