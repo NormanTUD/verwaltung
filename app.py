@@ -1556,291 +1556,274 @@ def delete_entry(table_name):
         session.close()
         return jsonify(success=False, error=str(e))
 
+def aggregate_view(
+    session,
+    base_query,
+    filter_funcs,
+    row_mapper,
+    request_filters,
+    title,
+    extra_context=None,
+    column_labels=None,
+    add_columns=None,
+):
+    """
+    session: SQLAlchemy Session
+    base_query: SQLAlchemy Query (z.B. session.query(Model).options(...))
+    filter_funcs: Liste von Funktionen (query, filters) -> query, um Filter anzuwenden
+    row_mapper: Funktion (db_obj) -> dict für eine Zeile
+    request_filters: dict mit key: (type, param_name) zum Auslesen von request.args
+    title: string für Titel im Template
+    extra_context: dict, zusätzliche Template-Variablen
+    column_labels: falls None, wird aus erster Zeile ermittelt
+    add_columns: Liste von Spalten, die an column_labels angehängt werden (z.B. "PDF")
+    """
+
+    try:
+        # Filter aus Request lesen
+        filters = {}
+        for key, (typ, param) in request_filters.items():
+            val = request.args.get(param)
+            if typ == bool:
+                filters[key] = (val == "1")
+            elif typ == int:
+                try:
+                    filters[key] = int(val)
+                except (ValueError, TypeError):
+                    filters[key] = None
+            else:  # str oder sonst
+                filters[key] = val if val is not None else None
+
+        # Filter auf Query anwenden
+        query = base_query
+        for f in filter_funcs:
+            query = f(query, filters)
+
+        # Query ausführen
+        data_list = query.all()
+
+        # Daten transformieren
+        rows = [row_mapper(obj) for obj in data_list]
+
+        if not rows:
+            column_labels_local = []
+        else:
+            column_labels_local = column_labels or list(rows[0].keys())
+
+        if add_columns:
+            column_labels_local += add_columns
+
+        # row_data für Template vorbereiten (Escape Strings, außer HTML-Input Felder)
+        row_data = []
+        for obj, row in zip(data_list, rows):
+            row_cells = []
+            for col in column_labels_local:
+                val = row.get(col, "-")
+                # Falls val ist ein Input (HTML), wird hier nicht escaped ->
+                # kannst eigene Logik ergänzen, z.B. per isinstance prüfen
+                if isinstance(val, str) and val.startswith('<input'):
+                    row_cells.append(val)  # safe rendern im Template
+                else:
+                    row_cells.append(escape(str(val)))
+            row_data.append(row_cells)
+
+        ctx = {
+            "title": title,
+            "column_labels": column_labels_local,
+            "row_data": row_data,
+            "filters": filters,
+            "url_for_view": request.endpoint and url_for(request.endpoint),
+        }
+
+        if extra_context:
+            ctx.update(extra_context)
+
+        return render_template("aggregate_view.html", **ctx)
+
+    except Exception as e:
+        app.logger.error(f"Fehler beim Laden der Aggregatsansicht '{title}': {e}")
+        return render_template("error.html", message="Fehler beim Laden der Daten.")
 @app.route("/aggregate/inventory")
 @login_required
 def aggregate_inventory_view():
-    session = None
-    try:
-        session = Session()
+    session = Session()
 
-        # Query-Parameter auslesen
-        show_only_unreturned = request.args.get("unreturned") == "1"
-        besitzer_filter = request.args.get("besitzer", type=int)
-        ausgeber_filter = request.args.get("ausgeber", type=int)
+    base_query = session.query(Inventar).options(
+        joinedload(Inventar.besitzer),
+        joinedload(Inventar.ausgeber),
+        joinedload(Inventar.object).joinedload(Object.kategorie),
+        joinedload(Inventar.kostenstelle),
+        joinedload(Inventar.abteilung),
+        joinedload(Inventar.professur),
+        joinedload(Inventar.room)
+    )
 
-        # Grundquery mit Joins
-        query = session.query(Inventar) \
-            .options(
-                joinedload(Inventar.besitzer),
-                joinedload(Inventar.ausgeber),
-                joinedload(Inventar.object).joinedload(Object.kategorie),
-                joinedload(Inventar.kostenstelle),
-                joinedload(Inventar.abteilung),
-                joinedload(Inventar.professur),
-                joinedload(Inventar.room)
-            )
-
-        # Filter anwenden
-        if show_only_unreturned:
+    def apply_filters(query, filters):
+        if filters.get("show_only_unreturned"):
             query = query.filter(Inventar.rückgabedatum.is_(None))
+        if filters.get("besitzer_filter"):
+            query = query.filter(Inventar.besitzer_id == filters["besitzer_filter"])
+        if filters.get("ausgeber_filter"):
+            query = query.filter(Inventar.ausgeber_id == filters["ausgeber_filter"])
+        return query
 
-        if besitzer_filter:
-            query = query.filter(Inventar.besitzer_id == besitzer_filter)
+    def map_row(inv):
+        return {
+            "ID": inv.id,
+            "Seriennummer": inv.seriennummer or "-",
+            "Objekt": inv.object.name if inv.object else "-",
+            "Kategorie": _get_kategorie_name(inv.object.kategorie) if inv.object else "-",
+            "Anlagennummer": inv.anlagennummer or "-",
+            "Ausgegeben an": _get_person_name(inv.besitzer),
+            "Ausgegeben durch": _get_person_name(inv.ausgeber),
+            "Ausgabedatum": inv.erhaltungsdatum.isoformat() if inv.erhaltungsdatum else "-",
+            "Rückgabedatum": inv.rückgabedatum.isoformat() if inv.rückgabedatum else "Nicht zurückgegeben",
+            "Raum": _create_room_name(inv.room),
+            "Abteilung": _get_abteilung_name(inv.abteilung),
+            "Professur": _get_professur_name(inv.professur),
+            "Kostenstelle": _get_kostenstelle_name(inv.kostenstelle),
+            "Preis": f"{inv.preis:.2f} €" if inv.preis is not None else "-",
+            "Kommentar": inv.kommentar or "-"
+        }
 
-        if ausgeber_filter:
-            query = query.filter(Inventar.ausgeber_id == ausgeber_filter)
-
-        inventory_list = query.all()
-
-        rows = []
-        for inv in inventory_list:
-            row = {
-                "ID": inv.id,
-                "Seriennummer": inv.seriennummer or "-",
-                "Objekt": inv.object.name if inv.object else "-",
-                "Kategorie": _get_kategorie_name(inv.object.kategorie) if inv.object else "-",
-                "Anlagennummer": inv.anlagennummer or "-",
-                "Ausgegeben an": _get_person_name(inv.besitzer),
-                "Ausgegeben durch": _get_person_name(inv.ausgeber),
-                "Ausgabedatum": inv.erhaltungsdatum.isoformat() if inv.erhaltungsdatum else "-",
-                "Rückgabedatum": inv.rückgabedatum.isoformat() if inv.rückgabedatum else "Nicht zurückgegeben",
-                "Raum": _create_room_name(inv.room),
-                "Abteilung": _get_abteilung_name(inv.abteilung),
-                "Professur": _get_professur_name(inv.professur),
-                "Kostenstelle": _get_kostenstelle_name(inv.kostenstelle),
-                "Preis": f"{inv.preis:.2f} €" if inv.preis is not None else "-",
-                "Kommentar": inv.kommentar or "-"
-            }
-            rows.append(row)
-
-        people_query = session.query(Person).order_by(Person.last_name, Person.first_name).all()
-        people = [{"id": p.id, "name": f"{p.first_name} {p.last_name}"} for p in people_query]
-
-        column_labels = list(rows[0].keys()) if rows else []
-        row_data = [[escape(str(row[col])) for col in column_labels] for row in rows]
-
-        session.close()
-        return render_template(
-            "aggregate_view.html",
-            title="Inventarübersicht",
-            column_labels=column_labels,
-            row_data=row_data,
-            filters={
-                "unreturned": show_only_unreturned,
-                "besitzer": besitzer_filter,
-                "ausgeber": ausgeber_filter,
-            },
-            people=people,
-            url_for_view=url_for("aggregate_inventory_view")
-        )
-    except Exception as e:
-        app.logger.error(f"Fehler beim Laden der Inventar-Aggregatsansicht: {e}")
-        session.close()
-        return render_template("error.html", message="Fehler beim Laden der Daten.")
-
-
+    return aggregate_view(
+        session=session,
+        base_query=base_query,
+        filter_funcs=[apply_filters],
+        row_mapper=map_row,
+        request_filters={
+            "show_only_unreturned": (bool, "unreturned"),
+            "besitzer_filter": (int, "besitzer"),
+            "ausgeber_filter": (int, "ausgeber")
+        },
+        title="Inventarübersicht"
+    )
 @app.route("/aggregate/transponder")
 @login_required
 def aggregate_transponder_view():
-    session = None
-    try:
-        session = Session()
+    session = Session()
 
-        show_only_unreturned = request.args.get("unreturned") == "1"
-        besitzer_id_filter = request.args.get("besitzer_id", "").strip()
-        ausgeber_id_filter = request.args.get("ausgeber_id", "").strip()
+    base_query = session.query(Transponder).options(
+        joinedload(Transponder.besitzer),
+        joinedload(Transponder.ausgeber),
+        joinedload(Transponder.room_links)
+            .joinedload(TransponderToRaum.room)
+            .joinedload(Raum.building)
+    )
 
-        query = session.query(Transponder) \
-            .options(
-                joinedload(Transponder.besitzer),
-                joinedload(Transponder.ausgeber),
-                joinedload(Transponder.room_links)
-                    .joinedload(TransponderToRaum.room)
-                    .joinedload(Raum.building)
-            )
-
-        if show_only_unreturned:
+    def apply_filters(query, filters):
+        if filters.get("show_only_unreturned"):
             query = query.filter(Transponder.rückgabedatum.is_(None))
+        if filters.get("besitzer_id_filter"):
+            query = query.filter(Transponder.besitzer_id == filters["besitzer_id_filter"])
+        if filters.get("ausgeber_id_filter"):
+            query = query.filter(Transponder.ausgeber_id == filters["ausgeber_id_filter"])
+        return query
 
-        if besitzer_id_filter:
-            try:
-                besitzer_id_int = int(besitzer_id_filter)
-                query = query.filter(Transponder.besitzer_id == besitzer_id_int)
-            except ValueError:
-                # Ungültige Eingabe ignorieren
-                pass
+    def map_row(t):
+        besitzer = t.besitzer_id
+        ausgeber = t.ausgeber_id
 
-        if ausgeber_id_filter:
-            try:
-                ausgeber_id_int = int(ausgeber_id_filter)
-                query = query.filter(Transponder.ausgeber_id == ausgeber_id_int)
-            except ValueError:
-                pass
+        räume = [link.room for link in t.room_links if link.room]
+        buildings = list({r.building.name if r.building else "?" for r in räume})
 
-        transponder_list = query.all()
+        besitzer_input = f'<input type="text" name="besitzer_id" data-update_info="transponder_{t.id}" value="{html.escape(str(besitzer))}" />'
+        ausgeber_input = f'<input type="text" name="ausgeber_id" data-update_info="transponder_{t.id}" value="{html.escape(str(ausgeber))}" />'
 
-        rows = []
-        for t in transponder_list:
-            besitzer = t.besitzer_id
-            ausgeber = t.ausgeber_id
-
-            print(f"besitzer: {besitzer}")
-            print(f"ausgeber: {ausgeber}")
-
-            räume = [link.room for link in t.room_links if link.room]
-            buildings = list({r.building.name if r.building else "?" for r in räume})
-
-            # Input-Felder für besitzer_id und ausgeber_id
-            besitzer_input = f'<input type="text" name="besitzer_id" data-update_info="transponder_{t.id}" value="{html.escape(str(besitzer))}" />'
-            ausgeber_input = f'<input type="text" name="ausgeber_id" data-update_info="transponder_{t.id}" value="{html.escape(str(ausgeber))}" />'
-
-            row = {
-                "ID": t.id,
-                "Seriennummer": t.seriennummer or "-",
-                "Ausgegeben an": besitzer_input,
-                "Ausgegeben durch": ausgeber_input,
-                "Ausgabedatum": t.erhaltungsdatum.isoformat() if t.erhaltungsdatum else "-",
-                "Rückgabedatum": t.rückgabedatum.isoformat() if t.rückgabedatum else "Nicht zurückgegeben",
-                "Gebäude": ", ".join(sorted(buildings)) if buildings else "-",
-                "Räume": ", ".join(sorted(set(f"{r.name} ({r.etage}.OG)" for r in räume))) if räume else "-",
-                "Kommentar": t.kommentar or "-",
-            }
-            rows.append(row)
-
-        column_labels = list(rows[0].keys()) if rows else []
-        column_labels.append("PDF")
-
-        # row_data als Liste von Listen für Template
-        row_data = []
-        for t, row in zip(transponder_list, rows):
-            besitzer = t.besitzer
-            ausgeber = t.ausgeber
-
-            # Alle Spalten außer PDF escapen NICHT, da Inputs als HTML kommen -> safe rendern im Template
-            row_cells = []
-            for col in column_labels:
-                if col == "PDF":
-                    pdf_link = (
-                        f"<a href='http://localhost:5000/generate_pdf/schliessmedien/?"
-                        f"ausgeber_id={html.escape(str(ausgeber.id)) if ausgeber else ''}&"
-                        f"besitzer_id={html.escape(str(besitzer.id)) if besitzer else ''}&"
-                        f"transponder_id={t.id}'>"
-                        f"<img src='../static/pdf.svg' height=32 width=32></a>"
-                    )
-                    row_cells.append(pdf_link)
-                else:
-                    # row[col] enthält Input HTML oder normalen String
-                    row_cells.append(row[col])
-
-            row_data.append(row_cells)
-
-        filters = {
-            "Nur nicht zurückgegebene anzeigen": show_only_unreturned,
-            "besitzer_id": besitzer_id_filter,
-            "ausgeber_id": ausgeber_id_filter
+        return {
+            "ID": t.id,
+            "Seriennummer": t.seriennummer or "-",
+            "Ausgegeben an": besitzer_input,
+            "Ausgegeben durch": ausgeber_input,
+            "Ausgabedatum": t.erhaltungsdatum.isoformat() if t.erhaltungsdatum else "-",
+            "Rückgabedatum": t.rückgabedatum.isoformat() if t.rückgabedatum else "Nicht zurückgegeben",
+            "Gebäude": ", ".join(sorted(buildings)) if buildings else "-",
+            "Räume": ", ".join(sorted(set(f"{r.name} ({r.etage}.OG)" for r in räume))) if räume else "-",
+            "Kommentar": t.kommentar or "-",
         }
 
-        return render_template(
-            "aggregate_view.html",
-            title="Ausgegebene Transponder",
-            column_labels=column_labels,
-            row_data=row_data,
-            filters=filters,
-            toggle_url=url_for(
-                "aggregate_transponder_view",
-                unreturned="0" if show_only_unreturned else "1",
-                besitzer_id=besitzer_id_filter,
-                ausgeber_id=ausgeber_id_filter
-            )
+    extra_context = {
+        "toggle_url": url_for(
+            "aggregate_transponder_view",
+            unreturned="0" if request.args.get("unreturned") == "1" else "1",
+            besitzer_id=request.args.get("besitzer_id", ""),
+            ausgeber_id=request.args.get("ausgeber_id", "")
         )
+    }
 
-    except Exception as e:
-        app.logger.error(f"Fehler beim Laden der Transponder-Aggregatsansicht: {e}")
-        if session:
-            session.close()
-        return render_template("error.html", message="Fehler beim Laden der Daten.")
-
-    finally:
-        if session:
-            session.close()
-    
+    return aggregate_view(
+        session=session,
+        base_query=base_query,
+        filter_funcs=[apply_filters],
+        row_mapper=map_row,
+        request_filters={
+            "show_only_unreturned": (bool, "unreturned"),
+            "besitzer_id_filter": (int, "besitzer_id"),
+            "ausgeber_id_filter": (int, "ausgeber_id")
+        },
+        title="Ausgegebene Transponder",
+        extra_context=extra_context,
+        add_columns=["PDF"]
+    )
 @app.route("/aggregate/persons")
 @login_required
 def aggregate_persons_view():
-    session = None
-    try:
-        session = Session()
+    session = Session()
 
-        person_id_filter = request.args.get("person_id", type=int)
+    base_query = session.query(Person).options(
+        joinedload(Person.contacts),
+        joinedload(Person.räume).joinedload(PersonToRaum.room).joinedload(Raum.building),
+        joinedload(Person.departments),
+        joinedload(Person.person_abteilungen).joinedload(PersonToAbteilung.abteilung),
+        joinedload(Person.transponders_issued),
+        joinedload(Person.transponders_owned)
+    )
 
-        people_query = session.query(Person) \
-            .options(
-                joinedload(Person.contacts),
-                joinedload(Person.räume).joinedload(PersonToRaum.room).joinedload(Raum.building),
-                joinedload(Person.departments),
-                joinedload(Person.person_abteilungen).joinedload(PersonToAbteilung.abteilung),
-                joinedload(Person.transponders_issued),
-                joinedload(Person.transponders_owned)
-            )
+    def apply_filters(query, filters):
+        if filters.get("person_id_filter"):
+            query = query.filter(Person.id == filters["person_id_filter"])
+        return query
 
-        if person_id_filter:
-            people_query = people_query.filter(Person.id == person_id_filter)
+    def map_row(p):
+        full_name = f"{p.title or ''} {p.first_name} {p.last_name}".strip()
 
-        people = people_query.all()
+        phones = sorted({c.phone for c in p.contacts if c.phone})
+        faxes = sorted({c.fax for c in p.contacts if c.fax})
+        emails = sorted({c.email for c in p.contacts if c.email})
 
-        rows = []
-        for p in people:
-            full_name = f"{p.title or ''} {p.first_name} {p.last_name}".strip()
+        räume = [link.room for link in p.räume if link.room]
+        room_strs = sorted(set(
+            f"{r.name} ({r.etage}.OG, {r.building.name if r.building else '?'})"
+            for r in räume
+        ))
 
-            phones = sorted({c.phone for c in p.contacts if c.phone})
-            faxes = sorted({c.fax for c in p.contacts if c.fax})
-            emails = sorted({c.email for c in p.contacts if c.email})
+        abteilungen_leiter = {a.name for a in p.departments}
+        abteilungen_mitglied = {pta.abteilung.name for pta in p.person_abteilungen}
+        alle_abteilungen = sorted(abteilungen_leiter | abteilungen_mitglied)
 
-            räume = [link.room for link in p.räume if link.room]
-            room_strs = sorted(set(
-                f"{r.name} ({r.etage}.OG, {r.building.name if r.building else '?'})"
-                for r in räume
-            ))
+        return {
+            "ID": p.id,
+            "Name": full_name,
+            "Telefon(e)": ", ".join(phones) if phones else "-",
+            "Fax(e)": ", ".join(faxes) if faxes else "-",
+            "E-Mail(s)": ", ".join(emails) if emails else "-",
+            "Räume": ", ".join(room_strs) if room_strs else "-",
+            "Abteilungen": ", ".join(alle_abteilungen) if alle_abteilungen else "-",
+            "Leiter von": ", ".join(sorted(abteilungen_leiter)) if abteilungen_leiter else "-",
+            "Mitglied in": ", ".join(sorted(abteilungen_mitglied)) if abteilungen_mitglied else "-",
+            "Kommentar": p.kommentar or "-"
+        }
 
-            abteilungen_leiter = {a.name for a in p.departments}
-            abteilungen_mitglied = {pta.abteilung.name for pta in p.person_abteilungen}
-            alle_abteilungen = sorted(abteilungen_leiter | abteilungen_mitglied)
-
-            row = {
-                "ID": p.id,
-                "Name": full_name,
-                "Telefon(e)": ", ".join(phones) if phones else "-",
-                "Fax(e)": ", ".join(faxes) if faxes else "-",
-                "E-Mail(s)": ", ".join(emails) if emails else "-",
-                "Räume": ", ".join(room_strs) if room_strs else "-",
-                "Abteilungen": ", ".join(alle_abteilungen) if alle_abteilungen else "-",
-                "Leiter von": ", ".join(sorted(abteilungen_leiter)) if abteilungen_leiter else "-",
-                "Ausgegebene Transponder": str(len(p.transponders_issued)),
-                "Erhaltene Transponder": str(len(p.transponders_owned)),
-                "Kommentar": p.kommentar or "-"
-            }
-            rows.append(row)
-
-        column_labels = list(rows[0].keys()) if rows else []
-        row_data = [[escape(str(row[col])) for col in column_labels] for row in rows]
-
-        session.close()
-        return render_template(
-            "aggregate_view.html",
-            title="Personenübersicht",
-            column_labels=column_labels,
-            row_data=row_data,
-            filters={
-                "person_id": person_id_filter
-            },
-            url_for_view=url_for("aggregate_persons_view")
-        )
-
-    except Exception as e:
-        app.logger.error(f"Fehler beim Laden der Personen-Aggregatsansicht: {e}")
-        if session:
-            session.close()
-        return render_template("error.html", message="Fehler beim Laden der Daten.")
+    return aggregate_view(
+        session=session,
+        base_query=base_query,
+        filter_funcs=[apply_filters],
+        row_mapper=map_row,
+        request_filters={
+            "person_id_filter": (int, "person_id"),
+        },
+        title="Personenübersicht"
+    )
 
 def _create_room_name(r):
     if r:

@@ -128,7 +128,7 @@
 		<div class="room-row mb-4 border rounded p-3" data-room-index="${roomIndex}">
 		    <div class="mb-2">
 		        <label>Raum ID:</label>
-		        <input type="number" name="room_id[]" class="form-control" placeholder="Raum-ID (z.B. 42)" value="${roomIdValue}">
+		        <input type="number" name="raum_id[]" class="form-control" placeholder="Raum-ID (z.B. 42)" value="${roomIdValue}">
 		    </div>
 		    <div class="transponders-container mb-3">
 		      <h5>Transponder</h5>
@@ -189,7 +189,7 @@
 		function reindexRooms() {
 			$('#rooms-container > .room-row').each(function (index) {
 				$(this).attr('data-room-index', index);
-				// Raum ID input bleibt "room_id[]" (gleiche Namen, array)
+				// Raum ID input bleibt "raum_id[]" (gleiche Namen, array)
 				// Transponder inputs anpassen:
 				$(this).find('.transponder-row').each(function () {
 					let serialInput = $(this).find('input[name^="transponder_serial"]');
