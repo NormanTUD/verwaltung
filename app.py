@@ -1792,25 +1792,6 @@ AGGREGATE_VIEWS = generate_aggregate_views(Base, {
             "Transponder": ", ".join(t.transponder.seriennummer or "-" for t in r.transponder_links) or "-"
         }
     },
-
-    "lager": {
-        "title": "Lagerübersicht",
-        "filters": {
-            "raum_filter": (int, "raum_id"),
-            "name_filter": (str, "name")
-        },
-        "filter_func": lambda q, f: (
-            q.filter(Lager.raum_id == f["raum_filter"]) if f.get("raum_filter") else q
-        ).filter(
-            Lager.name.ilike(f"%{f['name_filter']}%")
-        ) if f.get("name_filter") else q,
-        "map_func": lambda l: {
-            "ID": l.id,
-            "Name": l.name or "-",
-            "Raum": l.room.name if l.room else "-",
-            "Objekte": ", ".join(obj.name for obj in getattr(l, "objects", [])) or "-"
-        }
-    },
 })
 
 def is_load_on_versions(opt):
