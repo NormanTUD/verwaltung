@@ -2201,6 +2201,56 @@ def wizard_person():
         form_data=form_data
     )
 
+@app.route("/get_floorplan", methods=["GET"])
+def get_floorplan():
+    building_id_param = request.args.get("building_id")
+    etage_param = request.args.get("etage")
+
+    try:
+        building_id = int(building_id_param) if building_id_param is not None else None
+        etage = int(etage_param) if etage_param is not None else None
+    except ValueError:
+        return jsonify({"error": "Invalid 'building_id' or 'etage' – must be integers"}), 400
+
+    if building_id is None or etage is None:
+        return jsonify({"error": "Both 'building_id' and 'etage' parameters are required"}), 400
+
+    session = Session()
+    try:
+        query = session.query(Raum).join(Raum).filter(
+            Raum.building_id == building_id,
+            Raum.etage == etage
+        )
+
+        rooms = query.all()
+
+        result = []
+        for room in rooms:
+            layout = room.layout
+            if layout is None:
+                continue  # skip rooms without layout
+
+            result.append({
+                "id": f"r{room.id}",
+                "name": room.name,
+                "x": layout.x,
+                "y": layout.y,
+                "width": layout.width,
+                "height": layout.height,
+                "guid": room.guid,
+                "building_id": room.building_id,
+                "etage": room.etage
+            })
+
+        return jsonify(result), 200
+
+    except SQLAlchemyError as e:
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        session.close()
+
+
 @app.route("/map-editor")
 @login_required
 def map_editor():

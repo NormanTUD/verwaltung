@@ -10,12 +10,12 @@ try {
 }
 
 let building_id_str = params.get("building_id");
-let floor_str = params.get("floor");
+let etage_str = params.get("etage");
 
 let building_id = parseInt(building_id_str, 10);
-let floor = parseInt(floor_str, 10);
+let etage = parseInt(etage_str, 10);
 
-if (!isNaN(building_id) && !isNaN(floor)) {
+if (!isNaN(building_id) && !isNaN(etage)) {
 	const floorplan = document.getElementById("floorplan");
 	let scale = 1;
 	let offsetX = 0;
@@ -1245,7 +1245,7 @@ function removeObjectFromInventory(personEl, itemIndex) {
 }
 
 // Initial
-loadFloorplan(building_id, floor);
+loadetageplan(building_id, etage);
 
 const cancelPersonBtn = document.getElementById("cancelPersonBtn");
 
