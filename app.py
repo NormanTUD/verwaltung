@@ -1714,7 +1714,8 @@ AGGREGATE_VIEWS = generate_aggregate_views(Base, {
         },
         "extra_context_func": lambda: {
             "toggle_url": url_for(
-                "aggregate_transponder_view",
+                "aggregate_view",
+                aggregate_name="transponder",
                 unreturned="0" if request.args.get("unreturned") == "1" else "1",
                 besitzer_id=request.args.get("besitzer_id", ""),
                 ausgeber_id=request.args.get("ausgeber_id", "")
