@@ -265,7 +265,17 @@ async function replace_id_fields_with_proper_fields() {
 
 
 $( document ).ready(function() {
-	showSpinner("Lade Seite...");
+	const path = location.pathname;
+
+	const allowedPaths = [
+		/^\/wizard\/[^/]+$/,       // z. B. /wizard/Ausleihe
+		/^\/aggregate\/[^/]+$/,    // z. B. /aggregate/persons
+		/^\/table\/[^/]+$/         // z. B. /table/person
+	];
+
+	if (allowedPaths.some(rx => rx.test(path))) {
+		showSpinner("Lade Seite...");
+	}
 
 	replace_id_fields_with_proper_fields().then(() => {
 		$('.module-toggle').on('change', function () {
