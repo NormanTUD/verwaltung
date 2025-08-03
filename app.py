@@ -1654,7 +1654,7 @@ def _create_room_name(r): return f"{r.name} ({r.etage}.OG)" if r else "-"
 
 # AGGREGATE_VIEWS wird hier erstellt
 AGGREGATE_VIEWS = generate_aggregate_views(Base, {
-    "inventory": {
+    "inventar": {
         "title": "Inventarübersicht",
         "filters": {
             "show_only_unreturned": (bool, "unreturned"),
@@ -1897,10 +1897,12 @@ def create_aggregate_view(view_id):
     return view_func
 
 
-@app.route("/aggregate/inventory")
+@app.route("/aggregate/inventar")
 @login_required
-def aggregate_inventory_view():
-    return create_aggregate_view("inventory")()
+def aggregate_inventar_view():
+    print(f"AGGREGATE_VIEWS keys: {list(AGGREGATE_VIEWS.keys())}")
+
+    return create_aggregate_view("inventar")()
 
 @app.route("/aggregate/transponder")
 @login_required
@@ -3737,7 +3739,7 @@ def search():
             })
 
     if 'inventar'.startswith(query):
-        results.append({'label': '📦 Inventar', 'url': url_for('aggregate_inventory_view')})
+        results.append({'label': '📦 Inventar', 'url': url_for('aggregate_inventar_view')})
     if 'transponder'.startswith(query):
         results.append({'label': '📦 Transponder', 'url': url_for('aggregate_transponder_view')})
     if 'person'.startswith(query):
