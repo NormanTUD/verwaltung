@@ -2321,7 +2321,7 @@ def map_editor():
         session.close()
         return f"Error opening image: {str(e)}", 500
 
-    image_url = f"static/floorplan/b{building_id}_f{etage}.png"
+    image_url = f"static/floorplans/b{building_id}_f{etage}.png"
 
     image_width = 1
     image_height = 1
@@ -3049,7 +3049,7 @@ def etageplan():
     # Template mit Bild rendern
     return render_template(
         "etageplan.html",
-        image_url=f"/static/floorplan/{filename}",
+        image_url=f"/static/floorplans/{filename}",
         image_width=width,
         image_height=height,
         building_id=building_id,
