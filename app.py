@@ -3472,6 +3472,10 @@ def schema():
 @app.route('/api/get_names/<table_name>', methods=['GET'])
 @login_required
 def get_names_dynamic(table_name):
+    TABLE_NAME_OVERRIDES = {
+        'transponder': ['seriennummer'],
+    }
+
     IGNORED_TABLES = {"transactions", "user", "roles"}
     if table_name in IGNORED_TABLES:
         return abort(404, "Table not found")
@@ -3491,10 +3495,14 @@ def get_names_dynamic(table_name):
         return abort(500, "No id column found")
 
     name_cols = []
-    for col in class_mapper(model).columns:
-        col_name = col.key.lower()
-        if 'name' in col_name or 'first' in col_name or 'last' in col_name:
-            name_cols.append(getattr(model, col.key))
+    override = TABLE_NAME_OVERRIDES.get(table_name)
+    if override:
+        name_cols = [getattr(model, col) for col in override if hasattr(model, col)]
+    else:
+        for col in class_mapper(model).columns:
+            col_name = col.key.lower()
+            if any(x in col_name for x in ('name', 'first', 'last')):
+                name_cols.append(getattr(model, col.key))
 
     if not name_cols:
         return abort(500, "No name columns found")
