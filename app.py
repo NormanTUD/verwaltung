@@ -2209,9 +2209,9 @@ def map_editor():
     building_id_param = request.args.get("building_id")
     etage_param = request.args.get("etage")
 
-    etageplan_dir = os.path.join("static", "etageplans")
+    etageplan_dir = os.path.join("static", "floorplans")
 
-    # etageplans als Struktur: { building_id: [etage1, etage2, ...] }
+    # floorplan als Struktur: { building_id: [etage1, etage2, ...] }
     building_map = {}
 
     for filename in os.listdir(etageplan_dir):
@@ -2242,7 +2242,7 @@ def map_editor():
         session.close()
         return render_template(
             "map_editor.html",
-            etageplans={},
+            floorplan={},
             image_url=None,
             image_width=None,
             image_height=None,
@@ -2272,7 +2272,7 @@ def map_editor():
         session.close()
         return f"Error opening image: {str(e)}", 500
 
-    image_url = f"static/etageplans/b{building_id}_f{etage}.png"
+    image_url = f"static/floorplan/b{building_id}_f{etage}.png"
 
     image_width = 1
     image_height = 1
@@ -2287,7 +2287,7 @@ def map_editor():
 
     return render_template(
         "map_editor.html",
-        etageplans={},
+        floorplan={},
         image_url=image_url,
         image_width=image_width,
         image_height=image_height,
@@ -2942,7 +2942,7 @@ def etageplan():
         return "Invalid 'building_id' or 'etage' – must be integers", 400
 
     # Lade alle verfügbaren Gebäude & Etagen
-    etageplan_dir = os.path.join("static", "etageplans")
+    etageplan_dir = os.path.join("static", "floorplan")
     building_map = {}
 
     for filename in os.listdir(etageplan_dir):
@@ -2985,7 +2985,7 @@ def etageplan():
 
     # Prüfe, ob Bild existiert
     filename = f"b{building_id}_f{etage}.png"
-    image_path = os.path.join("static", "etageplans", filename)
+    image_path = os.path.join("static", "floorplan", filename)
 
     if not os.path.exists(image_path):
         return f"Image not found: {filename}", 404
@@ -3000,7 +3000,7 @@ def etageplan():
     # Template mit Bild rendern
     return render_template(
         "etageplan.html",
-        image_url=f"/static/etageplans/{filename}",
+        image_url=f"/static/floorplan/{filename}",
         image_width=width,
         image_height=height,
         building_id=building_id,
