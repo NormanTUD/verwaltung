@@ -34,6 +34,71 @@
 		</style>
 	
 		<script>
+			function showSpinner(text) {
+				if (document.getElementById('___spinner_overlay')) return;
+
+				// Overlay
+				var overlay = document.createElement('div');
+				overlay.id = '___spinner_overlay';
+				overlay.style.position = 'fixed';
+				overlay.style.top = 0;
+				overlay.style.left = 0;
+				overlay.style.width = '100%';
+				overlay.style.height = '100%';
+				overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+				overlay.style.zIndex = 99999;
+				overlay.style.display = 'flex';
+				overlay.style.flexDirection = 'column';
+				overlay.style.justifyContent = 'center';
+				overlay.style.alignItems = 'center';
+				overlay.style.color = 'white';
+				overlay.style.fontSize = '20px';
+				overlay.style.fontFamily = 'sans-serif';
+
+				// Spinner-Element (SVG für garantierte Animation)
+				var spinner = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+				spinner.setAttribute('width', '60');
+				spinner.setAttribute('height', '60');
+				spinner.setAttribute('viewBox', '0 0 100 100');
+				spinner.style.marginBottom = '20px';
+
+				var circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+				circle.setAttribute('cx', '50');
+				circle.setAttribute('cy', '50');
+				circle.setAttribute('r', '40');
+				circle.setAttribute('stroke', 'white');
+				circle.setAttribute('stroke-width', '8');
+				circle.setAttribute('fill', 'none');
+				circle.setAttribute('stroke-linecap', 'round');
+				circle.setAttribute('stroke-dasharray', '200');
+				circle.setAttribute('stroke-dashoffset', '100');
+
+				var animate = document.createElementNS('http://www.w3.org/2000/svg', 'animateTransform');
+				animate.setAttribute('attributeName', 'transform');
+				animate.setAttribute('attributeType', 'XML');
+				animate.setAttribute('type', 'rotate');
+				animate.setAttribute('from', '0 50 50');
+				animate.setAttribute('to', '360 50 50');
+				animate.setAttribute('dur', '1s');
+				animate.setAttribute('repeatCount', 'indefinite');
+
+				circle.appendChild(animate);
+				spinner.appendChild(circle);
+
+				// Text
+				var message = document.createElement('div');
+				message.textContent = text || 'Lade Seite...';
+
+				overlay.appendChild(spinner);
+				overlay.appendChild(message);
+				document.body.appendChild(overlay);
+			}
+
+			function removeSpinner() {
+				var overlay = document.getElementById('___spinner_overlay');
+				if (overlay) overlay.remove();
+			}
+
 			function getOrCreateMessageContainer() {
 				var container = document.getElementById('js-notify-container');
 				if (!container) {

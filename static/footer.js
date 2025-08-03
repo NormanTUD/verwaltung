@@ -265,6 +265,8 @@ async function replace_id_fields_with_proper_fields() {
 
 
 $( document ).ready(function() {
+	showSpinner("Lade Seite...");
+
 	replace_id_fields_with_proper_fields().then(() => {
 		$('.module-toggle').on('change', function () {
 			var target = $(this).data('target');
@@ -282,6 +284,8 @@ $( document ).ready(function() {
 				$(target).hide();
 			}
 		});
+
+		removeSpinner();
 	});
 });
 
