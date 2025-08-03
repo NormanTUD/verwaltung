@@ -177,12 +177,6 @@ class Professur(Base):
 
     kostenstelle = relationship(
         "Kostenstelle",
-        back_populates="professuren",  # wie du hattest, neu definiert
-        foreign_keys=[kostenstelle_id]
-    )
-
-    kostenstelle = relationship(
-        "Kostenstelle",
         back_populates="professuren",
         foreign_keys=[kostenstelle_id]
     )
