@@ -359,3 +359,9 @@ ul {
 	color: unset !important;
 	background-color: unset !important;
 }
+
+.raum {
+	position: absolute;
+	z-index: 999999;
+	border: 1px solid gray;
+}
