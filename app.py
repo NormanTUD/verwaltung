@@ -395,7 +395,7 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
     print(f"🎉 Wizard für {model.__name__} enthält {len(fields)} Felder und {len(wizard['subforms'])} Subforms\n")
     return wizard
 
-"""
+WIZARDS = {
     "Abteilung": create_wizard_from_model(
         Abteilung,
         title="Abteilung erstellen",
@@ -408,15 +408,10 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
         Professur,
         title="Professur erstellen",
     ),
-"""
-WIZARDS = {
     "Kostenstelle": create_wizard_from_model(
         Kostenstelle,
         title="Kostenstelle erstellen",
     ),
-}
-
-"""
     "Inventar": create_wizard_from_model(
         Inventar,
         title="Inventar erstellen",
@@ -466,7 +461,6 @@ WIZARDS = {
         title="Inventar (mit Zuordnungen) erfassen",
     )
 }
-"""
 
 from pprint import pprint
 pprint(WIZARDS)
