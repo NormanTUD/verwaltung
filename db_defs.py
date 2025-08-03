@@ -269,15 +269,15 @@ class TransponderToRaum(Base):
         Index("ix_transponder_to_room_raum_id", "raum_id"),
     )
 
-class ObjectCategory(Base):
-    __tablename__ = "object_category"
+class ObjectKategorie(Base):
+    __tablename__ = "object_kategorie"
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
     name = Column(Text)
-    objekte = relationship("Object", back_populates="category")
+    objekte = relationship("Object", back_populates="kategorie")
     
     __table_args__ = (
-        UniqueConstraint("name", name="uq_object_category_name"),
+        UniqueConstraint("name", name="uq_object_kategorie_name"),
     )
 
 class Object(Base):
@@ -286,11 +286,11 @@ class Object(Base):
     id = Column(Integer, primary_key=True)
     name = Column(Text)
     preis = Column(Float)
-    category_id = Column(Integer, ForeignKey("object_category.id", ondelete="SET NULL"))
-    category = relationship("ObjectCategory", back_populates="objekte")
+    kategorie_id = Column(Integer, ForeignKey("object_kategorie.id", ondelete="SET NULL"))
+    kategorie = relationship("ObjectKategorie", back_populates="objekte")
     
     __table_args__ = (
-        UniqueConstraint("name", "category_id", name="uq_object_per_category"),
+        UniqueConstraint("name", "kategorie_id", name="uq_object_per_kategorie"),
     )
 
 class Lager(Base):

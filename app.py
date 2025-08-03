@@ -200,7 +200,7 @@ LABEL_OVERRIDES = {
     "raum_id": "Raum-ID",
     "person_id": "Person-ID",
     "abteilung_id": "Abteilung-ID",
-    "category_id": "Kategorie-ID",
+    "kategorie_id": "Kategorie-ID",
     "professur_id": "Professur-ID",
     "loan_id": "Leihgabe-ID",
 }
@@ -428,7 +428,7 @@ WIZARDS = {
         title="Leihgabe erstellen"
     ),
     "Objektkategorie": create_wizard_from_model(
-        ObjectCategory,
+        ObjectKategorie,
         title="Objektkategorie erstellen",
     ),
     "Lager": create_wizard_from_model(
@@ -632,13 +632,13 @@ def initialize_db_data():
             session.commit()
             print("Professuren wurden erfolgreich initialisiert.")
 
-        # ObjectCategory prüfen und ggf. einfügen
-        object_category_count = session.query(ObjectCategory).count()
-        if object_category_count == 0:
+        # ObjectKategorie prüfen und ggf. einfügen
+        object_kategorie_count = session.query(ObjectKategorie).count()
+        if object_kategorie_count == 0:
             print("Keine ObjectCategories gefunden, füge neue hinzu...")
             for cat in INITIAL_DATA["object_categories"]:
-                print(f"  - Füge ObjectCategory hinzu: {cat['name']}")
-                obj = ObjectCategory(name=cat["name"])
+                print(f"  - Füge ObjectKategorie hinzu: {cat['name']}")
+                obj = ObjectKategorie(name=cat["name"])
                 session.add(obj)
             session.commit()
             print("ObjectCategories wurden erfolgreich initialisiert.")
@@ -1572,7 +1572,7 @@ def aggregate_inventory_view():
             .options(
                 joinedload(Inventar.besitzer),
                 joinedload(Inventar.ausgeber),
-                joinedload(Inventar.object).joinedload(Object.category),
+                joinedload(Inventar.object).joinedload(Object.kategorie),
                 joinedload(Inventar.kostenstelle),
                 joinedload(Inventar.abteilung),
                 joinedload(Inventar.professur),
@@ -1597,7 +1597,7 @@ def aggregate_inventory_view():
                 "ID": inv.id,
                 "Seriennummer": inv.seriennummer or "-",
                 "Objekt": inv.object.name if inv.object else "-",
-                "Kategorie": _get_category_name(inv.object.category) if inv.object else "-",
+                "Kategorie": _get_kategorie_name(inv.object.kategorie) if inv.object else "-",
                 "Anlagennummer": inv.anlagennummer or "-",
                 "Ausgegeben an": _get_person_name(inv.besitzer),
                 "Ausgegeben durch": _get_person_name(inv.ausgeber),
@@ -1861,7 +1861,7 @@ def _get_person_name(p):
         return f"{p.first_name} {p.last_name}"
     return "Unbekannt"
 
-def _get_category_name(c):
+def _get_kategorie_name(c):
     return c.name if c else "-"
 
 @app.route("/wizard/person", methods=["GET", "POST"])
