@@ -1072,6 +1072,9 @@ def inject_sidebar_data():
 
     replace_configs = json.dumps(replace_conf, ensure_ascii=False)
 
+    theme_cookie = request.cookies.get('theme')
+    theme = theme_cookie if theme_cookie in ['dark', 'light'] else 'light'
+
     session.close()
 
     return dict(
@@ -1079,7 +1082,8 @@ def inject_sidebar_data():
         wizard_routes=wizard_routes,
         is_authenticated=is_authenticated,
         is_admin=is_admin,
-        replace_configs=Markup(replace_configs)
+        replace_configs=Markup(replace_configs),
+        theme=theme
     )
 
 @app.route("/")

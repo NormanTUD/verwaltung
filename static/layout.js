@@ -1,6 +1,12 @@
 var theme = "light";
 document.documentElement.classList.remove('no-js');
 
+function setThemeCookie(mode) {
+	const days = 365;
+	const expires = new Date(Date.now() + days * 864e5).toUTCString();
+	document.cookie = "theme=" + encodeURIComponent(mode) + "; path=/; expires=" + expires + "; SameSite=Lax";
+}
+
 function applyInvertFilterToElements(mode) {
 	const floorplan = document.getElementById('floorplan');
 	const backgroundImage = document.getElementById('backgroundImage');
@@ -114,6 +120,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
 		function applyTheme(mode) {
 			theme = mode;
+			setThemeCookie(mode);  // Cookie setzen
+
 			if (mode === 'dark') {
 				html.classList.add('dark');
 				localStorage.setItem('theme', 'dark');
