@@ -28,17 +28,16 @@
         <p><strong>Ziel-Eintrag (bleibt erhalten):</strong></p>
         <select name="target_id" required>
             {% for entry in entries %}
-                <option value="{{ entry.id }}">{{ entry }}</option>
+		<option value="{{ entry.id }}">{{ entry_display(entry) }}</option>
             {% endfor %}
         </select>
 
         <p><strong>Einträge zum Zusammenführen:</strong></p>
-        {% for entry in entries %}
-            <label>
-                <input type="checkbox" name="merge_ids" value="{{ entry.id }}">
-                {{ entry }}
-            </label><br>
-        {% endfor %}
+	<select name="target_id" required>
+	    {% for entry in entries %}
+		<option value="{{ entry.id }}">{{ entry_display(entry) }}</option>
+	    {% endfor %}
+	</select>
 
         <br><button type="submit">Merge durchführen</button>
     </form>

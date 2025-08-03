@@ -129,6 +129,35 @@ except ModuleNotFoundError:
 
 app = Flask(__name__)
 
+def merge_entry_display(entry):
+    """
+    Versucht eine sinnvolle textuelle Darstellung eines Model-Eintrags zu erzeugen.
+    """
+    cls = type(entry)
+    key_attrs = ["name", "title", "label", "username", "vorname", "nachname", "id"]
+
+    for attr in key_attrs:
+        if hasattr(entry, attr):
+            val = getattr(entry, attr)
+            if val:
+                return f"{val} (ID {entry.id})"
+
+    # Fallback: versuche alle Spalten mit Werten zu zeigen
+    try:
+        col_values = {
+            col.name: getattr(entry, col.name)
+            for col in entry.__table__.columns
+            if getattr(entry, col.name) is not None
+        }
+        preview = ", ".join(f"{k}={v}" for k, v in col_values.items())
+        return f"{cls.__name__}({preview})"
+    except Exception:
+        return f"{cls.__name__} (ID {entry.id})"
+
+
+
+app.jinja_env.globals["entry_display"] = merge_entry_display
+
 app.config['SECRET_KEY'] = args.secret
 app.config['SQLALCHEMY_DATABASE_URI'] = args.engine_db
 
@@ -4095,7 +4124,6 @@ def get_model_by_tablename(name):
             return cls
     return None
 
-# Merge-Funktion
 def merge_model_entries(session, model, ids_to_merge, target_id):
     if target_id in ids_to_merge:
         ids_to_merge.remove(target_id)
