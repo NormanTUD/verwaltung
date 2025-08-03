@@ -274,7 +274,7 @@ $( document ).ready(function() {
 	];
 
 	if (allowedPaths.some(rx => rx.test(path))) {
-		showSpinner("Lade Seite...");
+		showSpinner("Lade Eingabefelder...");
 	}
 
 	replace_id_fields_with_proper_fields().then(() => {
