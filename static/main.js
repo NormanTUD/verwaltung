@@ -60,7 +60,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 
 	const rooms = {};
 
-	// Räume + Snapzones erzeugen
+	// Räume erzeugen
 	function createLabel(name) {
 		const label = document.createElement("div");
 		label.className = "room-label";
