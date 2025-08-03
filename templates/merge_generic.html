@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+{% block title %}Aggregat{% endblock %}
+{% block content %}
+
+    <h1>Datenbankeinträge zusammenführen</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="GET">
+        <label>Welche Tabelle möchtest du mergen?</label>
+        <select name="table" onchange="this.form.submit()">
+            <option value="">-- Tabelle auswählen --</option>
+            {% for tbl in tables %}
+                <option value="{{ tbl }}" {% if tbl == selected_table %}selected{% endif %}>{{ tbl }}</option>
+            {% endfor %}
+        </select>
+    </form>
+
+    {% if entries %}
+    <hr>
+    <form method="POST">
+        <p><strong>Ziel-Eintrag (bleibt erhalten):</strong></p>
+        <select name="target_id" required>
+            {% for entry in entries %}
+                <option value="{{ entry.id }}">{{ entry }}</option>
+            {% endfor %}
+        </select>
+
+        <p><strong>Einträge zum Zusammenführen:</strong></p>
+        {% for entry in entries %}
+            <label>
+                <input type="checkbox" name="merge_ids" value="{{ entry.id }}">
+                {{ entry }}
+            </label><br>
+        {% endfor %}
+
+        <br><button type="submit">Merge durchführen</button>
+    </form>
+    {% endif %}
+{% endblock %}
