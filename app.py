@@ -23,6 +23,8 @@ parser.add_argument('--secret', type=str, default='geheim', help='SECRET_KEY fü
 parser.add_argument('--engine-db', type=str, default='sqlite:///database.db', help='URI für create_engine()')
 args = parser.parse_args()
 
+IGNORED_TABLES = {"transactions", "user", "roles"}
+
 try:
     import venv
 except ModuleNotFoundError:
@@ -3604,7 +3606,6 @@ def get_names_dynamic(table_name):
         'transponder': ['seriennummer'],
     }
 
-    IGNORED_TABLES = {"transactions", "user", "roles"}
     if table_name in IGNORED_TABLES:
         return abort(404, "Table not found")
 
@@ -4138,7 +4139,10 @@ def merge_interface():
     all_tables = [
         mapper.class_.__tablename__
         for mapper in Base.registry.mappers
-        if mapper.class_.__tablename__ not in EXCLUDE_TABLES
+        if hasattr(mapper.class_, "__tablename__")
+        and mapper.class_.__tablename__ is not None
+        and mapper.class_.__tablename__ not in IGNORED_TABLES
+        and not mapper.class_.__name__.endswith("Version")  # optional: continuum Version-Tabellen ignorieren
     ]
 
     selected_table = request.args.get("table")
