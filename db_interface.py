@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, delete
 from db_defs import (
     Person, PersonContact, Abteilung, PersonToAbteilung,
-    Building, Room, PersonToRoom, Transponder, TransponderToRoom
+    Building, Raum, PersonToRaum, Transponder, TransponderToRaum
 )
 from sqlalchemy.exc import IntegrityError
 
@@ -237,23 +237,23 @@ class BuildingHandler(AbstractDBHandler):
     def __init__(self, session: Session):
         super().__init__(session, Building)
 
-class RoomHandler(AbstractDBHandler):
+class RaumHandler(AbstractDBHandler):
     def __init__(self, session: Session):
-        super().__init__(session, Room)
+        super().__init__(session, Raum)
 
-class PersonToRoomHandler(AbstractDBHandler):
+class PersonToRaumHandler(AbstractDBHandler):
     def __init__(self, session: Session):
-        super().__init__(session, PersonToRoom)
+        super().__init__(session, PersonToRaum)
 
 class TransponderHandler(AbstractDBHandler):
     def __init__(self, session: Session):
-        super().__init__(session, TransponderToRoom)
+        super().__init__(session, TransponderToRaum)
         self.session = session
         self.model = Transponder  # Dein SQLAlchemy-Modell
 
-class TransponderToRoomHandler(AbstractDBHandler):
+class TransponderToRaumHandler(AbstractDBHandler):
     def __init__(self, session: Session):
-        super().__init__(session, TransponderToRoom)
+        super().__init__(session, TransponderToRaum)
 
 class PersonWithContactHandler(AbstractDBHandler):
     def __init__(self, session: Session):

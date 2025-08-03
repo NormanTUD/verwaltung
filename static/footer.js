@@ -121,9 +121,9 @@ function updateHiddenFieldValue(config, hiddenElement, form, triggeredBy = null)
 		if(!failed) {
 			$.get(newUrl, function(data) {
 				console.log("AJAX response data:", data);
-				if (data && data.room_id) {
-					console.log("Setting hidden field to room_id:", data.room_id);
-					hiddenElement.val(data.room_id);
+				if (data && data.raum_id) {
+					console.log("Setting hidden field to raum_id:", data.raum_id);
+					hiddenElement.val(data.raum_id);
 				} else if (data && data.person_id) {
 					console.log("Setting hidden field to person_id:", data.person_id);
 					hiddenElement.val(data.person_id);

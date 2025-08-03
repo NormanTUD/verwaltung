@@ -197,7 +197,7 @@ LABEL_OVERRIDES = {
     "abteilungsleiter_id": "Abteilungsleiter (Person-ID)",
     "kostenstelle_id": "Kostenstelle-ID",
     "object_id": "Objekt-ID",
-    "room_id": "Raum-ID",
+    "raum_id": "Raum-ID",
     "person_id": "Person-ID",
     "abteilung_id": "Abteilung-ID",
     "category_id": "Kategorie-ID",
@@ -446,11 +446,11 @@ WIZARDS = {
         title="Objekt zu Lager zuordnen",
     ),
     "Raumlayout": create_wizard_from_model(
-        RoomLayout,
+        RaumLayout,
         title="Raumlayout definieren",
     ),
     "Person zu Raum": create_wizard_from_model(
-        PersonToRoom,
+        PersonToRaum,
         title="Person zu Raum zuordnen",
     ),
     "Professur zu Person": create_wizard_from_model(
@@ -458,7 +458,7 @@ WIZARDS = {
         title="Professur zu Person zuordnen",
     ),
     "Transponder zu Raum": create_wizard_from_model(
-        TransponderToRoom,
+        TransponderToRaum,
         title="Transponder zu Raum zuordnen",
     ),
     "Inventar komplett erfassen": create_wizard_from_model(
@@ -1660,8 +1660,8 @@ def aggregate_transponder_view():
                 joinedload(Transponder.besitzer),
                 joinedload(Transponder.ausgeber),
                 joinedload(Transponder.room_links)
-                    .joinedload(TransponderToRoom.room)
-                    .joinedload(Room.building)
+                    .joinedload(TransponderToRaum.room)
+                    .joinedload(Raum.building)
             )
 
         if show_only_unreturned:
@@ -1781,7 +1781,7 @@ def aggregate_persons_view():
         people_query = session.query(Person) \
             .options(
                 joinedload(Person.contacts),
-                joinedload(Person.räume).joinedload(PersonToRoom.room).joinedload(Room.building),
+                joinedload(Person.räume).joinedload(PersonToRaum.room).joinedload(Raum.building),
                 joinedload(Person.departments),
                 joinedload(Person.person_abteilungen).joinedload(PersonToAbteilung.abteilung),
                 joinedload(Person.transponders_issued),
@@ -1990,22 +1990,22 @@ def wizard_person():
                             "kommentar": kommentar or None
                         })
 
-            # Räume aus Formular (z.B. room_id[] oder room_guid[])
-            room_ids = request.form.getlist("room_id[]") or request.form.getlist("room_guid[]")
+            # Räume aus Formular (z.B. raum_id[] oder room_guid[])
+            raum_ids = request.form.getlist("raum_id[]") or request.form.getlist("room_guid[]")
             räume = []
             form_data["räume"] = []
 
-            for rid in room_ids:
+            for rid in raum_ids:
                 rid = rid.strip()
                 form_data["räume"].append({"id": rid})
                 if rid:
-                    # Typumwandlung zu int, falls room_id Integer ist
+                    # Typumwandlung zu int, falls raum_id Integer ist
                     try:
                         rid_int = int(rid)
                     except ValueError:
                         raise ValueError(f"Ungültige Raum-ID: {rid}")
 
-                    room = session.query(Room).filter_by(id=rid_int).first()
+                    room = session.query(Raum).filter_by(id=rid_int).first()
                     if not room:
                         raise ValueError(f"Unbekannte Raum-ID: {rid}")
                     räume.append(room)
@@ -2041,11 +2041,11 @@ def wizard_person():
                 )
                 session.add(t)
 
-            # Räume verknüpfen (PersonToRoom)
+            # Räume verknüpfen (PersonToRaum)
             for room in räume:
-                ptr = PersonToRoom(
+                ptr = PersonToRaum(
                     person_id=new_person.id,
-                    room_id=room.id
+                    raum_id=room.id
                 )
                 session.add(ptr)
 
@@ -2555,7 +2555,7 @@ def get_person_metadata(person_id: int) -> dict:
         for room in person.räume:
             metadata["räume"].append({
                 "id": room.id,
-                "room_id": getattr(room, "room_id", None),  # adapt if necessary
+                "raum_id": getattr(room, "raum_id", None),  # adapt if necessary
                 "kommentar": getattr(room, "kommentar", None)
             })
 
@@ -2920,7 +2920,7 @@ def save_or_update_room():
 
             ret = jsonify({
                 "status": "success",
-                "room_id": room.id,
+                "raum_id": room.id,
                 "room_name": room.name,
                 "guid": room.guid,
                 "etage": room.etage,
@@ -2977,8 +2977,8 @@ def _save_room_validate_input(data):
 
 def _save_room_find_existing(session, v):
     for lookup in [
-        lambda: session.query(Room).filter_by(guid=v["guid"]).one_or_none() if v["guid"] else None,
-        lambda: session.query(Room).filter_by(id=v["id"]).one_or_none() if v["id"] else None,
+        lambda: session.query(Raum).filter_by(guid=v["guid"]).one_or_none() if v["guid"] else None,
+        lambda: session.query(Raum).filter_by(id=v["id"]).one_or_none() if v["id"] else None,
         lambda: _save_room_query_by_name(session, v["old_name"], v["building_id"]) if v["old_name"] else None,
         lambda: _save_room_query_by_name(session, v["name"], v["building_id"])
     ]:
@@ -2988,15 +2988,15 @@ def _save_room_find_existing(session, v):
     return None
 
 def _save_room_query_by_name(session, name, building_id):
-    q = session.query(Room).filter(Room.name == name)
+    q = session.query(Raum).filter(Raum.name == name)
     if building_id is not None:
-        q = q.filter(Room.building_id == building_id)
+        q = q.filter(Raum.building_id == building_id)
     return q.one_or_none()
 
 def _save_room_create(session, v):
     if v["building_id"] is None:
         raise ValueError("Cannot create room without 'building_id'")
-    room = Room(
+    room = Raum(
         name=v["name"],
         building_id=v["building_id"],
         etage=v["etage"],
@@ -3027,8 +3027,8 @@ def _save_room_set_layout(session, room, v):
         room.layout.width = v["width"]
         room.layout.height = v["height"]
     else:
-        layout = RoomLayout(
-            room_id=room.id,
+        layout = RaumLayout(
+            raum_id=room.id,
             x=v["x"],
             y=v["y"],
             width=v["width"],
@@ -3055,9 +3055,9 @@ def get_etageplan():
         session.close()
         return jsonify({"error": "Both 'building_id' and 'etage' parameters are required"}), 400
     try:
-        query = session.query(Room).join(RoomLayout).filter(
-            Room.building_id == building_id,
-            Room.etage == etage
+        query = session.query(Raum).join(RaumLayout).filter(
+            Raum.building_id == building_id,
+            Raum.etage == etage
         )
 
         räume = query.all()
@@ -3092,32 +3092,32 @@ def get_etageplan():
 def delete_person_from_room():
     # Query-Parameter auslesen
     person_id = request.args.get("person_id", type=int)
-    room_id = request.args.get("room_id", type=int)
+    raum_id = request.args.get("raum_id", type=int)
 
     # Validierung der Parameter
     if person_id is None:
         return jsonify({"error": "Missing or invalid 'person_id' parameter"}), 400
-    if room_id is None:
-        return jsonify({"error": "Missing or invalid 'room_id' parameter"}), 400
+    if raum_id is None:
+        return jsonify({"error": "Missing or invalid 'raum_id' parameter"}), 400
 
     session = Session()
 
     try:
         # Verknüpfungseintrag suchen
-        link = session.query(PersonToRoom).filter(
-            PersonToRoom.person_id == person_id,
-            PersonToRoom.room_id == room_id
+        link = session.query(PersonToRaum).filter(
+            PersonToRaum.person_id == person_id,
+            PersonToRaum.raum_id == raum_id
         ).one_or_none()
 
         if link is None:
             session.close()
-            return jsonify({"error": f"Link between person_id '{person_id}' and room_id '{room_id}' not found"}), 200
+            return jsonify({"error": f"Link between person_id '{person_id}' and raum_id '{raum_id}' not found"}), 200
 
         session.delete(link)
         session.commit()
         session.close()
 
-        return jsonify({"status": f"Link between person_id '{person_id}' and room_id '{room_id}' deleted successfully"}), 200
+        return jsonify({"status": f"Link between person_id '{person_id}' and raum_id '{raum_id}' deleted successfully"}), 200
 
     except SQLAlchemyError as e:
         session.rollback()
@@ -3143,22 +3143,22 @@ def delete_room():
     session = Session()
 
     try:
-        query = session.query(Room).filter(Room.name == name)
+        query = session.query(Raum).filter(Raum.name == name)
 
         if building_id is not None:
-            query = query.filter(Room.building_id == building_id)
+            query = query.filter(Raum.building_id == building_id)
 
         room = query.one_or_none()
 
         if room is None:
             session.close()
-            return jsonify({"error": f"Room with name '{name}' not found"}), 404
+            return jsonify({"error": f"Raum with name '{name}' not found"}), 404
 
         session.delete(room)
         session.commit()
 
         session.close()
-        return jsonify({"status": f"Room '{name}' deleted successfully"}), 200
+        return jsonify({"status": f"Raum '{name}' deleted successfully"}), 200
 
     except SQLAlchemyError as e:
         session.rollback()
@@ -3287,18 +3287,18 @@ def save_person_to_room():
             session.flush()
 
         # 2. Raum finden
-        room = session.query(Room).filter_by(id=room_name).first()
+        room = session.query(Raum).filter_by(id=room_name).first()
         if not room:
             session.close()
-            return jsonify({"error": f"Room '{room_name}' not found"}), 404
+            return jsonify({"error": f"Raum '{room_name}' not found"}), 404
 
         # 3. Vorherige Raum-Zuordnung(en) für diese Person löschen
-        session.query(PersonToRoom).filter_by(person_id=person.id).delete()
+        session.query(PersonToRaum).filter_by(person_id=person.id).delete()
 
         # 4. Neue Verbindung anlegen mit x und y
-        link = PersonToRoom(
+        link = PersonToRaum(
             person_id=person.id,
-            room_id=room.id,
+            raum_id=room.id,
             x=x,
             y=y
         )
@@ -3309,7 +3309,7 @@ def save_person_to_room():
         struct = {
             "status": "updated",
             "person_id": person.id,
-            "room_id": room.id,
+            "raum_id": room.id,
             "link_id": link.id,
             "x": x,
             "y": y
@@ -3362,8 +3362,8 @@ def get_person_database():
         session.close()
         return jsonify({"error": "Fehler beim Abrufen der Personen"}), 500
     
-@app.route("/api/get_room_id")
-def get_room_id():
+@app.route("/api/get_raum_id")
+def get_raum_id():
     session = Session()
     building_name = request.args.get("gebäudename")
     room_name = request.args.get("raumname")
@@ -3390,13 +3390,13 @@ def get_room_id():
 
         # Raum suchen oder anlegen
         room = (
-            session.query(Room)
+            session.query(Raum)
             .filter_by(building_id=building.id, name=room_name)
             .first()
         )
         if not room:
             new_guid = str(uuid.uuid4())
-            room = Room(
+            room = Raum(
                 building_id=building.id,
                 name=room_name,
                 etage=0,
@@ -3405,7 +3405,7 @@ def get_room_id():
             session.add(room)
             session.commit()
 
-        ret = jsonify({"room_id": room.id})
+        ret = jsonify({"raum_id": room.id})
 
         session.close()
 
@@ -3578,14 +3578,14 @@ def get_person_room_data():
                 session.close()
             return jsonify({"error": "Missing building_id or etage parameter"}), 400
 
-        räume = session.query(Room).options(
-            joinedload(Room.layout),
-            joinedload(Room.person_links)
-                .joinedload(PersonToRoom.person)
+        räume = session.query(Raum).options(
+            joinedload(Raum.layout),
+            joinedload(Raum.person_links)
+                .joinedload(PersonToRaum.person)
                 .joinedload(Person.contacts)
         ).filter(
-            Room.building_id == building_id,
-            Room.etage == etage
+            Raum.building_id == building_id,
+            Raum.etage == etage
         ).all()
 
         person_dict_map = {}
@@ -3609,7 +3609,7 @@ def get_person_room_data():
                 y_value = ptr.y
 
                 if x_value is None or y_value is None:
-                    print(f"⚠ Warnung: PersonToRoom id={ptr.id} hat x oder y = None")
+                    print(f"⚠ Warnung: PersonToRaum id={ptr.id} hat x oder y = None")
 
                 # Sicherheit: Stelle sicher, dass x/y NICHT in room_info vorkommen
                 if "x" in room_info:
@@ -3878,7 +3878,7 @@ def get_replace_configs_json():
 
     SPECIAL_CASES = {
         "room": {
-            "key": "room_id",
+            "key": "raum_id",
             "label": "Gebäude+Etage+Raum",
             "fields": {
                 "gebäudename": {
@@ -3895,7 +3895,7 @@ def get_replace_configs_json():
                     "type": "text"
                 }
             },
-            "url": "/api/get_room_id?building_name={building_name}&room_name={room_name}"
+            "url": "/api/get_raum_id?building_name={building_name}&room_name={room_name}"
         }
     }
 

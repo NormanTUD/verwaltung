@@ -74,7 +74,7 @@ class Person(Base):
     image_url = Column(Text)
 
     contacts = relationship("PersonContact", back_populates="person", cascade="all, delete")
-    räume = relationship("PersonToRoom", back_populates="person", cascade="all, delete")
+    räume = relationship("PersonToRaum", back_populates="person", cascade="all, delete")
     transponders_issued = relationship("Transponder", foreign_keys="[Transponder.ausgeber_id]", back_populates="ausgeber")
     transponders_owned = relationship("Transponder", foreign_keys="[Transponder.besitzer_id]", back_populates="besitzer")
     departments = relationship("Abteilung", back_populates="leiter")
@@ -194,9 +194,9 @@ class Building(Base):
     name = Column(Text)
     gebäudenummer = Column(Text)
     abkürzung = Column(Text)
-    räume = relationship("Room", back_populates="building")
+    räume = relationship("Raum", back_populates="building")
 
-class Room(Base):
+class Raum(Base):
     __tablename__ = "room"
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
@@ -204,9 +204,9 @@ class Room(Base):
     name = Column(Text)
     etage = Column(Integer)
     building = relationship("Building", back_populates="räume")
-    person_links = relationship("PersonToRoom", back_populates="room", cascade="all, delete")
-    transponder_links = relationship("TransponderToRoom", back_populates="room", cascade="all, delete")
-    layout = relationship("RoomLayout", back_populates="room", uselist=False, cascade="all, delete")
+    person_links = relationship("PersonToRaum", back_populates="room", cascade="all, delete")
+    transponder_links = relationship("TransponderToRaum", back_populates="room", cascade="all, delete")
+    layout = relationship("RaumLayout", back_populates="room", uselist=False, cascade="all, delete")
     guid = Column(Text)
 
     __table_args__ = (
@@ -217,21 +217,21 @@ class Room(Base):
         Index("ix_room_guid", "guid"),
     )
 
-class PersonToRoom(Base):
+class PersonToRaum(Base):
     __tablename__ = "person_to_room"
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
     person_id = Column(Integer, ForeignKey("person.id", ondelete="CASCADE"))
-    room_id = Column(Integer, ForeignKey("room.id", ondelete="CASCADE"))
+    raum_id = Column(Integer, ForeignKey("room.id", ondelete="CASCADE"))
     x = Column(Integer)
     y = Column(Integer)
     person = relationship("Person", back_populates="räume")
-    room = relationship("Room", back_populates="person_links")
+    room = relationship("Raum", back_populates="person_links")
     
     __table_args__ = (
-        UniqueConstraint("person_id", "room_id", name="uq_person_to_room"),
+        UniqueConstraint("person_id", "raum_id", name="uq_person_to_room"),
         Index("ix_person_to_room_person_id", "person_id"),
-        Index("ix_person_to_room_room_id", "room_id"),
+        Index("ix_person_to_room_raum_id", "raum_id"),
     )
 
 class Transponder(Base):
@@ -246,7 +246,7 @@ class Transponder(Base):
     kommentar = Column(Text)
     ausgeber = relationship("Person", foreign_keys=[ausgeber_id], back_populates="transponders_issued")
     besitzer = relationship("Person", foreign_keys=[besitzer_id], back_populates="transponders_owned")
-    room_links = relationship("TransponderToRoom", back_populates="transponder", cascade="all, delete")
+    room_links = relationship("TransponderToRaum", back_populates="transponder", cascade="all, delete")
     
     __table_args__ = (
         UniqueConstraint("seriennummer", name="uq_transponder_serial"),
@@ -254,19 +254,19 @@ class Transponder(Base):
         Index("ix_transponder_ausgeber_id", "ausgeber_id"),
     )
 
-class TransponderToRoom(Base):
+class TransponderToRaum(Base):
     __tablename__ = "transponder_to_room"
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
     transponder_id = Column(Integer, ForeignKey("transponder.id", ondelete="CASCADE"))
-    room_id = Column(Integer, ForeignKey("room.id", ondelete="CASCADE"))
+    raum_id = Column(Integer, ForeignKey("room.id", ondelete="CASCADE"))
     transponder = relationship("Transponder", back_populates="room_links")
-    room = relationship("Room", back_populates="transponder_links")
+    room = relationship("Raum", back_populates="transponder_links")
 
     __table_args__ = (
-        UniqueConstraint("transponder_id", "room_id", name="uq_transponder_to_room"),
+        UniqueConstraint("transponder_id", "raum_id", name="uq_transponder_to_room"),
         Index("ix_transponder_to_room_transponder_id", "transponder_id"),
-        Index("ix_transponder_to_room_room_id", "room_id"),
+        Index("ix_transponder_to_room_raum_id", "raum_id"),
     )
 
 class ObjectCategory(Base):
@@ -341,7 +341,7 @@ class Inventar(Base):
     kostenstelle = relationship("Kostenstelle", lazy="joined")
     abteilung = relationship("Abteilung", lazy="joined")
     professur = relationship("Professur", lazy="joined")
-    room = relationship("Room", foreign_keys=[raum_id], lazy="joined")
+    room = relationship("Raum", foreign_keys=[raum_id], lazy="joined")
 
     __table_args__ = (
         Index("ix_inventory_besitzer_id", "besitzer_id"),
@@ -353,21 +353,21 @@ class Inventar(Base):
         Index("ix_inventory_abteilung_id", "abteilung_id"),
     )
 
-class RoomLayout(Base):
+class RaumLayout(Base):
     __tablename__ = "room_layout"
     __versioned__ = {}
     id = Column(Integer, primary_key=True)
-    room_id = Column(Integer, ForeignKey("room.id", ondelete="CASCADE"), nullable=False)
+    raum_id = Column(Integer, ForeignKey("room.id", ondelete="CASCADE"), nullable=False)
     x = Column(Integer, nullable=False)
     y = Column(Integer, nullable=False)
     width = Column(Integer, nullable=False)
     height = Column(Integer, nullable=False)
 
-    room = relationship("Room", back_populates="layout")
+    room = relationship("Raum", back_populates="layout")
 
     __table_args__ = (
-        UniqueConstraint("room_id", name="uq_room_id"),
-        UniqueConstraint("room_id", "x", "y", "width", "height", name="uq_room_id_x_y_width_height"),
+        UniqueConstraint("raum_id", name="uq_raum_id"),
+        UniqueConstraint("raum_id", "x", "y", "width", "height", name="uq_raum_id_x_y_width_height"),
     )
 
 class Loan(Base):
