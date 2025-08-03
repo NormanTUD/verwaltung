@@ -30,12 +30,12 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 	var roomsData = [];
 
 	function loadFloorplan() {
-		if (typeof building_id !== "number" || typeof floor !== "number") {
-			console.error("loadFloorplan: building_id und floor müssen Zahlen sein");
+		if (typeof building_id !== "number" || typeof etage !== "number") {
+			console.error("loadFloorplan: building_id und etage müssen Zahlen sein");
 			return;
 		}
 
-		var url = "/get_floorplan?building_id=" + encodeURIComponent(building_id) + "&etage=" + encodeURIComponent(floor);
+		var url = "/get_floorplan?building_id=" + encodeURIComponent(building_id) + "&etage=" + encodeURIComponent(etage);
 
 		fetch(url)
 			.then(function (response) {
@@ -535,7 +535,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 
 	function getPersonRoomDataSync() {
 		var xhr = new XMLHttpRequest();
-		var url = "/api/get_person_room_data?building_id=" + encodeURIComponent(building_id) + "&floor=" + encodeURIComponent(floor);
+		var url = "/api/get_person_room_data?building_id=" + encodeURIComponent(building_id) + "&etage=" + encodeURIComponent(etage);
 		xhr.open("GET", url, false); // synchron
 		try {
 			xhr.send(null);
@@ -568,7 +568,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 
 			const attrs = JSON.parse(circle.dataset.attributes);
 			const personId = attrs.id; // ggf anpassen, wenn anders benannt
-			const roomId = attrs.room_id; // nehme an floor ist roomId
+			const roomId = attrs.room_id; // nehme an etage ist roomId
 
 			if (!personId || roomId === undefined) {
 				console.error("Person ID oder Raum ID fehlt:", personId, roomId);
@@ -629,7 +629,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 	}
 
 	function load_persons_from_db() {
-		const personData = getPersonRoomDataSync(building_id, floor);
+		const personData = getPersonRoomDataSync(building_id, etage);
 
 		if (personData) {
 			createPersonsFromApiData(personData);
@@ -1245,7 +1245,7 @@ function removeObjectFromInventory(personEl, itemIndex) {
 }
 
 // Initial
-loadetageplan(building_id, etage);
+loadFloorplan(building_id, etage);
 
 const cancelPersonBtn = document.getElementById("cancelPersonBtn");
 
