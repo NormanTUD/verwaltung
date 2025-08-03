@@ -70,6 +70,8 @@ try:
     from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context, Response
     from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 
+    from markupsafe import Markup
+
     from sqlalchemy import create_engine, inspect, Date, DateTime, text, func, event
     from sqlalchemy.orm import sessionmaker, joinedload, Session, Query
     from sqlalchemy.orm.exc import NoResultFound, DetachedInstanceError
@@ -1066,13 +1068,18 @@ def inject_sidebar_data():
         except Exception as e:
             print(f"Unbekannter Fehler beim Laden des Users: {e}")
 
+    replace_conf = get_replace_config_dict()
+
+    replace_configs = json.dumps(replace_conf, ensure_ascii=False)
+
     session.close()
 
     return dict(
         tables=tables,
         wizard_routes=wizard_routes,
         is_authenticated=is_authenticated,
-        is_admin=is_admin
+        is_admin=is_admin,
+        replace_configs=Markup(replace_configs)
     )
 
 @app.route("/")
@@ -3986,8 +3993,7 @@ def block_writes_if_user_readonly(session, flush_context, instances):
         # Kein Flask-Kontext (z. B. bei Alembic), dann ignorieren
         pass
 
-@app.route("/api/get_replace_configs")
-def get_replace_configs_json():
+def get_replace_config_dict():
     def make_api_url(name): return f"/api/get_names/{name}"
 
     SPECIAL_CASES = {
@@ -4073,7 +4079,7 @@ def get_replace_configs_json():
         for alias in ["ausgeber_id", "besitzer_id", "abteilungsleiter_id"]:
             names[alias] = names["person_id"]
 
-    return jsonify(names)
+    return names
 
 event.listen(Session, "before_flush", block_writes_if_user_readonly)
 event.listen(Session, "before_flush", block_writes_if_data_version_cookie_set)

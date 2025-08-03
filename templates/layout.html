@@ -34,6 +34,8 @@
 		</style>
 	
 		<script>
+			const replace_names = {{ replace_configs|safe }};
+
 			function showSpinner(text) {
 				if (document.getElementById('___spinner_overlay')) return;
 

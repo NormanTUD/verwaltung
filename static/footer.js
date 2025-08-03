@@ -2,22 +2,6 @@ if (!("log" in window)) {
     window.log = console.log;
 }
 
-async function getNamesConfig() {
-	try {
-		const response = await fetch("/api/get_replace_configs");
-		if (!response.ok) {
-			error(`Failed to load config: ${response.status} ${response.statusText}`);
-			return null;
-		}
-		const names = await response.json();
-
-		return names;
-	} catch (err) {
-		error(`Error loading config: ${err.message}`);
-		return null;
-	}
-}
-
 function getElementsByName(name) {
 	var elements = $('input[name="' + name + '[]"]');
 	if (elements.length === 0) {
@@ -240,9 +224,7 @@ function replaceFieldsForElement(element, name, config) {
 }
 
 async function replace_id_fields_with_proper_fields() {
-	var replace_names = await getNamesConfig();
-
-	for (let name of Object.keys(names)) {
+	for (let name of Object.keys(replace_names)) {
 		var elementsExact = getElementsByName(name);
 		var elementsArray = getElementsByName(name + "[]");
 
@@ -250,7 +232,7 @@ async function replace_id_fields_with_proper_fields() {
 
 		for (let k = 0; k < elements.length; k++) {
 			let element = $(elements[k]);
-			let config = names[name];
+			let config = replace_names[name];
 			replaceFieldsForElement(element, name, config);
 		}
 	}
