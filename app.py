@@ -1754,6 +1754,7 @@ AGGREGATE_VIEWS = generate_aggregate_views(Base, {
         "title": "Personenübersicht",
         "map_func": lambda p: {
             "ID": p.id,
+            "Titel": p.title or "-",
             "Vorname": p.vorname or "-",
             "Nachname": p.nachname or "-",
             "Email": next((c.email for c in p.contacts if c.email), "-"),
