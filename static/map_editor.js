@@ -10,18 +10,18 @@ try {
 }
 
 let building_id_str = params.get("building_id");
-let floor_str = params.get("floor");
+let floor_str = params.get("etage");
 
 let building_id = parseInt(building_id_str, 10);
-let floor = parseInt(floor_str, 10);
+let etage = parseInt(floor_str, 10);
 
-function loadFloorplan(buildingId, floor) {
-	if (typeof buildingId !== "number" || typeof floor !== "number") {
-		err("loadFloorplan: buildingId und floor müssen Zahlen sein");
+function loadFloorplan(buildingId, etage) {
+	if (typeof buildingId !== "number" || typeof etage !== "number") {
+		err("loadFloorplan: buildingId und etage müssen Zahlen sein");
 		return;
 	}
 
-	var url = "/get_floorplan?building_id=" + encodeURIComponent(buildingId) + "&floor=" + encodeURIComponent(floor);
+	var url = "/get_floorplan?building_id=" + encodeURIComponent(buildingId) + "&etage=" + encodeURIComponent(etage);
 
 	fetch(url)
 		.then(function (response) {
@@ -127,7 +127,7 @@ async function save_rooms() {
 
 async function save_room(room) {
 	room.building_id = building_id;
-	room.floor = floor;
+	room.etage = etage;
 
 	try {
 		const response = await fetch("/api/save_or_update_room", {
@@ -796,7 +796,7 @@ async function import_text() {
 
 	// Nach dem Import: Räume aus DB neu laden und rendern!
 	await new Promise(resolve => {
-		loadFloorplan(building_id, floor);
+		loadFloorplan(building_id, etage);
 		setTimeout(resolve, 500); // Kurze Pause, damit DB speichern durch ist
 	});
 }
@@ -811,7 +811,7 @@ document.addEventListener('mousemove', (event) => {
 	mauszeigerAufRoom = element.closest('.room') !== null;
 });
 
-if(!isNaN(building_id) && !isNaN(floor)) {
-	loadFloorplan(building_id, floor);
+if(!isNaN(building_id) && !isNaN(etage)) {
+	loadFloorplan(building_id, etage);
 }
 window.import_text = import_text;
