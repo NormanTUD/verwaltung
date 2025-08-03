@@ -1652,7 +1652,6 @@ def _get_professur_name(p): return p.name if p else "-"
 def _get_kostenstelle_name(k): return k.name if k else "-"
 def _create_room_name(r): return f"{r.name} ({r.etage}.OG)" if r else "-"
 
-# AGGREGATE_VIEWS wird hier erstellt
 AGGREGATE_VIEWS = generate_aggregate_views(Base, {
     "inventar": {
         "title": "Inventarübersicht",
@@ -1733,11 +1732,91 @@ AGGREGATE_VIEWS = generate_aggregate_views(Base, {
             "Telefon": next((c.phone for c in p.contacts if c.phone), "-"),
             "Kommentar": p.kommentar or "-"
         }
-    }
+    },
+
+    "abteilung": {
+        "title": "Abteilungsübersicht",
+        "filters": {
+            "leiter_filter": (int, "abteilungsleiter_id"),
+            "name_filter": (str, "name")
+        },
+        "filter_func": lambda q, f: (
+            q.filter(Abteilung.abteilungsleiter_id == f["leiter_filter"]) if f.get("leiter_filter") else q
+        ).filter(
+            Abteilung.name.ilike(f"%{f['name_filter']}%")
+        ) if f.get("name_filter") else q,
+        "map_func": lambda a: {
+            "ID": a.id,
+            "Name": a.name or "-",
+            "Abteilungsleiter": f"{a.leiter.vorname} {a.leiter.nachname}" if a.leiter else "-",
+            "Personen": ", ".join(f"{p.person.vorname} {p.person.nachname}" for p in a.persons) or "-"
+        }
+    },
+
+    "kostenstelle": {
+        "title": "Kostenstellenübersicht",
+        "filters": {
+            "name_filter": (str, "name"),
+        },
+        "filter_func": lambda q, f: (
+            q.filter(Kostenstelle.name.ilike(f"%{f['name_filter']}%")) if f.get("name_filter") else q
+        ),
+        "map_func": lambda k: {
+            "ID": k.id,
+            "Name": k.name or "-",
+            # Alle zugehörigen Professurnamen als kommaseparierte Liste
+            "Professur": ", ".join(p.name for p in k.professuren) if k.professuren else "-",
+            # Alle Personen aller Professuren als Vorname Nachname, kommasepariert
+            "Personen": ", ".join(
+                f"{pp.person.vorname} {pp.person.nachname}"
+                for prof in k.professuren for pp in prof.persons
+            ) or "-"
+        }
+    },
+
+
+    "raum": {
+        "title": "Raumübersicht",
+        "filters": {
+            "building_filter": (int, "building_id"),
+            "floor_filter": (int, "etage")
+        },
+        "filter_func": lambda q, f: (
+            q.filter(Raum.building_id == f["building_filter"]) if f.get("building_filter") else q
+        ).filter(
+            Raum.etage == f["floor_filter"]
+        ) if f.get("floor_filter") else q,
+        "map_func": lambda r: {
+            "ID": r.id,
+            "Gebäude": r.building.name if r.building else "-",
+            "Raum": r.name or "-",
+            "Etage": r.etage if r.etage is not None else "-",
+            "Personen": ", ".join(f"{pr.person.vorname} {pr.person.nachname}" for pr in r.person_links) or "-",
+            "Transponder": ", ".join(t.transponder.seriennummer or "-" for t in r.transponder_links) or "-"
+        }
+    },
+
+    "lager": {
+        "title": "Lagerübersicht",
+        "filters": {
+            "raum_filter": (int, "raum_id"),
+            "name_filter": (str, "name")
+        },
+        "filter_func": lambda q, f: (
+            q.filter(Lager.raum_id == f["raum_filter"]) if f.get("raum_filter") else q
+        ).filter(
+            Lager.name.ilike(f"%{f['name_filter']}%")
+        ) if f.get("name_filter") else q,
+        "map_func": lambda l: {
+            "ID": l.id,
+            "Name": l.name or "-",
+            "Raum": l.room.name if l.room else "-",
+            "Objekte": ", ".join(obj.name for obj in getattr(l, "objects", [])) or "-"
+        }
+    },
 
 
 })
-
 
 def is_load_on_versions(opt):
     try:
@@ -1880,7 +1959,7 @@ def create_aggregate_view(view_id):
             "column_labels": column_labels,
             "row_data": row_data,
             "filters": filters,
-            "url_for_view": request.endpoint and url_for(request.endpoint),
+            "url_for_view": request.endpoint and url_for(request.endpoint, aggregate_name=view_id),
         }
 
         if "extra_context_func" in config:
@@ -1896,23 +1975,24 @@ def create_aggregate_view(view_id):
 
     return view_func
 
-
-@app.route("/aggregate/inventar")
+@app.route("/aggregate/<string:aggregate_name>")
 @login_required
-def aggregate_inventar_view():
-    print(f"AGGREGATE_VIEWS keys: {list(AGGREGATE_VIEWS.keys())}")
+def aggregate_view(aggregate_name):
+    allowed_aggregates = {
+        "inventar",
+        "transponder",
+        "person",
+        "abteilung",
+        "kostenstelle",
+        "raum",
+        "object_kategorie",
+        "lager",
+    }
+    if aggregate_name not in allowed_aggregates:
+        # Optional: 404 oder Fehlerseite
+        abort(404)
 
-    return create_aggregate_view("inventar")()
-
-@app.route("/aggregate/transponder")
-@login_required
-def aggregate_transponder_view():
-    return create_aggregate_view("transponder")()
-
-@app.route("/aggregate/persons")
-@login_required
-def aggregate_persons_view():
-    return create_aggregate_view("person")()
+    return create_aggregate_view(aggregate_name)()
 
 def _create_room_name(r):
     if r:
