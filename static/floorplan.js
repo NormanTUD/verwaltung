@@ -1,6 +1,7 @@
 // TODO: Snapping mit mehreren Snapfeldern geht noch nicht
 
 let params;
+let scale = 1;
 const räume = {};
 
 try {
@@ -21,96 +22,6 @@ function getElementMouseOffset(e, el) {
 	const offsetX = e.clientX - elRect.left;
 	const offsetY = e.clientY - elRect.top;
 	return { offsetX, offsetY };
-}
-
-function startDragging(e) {
-	e.preventDefault();
-
-	dragging = true;
-	el.style.cursor = "grabbing";
-	//console.log("Dragging started");
-
-	const offsets = getElementMouseOffset(e, el);
-	dragOffsetX = offsets.offsetX;
-	dragOffsetY = offsets.offsetY;
-
-	//log(`startDragging: Element mouse offset: ${dragOffsetX}, ${dragOffsetY}`);
-
-	//log(e.target.offsetParent);
-
-	if (e.target.offsetParent.classList.contains("person-circle")) {
-		document.addEventListener("mousemove", onMouseMove);
-	} else {
-		document.addEventListener("mousemove", onMouseMoveViewport)
-	}
-	document.addEventListener("mousemove", onMouseMoveViewport);
-	document.addEventListener("mouseup", onMouseUp);
-}
-
-function getMousePosRelativeToViewport(ev) {
-	const floorplanRect = $("#viewport")[0].getBoundingClientRect();
-
-	let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
-	let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
-
-	//console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
-	return { mouseX, mouseY };
-}
-
-function getMousePosRelativeToFloorplan(ev) {
-	const floorplanRect = floorplan.getBoundingClientRect();
-
-	let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
-	let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
-
-	//console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
-	return { mouseX, mouseY };
-}
-
-function scaleAndClampPosition(mouseX, mouseY) {
-	let x = mouseX / scale;
-	let y = mouseY / scale;
-
-	x = Math.min(Math.max(0, x), floorplan.offsetWidth - el.offsetWidth);
-	y = Math.min(Math.max(0, y), floorplan.offsetHeight - el.offsetHeight);
-
-	//console.log("Scaled and clamped position:", { x, y });
-	return { x, y };
-}
-
-function moveElement(x, y) {
-	el.style.left = x + "px";
-	el.style.top = y + "px";
-	el.dataset.snapped = "false";
-	//console.log(`Element moved to (${x}, ${y})`);
-}
-
-function onMouseMoveViewport(ev) {
-	if (!dragging) return;
-
-	const { mouseX, mouseY } = getMousePosRelativeToViewport(ev);
-
-	//log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
-
-	const { x, y } = scaleAndClampPosition(mouseX, mouseY);
-
-	//log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
-
-	moveElement(x, y);
-}
-
-function onMouseMove(ev) {
-	if (!dragging) return;
-
-	const { mouseX, mouseY } = getMousePosRelativeToFloorplan(ev);
-
-	//log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
-
-	const { x, y } = scaleAndClampPosition(mouseX, mouseY);
-
-	//log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
-
-	moveElement(x, y);
 }
 
 function findRaumContainingElementCenter(el) {
@@ -215,36 +126,6 @@ function addToNewRaum(el, newRaum) {
 		.catch(error => {
 			console.error("Fehler beim Speichern:", error);
 		});
-}
-
-function stopDragging() {
-	if (!dragging) return;
-	dragging = false;
-	el.style.cursor = "grab";
-	//console.log("Dragging stopped");
-
-	document.removeEventListener("mousemove", onMouseMove);
-	document.removeEventListener("mouseup", onMouseUp);
-
-	const foundRaum = findRaumContainingElementCenter(el);
-
-	if (foundRaum) {
-		//console.log("Found raum on drag end:", foundRaum);
-
-		removeFromOldRaum(el);
-		addToNewRaum(el, foundRaum);
-
-		updateZIndex(el, foundRaum);
-		// snapObjectToZone(el, foundRaum); ← DAS WEG!
-	} else {
-		console.log("No raum found on drag end");
-	}
-	checkIfObjectOnPerson(el);
-
-}
-
-function onMouseUp(ev) {
-	stopDragging();
 }
 
 // Hilfsfunktion: Formular generieren
@@ -352,6 +233,127 @@ function makeDraggable(el) {
 	let dragOffsetX = 0;
 	let dragOffsetY = 0;
 
+	function stopDragging() {
+		if (!dragging) return;
+		dragging = false;
+		el.style.cursor = "grab";
+		//console.log("Dragging stopped");
+
+		document.removeEventListener("mousemove", onMouseMove);
+		document.removeEventListener("mouseup", onMouseUp);
+
+		const foundRaum = findRaumContainingElementCenter(el);
+
+		if (foundRaum) {
+			//console.log("Found raum on drag end:", foundRaum);
+
+			removeFromOldRaum(el);
+			addToNewRaum(el, foundRaum);
+
+			updateZIndex(el, foundRaum);
+			// snapObjectToZone(el, foundRaum); ← DAS WEG!
+		} else {
+			console.log("No raum found on drag end");
+		}
+		checkIfObjectOnPerson(el);
+
+	}
+
+	function onMouseUp(ev) {
+		stopDragging();
+	}
+
+	function getMousePosRelativeToViewport(ev) {
+		const floorplanRect = $("#viewport")[0].getBoundingClientRect();
+
+		let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
+		let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
+
+		//console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
+		return { mouseX, mouseY };
+	}
+
+	function getMousePosRelativeToFloorplan(ev) {
+		const floorplanRect = floorplan.getBoundingClientRect();
+
+		let mouseX = parseInt(ev.clientX - floorplanRect.left - dragOffsetX);
+		let mouseY = parseInt(ev.clientY - floorplanRect.top - dragOffsetY);
+
+		//console.log("Raw mouse position relative to floorplan:", { mouseX, mouseY });
+		return { mouseX, mouseY };
+	}
+
+	function scaleAndClampPosition(mouseX, mouseY) {
+		let x = mouseX / scale;
+		let y = mouseY / scale;
+
+		x = Math.min(Math.max(0, x), floorplan.offsetWidth - el.offsetWidth);
+		y = Math.min(Math.max(0, y), floorplan.offsetHeight - el.offsetHeight);
+
+		//console.log("Scaled and clamped position:", { x, y });
+		return { x, y };
+	}
+
+	function moveElement(x, y) {
+		el.style.left = x + "px";
+		el.style.top = y + "px";
+		el.dataset.snapped = "false";
+		//console.log(`Element moved to (${x}, ${y})`);
+	}
+
+	function onMouseMove(ev) {
+		if (!dragging) return;
+
+		const { mouseX, mouseY } = getMousePosRelativeToFloorplan(ev);
+
+		//log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
+
+		const { x, y } = scaleAndClampPosition(mouseX, mouseY);
+
+		//log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
+
+		moveElement(x, y);
+	}
+
+	function onMouseMoveViewport(ev) {
+		if (!dragging) return;
+
+		const { mouseX, mouseY } = getMousePosRelativeToViewport(ev);
+
+		//log(`onMouseMove: Mouse position relative to floorplan: ${mouseX}, ${mouseY}`);
+
+		const { x, y } = scaleAndClampPosition(mouseX, mouseY);
+
+		//log(`onMouseMove: Scaled and clamped position: ${x}, ${y}`);
+
+		moveElement(x, y);
+	}
+
+	function startDragging(e) {
+		e.preventDefault();
+
+		dragging = true;
+		el.style.cursor = "grabbing";
+		//console.log("Dragging started");
+
+		const offsets = getElementMouseOffset(e, el);
+		dragOffsetX = offsets.offsetX;
+		dragOffsetY = offsets.offsetY;
+
+		//log(`startDragging: Element mouse offset: ${dragOffsetX}, ${dragOffsetY}`);
+
+		//log(e.target.offsetParent);
+
+		if (e.target.offsetParent.classList.contains("person-circle")) {
+			document.addEventListener("mousemove", onMouseMove);
+		} else {
+			document.addEventListener("mousemove", onMouseMoveViewport)
+		}
+		document.addEventListener("mousemove", onMouseMoveViewport);
+		document.addEventListener("mouseup", onMouseUp);
+	}
+
+
 	el.addEventListener("mousedown", (e) => {
 		if (e.button === 2) return; // Rechtsklick -> Kontextmenü bleibt erlaubt
 		removeExistingContextMenus(); // ❗ Kontextmenü schließen beim Start des Drag
@@ -379,7 +381,6 @@ async function loadPersonDatabase() {
 
 if (!isNaN(building_id) && !isNaN(etage)) {
 	const floorplan = document.getElementById("floorplan");
-	let scale = 1;
 	let offsetX = 0;
 	let offsetY = 0;
 	let objId = 0;
