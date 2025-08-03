@@ -3878,13 +3878,17 @@ def get_replace_configs_json():
 
     SPECIAL_CASES = {
         "room": {
-            "key": "raum_id",
-            "label": "Gebäude+Raum",
+            "key": "room_id",
+            "label": "Gebäude+Etage+Raum",
             "fields": {
                 "gebäudename": {
                     "name": "Gebäudename",
                     "type": "select",
                     "options_url": "/api/get_names/building"
+                },
+                "floor": {
+                    "name": "Etage",
+                    "type": "text"
                 },
                 "raumname": {
                     "name": "Raumname",
