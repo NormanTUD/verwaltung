@@ -240,7 +240,7 @@ function replaceFieldsForElement(element, name, config) {
 }
 
 async function replace_id_fields_with_proper_fields() {
-	var names = await getNamesConfig();
+	var replace_names = await getNamesConfig();
 
 	for (let name of Object.keys(names)) {
 		var elementsExact = getElementsByName(name);
@@ -261,16 +261,6 @@ async function replace_id_fields_with_proper_fields() {
 $( document ).ready(function() {
 	const path = location.pathname;
 
-	const allowedPaths = [
-		/^\/wizard\/[^/]+$/,       // z. B. /wizard/Ausleihe
-		/^\/aggregate\/[^/]+$/,    // z. B. /aggregate/persons
-		/^\/table\/[^/]+$/         // z. B. /table/person
-	];
-
-	if (allowedPaths.some(rx => rx.test(path))) {
-		showSpinner("Lade Eingabefelder...");
-	}
-
 	replace_id_fields_with_proper_fields().then(() => {
 		$('.module-toggle').on('change', function () {
 			var target = $(this).data('target');
@@ -288,8 +278,6 @@ $( document ).ready(function() {
 				$(target).hide();
 			}
 		});
-
-		removeSpinner();
 	});
 });
 
