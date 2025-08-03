@@ -700,7 +700,8 @@ async function renderAll() {
 	container.innerHTML = '';
 
 	// Räume nach ID sortieren (höchste ID zuletzt)
-	const sortedRooms = rooms.slice().sort((a, b) => a.id.localeCompare(b.id));
+	const sortedRooms = rooms.slice().sort((a, b) => a.id - b.id);
+
 	for (const room of sortedRooms) {
 		const el = await createRoomElement(room);
 		if (!el) continue;
