@@ -4088,10 +4088,9 @@ def get_replace_config_dict():
 
     return names
 
-
-# Helper: map tabellennamen zu Models
 def get_model_by_tablename(name):
-    for cls in db.Model._decl_class_registry.values():
+    for mapper in Base.registry.mappers:
+        cls = mapper.class_
         if hasattr(cls, "__tablename__") and cls.__tablename__ == name:
             return cls
     return None
