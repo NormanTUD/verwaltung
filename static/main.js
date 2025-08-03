@@ -35,7 +35,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 			return;
 		}
 
-		var url = "/get_floorplan?building_id=" + encodeURIComponent(building_id) + "&floor=" + encodeURIComponent(floor);
+		var url = "/get_floorplan?building_id=" + encodeURIComponent(building_id) + "&etage=" + encodeURIComponent(floor);
 
 		fetch(url)
 			.then(function (response) {
