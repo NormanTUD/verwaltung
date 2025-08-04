@@ -7,6 +7,8 @@ Transaction = TransactionFactory(Base)
 
 configure_mappers()
 
+full_url = 'sqlite:///database.db'
+
 db_engine_file = "/etc/db_engine"
 
 if os.path.isfile(db_engine_file):
