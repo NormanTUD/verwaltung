@@ -4018,6 +4018,15 @@ def update_transponder_field():
         session.close()
     
 def _readonly_block_check():
+    session = Session()
+
+    is_admin = is_admin_user(session)
+
+    print(f"is_admin: {is_admin}")
+
+    if is_admin:
+        return
+
     if getattr(current_user, 'readonly', False):
         raise RuntimeError("Schreiboperationen sind deaktiviert: Benutzer ist im Readonly-Modus.")
 
