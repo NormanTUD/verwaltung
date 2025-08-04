@@ -4228,15 +4228,49 @@ def merge_interface():
 
 ALIAS_MAPPING = {
     "Person.vorname": ["Vorname", "first_name", "Vorname"],
-    "Person.nachname": ["Nachname", "last_name", "surname", "Name"],
+    "Person.nachname": ["Nachname", "last_name", "surname", "Name"],  # bleibt wegen "Name"!
     "Person.title": ["Titel", "Title"],
     "Person.kommentar": ["Kommentar", "Note", "Bemerkung"],
     "PersonContact.email": ["Email", "E-Mail", "email"],
     "PersonContact.phone": ["Telefon", "Phone", "Telefonnummer", "Mobil", "Dienstlich"],
     "Abteilung.name": ["Abteilung", "Department", "Abteilungsname", "Struktureinheit"],
+    "Abteilung.abteilungsleiter": ["AL", "Abteilungsleiter", "Leiter"],
+    "Abteilung.vertretung": ["Vertretung", "Vertreter", "Stellvertretung"],
     "Building.name": ["Gebäude", "Building", "Gebäudename"],
     "Raum.name": ["Raum", "Room", "Raumname"],
 }
+
+def split_name(name: str) -> dict:
+    """
+    Erwartet ein Format wie 'Nachname, Vorname' oder 'Vorname Nachname'.
+    Gibt ein dict mit {'vorname': ..., 'nachname': ...} zurück.
+    """
+    if not name or not isinstance(name, str):
+        return {"vorname": None, "nachname": None}
+    
+    parts = name.strip().split(",", 1)
+    if len(parts) == 2:
+        return {"nachname": parts[0].strip(), "vorname": parts[1].strip()}
+    
+    parts = name.strip().split()
+    if len(parts) >= 2:
+        return {"vorname": parts[0].strip(), "nachname": " ".join(parts[1:]).strip()}
+    
+    return {"vorname": None, "nachname": name.strip()}
+
+def resolve_person_by_name(name_str):
+    """
+    Sucht oder erstellt eine Person anhand des Namens (Nachname, Vorname)
+    """
+    name_parts = split_name(name_str)
+    if not name_parts["vorname"] or not name_parts["nachname"]:
+        return None
+    person_filter = {
+        "vorname": name_parts["vorname"],
+        "nachname": name_parts["nachname"]
+    }
+    return get_or_create(Person, person_filter, person_filter)[0]
+
 
 # Hilfsfunktion, um Vorwahl aus Spaltennamen zu extrahieren
 def extract_area_code(column_name: str) -> str:
@@ -4314,7 +4348,6 @@ def import_upload():
 
     return render_template("import_upload.html")
 
-
 @app.route("/import/commit", methods=["POST"])
 @login_required
 @admin_required
@@ -4322,6 +4355,27 @@ def import_commit():
     session = Session()
     log = []
     errors = []
+
+    def split_name(name: str) -> dict:
+        if not name or not isinstance(name, str):
+            return {"vorname": None, "nachname": None}
+        parts = name.strip().split(",", 1)
+        if len(parts) == 2:
+            return {"nachname": parts[0].strip(), "vorname": parts[1].strip()}
+        parts = name.strip().split()
+        if len(parts) >= 2:
+            return {"vorname": parts[0].strip(), "nachname": " ".join(parts[1:]).strip()}
+        return {"vorname": None, "nachname": name.strip()}
+
+    def resolve_person_by_name(name_str):
+        name_parts = split_name(name_str)
+        if not name_parts["vorname"] or not name_parts["nachname"]:
+            return None
+        person_filter = {
+            "vorname": name_parts["vorname"],
+            "nachname": name_parts["nachname"]
+        }
+        return get_or_create(Person, person_filter, person_filter)[0]
 
     try:
         raw_json = request.form.get("data_json")
@@ -4339,9 +4393,7 @@ def import_commit():
                 errors=errors
             ), 400
 
-        # Strukturierte Map: Spaltenname -> Zielattribut (z.B. "Telefon 463-" -> "PersonContact.phone")
         structured_map = {}
-        # Map für Vorwahlen je Spalte, z.B. "Telefon 463-" -> "463"
         area_code_map = {}
 
         for key, val in request.form.items():
@@ -4349,13 +4401,11 @@ def import_commit():
                 colname = key[len("column_map["):-1]
                 if val.strip():
                     structured_map[colname] = val.strip()
-                    # Vorwahl aus dem Spaltennamen extrahieren
                     area_code_map[colname] = extract_area_code(colname)
                 else:
                     structured_map[colname] = ""
                     area_code_map[colname] = ""
 
-        # Hilfsfunktion: get_or_create bleibt unverändert
         def get_or_create(model_class, filter_data, create_data):
             try:
                 instance = session.query(model_class).filter_by(**filter_data).first()
@@ -4390,30 +4440,60 @@ def import_commit():
                     model_name, attr = target.split('.', 1)
                     value = row.get(colname)
 
-                    # Für Telefonnummern (phone) Vorwahl voranstellen, wenn vorhanden
+                    # Telefonnummern verarbeiten
                     if model_name == "PersonContact" and attr == "phone":
                         area_code = area_code_map.get(colname, "")
                         if value is not None and value != "":
-                            # Entferne alle Leerzeichen, evtl. andere Formatierungen
                             raw_number = str(value).strip().replace(" ", "")
                             if area_code:
-                                # Prüfe, ob Nummer nicht schon mit Vorwahl beginnt
                                 if not raw_number.startswith(area_code):
-                                    # Vorwahl + Nummer zusammenfügen (ohne Doppeltrennung)
                                     value = area_code + raw_number
                                 else:
                                     value = raw_number
                             else:
                                 value = raw_number
                         else:
-                            # Keine Nummer vorhanden, value bleibt leer
                             value = None
+
+                    # Name-Feld aufteilen
+                    if model_name == "Person" and attr == "nachname" and value and "," in str(value):
+                        parts = split_name(value)
+                        if parts["vorname"]:
+                            person_data["vorname"] = parts["vorname"]
+                        if parts["nachname"]:
+                            person_data["nachname"] = parts["nachname"]
+                        continue
+
+                    # Spezialfall: AL und Vertretung
+                    if model_name == "Abteilung" and attr == "abteilungsleiter":
+                        abt_name = row.get("Abteilung") or row.get("Department") or row.get("Struktureinheit")
+                        if abt_name and value:
+                            leiter = resolve_person_by_name(value)
+                            if leiter:
+                                abt, _ = get_or_create(Abteilung, {"name": abt_name}, {"name": abt_name})
+                                abt.abteilungsleiter_id = leiter.id
+                                session.add(abt)
+                                log.append(f"Zeile {row_index + 1}: Abteilungsleiter für '{abt_name}' gesetzt: {leiter.vorname} {leiter.nachname}")
+                            else:
+                                errors.append(f"Zeile {row_index + 1}: Abteilungsleiter '{value}' konnte nicht erstellt werden.")
+                        continue
+
+                    if model_name == "Abteilung" and attr == "vertretung":
+                        abt_name = row.get("Abteilung") or row.get("Department") or row.get("Struktureinheit")
+                        if abt_name and value:
+                            vertretung = resolve_person_by_name(value)
+                            if vertretung:
+                                abt, _ = get_or_create(Abteilung, {"name": abt_name}, {"name": abt_name})
+                                abt.vertretungs_id = vertretung.id
+                                session.add(abt)
+                                log.append(f"Zeile {row_index + 1}: Vertretung für '{abt_name}' gesetzt: {vertretung.vorname} {vertretung.nachname}")
+                            else:
+                                errors.append(f"Zeile {row_index + 1}: Vertretung '{value}' konnte nicht erstellt werden.")
+                        continue
 
                     if model_name == "Person":
                         person_data[attr] = value
                     elif model_name == "PersonContact":
-                        # Wir sammeln Kontakte als dict (können mehrere Kontakte haben)
-                        # Wenn mehrere Telefonnummern-Spalten, werden mehrere dicts erzeugt, die später einzeln verarbeitet werden
                         person_related["contacts"].append({attr: value})
                     elif model_name == "Abteilung":
                         person_related["abteilungen"].append({attr: value})
@@ -4422,7 +4502,6 @@ def import_commit():
                     elif model_name == "Raum":
                         person_related["räume"].append({attr: value})
 
-                # Filter für Person mit eindeutigen Feldern zusammensetzen
                 filter_person = {}
                 for key in ["title", "vorname", "nachname"]:
                     if key in person_data and person_data[key]:
@@ -4442,7 +4521,6 @@ def import_commit():
                 else:
                     log.append(f"Zeile {row_index + 1}: Person aktualisiert: {filter_person}")
 
-                # Kontakte anlegen (email, phone, fax)
                 for contact_data in person_related["contacts"]:
                     if not contact_data:
                         continue
@@ -4452,7 +4530,6 @@ def import_commit():
                     elif "phone" in contact_data and contact_data["phone"]:
                         filter_contact["phone"] = contact_data["phone"]
                     else:
-                        # Keine identifizierenden Kontaktinformationen, überspringen
                         continue
 
                     contact, c_created = get_or_create(PersonContact, filter_contact, {**contact_data, "person_id": person.id})
@@ -4461,7 +4538,6 @@ def import_commit():
                     else:
                         log.append(f"Zeile {row_index + 1}: Kontakt aktualisiert: {contact_data}")
 
-                # Abteilungen verknüpfen
                 for abt_data in person_related["abteilungen"]:
                     if not abt_data or "name" not in abt_data or not abt_data["name"]:
                         continue
@@ -4474,8 +4550,6 @@ def import_commit():
                             log.append(f"Zeile {row_index + 1}: Abteilung '{abt.name}' mit Person verknüpft.")
                     else:
                         errors.append(f"Zeile {row_index + 1}: Abteilung konnte nicht erstellt/verknüpft werden.")
-
-                # Weitere Beziehungen wie Professur und Raum analog hinzufügen
 
                 session.flush()
 
