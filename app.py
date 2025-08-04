@@ -45,7 +45,7 @@ if os.path.isfile(db_engine_file):
 else:
     print(f"[ERROR] {db_engine_file} existiert nicht oder ist keine reguläre Datei", file=sys.stderr)
 
-IGNORED_TABLES = {"transaction", "user", "roles"}
+IGNORED_TABLES = {"transaction", "user", "role"}
 
 try:
     import venv
