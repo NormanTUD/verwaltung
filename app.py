@@ -2280,7 +2280,7 @@ def map_editor():
         session.close()
         return f"Error opening image: {str(e)}", 500
 
-    image_url = f"static/floorplans/b{building_id}_f{etage}.png"
+    image_url = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"static/floorplans/b{building_id}_f{etage}.png")
 
     image_width = 1
     image_height = 1
