@@ -4423,12 +4423,18 @@ def import_commit():
                         continue
                     abt, a_created = get_or_create(Abteilung, {"name": abt_data["name"]}, abt_data)
                     if abt:
-                        # Verknüpfe Person <-> Abteilung wenn ManyToMany
-                        if abt not in person.abteilungen:
-                            person.abteilungen.append(abt)
+                        # Prüfe, ob diese Zuordnung schon existiert (PersonToAbteilung)
+                        exists = any(
+                            pta.abteilung_id == abt.id for pta in person.person_abteilungen
+                        )
+                        if not exists:
+                            # Neue Zuordnung anlegen
+                            pta = PersonToAbteilung(person=person, abteilung=abt)
+                            session.add(pta)
                             log.append(f"Zeile {row_index + 1}: Abteilung '{abt.name}' mit Person verknüpft.")
                     else:
                         errors.append(f"Zeile {row_index + 1}: Abteilung konnte nicht erstellt/verknüpft werden.")
+
 
                 # Ähnlich für Professur und Raum falls Beziehungen vorhanden
 
