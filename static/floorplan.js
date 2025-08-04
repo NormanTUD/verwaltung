@@ -994,47 +994,48 @@ function getAllOptions() {
 	return options;
 }
 
-function createOptionsDiv(options) {
-	console.log("createOptionsDiv mit Optionen:", options);
-	const div = document.createElement("div");
-	div.className = "optionContainer";
-	div.style.position = "absolute";
-	div.style.cursor = "grab";
-	div.style.visibility = "hidden";
+function createOptionsDiv(obj) {
+  console.log("createOptionsDiv mit Objekt:", obj);
+  const div = document.createElement("div");
+  div.className = "optionContainer";
+  div.style.position = "absolute";
+  div.style.cursor = "grab";
+  div.style.visibility = "hidden";
 
-	div.dataset.attributes = JSON.stringify(options);
-	div.dataset.raum = "";
+  // Speichere das ganze Objekt als Dataset
+  div.dataset.attributes = JSON.stringify(obj);
+  div.dataset.raum = "";
 
-	div.innerHTML = `
-	    <p><strong>Option 1:</strong> ${options.option1}</p>
-	    <p><strong>Option 2:</strong> ${options.option2}</p>
-	    <p><strong>Option 3:</strong> ${options.option3}</p>
-	    <p><strong>Option 4:</strong> ${options.option4}</p>
-	  `;
+  div.innerHTML = `
+    <p><strong>Name:</strong> ${obj.name}</p>
+    <p><strong>Preis:</strong> ${obj.Preis} €</p>
+    <p><strong>Kategorie:</strong> ${obj.category}</p>
+  `;
 
-	// Temporär anhängen, um die Größe zu messen
-	document.body.appendChild(div);
-	const { offsetWidth: width, offsetHeight: height } = div;
-	document.body.removeChild(div);
+  // Temporär anhängen, um Größe zu messen
+  document.body.appendChild(div);
+  const { offsetWidth: width, offsetHeight: height } = div;
+  document.body.removeChild(div);
 
-	// Position im Viewport (Mitte vom Fenster)
-	const centerXInViewport = window.innerWidth / 2;
-	const centerYInViewport = window.innerHeight / 2;
+  // Position im Viewport (Mitte vom Fenster)
+  const centerXInViewport = window.innerWidth / 2;
+  const centerYInViewport = window.innerHeight / 2;
 
-	// Umrechnen in Koordinaten relativ zum floorplan
-	const floorplanRect = floorplan.getBoundingClientRect();
-	const x = centerXInViewport - floorplanRect.left - width / 2;
-	const y = centerYInViewport - floorplanRect.top - height / 2;
+  // Umrechnen in Koordinaten relativ zum floorplan
+  const floorplanRect = floorplan.getBoundingClientRect();
+  const x = centerXInViewport - floorplanRect.left - width / 2;
+  const y = centerYInViewport - floorplanRect.top - height / 2;
 
-	div.style.left = `${x}px`;
-	div.style.top = `${y}px`;
-	div.style.visibility = "visible";
+  div.style.left = `${x}px`;
+  div.style.top = `${y}px`;
+  div.style.visibility = "visible";
 
-	floorplan.appendChild(div);
-	makeDraggable(div);
+  floorplan.appendChild(div);
+  makeDraggable(div);
 
-	return div;
+  return div;
 }
+
 
 function appendToContainer(div, containerId = "generatedObjectsContainer") {
 	const container = document.getElementById(containerId);
@@ -1250,22 +1251,20 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // Auswahl speichern
   saveSelectedBtn.addEventListener("click", () => {
-    const selectedId = parseInt(objektSelect.value);
-    if (!selectedId) {
-      alert("Bitte wähle ein Objekt aus.");
-      return;
-    }
-    // Das Objekt mit der ausgewählten ID finden
-    const selectedObjekt = objekts.find(obj => obj.id === selectedId);
+  const selectedId = parseInt(objektSelect.value);
+  if (!selectedId) {
+    alert("Bitte wähle ein Objekt aus.");
+    return;
+  }
 
-    // Beispiel: Zeige Infos an oder mach was anderes
-    selectedInfo.textContent = `Ausgewähltes Objekt: ${selectedObjekt.name}, Preis: ${selectedObjekt.Preis}€, Kategorie: ${selectedObjekt.category}`;
+  const selectedObjekt = objekts.find(obj => obj.id === selectedId);
 
-    // Select ausblenden
-    selectContainer.style.display = "none";
-  });
+  // Ein neues DIV basierend auf dem Objekt erstellen
+  createOptionsDiv(selectedObjekt);
 
-  // Auswahl abbrechen
-  cancelSelectBtn.addEventListener("click", () => {
-    selectContainer.style.display = "none";
-  });
+  // Optional anzeigen, was gerade eingefügt wurde
+  selectedInfo.textContent = `Eingefügt: ${selectedObjekt.name}, Preis: ${selectedObjekt.Preis} €, Kategorie: ${selectedObjekt.category}`;
+
+  // Select ausblenden
+  selectContainer.style.display = "none";
+});
