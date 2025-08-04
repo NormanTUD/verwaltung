@@ -4278,22 +4278,28 @@ def import_upload():
 
 
 @app.route("/import/commit", methods=["POST"])
-@login_required
-@admin_required
-def import_commit():
+@login_required        
+@admin_required        
+def import_commit():   
     session = Session()
-    log = []
-    errors = []
+    log = []           
+    errors = []        
 
-    try:
+    try:               
         raw_json = request.form.get("data_json")
         if not raw_json:
-            return "Fehler: Kein JSON übergeben!", 400
+            return render_template("import_result.html", success=False, message="Fehler: Kein JSON übergeben!", log=log, errors=errors), 400
 
-        try:
+        try:           
             data = json.loads(raw_json)
         except json.JSONDecodeError as e:
-            return f"Fehler beim Parsen von JSON: {str(e)}\n\nInhalt: {raw_json[:1000]}", 400
+            return render_template(
+                "import_result.html", 
+                success=False, 
+                message=f"Fehler beim Parsen von JSON: {str(e)}\n\nInhalt: {raw_json[:1000]}", 
+                log=log, 
+                errors=errors
+            ), 400
 
         structured_map = {}
         for key, val in request.form.items():
@@ -4345,15 +4351,17 @@ def import_commit():
 
         session.commit()
 
-        result = "<h3>Import erfolgreich!</h3>\n"
-        result += "<h4>Log:</h4><pre>" + "\n".join(log) + "</pre>\n"
-        if errors:
-            result += "<h4>Fehler:</h4><pre style='color:red'>" + "\n".join(errors) + "</pre>\n"
-        return result
+        return render_template(
+            "import_result.html",
+            success=(len(errors) == 0),
+            message="Import erfolgreich!" if len(errors) == 0 else "Import abgeschlossen mit Fehlern.",
+            log=log,
+            errors=errors
+        )
 
     except Exception as e:
         session.rollback()
-        return f"Allgemeiner Fehler: {str(e)}", 500
+        return render_template("import_result.html", success=False, message=f"Allgemeiner Fehler: {str(e)}", log=log, errors=errors), 500
     finally:
         session.close()
 
