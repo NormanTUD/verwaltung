@@ -282,6 +282,8 @@ def __import_process_row(index, row, session, structured_map, area_code_map, log
             "inventar": []
         }
 
+        ignored_col_names = []
+
         for colname, target in structured_map.items():
             if not target or '.' not in target:
                 if target:
@@ -291,28 +293,44 @@ def __import_process_row(index, row, session, structured_map, area_code_map, log
             model_name, attr = target.split('.', 1)
             value = row.get(colname)
 
+            done = False
+
             if model_name == "PersonContact" and attr == "phone":
                 area_code = area_code_map.get(colname, "")
                 value = __import_process_phone(value, area_code)
+                done = False
 
             if model_name == "Person" and attr == "nachname" and value and "," in str(value):
                 parts = __import_split_name(value)
                 if parts["vorname"]:
                     person_data["vorname"] = parts["vorname"]
+                    done = False
                 if parts["nachname"]:
                     person_data["nachname"] = parts["nachname"]
+                    done = False
                 continue
 
             if model_name == "Abteilung" and attr in ["abteilungsleiter", "vertretung"]:
                 __import_handle_abteilung_special(index, row, attr, value, session, log, errors)
+                done = False
                 continue
 
             if model_name == "Person":
                 person_data[attr] = value
+                done = False
             else:
                 related_key = __import_model_name_to_key(model_name)
                 if related_key:
                     person_related[related_key].append({attr: value})
+                    done = False
+
+            if not done:
+                if colname not in ignored_col_names:
+                    ignored_col_names.append(colname)
+
+        if len(ignored_col_names):
+            for err in ignored_col_names:
+                errors.append(f"Ignorierte Spalte: {err}")
 
         # Filter für eindeutige Identifikation
         filter_person = {k: v for k, v in person_data.items() if k in ["title", "vorname", "nachname"] and v}
