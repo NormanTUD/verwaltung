@@ -4232,7 +4232,7 @@ ALIAS_MAPPING = {
     "Person.title": ["Titel", "Title"],
     "Person.kommentar": ["Kommentar", "Note", "Bemerkung"],
     "PersonContact.email": ["Email", "E-Mail", "email"],
-    "PersonContact.phone": ["Telefon", "Phone", "Telefonnummer"],
+    "PersonContact.phone": ["Telefon", "Phone", "Telefonnummer", "Mobil", "Dienstlich"],
     "Abteilung.name": ["Abteilung", "Department", "Abteilungsname", "Struktureinheit"],
     "Building.name": ["Gebäude", "Building", "Gebäudename"],
     "Raum.name": ["Raum", "Room", "Raumname"],
