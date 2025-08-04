@@ -7,3 +7,4 @@ testenv/
 database.db
 .vscode/
 .env
+flaskenv
