@@ -1001,6 +1001,7 @@ function createOptionsDiv(obj) {
   div.style.position = "absolute";
   div.style.cursor = "grab";
   div.style.visibility = "hidden";
+  div.style.backgroundColor = "rgba(0, 0, 0, 0)";
 
   // Speichere das ganze Objekt als Dataset
   div.dataset.attributes = JSON.stringify(obj);
@@ -1193,6 +1194,8 @@ function removeObjectFromInventory(personEl, itemIndex) {
 
 	// Kontextmenü aktualisieren
 	updateContextMenuInventory(personEl);
+
+	applyInvertFilterToElements(theme);
 }
 
 // Initial
