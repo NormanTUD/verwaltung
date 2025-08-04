@@ -3287,7 +3287,47 @@ def delete_person_from_raum():
         session.rollback()
         session.close()
         return jsonify({"error": str(e)}), 500
-    
+
+
+@app.route("/api/delete_person_id_to_object_id", methods=["GET"])
+@login_required
+def delete_person_id_to_object_id():
+    # Parameter auslesen
+    person_id = request.args.get("person_id", type=int)
+    object_id = request.args.get("object_id", type=int)
+
+    # Validierung
+    if person_id is None:
+        return jsonify({"error": "Missing or invalid 'person_id' parameter"}), 400
+    if object_id is None:
+        return jsonify({"error": "Missing or invalid 'object_id' parameter"}), 400
+
+    session = Session()
+
+    try:
+        # Eintrag suchen mit passender besitzer_id und object_id
+        eintrag = session.query(Inventar).filter(
+            Inventar.besitzer_id == person_id,
+            Inventar.object_id == object_id
+        ).one_or_none()
+
+        if eintrag is None:
+            session.close()
+            return jsonify({"status": f"Kein Inventar-Eintrag mit person_id '{person_id}' und object_id '{object_id}' gefunden"}), 200
+
+        session.delete(eintrag)
+        session.commit()
+        session.close()
+
+        return jsonify({"status": f"Eintrag mit person_id '{person_id}' und object_id '{object_id}' erfolgreich gelöscht"}), 200
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        session.close()
+        return jsonify({"error": str(e)}), 500
+
+
+
 @app.route("/api/delete_room", methods=["POST"])
 @login_required
 def delete_room():

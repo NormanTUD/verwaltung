@@ -58,6 +58,100 @@ async function save_object_to_person(person_id, object_id) {
   }
 }
 
+function deleteObjectFromPerson(person_id, object_id) {
+  if (!person_id || !object_id) {
+    console.error("❌ Ungültige Parameter: person_id und object_id müssen angegeben werden.");
+    return;
+  }
+
+  const url = `/api/delete_person_id_to_object_id?person_id=${encodeURIComponent(person_id)}&object_id=${encodeURIComponent(object_id)}`;
+
+  fetch(url)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`Netzwerkfehler: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.error) {
+        console.error("❌ Fehler von der API:", data.error);
+      } else {
+        console.log("✅ Antwort der API:", data.status || data);
+      }
+    })
+    .catch(error => {
+      console.error("❌ Fehler beim Löschen des Objekts aus dem Inventar:", error);
+    });
+}
+
+
+async function loadAndAssignInventory() {
+  try {
+    const [objectsRes, inventoryRes] = await Promise.all([
+      fetch("/api/get_object_database"),
+      fetch("/api/get_person_id_object_id_database")
+    ]);
+
+    if (!objectsRes.ok || !inventoryRes.ok) {
+      throw new Error("Fehler beim Laden der Daten");
+    }
+
+    const objekte = await objectsRes.json();
+    const inventarDaten = await inventoryRes.json();
+
+    console.log("📦 Geladene Objekte:", objekte);
+    console.log("🧍‍♂️ Inventardaten:", inventarDaten);
+
+    inventarDaten.forEach(eintrag => {
+      const personId = eintrag.person_id;
+      const objectId = eintrag.object_id;
+
+      const personEl = document.querySelector(`.person-circle[data-attributes*='"id":${personId}']`);
+      if (!personEl) {
+        console.warn(`❌ Person mit ID ${personId} nicht im DOM gefunden`);
+        return;
+      }
+
+      const obj = objekte.find(o => o.id === parseInt(objectId));
+      if (!obj) {
+        console.warn(`❌ Objekt mit ID ${objectId} nicht gefunden`);
+        return;
+      }
+
+      const attributes = JSON.parse(personEl.dataset.attributes || "{}");
+      if (!attributes.inventory) attributes.inventory = [];
+
+      attributes.inventory.push(obj);
+      personEl.dataset.attributes = JSON.stringify(attributes);
+
+      // Optional – falls du damit arbeitest
+      let inventoryList;
+      try {
+        inventoryList = JSON.parse(personEl.dataset.inventory || "[]");
+      } catch {
+        inventoryList = [];
+      }
+      inventoryList.push(obj);
+      personEl.dataset.inventory = JSON.stringify(inventoryList);
+
+      // Optional: Kontextmenü aktualisieren
+      updateContextMenuInventory(personEl);
+    });
+
+    console.log("✅ Automatisches Laden und Zuordnen abgeschlossen.");
+  } catch (error) {
+    console.error("❌ Fehler beim automatischen Laden und Zuordnen:", error);
+  }
+}
+
+// Direkt aufrufen beim Start:
+document.addEventListener("DOMContentLoaded", () => {
+  loadAndAssignInventory();
+});
+
+
+
 
   const addBtn = document.getElementById("addBtn");
   const selectContainer = document.getElementById("selectContainer");
@@ -1239,7 +1333,14 @@ function removeObjectFromInventory(personEl, itemIndex) {
 
 	// An richtigen Container anhängen
 	appendToContainer(newObjEl);
+	log("appendToContainer: Neues Objekt-Element erstellt und angehängt:", newObjEl);
 
+	var object_id = $(newObjEl).data("attributes").id;
+	var person_id = JSON.parse(personEl.dataset.attributes).id;
+
+	log(`Speichere Objekt ${object_id} zu Person ${person_id}`);
+
+	deleteObjectFromPerson(person_id, object_id);
 	console.log("✅ Objekt wurde aus Inventar entfernt und neu erstellt auf dem Floorplan:", removedItem);
 
 	// Kontextmenü aktualisieren
