@@ -6,4 +6,4 @@ https://vicanand.github.io/pdfsign/
 
 ## Apt:
 
-`sudo apt-get install libmariadb-dev pkg-config libmariadb-dev libmariadb-dev-compat`
+`sudo apt-get install pkg-config libmariadb-dev libmariadb-dev-compat`
