@@ -1,3 +1,4 @@
+from typing import Optional, Tuple
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask import Blueprint, request, jsonify, render_template
 from auth import admin_required
@@ -37,6 +38,39 @@ ALIAS_MAPPING = {
     "Inventar.kostenstelle_id": ["Verantw.Kostenstelle", "Kostenstelle", "Kostenstellen-ID"],
     "Object.bezeichnung": ["Anlagenbezeichnung", "Objektbezeichnung", "Bezeichnung"],
 }
+
+def get_or_create_object_and_kategorie(
+    session: Session,
+    object_name: str,
+    kategorie_name: str,
+    preis: Optional[float] = None
+) -> Tuple[int, int]:
+    try:
+        # Kategorie prüfen oder erstellen
+        kategorie = session.query(ObjectKategorie).filter_by(name=kategorie_name).first()
+        if kategorie is None:
+            kategorie = ObjectKategorie(name=kategorie_name)
+            session.add(kategorie)
+            session.flush()  # um ID zu erhalten, ohne commit
+
+        # Objekt prüfen oder erstellen
+        query = session.query(Object).filter_by(name=object_name, kategorie_id=kategorie.id)
+        if preis is None:
+            query = query.filter(Object.preis == None)
+        else:
+            query = query.filter_by(preis=preis)
+
+        obj = query.first()
+        if obj is None:
+            obj = Object(name=object_name, preis=preis, kategorie_id=kategorie.id)
+            session.add(obj)
+            session.flush()  # um ID zu erhalten
+
+        return (obj.id, kategorie.id)
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        raise RuntimeError(f"Fehler beim Einfügen oder Abrufen: {e}")
 
 def get_or_create(model_class, filter_data: dict, create_data: dict, session=None):
     """
@@ -312,7 +346,10 @@ def __import_process_row(index, row, session, structured_map, area_code_map, log
                 continue
 
             if model_name == "Objekt" and attr in ["bezeichnung"]:
-                # Done -> true
+                price = 12321
+                category_name = "AUTO_INSERTED_CATEGORY"
+                
+                person_related["inventar"].append(get_or_create_object_and_kategorie(session, value, category_name, price))
                 done = True
                 continue
 
