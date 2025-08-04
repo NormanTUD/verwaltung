@@ -4277,7 +4277,7 @@ def import_upload():
 
 @app.route("/import/commit", methods=["POST"])
 def import_commit():
-    session = DBSession()
+    session = Session()
 
     try:
         data = json.loads(request.form.get("data_json"))
