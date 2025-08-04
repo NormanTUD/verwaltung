@@ -4240,6 +4240,8 @@ def match_column(col_name):
     return None
 
 @app.route("/import/", methods=["GET", "POST"])
+@login_required
+@admin_required
 def import_upload():
     if request.method == "POST":
         file = request.files.get("file")
@@ -4276,6 +4278,8 @@ def import_upload():
 
 
 @app.route("/import/commit", methods=["POST"])
+@login_required
+@admin_required
 def import_commit():
     session = Session()
     log = []
