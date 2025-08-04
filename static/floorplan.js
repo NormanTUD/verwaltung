@@ -595,7 +595,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 		applyInvertFilterToElements(theme)
 	}
 
-	function getPersonRaumDataSync() {
+	function getPersonRaumData() {
 		var xhr = new XMLHttpRequest();
 		var url = "/api/get_person_raum_data?building_id=" + encodeURIComponent(building_id) + "&etage=" + encodeURIComponent(etage);
 		xhr.open("GET", url, false); // synchron
@@ -685,7 +685,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 	}
 
 	function load_persons_from_db() {
-		const personData = getPersonRaumDataSync(building_id, etage);
+		const personData = getPersonRaumData(building_id, etage);
 
 		if (personData) {
 			createPersonsFromApiData(personData);
