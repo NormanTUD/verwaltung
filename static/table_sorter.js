@@ -43,6 +43,9 @@
 
 	function initSorting() {
 		$('table').each(function() {
+			if($(this).attr("dont_sort")) {
+				return;
+			}
 			const $table = $(this);
 			const $thead = $table.find('thead');
 			const $tbody = $table.find('tbody');

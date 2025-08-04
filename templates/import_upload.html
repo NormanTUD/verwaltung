@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+{% block title %}Importieren{% endblock %}
+
+{% block content %}
+<h2>Datei importieren</h2>
+<form action="{{ url_for('importers.import_upload') }}" method="post" enctype="multipart/form-data">
+    <label for="file">Datei hochladen (CSV, XLS, XLSX):</label><br>
+    <input type="file" name="file" id="file"><br><br>
+
+    <label for="csvtext">Oder CSV direkt einfügen:</label><br>
+    <textarea name="csvtext" rows="10" cols="80"></textarea><br><br>
+
+    <button type="submit">Vorschau anzeigen</button>
+</form>
+{% endblock %}
