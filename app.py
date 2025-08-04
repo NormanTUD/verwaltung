@@ -4022,8 +4022,6 @@ def _readonly_block_check():
 
     is_admin = is_admin_user(session)
 
-    print(f"is_admin: {is_admin}")
-
     if is_admin:
         return
 
