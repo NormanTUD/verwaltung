@@ -23,6 +23,10 @@ parser.add_argument('--secret', type=str, default='geheim', help='SECRET_KEY fü
 parser.add_argument('--engine-db', type=str, default='sqlite:///database.db', help='URI für create_engine()')
 args = parser.parse_args()
 
+engine_db_env = os.environ.get('ENGINE_DB')
+if engine_db_env is not None:
+    args.engine_db = engine_db_env
+
 IGNORED_TABLES = {"transaction", "user", "roles"}
 
 try:
