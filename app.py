@@ -23,7 +23,7 @@ parser.add_argument('--secret', type=str, default='geheim', help='SECRET_KEY fü
 parser.add_argument('--engine-db', type=str, default='sqlite:///database.db', help='URI für create_engine()')
 args = parser.parse_args()
 
-IGNORED_TABLES = {"transactions", "user", "roles"}
+IGNORED_TABLES = {"transaction", "user", "roles"}
 
 try:
     import venv
@@ -1075,7 +1075,7 @@ def inject_sidebar_data():
     tables = [
         cls.__tablename__
         for cls in Base.__subclasses__()
-        if hasattr(cls, '__tablename__') and cls.__tablename__ not in ["role", "user", "transactions"]
+        if hasattr(cls, '__tablename__') and cls.__tablename__ not in IGNORED_TABLES
     ]
 
     wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
@@ -1453,7 +1453,7 @@ def load_static_file(path):
 @app.route("/table/<table_name>")
 @login_required
 def table_view(table_name):
-    if table_name in ["role", "user"]:
+    if table_name in IGNORED_TABLES:
         abort(404, description="Tabelle darf nicht angezeigt werden")
 
     session = Session()
@@ -3619,7 +3619,7 @@ def schema():
         tables = list(Base.metadata.tables.values())
     else:
         # Tabellen filtern, die nicht auf '_version' enden
-        tables = [t for t in Base.metadata.tables.values() if not t.name.endswith('_version') and not t.name == "transaction"]
+        tables = [t for t in Base.metadata.tables.values() if not t.name.endswith('_version') and not t.name in IGNORED_TABLES]
 
     graph = create_schema_graph(
         metadata=Base.metadata,
