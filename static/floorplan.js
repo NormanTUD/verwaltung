@@ -362,6 +362,12 @@ function makeDraggable(el) {
 				attributes.inventory.push(objectOptions);
 				person.dataset.attributes = JSON.stringify(attributes);
 
+				var person_id = attributes.id;
+				var object_id = $(el).data("attributes").id;
+
+				log(`📦 Speichere Objekt ${object_id} zu Person ${person_id}`);
+
+				save_object_to_person(person_id, object_id)
 				console.log("📦 Objekt zum Inventar hinzugefügt:", objectOptions);
 
 				// Objekt aus DOM entfernen (Objekt verschwindet vom Floorplan)
