@@ -3644,6 +3644,26 @@ def get_object_database():
         session.close()
         return jsonify({"error": "Fehler beim Abrufen der Objekte"}), 500
 
+@app.route("/api/get_person_id_object_id_database", methods=["GET"])
+def get_person_id_object_id_database():
+    session = Session()
+    try:
+        inventars = session.query(Inventar).all()
+
+        result = []
+        for inventar in inventars:
+            result.append({
+                "person_id": inventar.besitzer_id or "",
+                "object_id": inventar.object_id or "",
+            })
+
+        return jsonify(result), 200
+    except Exception as e:
+        print(f"❌ Fehler bei /api/get_person_database: {e}")
+        return jsonify({"error": "Fehler beim Abrufen der Personen"}), 500
+    finally:
+        session.close()
+
     
 @app.route("/api/get_raum_id")
 def get_raum_id():
