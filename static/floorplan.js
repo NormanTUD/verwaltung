@@ -14,6 +14,39 @@ var objekts = [
   { id: 5, name: "drucker", Preis: 150, category: "Büro" }
 ];
 
+async function save_object_to_person(person_id, object_id) {
+  try {
+    const response = await fetch('/api/save_object_to_person', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Falls du CSRF-Token brauchst, hier hinzufügen
+        // 'X-CSRFToken': getCSRFToken(),
+      },
+      body: JSON.stringify({
+        besitzer_id: person_id,
+        object_id: object_id
+        // Optional: andere Felder wie raum_id, kommentar usw. hier hinzufügen
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Fehler:", data);
+      alert(`Fehler: ${data.error || 'Unbekannter Fehler'}`);
+    } else {
+      console.log("Erfolg:", data);
+      alert(`Inventar wurde ${data.status}`);
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Netzwerkfehler:", error);
+    alert("Netzwerkfehler");
+  }
+}
+
 
   const addBtn = document.getElementById("addBtn");
   const selectContainer = document.getElementById("selectContainer");

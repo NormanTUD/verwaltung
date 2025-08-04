@@ -3491,6 +3491,110 @@ def save_person_to_raum():
             "details": str(e)
         }), 500
         
+@app.route("/api/save_object_to_person", methods=["POST"])
+@login_required
+def save_object_to_person():
+    session = Session()
+    try:
+        data = request.get_json()
+
+        if not data or "object_id" not in data or "besitzer_id" not in data:
+            session.close()
+            return jsonify({"error": "Request must include 'object_id' and 'besitzer_id'"}), 400
+
+        object_id = data["object_id"]
+        besitzer_id = data["besitzer_id"]
+
+        # Optionalfelder
+        raum_id = data.get("raum_id")
+        kommentar = data.get("kommentar")
+        preis = data.get("preis")
+        anschaffungsdatum = data.get("anschaffungsdatum")
+        erhaltungsdatum = data.get("erhaltungsdatum")
+        rückgabedatum = data.get("rückgabedatum")
+        kostenstelle_id = data.get("kostenstelle_id")
+        anlagennummer = data.get("anlagennummer")
+        professur_id = data.get("professur_id")
+        abteilung_id = data.get("abteilung_id")
+        ausgeber_id = data.get("ausgeber_id")
+
+        # Validierung: Existieren object/person?
+        obj = session.query(Object).filter_by(id=object_id).first()
+        person = session.query(Person).filter_by(id=besitzer_id).first()
+
+        if not obj:
+            session.close()
+            return jsonify({"error": f"Object with ID {object_id} not found"}), 404
+        if not person:
+            session.close()
+            return jsonify({"error": f"Person with ID {besitzer_id} not found"}), 404
+
+        # Ein Inventar-Eintrag mit diesem Objekt existiert?
+        inventar = session.query(Inventar).filter_by(object_id=object_id).first()
+
+        if inventar:
+            # Update
+            inventar.besitzer_id = besitzer_id
+            inventar.raum_id = raum_id
+            inventar.kommentar = kommentar
+            inventar.preis = preis
+            inventar.anschaffungsdatum = anschaffungsdatum
+            inventar.erhaltungsdatum = erhaltungsdatum
+            inventar.rückgabedatum = rückgabedatum
+            inventar.kostenstelle_id = kostenstelle_id
+            inventar.anlagennummer = anlagennummer
+            inventar.professur_id = professur_id
+            inventar.abteilung_id = abteilung_id
+            inventar.ausgeber_id = ausgeber_id
+            status = "updated"
+        else:
+            # Neuanlage
+            inventar = Inventar(
+                object_id=object_id,
+                besitzer_id=besitzer_id,
+                raum_id=raum_id,
+                kommentar=kommentar,
+                preis=preis,
+                anschaffungsdatum=anschaffungsdatum,
+                erhaltungsdatum=erhaltungsdatum,
+                rückgabedatum=rückgabedatum,
+                kostenstelle_id=kostenstelle_id,
+                anlagennummer=anlagennummer,
+                professur_id=professur_id,
+                abteilung_id=abteilung_id,
+                ausgeber_id=ausgeber_id
+            )
+            session.add(inventar)
+            status = "created"
+
+        session.commit()
+
+        response = {
+            "status": status,
+            "inventar_id": inventar.id,
+            "object_id": object_id,
+            "besitzer_id": besitzer_id
+        }
+
+        session.close()
+        return jsonify(response), 200
+
+    except IntegrityError as e:
+        session.rollback()
+        session.close()
+        return jsonify({
+            "error": "Database integrity error",
+            "details": str(e)
+        }), 500
+
+    except Exception as e:
+        session.rollback()
+        session.close()
+        return jsonify({
+            "error": "Unexpected server error",
+            "details": str(e)
+        }), 500
+
 @app.route("/api/get_person_database", methods=["GET"])
 def get_person_database():
     try:
