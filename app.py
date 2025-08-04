@@ -4250,9 +4250,21 @@ def extract_area_code(column_name: str) -> str:
     return ""
 
 def match_column(col_name):
+    if not isinstance(col_name, str):
+        return None
+
+    col_name_clean = col_name.strip().lower()
     for key, aliases in ALIAS_MAPPING.items():
-        if col_name.strip().lower() in [a.lower() for a in aliases]:
+        # exakte Übereinstimmung (case-insensitive)
+        aliases_lower = [a.lower() for a in aliases]
+        if col_name_clean in aliases_lower:
             return key
+
+        # startswith Check (case-insensitive)
+        for alias_lower in aliases_lower:
+            if col_name_clean.startswith(alias_lower):
+                return key
+
     return None
 
 @app.route("/import/", methods=["GET", "POST"])
