@@ -4238,6 +4238,17 @@ ALIAS_MAPPING = {
     "Raum.name": ["Raum", "Room", "Raumname"],
 }
 
+# Hilfsfunktion, um Vorwahl aus Spaltennamen zu extrahieren
+def extract_area_code(column_name: str) -> str:
+    """
+    Extrahiert eine Vorwahl aus Spaltennamen wie "Telefon 463-" oder "Telefon 1234-"
+    Gibt die Vorwahl als String zurück oder "" wenn keine gefunden wurde.
+    """
+    match = re.search(r'(\d+)[-\s]*$', column_name)
+    if match:
+        return match.group(1)
+    return ""
+
 def match_column(col_name):
     for key, aliases in ALIAS_MAPPING.items():
         if col_name.strip().lower() in [a.lower() for a in aliases]:
@@ -4311,24 +4322,32 @@ def import_commit():
             return render_template(
                 "import_result.html",
                 success=False,
-                message=f"Fehler beim Parsen von JSON: {str(e)}, raw_json:",
+                message=f"Fehler beim Parsen von JSON: {str(e)}",
                 log=log,
                 errors=errors
             ), 400
 
+        # Strukturierte Map: Spaltenname -> Zielattribut (z.B. "Telefon 463-" -> "PersonContact.phone")
         structured_map = {}
+        # Map für Vorwahlen je Spalte, z.B. "Telefon 463-" -> "463"
+        area_code_map = {}
+
         for key, val in request.form.items():
             if key.startswith("column_map["):
                 colname = key[len("column_map["):-1]
                 if val.strip():
                     structured_map[colname] = val.strip()
+                    # Vorwahl aus dem Spaltennamen extrahieren
+                    area_code_map[colname] = extract_area_code(colname)
+                else:
+                    structured_map[colname] = ""
+                    area_code_map[colname] = ""
 
-        # Hilfsfunktion: Suche ein Objekt anhand von UniqueConstraints oder erstellt neu
+        # Hilfsfunktion: get_or_create bleibt unverändert
         def get_or_create(model_class, filter_data, create_data):
             try:
                 instance = session.query(model_class).filter_by(**filter_data).first()
                 if instance:
-                    # Update Attribute
                     for k, v in create_data.items():
                         setattr(instance, k, v)
                     return instance, False
@@ -4342,8 +4361,6 @@ def import_commit():
 
         for row_index, row in enumerate(data):
             try:
-                # Beispiel für komplexe Zuordnung
-                # 1. Person-Daten sammeln
                 person_data = {}
                 person_related = {
                     "contacts": [],
@@ -4352,7 +4369,6 @@ def import_commit():
                     "räume": [],
                 }
 
-                # Sammle alle Spalten, die zur Person gehören
                 for colname, target in structured_map.items():
                     if not target:
                         continue
@@ -4361,10 +4377,31 @@ def import_commit():
                         continue
                     model_name, attr = target.split('.', 1)
                     value = row.get(colname)
+
+                    # Für Telefonnummern (phone) Vorwahl voranstellen, wenn vorhanden
+                    if model_name == "PersonContact" and attr == "phone":
+                        area_code = area_code_map.get(colname, "")
+                        if value is not None and value != "":
+                            # Entferne alle Leerzeichen, evtl. andere Formatierungen
+                            raw_number = str(value).strip().replace(" ", "")
+                            if area_code:
+                                # Prüfe, ob Nummer nicht schon mit Vorwahl beginnt
+                                if not raw_number.startswith(area_code):
+                                    # Vorwahl + Nummer zusammenfügen (ohne Doppeltrennung)
+                                    value = area_code + raw_number
+                                else:
+                                    value = raw_number
+                            else:
+                                value = raw_number
+                        else:
+                            # Keine Nummer vorhanden, value bleibt leer
+                            value = None
+
                     if model_name == "Person":
                         person_data[attr] = value
                     elif model_name == "PersonContact":
-                        # Wir sammeln Kontakte als dict (falls mehrere Spalten)
+                        # Wir sammeln Kontakte als dict (können mehrere Kontakte haben)
+                        # Wenn mehrere Telefonnummern-Spalten, werden mehrere dicts erzeugt, die später einzeln verarbeitet werden
                         person_related["contacts"].append({attr: value})
                     elif model_name == "Abteilung":
                         person_related["abteilungen"].append({attr: value})
@@ -4372,13 +4409,9 @@ def import_commit():
                         person_related["professuren"].append({attr: value})
                     elif model_name == "Raum":
                         person_related["räume"].append({attr: value})
-                    else:
-                        # Andere Modelle können ähnlich ergänzt werden
-                        pass
 
-                # 2. Person holen oder anlegen
+                # Filter für Person mit eindeutigen Feldern zusammensetzen
                 filter_person = {}
-                # Prüfe UniqueConstraint Felder für Person (title, vorname, nachname)
                 for key in ["title", "vorname", "nachname"]:
                     if key in person_data and person_data[key]:
                         filter_person[key] = person_data[key]
@@ -4397,7 +4430,7 @@ def import_commit():
                 else:
                     log.append(f"Zeile {row_index + 1}: Person aktualisiert: {filter_person}")
 
-                # 3. Kontakte anlegen (eindeutige email/phone/fax pro Person)
+                # Kontakte anlegen (email, phone, fax)
                 for contact_data in person_related["contacts"]:
                     if not contact_data:
                         continue
@@ -4407,36 +4440,30 @@ def import_commit():
                     elif "phone" in contact_data and contact_data["phone"]:
                         filter_contact["phone"] = contact_data["phone"]
                     else:
-                        # Keine identifizierenden Kontaktinformationen
+                        # Keine identifizierenden Kontaktinformationen, überspringen
                         continue
 
-                    # create or update PersonContact
                     contact, c_created = get_or_create(PersonContact, filter_contact, {**contact_data, "person_id": person.id})
                     if c_created:
                         log.append(f"Zeile {row_index + 1}: Neuer Kontakt hinzugefügt: {contact_data}")
                     else:
                         log.append(f"Zeile {row_index + 1}: Kontakt aktualisiert: {contact_data}")
 
-                # 4. Abteilungen, Professuren, Räume analog verknüpfen (Beispiel für Abteilung)
+                # Abteilungen verknüpfen
                 for abt_data in person_related["abteilungen"]:
                     if not abt_data or "name" not in abt_data or not abt_data["name"]:
                         continue
                     abt, a_created = get_or_create(Abteilung, {"name": abt_data["name"]}, abt_data)
                     if abt:
-                        # Prüfe, ob diese Zuordnung schon existiert (PersonToAbteilung)
-                        exists = any(
-                            pta.abteilung_id == abt.id for pta in person.person_abteilungen
-                        )
+                        exists = any(pta.abteilung_id == abt.id for pta in person.person_abteilungen)
                         if not exists:
-                            # Neue Zuordnung anlegen
                             pta = PersonToAbteilung(person=person, abteilung=abt)
                             session.add(pta)
                             log.append(f"Zeile {row_index + 1}: Abteilung '{abt.name}' mit Person verknüpft.")
                     else:
                         errors.append(f"Zeile {row_index + 1}: Abteilung konnte nicht erstellt/verknüpft werden.")
 
-
-                # Ähnlich für Professur und Raum falls Beziehungen vorhanden
+                # Weitere Beziehungen wie Professur und Raum analog hinzufügen
 
                 session.flush()
 
@@ -4447,7 +4474,6 @@ def import_commit():
                 session.rollback()
                 errors.append(f"Zeile {row_index + 1}: Allgemeiner Fehler: {str(ex)}")
 
-        # Commit wenn keine schweren Fehler aufgetreten sind
         if errors:
             session.rollback()
             return render_template("import_result.html", success=False, message="Fehler beim Import", log=log, errors=errors)
@@ -4461,7 +4487,6 @@ def import_commit():
 
     finally:
         session.close()
-
 
 event.listen(Session, "before_flush", block_writes_if_user_readonly)
 event.listen(Session, "before_flush", block_writes_if_data_version_cookie_set)
