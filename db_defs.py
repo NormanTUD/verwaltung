@@ -359,6 +359,7 @@ class Inventar(Base):
     rückgabedatum = Column("rückgabedatum", Date)
     seriennummer = Column(Text)
     kostenstelle_id = Column(Integer, ForeignKey("kostenstelle.id", ondelete="SET NULL"))
+    inventarnummer = Column(Text)
     anlagennummer = Column(Text)
     kommentar = Column(Text)
     preis = Column(Float)
