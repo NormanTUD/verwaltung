@@ -7,7 +7,28 @@ Transaction = TransactionFactory(Base)
 
 configure_mappers()
 
-full_url = "sqlite:///database.db"
+db_engine_file = "/etc/db_engine"
+
+if os.path.isfile(db_engine_file):
+    print(f"[DEBUG] {db_engine_file} ist eine Datei", file=sys.stderr)
+    if os.access(db_engine_file, os.R_OK):
+        print(f"[DEBUG] {db_engine_file} ist lesbar", file=sys.stderr)
+        try:
+            with open(db_engine_file, "r", encoding="utf-8") as f:
+                file_content = f.read().strip()
+                print(f"[DEBUG] Gelesener Inhalt: '{file_content}'", file=sys.stderr)
+                if file_content:
+                    args.engine_db = file_content
+                    print(f"[DEBUG] args.engine_db auf '{args.engine_db}' gesetzt", file=sys.stderr)
+                else:
+                    print(f"[WARN] {db_engine_file} ist leer", file=sys.stderr)
+        except Exception as e:
+            print(f"[ERROR] Fehler beim Lesen von {db_engine_file}: {str(e)}", file=sys.stderr)
+    else:
+        print(f"[ERROR] Keine Leserechte für {db_engine_file}", file=sys.stderr)
+else:
+    print(f"[ERROR] {db_engine_file} existiert nicht oder ist keine reguläre Datei", file=sys.stderr)
+
 engine = create_engine(full_url)
 
 try:
