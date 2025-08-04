@@ -6,13 +6,24 @@ const räume = {};
 const dynamicForm = document.getElementById("dynamicPersonForm");
 let personDatabase = [];
 
-var objekts = [
-  { id: 1, name: "laptop", Preis: 123, category: "PC" },
-  { id: 2, name: "smartphone", Preis: 699, category: "Handy" },
-  { id: 3, name: "monitor", Preis: 199, category: "PC-Zubehör" },
-  { id: 4, name: "kopfhörer", Preis: 89, category: "Audio" },
-  { id: 5, name: "drucker", Preis: 150, category: "Büro" }
-];
+let objekte = [];
+
+fetch("/api/get_object_database")
+  .then(response => {
+    if (!response.ok) {
+      throw new Error("Netzwerkfehler: " + response.status);
+    }
+    return response.json();
+  })
+  .then(data => {
+    objekte = data;
+    console.log("Objekte geladen:", objekte);
+    // Hier kannst du weitere Logik anschließen (z. B. rendern)
+  })
+  .catch(error => {
+    console.error("❌ Fehler beim Laden der Objekte:", error);
+  });
+
 
 async function save_object_to_person(person_id, object_id) {
   try {
@@ -1276,7 +1287,7 @@ window.addEventListener("DOMContentLoaded", () => {
     // Optionen zurücksetzen
     objektSelect.innerHTML = '<option value="">-- Bitte wählen --</option>';
     // Optionen hinzufügen
-    objekts.forEach(obj => {
+    objekte.forEach(obj => {
       const option = document.createElement("option");
       option.value = obj.id;
       option.textContent = obj.name;
@@ -1294,7 +1305,7 @@ window.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  const selectedObjekt = objekts.find(obj => obj.id === selectedId);
+  const selectedObjekt = objekte.find(obj => obj.id === selectedId);
 
   // Ein neues DIV basierend auf dem Objekt erstellen
   createOptionsDiv(selectedObjekt);
