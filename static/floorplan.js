@@ -3,6 +3,7 @@
 let params;
 let scale = 1;
 const räume = {};
+const dynamicForm = document.getElementById("dynamicPersonForm");
 
 try {
 	params = new URLSearchParams(window.location.search);
@@ -494,7 +495,6 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 
 	const addPersonBtn = document.getElementById("addPersonBtn");
 	const personForm = document.getElementById("personForm");
-	const dynamicForm = document.getElementById("dynamicPersonForm");
 	const confirmPersonBtn = document.getElementById("confirmPersonBtn");
 	const existingPersonSelect = document.getElementById("existingPersonSelect");
 
@@ -678,7 +678,6 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 			circle.appendChild(nameSpan);
 		}
 
-		setCirclePosition(circle, position);
 		return circle;
 	}
 
