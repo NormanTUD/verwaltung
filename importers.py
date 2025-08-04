@@ -45,6 +45,7 @@ def get_or_create_object_and_kategorie(
     kategorie_name: str,
     preis: Optional[float] = None
 ) -> Tuple[int, int]:
+    print(f"object_name: {object_name}, kategorie_name: {kategorie_name}, preis: {preis}")
     try:
         # Kategorie prüfen oder erstellen
         kategorie = session.query(ObjectKategorie).filter_by(name=kategorie_name).first()
