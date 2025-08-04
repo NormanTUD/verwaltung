@@ -22,8 +22,8 @@ if os.path.isfile(db_engine_file):
                 file_content = f.read().strip()
                 print(f"[DEBUG] Gelesener Inhalt: '{file_content}'", file=sys.stderr)
                 if file_content:
-                    args.engine_db = file_content
-                    print(f"[DEBUG] args.engine_db auf '{args.engine_db}' gesetzt", file=sys.stderr)
+                    full_url = file_content
+                    print(f"[DEBUG] args.engine_db auf '{full_url}' gesetzt", file=sys.stderr)
                 else:
                     print(f"[WARN] {db_engine_file} ist leer", file=sys.stderr)
         except Exception as e:
