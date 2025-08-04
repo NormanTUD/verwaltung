@@ -45,7 +45,7 @@ if os.path.isfile(db_engine_file):
 else:
     print(f"[ERROR] {db_engine_file} existiert nicht oder ist keine reguläre Datei", file=sys.stderr)
 
-IGNORED_TABLES = {"transaction", "user", "roles"}
+IGNORED_TABLES = {"transaction", "user", "role"}
 
 try:
     import venv
@@ -344,7 +344,7 @@ def is_continuum_version_class(klass):
     return klass.__name__.endswith("Version")
 
 def create_wizard_from_model(model, *, title=None, fields_override=None, subforms=None):
-    print(f"🔧 Starte Wizard-Erstellung für: {model.__name__}")
+    #print(f"🔧 Starte Wizard-Erstellung für: {model.__name__}")
     mapper = class_mapper(model)
     fields = []
 
@@ -352,7 +352,7 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
     fk_columns_of_relationships = set()
     for rel in mapper.relationships:
         if is_continuum_version_class(rel.mapper.class_):
-            print(f"⚠️  Ignoriere Continuum-Beziehung: {rel.key}")
+            #print(f"⚠️  Ignoriere Continuum-Beziehung: {rel.key}")
             continue
         fk_cols = [fk.name for fk in rel._calculated_foreign_keys]
         fk_columns_of_relationships.update(fk_cols)
@@ -363,15 +363,15 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
             col = prop.columns[0]
 
             if col.primary_key:
-                print(f"⚠️  Ignoriere Primärschlüssel: {col.name}")
+                #print(f"⚠️  Ignoriere Primärschlüssel: {col.name}")
                 continue
             if col.name in HIDDEN_FIELD_NAMES:
-                print(f"⚠️  Ignoriere verstecktes Feld: {col.name}")
+                #print(f"⚠️  Ignoriere verstecktes Feld: {col.name}")
                 continue
 
             # Falls Field überschrieben werden soll
             if fields_override and col.name in fields_override:
-                print(f"✳️  Feld überschrieben durch override: {col.name}")
+                #print(f"✳️  Feld überschrieben durch override: {col.name}")
                 field = {
                     "name": col.name,
                     "type": get_col_type(col),
@@ -394,12 +394,12 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
             }
             if not col.nullable:
                 field["required"] = True
-            print(f"✅ Normales Feld: {col.name}")
+            #print(f"✅ Normales Feld: {col.name}")
             fields.append(field)
 
     for rel in mapper.relationships:
         if is_continuum_version_class(rel.mapper.class_):
-            print(f"⚠️  Ignoriere Continuum-Beziehung: {rel.key}")
+            #print(f"⚠️  Ignoriere Continuum-Beziehung: {rel.key}")
             continue
         fk_cols = [fk.name for fk in rel._calculated_foreign_keys]
         if len(fk_cols) != 1:
@@ -408,7 +408,7 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
 
         # Wenn die FK-Spalte als Column im Modell existiert → Beziehung redundant → überspringen
         if any(col.name == fk_col_name for col in mapper.columns):
-            print(f"⚠️  Ignoriere Beziehung {rel.key}, da Column {fk_col_name} schon vorhanden ist")
+            #print(f"⚠️  Ignoriere Beziehung {rel.key}, da Column {fk_col_name} schon vorhanden ist")
             continue
 
         if fk_col_name in HIDDEN_FIELD_NAMES:
@@ -416,7 +416,7 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
 
         # One-to-many = Subform → ignorieren hier
         if rel.uselist:
-            print(f"⚠️  Ignoriere One-to-Many-Beziehung (kommt als Subform): {rel.key}")
+            #print(f"⚠️  Ignoriere One-to-Many-Beziehung (kommt als Subform): {rel.key}")
             continue
 
         field = {
@@ -429,7 +429,7 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
         if fields_override and fk_col_name in fields_override:
             field.update(fields_override[fk_col_name])
 
-        print(f"✅ Beziehung als Feld: {rel.key} → FK: {fk_col_name}")
+        #print(f"✅ Beziehung als Feld: {rel.key} → FK: {fk_col_name}")
         fields.append(field)
 
     wizard = {
@@ -440,10 +440,10 @@ def create_wizard_from_model(model, *, title=None, fields_override=None, subform
 
     # Subforms erzeugen (z.B. Kinder wie Räume zur Person)
     blacklist_fields = HIDDEN_FIELD_NAMES.union(set(f["name"] for f in fields))
-    print(f"\n📦 Subform-Erstellung mit Ausschluss folgender Felder: {blacklist_fields}")
+    #print(f"\n📦 Subform-Erstellung mit Ausschluss folgender Felder: {blacklist_fields}")
     wizard["subforms"] = get_subforms(model, exclude_fields=blacklist_fields)
 
-    print(f"🎉 Wizard für {model.__name__} enthält {len(fields)} Felder und {len(wizard['subforms'])} Subforms\n")
+    #print(f"🎉 Wizard für {model.__name__} enthält {len(fields)} Felder und {len(wizard['subforms'])} Subforms\n")
     return wizard
 
 WIZARDS = {
@@ -1428,7 +1428,7 @@ def table_view(table_name):
     # Erweiterte Rückgabe mit missing_input_info
     column_labels, row_html, new_entry_inputs, row_ids, table_has_missing_inputs, missing_input_info = prepare_table_data(session, cls, table_name)
 
-    javascript_code = load_static_file("static/table_scripts.js").replace("{{ table_name }}", table_name)
+    javascript_code = load_static_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "table_scripts.js")).replace("{{ table_name }}", table_name)
 
     row_data = list(zip(row_html, row_ids))
 
@@ -2217,12 +2217,12 @@ def map_editor():
     building_id_param = request.args.get("building_id")
     etage_param = request.args.get("etage")
 
-    etageplan_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "floorplans")
+    etageplan_dir = os.path.join("static", "floorplans")
 
     # floorplan als Struktur: { building_id: [etage1, etage2, ...] }
     building_map = {}
 
-    for filename in os.listdir(etageplan_dir):
+    for filename in os.listdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), etageplan_dir)):
         if filename.startswith("b") and "_f" in filename and filename.endswith(".png"):
             try:
                 parts = filename.removeprefix("b").removesuffix(".png").split("_f")
@@ -2267,7 +2267,7 @@ def map_editor():
         return "Invalid 'building_id' or 'etage' – must be integers", 400
 
     filename = f"b{building_id}_f{etage}.png"
-    image_path = os.path.join(etageplan_dir, filename)
+    image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "floorplans", filename)
 
     if not os.path.exists(image_path):
         session.close()
@@ -2280,7 +2280,7 @@ def map_editor():
         session.close()
         return f"Error opening image: {str(e)}", 500
 
-    image_url = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"static/floorplans/b{building_id}_f{etage}.png")
+    image_url = f"static/floorplans/b{building_id}_f{etage}.png"
 
     image_width = 1
     image_height = 1
@@ -2950,10 +2950,10 @@ def etageplan():
         return "Invalid 'building_id' or 'etage' – must be integers", 400
 
     # Lade alle verfügbaren Gebäude & Etagen
-    etageplan_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "floorplans")
+    etageplan_dir = os.path.join("static", "floorplans")
     building_map = {}
 
-    for filename in os.listdir(etageplan_dir):
+    for filename in os.listdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), etageplan_dir)):
         if filename.startswith("b") and "_f" in filename and filename.endswith(".png"):
             try:
                 parts = filename.removeprefix("b").removesuffix(".png").split("_f")
@@ -2993,7 +2993,7 @@ def etageplan():
 
     # Prüfe, ob Bild existiert
     filename = f"b{building_id}_f{etage}.png"
-    image_path = os.path.join("static", "floorplans", filename)
+    image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "floorplans", filename)
 
     if not os.path.exists(image_path):
         return f"Image not found: {filename}", 404
@@ -3777,7 +3777,7 @@ def schema():
         tables=tables,
         engine=engine
     )
-    graph.write_png('/tmp/schema.png')
+    graph.write_png('/tmp/schema.png', encoding='utf-8')
     return send_file('/tmp/schema.png', mimetype='image/png')
 
 @app.route('/api/get_names/<table_name>', methods=['GET'])
