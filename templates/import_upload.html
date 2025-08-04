@@ -3,7 +3,7 @@
 
 {% block content %}
 <h2>Datei importieren</h2>
-<form action="{{ url_for('import_upload') }}" method="post" enctype="multipart/form-data">
+<form action="{{ url_for('importers.import_upload') }}" method="post" enctype="multipart/form-data">
     <label for="file">Datei hochladen (CSV, XLS, XLSX):</label><br>
     <input type="file" name="file" id="file"><br><br>
 

@@ -80,7 +80,6 @@ try:
     from sqlalchemy.exc import SQLAlchemyError
     from sqlalchemy.event import listens_for
     from sqlalchemy_schemadisplay import create_schema_graph
-    from sqlalchemy_continuum import TransactionFactory, versioning_manager
     from sqlalchemy.orm import class_mapper, ColumnProperty, RelationshipProperty
     from sqlalchemy import Integer, Text, Date, Float, Boolean, ForeignKey
 
@@ -110,16 +109,14 @@ try:
     import tempfile
     import pandas as pd
 
-    import inflect
-
     from markupsafe import escape
 
     from db_interface import *
     
     from importers import importers_bp
     from auth import admin_required
+    from db import *
 except ModuleNotFoundError as e:
-    print(f"ModuleNotFoundError: {e}")
     if not VENV_PATH.exists():
         create_and_setup_venv()
     else:
@@ -166,8 +163,6 @@ def merge_entry_display(entry):
     except Exception:
         return f"{cls.__name__} (ID {entry.id})"
 
-
-
 app.jinja_env.globals["entry_display"] = merge_entry_display
 
 app.config['SECRET_KEY'] = args.secret
@@ -178,48 +173,6 @@ login_manager.init_app(app)
 
 login_manager.login_view = 'login'
 login_manager.login_message = "Bitte melde dich an, um fortzufahren."
-
-Transaction = TransactionFactory(Base)
-
-configure_mappers()
-
-full_url = args.engine_db
-
-inflect_engine = inflect.engine()
-
-if full_url.startswith("mysql"):
-    if '/' not in full_url.rsplit('@', 1)[-1]:
-        print("Error: Please specify the database name in the URL for MySQL.")
-        sys.exit(1)
-    url_without_db = full_url.rsplit('/', 1)[0] + "/"
-    db_name = full_url.rsplit('/', 1)[1]
-
-    engine = create_engine(url_without_db)
-
-    with engine.connect() as conn:
-        result = conn.execute(text("SHOW DATABASES LIKE :db"), {"db": db_name})
-        exists = result.first() is not None
-        if not exists:
-            print(f"Database '{db_name}' does not exist. Creating it now...")
-            conn.execute(text(f"CREATE DATABASE `{db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
-            print(f"Database '{db_name}' created.")
-        else:
-            print(f"Database '{db_name}' already exists.")
-
-    engine = create_engine(full_url)
-
-else:
-    engine = create_engine(full_url)
-
-try:
-    Base.metadata.create_all(engine, checkfirst=True)
-except AssertionError as e:
-    print(f"Error trying to create all tables. Did you forget to specify the database, which is needed for MySQL, but not SQLite? Error: {e}")
-    sys.exit(1)
-
-Session = sessionmaker(bind=engine)
-
-TransactionTable = versioning_manager.transaction_cls
 
 COLUMN_LABELS = {
     "abteilung.abteilungsleiter_id": "Abteilungsleiter",
