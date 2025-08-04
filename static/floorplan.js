@@ -994,7 +994,7 @@ function getAllOptions() {
 	return options;
 }
 
-function createOptionsDiv(obj) {
+function createOptionsDiv(obj) { 
   console.log("createOptionsDiv mit Objekt:", obj);
   const div = document.createElement("div");
   div.className = "optionContainer";
@@ -1032,7 +1032,8 @@ function createOptionsDiv(obj) {
 
   floorplan.appendChild(div);
   makeDraggable(div);
-
+  
+  applyInvertFilterToElements(theme)
   return div;
 }
 
