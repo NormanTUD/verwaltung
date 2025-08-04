@@ -2953,7 +2953,7 @@ def etageplan():
     etageplan_dir = os.path.join("static", "floorplans")
     building_map = {}
 
-    for filename in os.listdir(etageplan_dir):
+    for filename in os.listdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), etageplan_dir)):
         if filename.startswith("b") and "_f" in filename and filename.endswith(".png"):
             try:
                 parts = filename.removeprefix("b").removesuffix(".png").split("_f")
