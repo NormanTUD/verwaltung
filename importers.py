@@ -22,6 +22,15 @@ ALIAS_MAPPING = {
     "Building.name": ["Gebäude", "Building", "Gebäudename"],
     "Raum.name": ["Raum", "Room", "Raumname"],
     "PrincipalInvestigatorToAbteilung.person": ["PI", "Principal Investigator"],
+    
+    "Inventar.anlagennummer": ["Anlagennummer", "Anlagenummer", "Anlagennr", "Anlagen Nr"],
+    "Inventar.anschaffungsdatum": ["Aktivierung am", "AnschDatum", "Anschaffungsdatum"],
+    "Inventar.seriennummer": ["Serialnummer", "Seriennummer", "Serien-Nr"],
+    "Inventar.preis": ["AnschWert", "Preis", "Wert"],
+    "Inventar.kommentar": ["Inventurhinweis", "Inventurhinweis 2", "Inventur-Info", "Inventurkommentar"],
+    "Inventar.raum_id": ["Raum", "Raumnummer", "Room"],
+    "Inventar.kostenstelle_id": ["Verantw.Kostenstelle", "Kostenstelle", "Kostenstellen-ID"],
+    "Object.bezeichnung": ["Anlagenbezeichnung", "Objektbezeichnung", "Bezeichnung"],
 }
 
 def get_or_create(model_class, filter_data: dict, create_data: dict, session=None):
