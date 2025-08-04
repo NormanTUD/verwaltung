@@ -13,4 +13,3 @@ sqlalchemy_schemadisplay
 sqlalchemy_utils
 inflect
 pandas
-mod_wsgi
