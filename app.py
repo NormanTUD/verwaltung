@@ -2222,7 +2222,7 @@ def map_editor():
     # floorplan als Struktur: { building_id: [etage1, etage2, ...] }
     building_map = {}
 
-    for filename in os.listdir(etageplan_dir):
+    for filename in os.listdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "etageplan")):
         if filename.startswith("b") and "_f" in filename and filename.endswith(".png"):
             try:
                 parts = filename.removeprefix("b").removesuffix(".png").split("_f")
