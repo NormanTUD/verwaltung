@@ -17,11 +17,11 @@ fetch("/api/get_object_database")
   })
   .then(data => {
     objekte = data;
-    console.log("Objekte geladen:", objekte);
+    //console.log("Objekte geladen:", objekte);
     // Hier kannst du weitere Logik anschließen (z. B. rendern)
   })
   .catch(error => {
-    console.error("❌ Fehler beim Laden der Objekte:", error);
+    //console.error("❌ Fehler beim Laden der Objekte:", error);
   });
 
 
@@ -45,16 +45,16 @@ async function save_object_to_person(person_id, object_id) {
 
     if (!response.ok) {
       console.error("Fehler:", data);
-      alert(`Fehler: ${data.error || 'Unbekannter Fehler'}`);
+      //alert(`Fehler: ${data.error || 'Unbekannter Fehler'}`);
     } else {
-      console.log("Erfolg:", data);
-      alert(`Inventar wurde ${data.status}`);
+      //console.log("Erfolg:", data);
+      //alert(`Inventar wurde ${data.status}`);
     }
 
     return data;
   } catch (error) {
-    console.error("Netzwerkfehler:", error);
-    alert("Netzwerkfehler");
+    //console.error("Netzwerkfehler:", error);
+    //alert("Netzwerkfehler");
   }
 }
 
@@ -75,13 +75,13 @@ function deleteObjectFromPerson(person_id, object_id) {
     })
     .then(data => {
       if (data.error) {
-        console.error("❌ Fehler von der API:", data.error);
+        //console.error("❌ Fehler von der API:", data.error);
       } else {
-        console.log("✅ Antwort der API:", data.status || data);
+        //console.log("✅ Antwort der API:", data.status || data);
       }
     })
     .catch(error => {
-      console.error("❌ Fehler beim Löschen des Objekts aus dem Inventar:", error);
+      //console.error("❌ Fehler beim Löschen des Objekts aus dem Inventar:", error);
     });
 }
 
@@ -100,8 +100,8 @@ async function loadAndAssignInventory() {
     const objekte = await objectsRes.json();
     const inventarDaten = await inventoryRes.json();
 
-    console.log("📦 Geladene Objekte:", objekte);
-    console.log("🧍‍♂️ Inventardaten:", inventarDaten);
+    //console.log("📦 Geladene Objekte:", objekte);
+    //console.log("🧍‍♂️ Inventardaten:", inventarDaten);
 
     inventarDaten.forEach(eintrag => {
       const personId = eintrag.person_id;
@@ -139,9 +139,9 @@ async function loadAndAssignInventory() {
       updateContextMenuInventory(personEl);
     });
 
-    console.log("✅ Automatisches Laden und Zuordnen abgeschlossen.");
+    //console.log("✅ Automatisches Laden und Zuordnen abgeschlossen.");
   } catch (error) {
-    console.error("❌ Fehler beim automatischen Laden und Zuordnen:", error);
+    //console.error("❌ Fehler beim automatischen Laden und Zuordnen:", error);
   }
 }
 
@@ -195,7 +195,7 @@ function findRaumContainingElementCenter(el) {
 			//console.log("Found raum containing element:", raum.el.dataset.name);
 		}
 	});
-	if (!foundRaum) console.log("No raum found containing element");
+	if (!foundRaum) //console.log("No raum found containing element");
 	return foundRaum;
 }
 
@@ -213,7 +213,7 @@ function removeFromOldRaum(el) {
 	const oldRaumName = el.dataset.raum;
 	if (räume[oldRaumName]) {
 		räume[oldRaumName].objects = räume[oldRaumName].objects.filter(o => o !== el);
-		console.log(`Removed element from old raum: ${oldRaumName}`);
+		//console.log(`Removed element from old raum: ${oldRaumName}`);
 	}
 
 	// API-Call mit korrekter Raum-ID (Zahl)
@@ -224,22 +224,22 @@ function removeFromOldRaum(el) {
 			return response.json();
 		})
 		.then(data => {
-			console.log("Person wurde aus altem Raum entfernt:", data);
+			//console.log("Person wurde aus altem Raum entfernt:", data);
 
 			// Raum-ID im attributes auf null setzen, weil Person jetzt aus diesem Raum raus ist
 			attributes.raum_id = null;
 			el.dataset.attributes = JSON.stringify(attributes);
 		})
 		.catch(err => {
-			console.error("Fehler beim Entfernen der Person aus dem alten Raum:", err);
+			//console.error("Fehler beim Entfernen der Person aus dem alten Raum:", err);
 		});
 }
 
 function addToNewRaum(el, newRaum) {
 	newRaum.objects.push(el);
-	log("newRaum:", newRaum);
+	//log("newRaum:", newRaum);
 	el.dataset.raum = newRaum.el.dataset.id;
-	console.log(`Added element to new raum: ${newRaum.el.dataset.id}`, el);
+	//console.log(`Added element to new raum: ${newRaum.el.dataset.id}`, el);
 
 	// Nur fortfahren, wenn es sich um eine Person handelt
 	if (!el.classList.contains("person-circle")) {
@@ -256,7 +256,7 @@ function addToNewRaum(el, newRaum) {
 	};
 
 	if (payload.raum === undefined) {
-		alert("payload.raum ist undefined!");
+		//alert("payload.raum ist undefined!");
 		return;
 	}
 
@@ -272,7 +272,7 @@ function addToNewRaum(el, newRaum) {
 			return response.json();
 		})
 		.then(data => {
-			console.log("Erfolgreich gespeichert:", data);
+			//console.log("Erfolgreich gespeichert:", data);
 
 			var currentAttributes = $(el).attr('data-attributes');
 			var attributesObj = currentAttributes ? JSON.parse(currentAttributes) : {};
@@ -280,7 +280,7 @@ function addToNewRaum(el, newRaum) {
 			$(el).attr('data-attributes', JSON.stringify(attributesObj));
 		})
 		.catch(error => {
-			console.error("Fehler beim Speichern:", error);
+			//console.error("Fehler beim Speichern:", error);
 		});
 }
 
@@ -316,7 +316,7 @@ function populateExistingPersonSelect() {
 
 		option.textContent = `${title}${person.vorname} ${person.nachname}`;
 		existingPersonSelect.appendChild(option);
-		console.log(person);
+		//console.log(person);
 	});
 }
 
@@ -409,16 +409,16 @@ function makeDraggable(el) {
 			updateZIndex(el, foundRaum);
 			// snapObjectToZone(el, foundRaum); ← DAS WEG!
 		} else {
-			console.log("No raum found on drag end");
+			//console.log("No raum found on drag end");
 		}
 		checkIfObjectOnPerson(el);
 	}
 
 	function checkIfObjectOnPerson(el) {
-		console.log("🚧 Überprüfe, ob 'el' das Zielobjekt ist oder eine Person:");
+		//console.log("🚧 Überprüfe, ob 'el' das Zielobjekt ist oder eine Person:");
 
 		if (el.classList.contains("person-circle")) {
-			console.warn("⚠️ Das verschobene Element ist eine Person! Es sollte kein Person-Element entfernt werden.");
+			//console.warn("⚠️ Das verschobene Element ist eine Person! Es sollte kein Person-Element entfernt werden.");
 			return;
 		}
 
@@ -426,7 +426,7 @@ function makeDraggable(el) {
 		const objCenterX = objRect.left + objRect.width / 2;
 		const objCenterY = objRect.top + objRect.height / 2;
 
-		console.log("🔍 Objekt-Mitte:", objCenterX, objCenterY);
+		//console.log("🔍 Objekt-Mitte:", objCenterX, objCenterY);
 
 		const personEls = document.querySelectorAll('.person-circle');
 		let found = false;
@@ -440,7 +440,7 @@ function makeDraggable(el) {
 				objCenterY >= personRect.top &&
 				objCenterY <= personRect.bottom;
 
-			console.log(`👤 Prüfe Person ${person.id || "[kein ID]"}: Treffer?`, hit);
+			//console.log(`👤 Prüfe Person ${person.id || "[kein ID]"}: Treffer?`, hit);
 
 			if (hit) {
 				found = true;
@@ -459,14 +459,14 @@ function makeDraggable(el) {
 				var person_id = attributes.id;
 				var object_id = $(el).data("attributes").id;
 
-				log(`📦 Speichere Objekt ${object_id} zu Person ${person_id}`);
+				//log(`📦 Speichere Objekt ${object_id} zu Person ${person_id}`);
 
 				save_object_to_person(person_id, object_id)
-				console.log("📦 Objekt zum Inventar hinzugefügt:", objectOptions);
+				//console.log("📦 Objekt zum Inventar hinzugefügt:", objectOptions);
 
 				// Objekt aus DOM entfernen (Objekt verschwindet vom Floorplan)
 				el.remove();
-				console.log("🗑️ Objekt wurde aus DOM entfernt");
+				//console.log("🗑️ Objekt wurde aus DOM entfernt");
 
 				// Optional: dataset.inventory auch aktualisieren, falls du es nutzt
 				try {
@@ -485,7 +485,7 @@ function makeDraggable(el) {
 		});
 
 		if (!found) {
-			console.log("❌ Objekt befindet sich auf keiner Person.");
+			//console.log("❌ Objekt befindet sich auf keiner Person.");
 		}
 	}
 
@@ -702,7 +702,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 	function handleSelectMode() {
 		const selectedIndex = existingPersonSelect.value;
 		if (selectedIndex === "") {
-			alert("Bitte eine Person auswählen!");
+			//alert("Bitte eine Person auswählen!");
 			console.warn("Keine Person ausgewählt.");
 			return;
 		}
@@ -736,7 +736,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 			}
 
 			const result = await response.json();
-			console.log('Person erfolgreich gespeichert:', result.message);
+			//console.log('Person erfolgreich gespeichert:', result.message);
 		} catch (error) {
 			console.error('Netzwerkfehler:', error);
 		}
@@ -809,11 +809,11 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 					return response.json();
 				})
 				.then(data => {
-					console.log("Person wurde aus Raum entfernt:", data);
+					//console.log("Person wurde aus Raum entfernt:", data);
 					floorplan.removeChild(circle);
 				})
 				.catch(err => {
-					console.error("Fehler beim Entfernen der Person aus dem Raum:", err);
+					//console.error("Fehler beim Entfernen der Person aus dem Raum:", err);
 				});
 		});
 
@@ -946,7 +946,7 @@ function addCircleToFloorplan(circle) {
 
 function setupContextMenu(circle, attributes) {
 	try {
-		console.log("setupContextMenu wird aufgerufen für:", circle, "mit attributes:", attributes);
+		//console.log("setupContextMenu wird aufgerufen für:", circle, "mit attributes:", attributes);
 
 		circle.addEventListener("contextmenu", (e) => {
 			console.log("Rechtsklick erkannt auf:", circle);
@@ -954,22 +954,22 @@ function setupContextMenu(circle, attributes) {
 			toggleContextMenu(circle, attributes);
 		});
 
-		console.log("EventListener für Kontextmenü erfolgreich hinzugefügt.");
+		//console.log("EventListener für Kontextmenü erfolgreich hinzugefügt.");
 	} catch (error) {
-		console.error("Fehler beim Einrichten des Kontextmenüs:", error);
+		//console.error("Fehler beim Einrichten des Kontextmenüs:", error);
 	}
 }
 
 function toggleContextMenu(circle, attributes) {
 	try {
-		console.log("toggleContextMenu aufgerufen mit circle:", circle);
-		console.log("toggleContextMenu attributes:", attributes);
+		//console.log("toggleContextMenu aufgerufen mit circle:", circle);
+		//console.log("toggleContextMenu attributes:", attributes);
 
 		removeExistingContextMenus();
 
 		// Wichtig: circle mitgeben
 		const menu = buildContextMenu(attributes, circle);
-		console.log("Kontextmenü gebaut:", menu);
+		//console.log("Kontextmenü gebaut:", menu);
 
 		positionContextMenuAbsolute(circle, menu);
 		floorplan.appendChild(menu);
@@ -980,9 +980,9 @@ function toggleContextMenu(circle, attributes) {
 		updateContextMenuInventory(circle);
 		applyInvertFilterToElements(theme);
 
-		console.log("Kontextmenü angezeigt:", attributes);
+		//console.log("Kontextmenü angezeigt:", attributes);
 	} catch (error) {
-		console.error("Fehler beim Umschalten des Kontextmenüs:", error);
+		//console.error("Fehler beim Umschalten des Kontextmenüs:", error);
 	}
 }
 
@@ -1063,7 +1063,7 @@ function buildContextMenu(attributes, personEl) {
 					console.error("Kein personEl vorhanden zum Entfernen");
 					return;
 				}
-				console.log(`🔴 Lösche Item Index ${index} aus Inventar von Person`, personEl);
+				//console.log(`🔴 Lösche Item Index ${index} aus Inventar von Person`, personEl);
 
 				removeObjectFromInventory(personEl, index);
 
@@ -1139,7 +1139,7 @@ function getAllOptions() {
 }
 
 function createOptionsDiv(obj) { 
-  console.log("createOptionsDiv mit Objekt:", obj);
+  //console.log("createOptionsDiv mit Objekt:", obj);
   const div = document.createElement("div");
   div.className = "optionContainer";
   div.style.position = "absolute";
@@ -1185,13 +1185,13 @@ function createOptionsDiv(obj) {
 
 function appendToContainer(div, containerId = "generatedObjectsContainer") {
 	const container = document.getElementById(containerId);
-	console.log(`appendToContainer: Container mit ID '${containerId}' gefunden? ${container !== null}`);
+	//console.log(`appendToContainer: Container mit ID '${containerId}' gefunden? ${container !== null}`);
 	if (!container) {
-		console.error(`FEHLER: Container mit ID '${containerId}' nicht gefunden!`);
+		//console.error(`FEHLER: Container mit ID '${containerId}' nicht gefunden!`);
 		return;
 	}
 	container.appendChild(div);
-	console.log("appendToContainer: Div hinzugefügt");
+	//console.log("appendToContainer: Div hinzugefügt");
 	applyInvertFilterToElements(theme) 
 }
 
@@ -1200,9 +1200,9 @@ function clearFormFields() {
 		const input = document.getElementById(id);
 		if (input) {
 			input.value = "";
-			console.log(`clearFormFields: Feld '${id}' geleert`);
+			//console.log(`clearFormFields: Feld '${id}' geleert`);
 		} else {
-			console.warn(`clearFormFields: Feld '${id}' nicht gefunden`);
+			//console.warn(`clearFormFields: Feld '${id}' nicht gefunden`);
 		}
 	});
 }
@@ -1211,13 +1211,13 @@ function clearFormFields() {
 
 
 function handleSave() {
-	console.log("handleSave: Start");
+	//console.log("handleSave: Start");
 	const options = getAllOptions();
 	const newDiv = createOptionsDiv(options);
 	appendToContainer(newDiv);
 	clearFormFields();
 	hideForm();
-	console.log("handleSave: Fertig");
+	//console.log("handleSave: Fertig");
 	applyInvertFilterToElements(theme)
 }
 
@@ -1237,13 +1237,13 @@ window.addEventListener("DOMContentLoaded", () => {
 function updateContextMenuInventory(personEl) {
 	const menu = document.querySelector(".context-menu");
 	if (!menu) {
-		console.log("ℹ️ Kein Kontextmenü offen, Inventar wird nicht angezeigt.");
+		//console.log("ℹ️ Kein Kontextmenü offen, Inventar wird nicht angezeigt.");
 		return;
 	}
 
 	const ul = menu.querySelector(".question-list");
 	if (!ul) {
-		console.warn("❌ Keine <ul class='question-list'> im Menü gefunden.");
+		//console.warn("❌ Keine <ul class='question-list'> im Menü gefunden.");
 		return;
 	}
 
@@ -1251,7 +1251,7 @@ function updateContextMenuInventory(personEl) {
 	try {
 		attributes = JSON.parse(personEl.dataset.attributes || "{}");
 	} catch (err) {
-		console.error("❌ Fehler beim Parsen der Personen-Attribute:", err);
+		//console.error("❌ Fehler beim Parsen der Personen-Attribute:", err);
 		return;
 	}
 
@@ -1333,15 +1333,15 @@ function removeObjectFromInventory(personEl, itemIndex) {
 
 	// An richtigen Container anhängen
 	appendToContainer(newObjEl);
-	log("appendToContainer: Neues Objekt-Element erstellt und angehängt:", newObjEl);
+	//log("appendToContainer: Neues Objekt-Element erstellt und angehängt:", newObjEl);
 
 	var object_id = $(newObjEl).data("attributes").id;
 	var person_id = JSON.parse(personEl.dataset.attributes).id;
 
-	log(`Speichere Objekt ${object_id} zu Person ${person_id}`);
+	//log(`Speichere Objekt ${object_id} zu Person ${person_id}`);
 
 	deleteObjectFromPerson(person_id, object_id);
-	console.log("✅ Objekt wurde aus Inventar entfernt und neu erstellt auf dem Floorplan:", removedItem);
+	//console.log("✅ Objekt wurde aus Inventar entfernt und neu erstellt auf dem Floorplan:", removedItem);
 
 	// Kontextmenü aktualisieren
 	updateContextMenuInventory(personEl);
@@ -1408,7 +1408,7 @@ window.addEventListener("DOMContentLoaded", () => {
   saveSelectedBtn.addEventListener("click", () => {
   const selectedId = parseInt(objektSelect.value);
   if (!selectedId) {
-    alert("Bitte wähle ein Objekt aus.");
+    //alert("Bitte wähle ein Objekt aus.");
     return;
   }
 
