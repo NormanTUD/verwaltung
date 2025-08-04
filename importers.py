@@ -21,6 +21,7 @@ ALIAS_MAPPING = {
     "Abteilung.vertretung": ["Vertretung", "Vertreter", "Stellvertretung"],
     "Building.name": ["Gebäude", "Building", "Gebäudename"],
     "Raum.name": ["Raum", "Room", "Raumname"],
+    "PrincipalInvestigatorToAbteilung.person": ["PI", "Principal Investigator"],
 }
 
 def get_or_create(model_class, filter_data: dict, create_data: dict, session=None):
