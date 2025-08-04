@@ -340,21 +340,77 @@ def __import_process_phone(value, area_code):
     return raw_number
 
 def __import_handle_abteilung_special(index, row, attr, value, session, log, errors):
+    """
+    Setzt Abteilungsleiter, Vertretung oder Principal Investigator (PI) für eine Abteilung.
+    Falls die Person nicht existiert, wird sie neu erstellt.
+    
+    :param index: Zeilenindex (für Log)
+    :param row: Zeilendaten (dict)
+    :param attr: Attribut, z.B. 'abteilungsleiter', 'vertretung', 'principal_investigator'
+    :param value: Personenname als String (z.B. "Vorname Nachname")
+    :param session: SQLAlchemy-Session
+    :param log: Liste zur Aufnahme von Logeinträgen
+    :param errors: Liste zur Aufnahme von Fehlern
+    """
     abt_name = row.get("Abteilung") or row.get("Department") or row.get("Struktureinheit")
-    if abt_name and value:
-        person = __import_resolve_person_by_name(value, session)
-        if person:
-            abt, _ = __import_get_or_create(Abteilung, {"name": abt_name}, {"name": abt_name}, session)
-            if attr == "abteilungsleiter":
-                abt.abteilungsleiter_id = person.id
-                log.append(f"Zeile {index + 1}: Abteilungsleiter für '{abt_name}' gesetzt: {person.vorname} {person.nachname}")
-            elif attr == "vertretung":
-                abt.vertretungs_id = person.id
-                log.append(f"Zeile {index + 1}: Vertretung für '{abt_name}' gesetzt: {person.vorname} {person.nachname}")
-            session.add(abt)
+    if not abt_name or not value:
+        return
+
+    # Hilfsfunktion zum Aufsplitten des Namens (einfacher Ansatz)
+    def split_name(full_name):
+        parts = full_name.strip().split()
+        if len(parts) == 0:
+            return None, None
+        elif len(parts) == 1:
+            return parts[0], ""
         else:
-            role_label = "Abteilungsleiter" if attr == "abteilungsleiter" else "Vertretung"
-            errors.append(f"Zeile {index + 1}: {role_label} '{value}' konnte nicht erstellt werden.")
+            return parts[0], " ".join(parts[1:])
+
+    # Versuche Person anhand Name zu laden oder neu zu erstellen
+    vorname, nachname = split_name(value)
+    if vorname is None:
+        errors.append(f"Zeile {index + 1}: Ungültiger Personenname '{value}'.")
+        return
+
+    filter_person = {"vorname": vorname, "nachname": nachname}
+    person_data = {"vorname": vorname, "nachname": nachname}
+    try:
+        person, created = __import_get_or_create(Person, filter_person, person_data, session)
+        if created:
+            log.append(f"Zeile {index + 1}: Neue Person erstellt: {vorname} {nachname}")
+    except Exception as e:
+        errors.append(f"Zeile {index + 1}: Fehler beim Erstellen/Laden der Person '{value}': {str(e)}")
+        return
+
+    # Hole oder erstelle Abteilung
+    try:
+        abt, _ = __import_get_or_create(Abteilung, {"name": abt_name}, {"name": abt_name}, session)
+    except Exception as e:
+        errors.append(f"Zeile {index + 1}: Fehler beim Erstellen/Laden der Abteilung '{abt_name}': {str(e)}")
+        return
+
+    # Je nach attr den passenden Fremdschlüssel setzen
+    if attr == "abteilungsleiter":
+        abt.abteilungsleiter_id = person.id
+        log.append(f"Zeile {index + 1}: Abteilungsleiter für '{abt_name}' gesetzt: {vorname} {nachname}")
+    elif attr == "vertretung":
+        abt.vertretungs_id = person.id
+        log.append(f"Zeile {index + 1}: Vertretung für '{abt_name}' gesetzt: {vorname} {nachname}")
+    elif attr == "principal_investigator":
+        # Principal Investigator wird über Zuordnungstabelle gepflegt
+        # Prüfen, ob Zuordnung bereits existiert
+        pi_assoc = session.query(PrincipalInvestigatorToAbteilung).filter_by(
+            person_id=person.id, abteilung_id=abt.id).first()
+        if not pi_assoc:
+            pi_assoc = PrincipalInvestigatorToAbteilung(person_id=person.id, abteilung_id=abt.id)
+            session.add(pi_assoc)
+            log.append(f"Zeile {index + 1}: Principal Investigator für '{abt_name}' hinzugefügt: {vorname} {nachname}")
+        else:
+            log.append(f"Zeile {index + 1}: Principal Investigator für '{abt_name}' bereits vorhanden: {vorname} {nachname}")
+    else:
+        errors.append(f"Zeile {index + 1}: Unbekanntes Attribut '{attr}'.")
+
+    session.add(abt)
 
 def __import_save_contacts(person, contacts, index, session, log):
     for contact_data in contacts:
