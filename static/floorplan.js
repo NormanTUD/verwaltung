@@ -6,6 +6,23 @@ const räume = {};
 const dynamicForm = document.getElementById("dynamicPersonForm");
 let personDatabase = [];
 
+var objekts = [
+  { id: 1, name: "laptop", Preis: 123, category: "PC" },
+  { id: 2, name: "smartphone", Preis: 699, category: "Handy" },
+  { id: 3, name: "monitor", Preis: 199, category: "PC-Zubehör" },
+  { id: 4, name: "kopfhörer", Preis: 89, category: "Audio" },
+  { id: 5, name: "drucker", Preis: 150, category: "Büro" }
+];
+
+
+  const addBtn = document.getElementById("addBtn");
+  const selectContainer = document.getElementById("selectContainer");
+  const objektSelect = document.getElementById("objektSelect");
+  const saveSelectedBtn = document.getElementById("saveSelectedBtn");
+  const cancelSelectBtn = document.getElementById("cancelSelectBtn");
+  const selectedInfo = document.getElementById("selectedInfo");
+
+
 try {
 	params = new URLSearchParams(window.location.search);
 } catch (error) {
@@ -504,7 +521,6 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 			populateExistingPersonSelect();
 			updateFormMode();
 			applyInvertFilterToElements(theme)
-			cancelBtnFunction()
 		});
 	}
 
@@ -950,26 +966,15 @@ function positionContextMenu(circle, menu) {
 }
 
 const addBtn = document.getElementById("addBtn");
-const objectForm = document.getElementById("objectForm");
-const cancelObjectBtn = document.getElementById("cancelObjectBtn");
 
 if (addBtn) {
 	addBtn.addEventListener("click", () => {
-		objectForm.style.display = "block";
 		cancelpersonBtnFunction()
 	});
 }
 
-function cancelBtnFunction() {
-	objectForm.style.display = "none";
-	// Optional: Felder leeren
-	document.getElementById("option1").value = "";
-	document.getElementById("option2").value = "";
-	document.getElementById("option3").value = "";
-	document.getElementById("option4").value = "";
-}
 
-cancelObjectBtn.addEventListener("click", cancelBtnFunction);
+
 
 function getInputValue(id) {
 	const input = document.getElementById(id);
@@ -1055,25 +1060,8 @@ function clearFormFields() {
 	});
 }
 
-function hideForm() {
-	const form = document.getElementById("objectForm");
-	if (form) {
-		form.style.display = "none";
-		console.log("hideForm: Formular ausgeblendet");
-	} else {
-		console.warn("hideForm: Formular mit ID 'objectForm' nicht gefunden");
-	}
-}
 
-function showForm() {
-	const form = document.getElementById("objectForm");
-	if (form) {
-		form.style.display = "block";
-		console.log("showForm: Formular angezeigt");
-	} else {
-		console.warn("showForm: Formular mit ID 'objectForm' nicht gefunden");
-	}
-}
+
 
 function handleSave() {
 	console.log("handleSave: Start");
@@ -1086,29 +1074,9 @@ function handleSave() {
 	applyInvertFilterToElements(theme)
 }
 
-function setupEventListeners() {
-	const saveBtn = document.getElementById("saveOptionsBtn");
-	const cancelBtn = document.getElementById("cancelObjectBtn");
 
-	if (saveBtn) {
-		saveBtn.addEventListener("click", handleSave);
-		//console.log("setupEventListeners: Listener für Speichern gesetzt");
-	} else {
-		console.error("setupEventListeners: Button 'saveOptionsBtn' nicht gefunden");
-	}
-
-	if (cancelBtn) {
-		cancelBtn.addEventListener("click", hideForm);
-		//console.log("setupEventListeners: Listener für Abbrechen gesetzt");
-	} else {
-		console.error("setupEventListeners: Button 'cancelObjectBtn' nicht gefunden");
-	}
-}
 
 window.addEventListener("DOMContentLoaded", () => {
-	//console.log("DOM vollständig geladen");
-	setupEventListeners();
-
 	// Automatisch div mit aktuellen Eingaben erstellen, falls vorhanden
 	const options = getAllOptions();
 
@@ -1246,7 +1214,6 @@ document.addEventListener("DOMContentLoaded", function () {
 document.addEventListener('keydown', function (event) {
 	if (event.key === 'Escape') {
 		cancelpersonBtnFunction();
-		cancelBtnFunction();
 	}
 });
 
@@ -1263,3 +1230,42 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 }
+
+
+
+// Wenn auf "Objekt hinzufügen" geklickt wird, Select anzeigen und Optionen füllen
+  addBtn.addEventListener("click", () => {
+    // Optionen zurücksetzen
+    objektSelect.innerHTML = '<option value="">-- Bitte wählen --</option>';
+    // Optionen hinzufügen
+    objekts.forEach(obj => {
+      const option = document.createElement("option");
+      option.value = obj.id;
+      option.textContent = obj.name;
+      objektSelect.appendChild(option);
+    });
+
+    selectContainer.style.display = "block";
+  });
+
+  // Auswahl speichern
+  saveSelectedBtn.addEventListener("click", () => {
+    const selectedId = parseInt(objektSelect.value);
+    if (!selectedId) {
+      alert("Bitte wähle ein Objekt aus.");
+      return;
+    }
+    // Das Objekt mit der ausgewählten ID finden
+    const selectedObjekt = objekts.find(obj => obj.id === selectedId);
+
+    // Beispiel: Zeige Infos an oder mach was anderes
+    selectedInfo.textContent = `Ausgewähltes Objekt: ${selectedObjekt.name}, Preis: ${selectedObjekt.Preis}€, Kategorie: ${selectedObjekt.category}`;
+
+    // Select ausblenden
+    selectContainer.style.display = "none";
+  });
+
+  // Auswahl abbrechen
+  cancelSelectBtn.addEventListener("click", () => {
+    selectContainer.style.display = "none";
+  });
