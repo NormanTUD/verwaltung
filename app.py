@@ -156,7 +156,7 @@ try:
     from db_interface import *
     
     from importers import importers_bp
-    from auth import admin_required
+    from auth import admin_required, is_admin_user
     from db import *
 except ModuleNotFoundError as e:
     if not VENV_PATH.exists():
