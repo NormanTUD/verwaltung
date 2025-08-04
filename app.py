@@ -2267,7 +2267,7 @@ def map_editor():
         return "Invalid 'building_id' or 'etage' – must be integers", 400
 
     filename = f"b{building_id}_f{etage}.png"
-    image_path = os.path.join(etageplan_dir, filename)
+    image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "floorplans", filename)
 
     if not os.path.exists(image_path):
         session.close()
@@ -2993,7 +2993,7 @@ def etageplan():
 
     # Prüfe, ob Bild existiert
     filename = f"b{building_id}_f{etage}.png"
-    image_path = os.path.join("static", "floorplans", filename)
+    image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "floorplans", filename)
 
     if not os.path.exists(image_path):
         return f"Image not found: {filename}", 404
