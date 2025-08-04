@@ -12,3 +12,6 @@ https://vicanand.github.io/pdfsign/
 export MYSQLCLIENT_CFLAGS="-I/usr/include/mariadb"
 export MYSQLCLIENT_LDFLAGS="-L/usr/lib/x86_64-linux-gnu"
 ```
+
+Install in venv: 
+`mod_wsgi`
