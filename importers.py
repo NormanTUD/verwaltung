@@ -21,6 +21,9 @@ ALIAS_MAPPING = {
     "Abteilung.vertretung": ["Vertretung", "Vertreter", "Stellvertretung"],
     "Building.name": ["Gebäude", "Building", "Gebäudename"],
     "Raum.name": ["Raum", "Room", "Raumname"],
+    "Inventar.rückgabedatum": ["Rückgabe"],
+    "Inventar.erhaltungsdatum": ["Ausgabedatum"],
+    "Inventar.inventarnummer": ["Inventar-Nr.", "Inventarnummer"],
     "PrincipalInvestigatorToAbteilung.person": ["PI", "Principal Investigator"],
     
     "Inventar.anlagennummer": ["Anlagennummer", "Anlagenummer", "Anlagennr", "Anlagen Nr"],
