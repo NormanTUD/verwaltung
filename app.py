@@ -105,22 +105,30 @@ try:
     import datetime
 
     from werkzeug.security import generate_password_hash, check_password_hash
+    from werkzeug.utils import secure_filename
+
+    import tempfile
+    import pandas as pd
 
     import inflect
 
     from markupsafe import escape
 
     from db_interface import *
-except ModuleNotFoundError:
+except ModuleNotFoundError as e:
+    print(f"ModuleNotFoundError: {e}")
     if not VENV_PATH.exists():
         create_and_setup_venv()
     else:
         try:
             subprocess.check_call(pip_install_modules)
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
             shutil.rmtree(VENV_PATH)
             create_and_setup_venv()
             restart_with_venv()
+        except KeyboardInterrupt:
+            print("CTRL-c detected")
+            sys.exit(0)
     try:
         restart_with_venv()
     except KeyboardInterrupt:
@@ -4216,6 +4224,115 @@ def merge_interface():
         selected_table=selected_table,
         entries=entries,
     )
+
+ALIAS_MAPPING = {
+    "Person.vorname": ["Vorname", "first_name", "Name"],
+    "Person.nachname": ["Nachname", "last_name", "surname"],
+    "Person.geburtsdatum": ["Geburtsdatum", "birthdate", "dob"],
+    "Adresse.strasse": ["Straße", "street"],
+    "Adresse.ort": ["Ort", "city", "Stadt"]
+}
+
+def match_column(col_name):
+    for key, aliases in ALIAS_MAPPING.items():
+        if col_name.strip().lower() in [a.lower() for a in aliases]:
+            return key
+    return None
+
+@app.route("/import/upload", methods=["GET", "POST"])
+def import_upload():
+    if request.method == "POST":
+        file = request.files.get("file")
+        csvtext = request.form.get("csvtext")
+
+        df = None
+        filename = None
+
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            ext = os.path.splitext(filename)[1].lower()
+            if ext == ".csv":
+                df = pd.read_csv(file)
+            elif ext in [".xls", ".xlsx"]:
+                df = pd.read_excel(file)
+        elif csvtext:
+            df = pd.read_csv(io.StringIO(csvtext))
+
+        if df is None or df.empty:
+            return "Fehler beim Einlesen der Datei", 400
+
+        column_map = {}
+        for col in df.columns:
+            column_map[col] = match_column(col)
+
+        return render_template("import_preview.html",
+                               columns=df.columns,
+                               rows=df.to_dict(orient="records"),
+                               column_map=column_map,
+                               possible_targets=list(ALIAS_MAPPING.keys()),
+                               data_json=df.to_json(orient="records"))
+
+    return render_template("import_upload.html")
+
+
+@app.route("/import/commit", methods=["POST"])
+def import_commit():
+    session = DBSession()
+
+    try:
+        data = json.loads(request.form.get("data_json"))
+        column_map = request.form.getlist("column_map")
+
+        # Umwandlung in Mapping
+        raw_map = request.form.to_dict(flat=False).get("column_map", [])
+        structured_map = {}
+        for pair in request.form.items():
+            key, val = pair
+            if key.startswith("column_map["):
+                colname = key[len("column_map["):-1]
+                if val:
+                    structured_map[colname] = val
+
+        person_rows = []
+        adresse_rows = []
+
+        for row in data:
+            person_kwargs = {}
+            adresse_kwargs = {}
+            for colname, target in structured_map.items():
+                if not target:
+                    continue
+                if target.startswith("Person."):
+                    person_kwargs[target.split(".")[1]] = row.get(colname)
+                elif target.startswith("Adresse."):
+                    adresse_kwargs[target.split(".")[1]] = row.get(colname)
+
+            if person_kwargs:
+                person = session.query(Person).filter_by(**person_kwargs).first()
+                if not person:
+                    person = Person(**person_kwargs)
+                else:
+                    for k, v in person_kwargs.items():
+                        setattr(person, k, v)
+                session.add(person)
+
+            if adresse_kwargs:
+                adresse = session.query(Adresse).filter_by(**adresse_kwargs).first()
+                if not adresse:
+                    adresse = Adresse(**adresse_kwargs)
+                else:
+                    for k, v in adresse_kwargs.items():
+                        setattr(adresse, k, v)
+                session.add(adresse)
+
+        session.commit()
+        return "Eintragung erfolgreich!"
+
+    except Exception as e:
+        session.rollback()
+        return f"Fehler: {str(e)}", 500
+    finally:
+        session.close()
 
 event.listen(Session, "before_flush", block_writes_if_user_readonly)
 event.listen(Session, "before_flush", block_writes_if_data_version_cookie_set)

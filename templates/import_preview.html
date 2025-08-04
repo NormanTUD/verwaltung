@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block title %}Vorschau{% endblock %}
+
+{% block content %}
+<h2>Vorschau – Zuordnung überprüfen</h2>
+
+<form action="{{ url_for('import_commit') }}" method="post">
+    <input type="hidden" name="data_json" value="{{ data_json|tojson }}">
+
+    <table border="1">
+        <thead>
+            <tr>
+                {% for col in columns %}
+                    <th>
+                        {{ col }}<br>
+                        <select name="column_map[{{ col }}]">
+                            <option value="">-- ignorieren --</option>
+                            {% for target in possible_targets %}
+                                <option value="{{ target }}" {% if column_map[col] == target %}selected{% endif %}>
+                                    {{ target }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+                <tr>
+                    {% for col in columns %}
+                        <td>{{ row[col] }}</td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <br>
+    <button type="submit">Eintragen</button>
+</form>
+{% endblock %}
