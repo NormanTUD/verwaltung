@@ -4227,17 +4227,15 @@ def merge_interface():
 
 
 ALIAS_MAPPING = {
-    "Person.vorname": ["Vorname", "first_name", "Name"],
+    "Person.vorname": ["Vorname", "first_name", "Vorname"],
     "Person.nachname": ["Nachname", "last_name", "surname"],
-    "Person.geburtsdatum": ["Geburtsdatum", "birthdate", "dob"],
     "Person.title": ["Titel", "Title"],
     "Person.kommentar": ["Kommentar", "Note", "Bemerkung"],
     "PersonContact.email": ["Email", "E-Mail", "email"],
     "PersonContact.phone": ["Telefon", "Phone", "Telefonnummer"],
-    "Abteilung.name": ["Abteilung", "Department", "Abteilungsname"],
+    "Abteilung.name": ["Abteilung", "Department", "Abteilungsname", "Struktureinheit"],
     "Building.name": ["Gebäude", "Building", "Gebäudename"],
     "Raum.name": ["Raum", "Room", "Raumname"],
-    # ... je nach Bedarf erweitern
 }
 
 def match_column(col_name):
