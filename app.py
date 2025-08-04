@@ -4227,7 +4227,7 @@ def merge_interface():
 
 
 ALIAS_MAPPING = {
-    "Person.vorname": ["Vorname", "first_name", "Vorname"],
+    "Person.vorname": ["Vorname", "first_name", "Vorname", "Name"],
     "Person.nachname": ["Nachname", "last_name", "surname"],
     "Person.title": ["Titel", "Title"],
     "Person.kommentar": ["Kommentar", "Note", "Bemerkung"],
