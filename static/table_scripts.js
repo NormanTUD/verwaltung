@@ -61,7 +61,6 @@ $(".cell-input").filter(function() {
 }).on("change", function() {
 	const name = $(this).attr("name");
 	const value = $(this).val();
-	log("A");
 	$.post("/update/{{ table_name }}", { name, value }, function(resp) {
 		if (!resp.success) {
 			error("Fehler beim Updaten: " + resp.error);
@@ -71,7 +70,6 @@ $(".cell-input").filter(function() {
 	}, "json").fail(function() {
 		error("Netzwerkfehler beim Updaten");
 	});
-	log("B");
 });
 
 // Speichern neuer Eintrag
