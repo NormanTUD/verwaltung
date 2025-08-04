@@ -8,3 +8,4 @@ database.db
 .vscode/
 .env
 flaskenv
+.verwaltung_venv/
