@@ -15,3 +15,5 @@ export MYSQLCLIENT_LDFLAGS="-L/usr/lib/x86_64-linux-gnu"
 
 Install in venv: 
 `mod_wsgi`
+
+`/etc/db_engine`: `mysql+pymysql://user:pw@localhost/oasis?charset=utf8mb4`
