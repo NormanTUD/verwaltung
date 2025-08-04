@@ -7,6 +7,7 @@ import json
 import re
 from sqlalchemy.exc import IntegrityError
 from db import *
+from pprint import pprint
 
 importers_bp = Blueprint('importers', __name__)
 
@@ -298,31 +299,36 @@ def __import_process_row(index, row, session, structured_map, area_code_map, log
             if model_name == "PersonContact" and attr == "phone":
                 area_code = area_code_map.get(colname, "")
                 value = __import_process_phone(value, area_code)
-                done = False
+                done = True
 
             if model_name == "Person" and attr == "nachname" and value and "," in str(value):
                 parts = __import_split_name(value)
                 if parts["vorname"]:
                     person_data["vorname"] = parts["vorname"]
-                    done = False
+                    done = True
                 if parts["nachname"]:
                     person_data["nachname"] = parts["nachname"]
-                    done = False
+                    done = True
+                continue
+
+            if model_name == "Objekt" and attr in ["bezeichnung"]:
+                # Done -> true
+                done = True
                 continue
 
             if model_name == "Abteilung" and attr in ["abteilungsleiter", "vertretung"]:
                 __import_handle_abteilung_special(index, row, attr, value, session, log, errors)
-                done = False
+                done = True
                 continue
 
             if model_name == "Person":
                 person_data[attr] = value
-                done = False
+                done = True
             else:
                 related_key = __import_model_name_to_key(model_name)
                 if related_key:
                     person_related[related_key].append({attr: value})
-                    done = False
+                    done = True
 
             if not done:
                 if colname not in ignored_col_names:
