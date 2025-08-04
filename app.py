@@ -3759,15 +3759,20 @@ def get_person_raum_data():
                 person = ptr.person
                 person_id = person.id
 
-                if person_id not in person_dict_map:
-                    person_dict_map[person_id] = {
-                        "person": person.to_dict(),
-                        "contacts": [c.to_dict() for c in person.contacts],
-                        "räume": []
-                    }
+                person_dict = person.to_dict()
 
                 x_value = ptr.x
                 y_value = ptr.y
+
+                person_dict["x"] = x_value
+                person_dict["y"] = y_value
+
+                if person_id not in person_dict_map:
+                    person_dict_map[person_id] = {
+                        "person": person_dict,
+                        "contacts": [c.to_dict() for c in person.contacts],
+                        "räume": []
+                    }
 
                 if x_value is None or y_value is None:
                     print(f"⚠ Warnung: PersonToRaum id={ptr.id} hat x oder y = None")
@@ -3780,14 +3785,14 @@ def get_person_raum_data():
 
                 person_dict_map[person_id]["räume"].append({
                     "raum": room_info,
-                    "layout": layout_info,
-                    "x": x_value,
-                    "y": y_value
+                    "layout": layout_info
                 })
 
         if session:
             session.close()
 
+        from pprint import pprint
+        pprint(person_dict_map)
         result = list(person_dict_map.values())
         return jsonify(result)
 
