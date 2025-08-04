@@ -23,9 +23,17 @@ parser.add_argument('--secret', type=str, default='geheim', help='SECRET_KEY fü
 parser.add_argument('--engine-db', type=str, default='sqlite:///database.db', help='URI für create_engine()')
 args = parser.parse_args()
 
-engine_db_env = os.environ.get('ENGINE_DB')
-if engine_db_env is not None:
-    args.engine_db = engine_db_env
+db_engine_file = "/etc/db_engine"
+
+# Prüfen, ob Datei existiert und lesbar ist
+if os.path.isfile(db_engine_file) and os.access(db_engine_file, os.R_OK):
+    try:
+        with open(db_engine_file, "r", encoding="utf-8") as f:
+            file_content = f.read().strip()
+            if file_content:
+                args.engine_db = file_content
+    except Exception as e:
+        print("Fehler beim Lesen von /etc/db_engine:", str(e))
 
 IGNORED_TABLES = {"transaction", "user", "roles"}
 
