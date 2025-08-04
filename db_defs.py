@@ -127,7 +127,6 @@ class Abteilung(Base):
     id = Column(Integer, primary_key=True)
     name = Column(Text)
     abteilungsleiter_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
-    vertretung_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
 
     leiter = relationship("Person", back_populates="departments")
     vertretung = relationship("Person", back_populates="departments")
