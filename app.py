@@ -2217,7 +2217,7 @@ def map_editor():
     building_id_param = request.args.get("building_id")
     etage_param = request.args.get("etage")
 
-    etageplan_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "floorplans")
+    etageplan_dir = os.path.join("static", "floorplans")
 
     # floorplan als Struktur: { building_id: [etage1, etage2, ...] }
     building_map = {}
@@ -2950,7 +2950,7 @@ def etageplan():
         return "Invalid 'building_id' or 'etage' – must be integers", 400
 
     # Lade alle verfügbaren Gebäude & Etagen
-    etageplan_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "floorplans")
+    etageplan_dir = os.path.join("static", "floorplans")
     building_map = {}
 
     for filename in os.listdir(etageplan_dir):
