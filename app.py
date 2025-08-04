@@ -2950,7 +2950,7 @@ def etageplan():
         return "Invalid 'building_id' or 'etage' – must be integers", 400
 
     # Lade alle verfügbaren Gebäude & Etagen
-    etageplan_dir = os.path.join("static", "floorplans")
+    etageplan_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "floorplans")
     building_map = {}
 
     for filename in os.listdir(etageplan_dir):
