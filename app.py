@@ -4239,7 +4239,7 @@ def match_column(col_name):
             return key
     return None
 
-@app.route("/import/upload", methods=["GET", "POST"])
+@app.route("/import/", methods=["GET", "POST"])
 def import_upload():
     if request.method == "POST":
         file = request.files.get("file")
@@ -4278,61 +4278,81 @@ def import_upload():
 @app.route("/import/commit", methods=["POST"])
 def import_commit():
     session = Session()
+    log = []
+    errors = []
 
     try:
-        data = json.loads(request.form.get("data_json"))
-        column_map = request.form.getlist("column_map")
+        raw_json = request.form.get("data_json")
+        if not raw_json:
+            return "Fehler: Kein JSON übergeben!", 400
 
-        # Umwandlung in Mapping
-        raw_map = request.form.to_dict(flat=False).get("column_map", [])
+        try:
+            data = json.loads(raw_json)
+        except json.JSONDecodeError as e:
+            return f"Fehler beim Parsen von JSON: {str(e)}\n\nInhalt: {raw_json[:1000]}", 400
+
         structured_map = {}
-        for pair in request.form.items():
-            key, val = pair
+        for key, val in request.form.items():
             if key.startswith("column_map["):
                 colname = key[len("column_map["):-1]
-                if val:
-                    structured_map[colname] = val
+                if val.strip():
+                    structured_map[colname] = val.strip()
 
-        person_rows = []
-        adresse_rows = []
+        # Umgekehrtes Mapping: table_name -> [{rowdata}]
+        table_data = {}
 
-        for row in data:
-            person_kwargs = {}
-            adresse_kwargs = {}
-            for colname, target in structured_map.items():
-                if not target:
+        for row_index, row in enumerate(data):
+            row_models = {}
+
+            for colname, full_target in structured_map.items():
+                if not full_target:
                     continue
-                if target.startswith("Person."):
-                    person_kwargs[target.split(".")[1]] = row.get(colname)
-                elif target.startswith("Adresse."):
-                    adresse_kwargs[target.split(".")[1]] = row.get(colname)
+                if '.' not in full_target:
+                    errors.append(f"Ungültiges Mapping '{full_target}' für Spalte '{colname}'")
+                    continue
 
-            if person_kwargs:
-                person = session.query(Person).filter_by(**person_kwargs).first()
-                if not person:
-                    person = Person(**person_kwargs)
-                else:
-                    for k, v in person_kwargs.items():
-                        setattr(person, k, v)
-                session.add(person)
+                model_name, attr = full_target.split('.', 1)
+                value = row.get(colname)
 
-            if adresse_kwargs:
-                adresse = session.query(Adresse).filter_by(**adresse_kwargs).first()
-                if not adresse:
-                    adresse = Adresse(**adresse_kwargs)
-                else:
-                    for k, v in adresse_kwargs.items():
-                        setattr(adresse, k, v)
-                session.add(adresse)
+                if model_name not in row_models:
+                    row_models[model_name] = {}
+
+                row_models[model_name][attr] = value
+
+            for model_name, values in row_models.items():
+                if model_name not in globals():
+                    errors.append(f"Modell '{model_name}' nicht gefunden für Zeile {row_index + 1}")
+                    continue
+
+                ModelClass = globals()[model_name]
+                try:
+                    existing = session.query(ModelClass).filter_by(**values).first()
+                    if not existing:
+                        instance = ModelClass(**values)
+                        log.append(f"NEU: {model_name}: {values}")
+                    else:
+                        instance = existing
+                        for k, v in values.items():
+                            setattr(instance, k, v)
+                        log.append(f"UPDATE: {model_name}: {values}")
+                    session.add(instance)
+                except Exception as model_error:
+                    errors.append(f"{model_name} (Zeile {row_index + 1}): {str(model_error)}")
 
         session.commit()
-        return "Eintragung erfolgreich!"
+
+        result = "<h3>Import erfolgreich!</h3>\n"
+        result += "<h4>Log:</h4><pre>" + "\n".join(log) + "</pre>\n"
+        if errors:
+            result += "<h4>Fehler:</h4><pre style='color:red'>" + "\n".join(errors) + "</pre>\n"
+        return result
 
     except Exception as e:
         session.rollback()
-        return f"Fehler: {str(e)}", 500
+        return f"Allgemeiner Fehler: {str(e)}", 500
     finally:
         session.close()
+
 
 event.listen(Session, "before_flush", block_writes_if_user_readonly)
 event.listen(Session, "before_flush", block_writes_if_data_version_cookie_set)

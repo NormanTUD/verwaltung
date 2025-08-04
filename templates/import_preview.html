@@ -5,8 +5,7 @@
 <h2>Vorschau – Zuordnung überprüfen</h2>
 
 <form action="{{ url_for('import_commit') }}" method="post">
-    <input type="hidden" name="data_json" value="{{ data_json|tojson }}">
-
+    <textarea name="data_json" hidden>{{ data_json }}</textarea>
     <table border="1">
         <thead>
             <tr>
@@ -35,7 +34,6 @@
             {% endfor %}
         </tbody>
     </table>
-
     <br>
     <button type="submit">Eintragen</button>
 </form>
