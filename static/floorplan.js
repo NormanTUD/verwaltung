@@ -9,156 +9,156 @@ let personDatabase = [];
 let objekte = [];
 
 fetch("/api/get_object_database")
-  .then(response => {
-    if (!response.ok) {
-      throw new Error("Netzwerkfehler: " + response.status);
-    }
-    return response.json();
-  })
-  .then(data => {
-    objekte = data;
-    //console.log("Objekte geladen:", objekte);
-    // Hier kannst du weitere Logik anschließen (z. B. rendern)
-  })
-  .catch(error => {
-    //console.error("❌ Fehler beim Laden der Objekte:", error);
-  });
+	.then(response => {
+		if (!response.ok) {
+			throw new Error("Netzwerkfehler: " + response.status);
+		}
+		return response.json();
+	})
+	.then(data => {
+		objekte = data;
+		//console.log("Objekte geladen:", objekte);
+		// Hier kannst du weitere Logik anschließen (z. B. rendern)
+	})
+	.catch(error => {
+		//console.error("❌ Fehler beim Laden der Objekte:", error);
+	});
 
 
 async function save_object_to_person(person_id, object_id) {
-  try {
-    const response = await fetch('/api/save_object_to_person', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Falls du CSRF-Token brauchst, hier hinzufügen
-        // 'X-CSRFToken': getCSRFToken(),
-      },
-      body: JSON.stringify({
-        besitzer_id: person_id,
-        object_id: object_id
-        // Optional: andere Felder wie raum_id, kommentar usw. hier hinzufügen
-      })
-    });
+	try {
+		const response = await fetch('/api/save_object_to_person', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				// Falls du CSRF-Token brauchst, hier hinzufügen
+				// 'X-CSRFToken': getCSRFToken(),
+			},
+			body: JSON.stringify({
+				besitzer_id: person_id,
+				object_id: object_id
+				// Optional: andere Felder wie raum_id, kommentar usw. hier hinzufügen
+			})
+		});
 
-    const data = await response.json();
+		const data = await response.json();
 
-    if (!response.ok) {
-      console.error("Fehler:", data);
-      //alert(`Fehler: ${data.error || 'Unbekannter Fehler'}`);
-    } else {
-      //console.log("Erfolg:", data);
-      //alert(`Inventar wurde ${data.status}`);
-    }
+		if (!response.ok) {
+			console.error("Fehler:", data);
+			//alert(`Fehler: ${data.error || 'Unbekannter Fehler'}`);
+		} else {
+			//console.log("Erfolg:", data);
+			//alert(`Inventar wurde ${data.status}`);
+		}
 
-    return data;
-  } catch (error) {
-    //console.error("Netzwerkfehler:", error);
-    //alert("Netzwerkfehler");
-  }
+		return data;
+	} catch (error) {
+		//console.error("Netzwerkfehler:", error);
+		//alert("Netzwerkfehler");
+	}
 }
 
 function deleteObjectFromPerson(person_id, object_id) {
-  if (!person_id || !object_id) {
-    console.error("❌ Ungültige Parameter: person_id und object_id müssen angegeben werden.");
-    return;
-  }
+	if (!person_id || !object_id) {
+		console.error("❌ Ungültige Parameter: person_id und object_id müssen angegeben werden.");
+		return;
+	}
 
-  const url = `/api/delete_person_id_to_object_id?person_id=${encodeURIComponent(person_id)}&object_id=${encodeURIComponent(object_id)}`;
+	const url = `/api/delete_person_id_to_object_id?person_id=${encodeURIComponent(person_id)}&object_id=${encodeURIComponent(object_id)}`;
 
-  fetch(url)
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`Netzwerkfehler: ${response.status}`);
-      }
-      return response.json();
-    })
-    .then(data => {
-      if (data.error) {
-        //console.error("❌ Fehler von der API:", data.error);
-      } else {
-        //console.log("✅ Antwort der API:", data.status || data);
-      }
-    })
-    .catch(error => {
-      //console.error("❌ Fehler beim Löschen des Objekts aus dem Inventar:", error);
-    });
+	fetch(url)
+		.then(response => {
+			if (!response.ok) {
+				throw new Error(`Netzwerkfehler: ${response.status}`);
+			}
+			return response.json();
+		})
+		.then(data => {
+			if (data.error) {
+				//console.error("❌ Fehler von der API:", data.error);
+			} else {
+				//console.log("✅ Antwort der API:", data.status || data);
+			}
+		})
+		.catch(error => {
+			//console.error("❌ Fehler beim Löschen des Objekts aus dem Inventar:", error);
+		});
 }
 
 
 async function loadAndAssignInventory() {
-  try {
-    const [objectsRes, inventoryRes] = await Promise.all([
-      fetch("/api/get_object_database"),
-      fetch("/api/get_person_id_object_id_database")
-    ]);
+	try {
+		const [objectsRes, inventoryRes] = await Promise.all([
+			fetch("/api/get_object_database"),
+			fetch("/api/get_person_id_object_id_database")
+		]);
 
-    if (!objectsRes.ok || !inventoryRes.ok) {
-      throw new Error("Fehler beim Laden der Daten");
-    }
+		if (!objectsRes.ok || !inventoryRes.ok) {
+			throw new Error("Fehler beim Laden der Daten");
+		}
 
-    const objekte = await objectsRes.json();
-    const inventarDaten = await inventoryRes.json();
+		const objekte = await objectsRes.json();
+		const inventarDaten = await inventoryRes.json();
 
-    //console.log("📦 Geladene Objekte:", objekte);
-    //console.log("🧍‍♂️ Inventardaten:", inventarDaten);
+		//console.log("📦 Geladene Objekte:", objekte);
+		//console.log("🧍‍♂️ Inventardaten:", inventarDaten);
 
-    inventarDaten.forEach(eintrag => {
-      const personId = eintrag.person_id;
-      const objectId = eintrag.object_id;
+		inventarDaten.forEach(eintrag => {
+			const personId = eintrag.person_id;
+			const objectId = eintrag.object_id;
 
-      const personEl = document.querySelector(`.person-circle[data-attributes*='"id":${personId}']`);
-      if (!personEl) {
-        console.warn(`❌ Person mit ID ${personId} nicht im DOM gefunden`);
-        return;
-      }
+			const personEl = document.querySelector(`.person-circle[data-attributes*='"id":${personId}']`);
+			if (!personEl) {
+				console.warn(`❌ Person mit ID ${personId} nicht im DOM gefunden`);
+				return;
+			}
 
-      const obj = objekte.find(o => o.id === parseInt(objectId));
-      if (!obj) {
-        console.warn(`❌ Objekt mit ID ${objectId} nicht gefunden`);
-        return;
-      }
+			const obj = objekte.find(o => o.id === parseInt(objectId));
+			if (!obj) {
+				console.warn(`❌ Objekt mit ID ${objectId} nicht gefunden`);
+				return;
+			}
 
-      const attributes = JSON.parse(personEl.dataset.attributes || "{}");
-      if (!attributes.inventory) attributes.inventory = [];
+			const attributes = JSON.parse(personEl.dataset.attributes || "{}");
+			if (!attributes.inventory) attributes.inventory = [];
 
-      attributes.inventory.push(obj);
-      personEl.dataset.attributes = JSON.stringify(attributes);
+			attributes.inventory.push(obj);
+			personEl.dataset.attributes = JSON.stringify(attributes);
 
-      // Optional – falls du damit arbeitest
-      let inventoryList;
-      try {
-        inventoryList = JSON.parse(personEl.dataset.inventory || "[]");
-      } catch {
-        inventoryList = [];
-      }
-      inventoryList.push(obj);
-      personEl.dataset.inventory = JSON.stringify(inventoryList);
+			// Optional – falls du damit arbeitest
+			let inventoryList;
+			try {
+				inventoryList = JSON.parse(personEl.dataset.inventory || "[]");
+			} catch {
+				inventoryList = [];
+			}
+			inventoryList.push(obj);
+			personEl.dataset.inventory = JSON.stringify(inventoryList);
 
-      // Optional: Kontextmenü aktualisieren
-      updateContextMenuInventory(personEl);
-    });
+			// Optional: Kontextmenü aktualisieren
+			updateContextMenuInventory(personEl);
+		});
 
-    //console.log("✅ Automatisches Laden und Zuordnen abgeschlossen.");
-  } catch (error) {
-    //console.error("❌ Fehler beim automatischen Laden und Zuordnen:", error);
-  }
+		//console.log("✅ Automatisches Laden und Zuordnen abgeschlossen.");
+	} catch (error) {
+		//console.error("❌ Fehler beim automatischen Laden und Zuordnen:", error);
+	}
 }
 
 // Direkt aufrufen beim Start:
 document.addEventListener("DOMContentLoaded", () => {
-  loadAndAssignInventory();
+	loadAndAssignInventory();
 });
 
 
 
 
-  const addBtn = document.getElementById("addBtn");
-  const selectContainer = document.getElementById("selectContainer");
-  const objektSelect = document.getElementById("objektSelect");
-  const saveSelectedBtn = document.getElementById("saveSelectedBtn");
-  const cancelSelectBtn = document.getElementById("cancelSelectBtn");
-  const selectedInfo = document.getElementById("selectedInfo");
+const addBtn = document.getElementById("addBtn");
+const selectContainer = document.getElementById("selectContainer");
+const objektSelect = document.getElementById("objektSelect");
+const saveSelectedBtn = document.getElementById("saveSelectedBtn");
+const cancelSelectBtn = document.getElementById("cancelSelectBtn");
+const selectedInfo = document.getElementById("selectedInfo");
 
 
 try {
@@ -185,17 +185,21 @@ function findRaumContainingElementCenter(el) {
 	const objRect = el.getBoundingClientRect();
 	const cx = objRect.left + objRect.width / 2;
 	const cy = objRect.top + objRect.height / 2;
-	//console.log("Element center coordinates:", { cx, cy });
+	// console.log("Element center coordinates:", { cx, cy });
 
 	let foundRaum = null;
 	Object.values(räume).forEach(raum => {
 		const rRect = raum.el.getBoundingClientRect();
 		if (cx > rRect.left && cx < rRect.right && cy > rRect.top && cy < rRect.bottom) {
 			foundRaum = raum;
-			//console.log("Found raum containing element:", raum.el.dataset.name);
+			// console.log("Found raum containing element:", raum.el.dataset.name);
 		}
 	});
-	if (!foundRaum) //console.log("No raum found containing element");
+	
+	if (!foundRaum) {
+		// console.log("No raum found containing element");
+	}
+	
 	return foundRaum;
 }
 
@@ -236,6 +240,7 @@ function removeFromOldRaum(el) {
 }
 
 function addToNewRaum(el, newRaum) {
+	console.log("▶️ Funktion addToNewRaum() wurde aufgerufen");
 	newRaum.objects.push(el);
 	//log("newRaum:", newRaum);
 	el.dataset.raum = newRaum.el.dataset.id;
@@ -390,6 +395,7 @@ function makeDraggable(el) {
 	let dragOffsetY = 0;
 
 	function stopDragging() {
+		console.log("🚨 stopDragging() wurde aufgerufen");
 		if (!dragging) return;
 		dragging = false;
 		el.style.cursor = "grab";
@@ -398,12 +404,15 @@ function makeDraggable(el) {
 		document.removeEventListener("mousemove", onMouseMove);
 		document.removeEventListener("mouseup", onMouseUp);
 
-		const foundRaum = findRaumContainingElementCenter(el);
 
+		const foundRaum = findRaumContainingElementCenter(el);
+		console.log("📦 Ergebnis von findRaumContainingElementCenter:", foundRaum);
 		if (foundRaum) {
 			//console.log("Found raum on drag end:", foundRaum);
 
 			removeFromOldRaum(el);
+			console.log("💬 foundRaum:", foundRaum);
+			console.log("💬 foundRaum.el.dataset.id:", foundRaum.el?.dataset?.id);
 			addToNewRaum(el, foundRaum);
 
 			updateZIndex(el, foundRaum);
@@ -934,87 +943,87 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 			};
 			return escapeChars[char];
 		});
-}
-
-function addCircleToFloorplan(circle) {
-	try {
-		floorplan.appendChild(circle);
-	} catch (error) {
-		console.error("Fehler beim Hinzufügen des Kreises zum Floorplan:", error);
 	}
-}
 
-function setupContextMenu(circle, attributes) {
-	try {
-		//console.log("setupContextMenu wird aufgerufen für:", circle, "mit attributes:", attributes);
-
-		circle.addEventListener("contextmenu", (e) => {
-			console.log("Rechtsklick erkannt auf:", circle);
-			e.preventDefault();
-			toggleContextMenu(circle, attributes);
-		});
-
-		//console.log("EventListener für Kontextmenü erfolgreich hinzugefügt.");
-	} catch (error) {
-		//console.error("Fehler beim Einrichten des Kontextmenüs:", error);
+	function addCircleToFloorplan(circle) {
+		try {
+			floorplan.appendChild(circle);
+		} catch (error) {
+			console.error("Fehler beim Hinzufügen des Kreises zum Floorplan:", error);
+		}
 	}
-}
 
-function toggleContextMenu(circle, attributes) {
-	try {
-		//console.log("toggleContextMenu aufgerufen mit circle:", circle);
-		//console.log("toggleContextMenu attributes:", attributes);
+	function setupContextMenu(circle, attributes) {
+		try {
+			//console.log("setupContextMenu wird aufgerufen für:", circle, "mit attributes:", attributes);
 
-		removeExistingContextMenus();
+			circle.addEventListener("contextmenu", (e) => {
+				console.log("Rechtsklick erkannt auf:", circle);
+				e.preventDefault();
+				toggleContextMenu(circle, attributes);
+			});
 
-		// Wichtig: circle mitgeben
-		const menu = buildContextMenu(attributes, circle);
-		//console.log("Kontextmenü gebaut:", menu);
-
-		positionContextMenuAbsolute(circle, menu);
-		floorplan.appendChild(menu);
-		requestAnimationFrame(() => {
-			menu.style.opacity = "1";
-		});
-
-		updateContextMenuInventory(circle);
-		applyInvertFilterToElements(theme);
-
-		//console.log("Kontextmenü angezeigt:", attributes);
-	} catch (error) {
-		//console.error("Fehler beim Umschalten des Kontextmenüs:", error);
+			//console.log("EventListener für Kontextmenü erfolgreich hinzugefügt.");
+		} catch (error) {
+			//console.error("Fehler beim Einrichten des Kontextmenüs:", error);
+		}
 	}
-}
 
-function removeExistingContextMenus() {
-	const foundMenus = document.querySelectorAll(".context-menu");
-	foundMenus.forEach(menu => menu.remove());
-}
+	function toggleContextMenu(circle, attributes) {
+		try {
+			//console.log("toggleContextMenu aufgerufen mit circle:", circle);
+			//console.log("toggleContextMenu attributes:", attributes);
 
-function positionContextMenuAbsolute(circle, menu) {
-	const circleRect = circle.getBoundingClientRect();
-	const floorRect = floorplan.getBoundingClientRect();
+			removeExistingContextMenus();
 
-	// Berechne absolute Position relativ zum floorplan
-	const top = circleRect.bottom - floorRect.top + 4; // 4px Abstand
-	const left = circleRect.left - floorRect.left + (circleRect.width / 2);
+			// Wichtig: circle mitgeben
+			const menu = buildContextMenu(attributes, circle);
+			//console.log("Kontextmenü gebaut:", menu);
 
-	menu.style.position = "absolute";
-	menu.style.top = `${top}px`;
-	menu.style.left = `${left}px`;
-	menu.style.transform = "translateX(-50%)";
-}
+			positionContextMenuAbsolute(circle, menu);
+			floorplan.appendChild(menu);
+			requestAnimationFrame(() => {
+				menu.style.opacity = "1";
+			});
 
-function buildContextMenu(attributes, personEl) {
-	const menu = document.createElement("div");
-	menu.classList.add("context-menu");
+			updateContextMenuInventory(circle);
+			applyInvertFilterToElements(theme);
 
-	// Styles anwenden
-	const styles = getContextMenuStyles();
-	Object.assign(menu.style, styles);
+			//console.log("Kontextmenü angezeigt:", attributes);
+		} catch (error) {
+			//console.error("Fehler beim Umschalten des Kontextmenüs:", error);
+		}
+	}
 
-	// Grundstruktur mit allen Attributen
-	menu.innerHTML = `
+	function removeExistingContextMenus() {
+		const foundMenus = document.querySelectorAll(".context-menu");
+		foundMenus.forEach(menu => menu.remove());
+	}
+
+	function positionContextMenuAbsolute(circle, menu) {
+		const circleRect = circle.getBoundingClientRect();
+		const floorRect = floorplan.getBoundingClientRect();
+
+		// Berechne absolute Position relativ zum floorplan
+		const top = circleRect.bottom - floorRect.top + 4; // 4px Abstand
+		const left = circleRect.left - floorRect.left + (circleRect.width / 2);
+
+		menu.style.position = "absolute";
+		menu.style.top = `${top}px`;
+		menu.style.left = `${left}px`;
+		menu.style.transform = "translateX(-50%)";
+	}
+
+	function buildContextMenu(attributes, personEl) {
+		const menu = document.createElement("div");
+		menu.classList.add("context-menu");
+
+		// Styles anwenden
+		const styles = getContextMenuStyles();
+		Object.assign(menu.style, styles);
+
+		// Grundstruktur mit allen Attributen
+		menu.innerHTML = `
 	    <div><strong>Vorname:</strong> ${my_escape(attributes.vorname || "")}</div>
 	    <div><strong>Nachname:</strong> ${my_escape(attributes.nachname || "")}</div>
 	    <div><strong>Titel:</strong> ${my_escape(attributes.title || "")}</div>
@@ -1025,401 +1034,401 @@ function buildContextMenu(attributes, personEl) {
 	    <ul class="question-list" style="list-style:none; padding-left:0; margin:0;"></ul>
 	  `;
 
-	const inventory = attributes.inventory || [];
-	const ul = menu.querySelector("ul.question-list");
+		const inventory = attributes.inventory || [];
+		const ul = menu.querySelector("ul.question-list");
 
-	if (inventory.length === 0) {
-		const li = document.createElement("li");
-		li.textContent = "Inventar ist leer";
-		ul.appendChild(li);
-	} else {
-		inventory.forEach((item, index) => {
+		if (inventory.length === 0) {
 			const li = document.createElement("li");
-			li.style.display = "flex";
-			li.style.justifyContent = "space-between";
-			li.style.alignItems = "center";
-			li.style.padding = "2px 4px";
-			li.style.borderBottom = "1px solid #eee";
-
-			// Item-Beschreibung als Text (z.B. alle Werte als String)
-			const text = document.createElement("span");
-			text.textContent = Object.values(item).join(", ");
-
-			// Lösch-Kreuz-Button
-			const deleteBtn = document.createElement("button");
-			deleteBtn.textContent = "✖";
-			deleteBtn.title = "Objekt entfernen";
-			deleteBtn.style.cursor = "pointer";
-			deleteBtn.style.border = "none";
-			deleteBtn.style.background = "transparent";
-			deleteBtn.style.color = "#900";
-			deleteBtn.style.fontWeight = "bold";
-			deleteBtn.style.fontSize = "14px";
-			deleteBtn.style.padding = "0 4px";
-
-			deleteBtn.addEventListener("click", (e) => {
-				e.stopPropagation(); // Verhindert das Schließen des Menüs o.Ä.
-				if (!personEl) {
-					console.error("Kein personEl vorhanden zum Entfernen");
-					return;
-				}
-				//console.log(`🔴 Lösche Item Index ${index} aus Inventar von Person`, personEl);
-
-				removeObjectFromInventory(personEl, index);
-
-				// Kontextmenü neu bauen, da sich Inventar geändert hat
-				removeExistingContextMenus();
-				toggleContextMenu(personEl, JSON.parse(personEl.dataset.attributes));
-			});
-
-			li.appendChild(text);
-			li.appendChild(deleteBtn);
+			li.textContent = "Inventar ist leer";
 			ul.appendChild(li);
+		} else {
+			inventory.forEach((item, index) => {
+				const li = document.createElement("li");
+				li.style.display = "flex";
+				li.style.justifyContent = "space-between";
+				li.style.alignItems = "center";
+				li.style.padding = "2px 4px";
+				li.style.borderBottom = "1px solid #eee";
+
+				// Item-Beschreibung als Text (z.B. alle Werte als String)
+				const text = document.createElement("span");
+				text.textContent = Object.values(item).join(", ");
+
+				// Lösch-Kreuz-Button
+				const deleteBtn = document.createElement("button");
+				deleteBtn.textContent = "✖";
+				deleteBtn.title = "Objekt entfernen";
+				deleteBtn.style.cursor = "pointer";
+				deleteBtn.style.border = "none";
+				deleteBtn.style.background = "transparent";
+				deleteBtn.style.color = "#900";
+				deleteBtn.style.fontWeight = "bold";
+				deleteBtn.style.fontSize = "14px";
+				deleteBtn.style.padding = "0 4px";
+
+				deleteBtn.addEventListener("click", (e) => {
+					e.stopPropagation(); // Verhindert das Schließen des Menüs o.Ä.
+					if (!personEl) {
+						console.error("Kein personEl vorhanden zum Entfernen");
+						return;
+					}
+					//console.log(`🔴 Lösche Item Index ${index} aus Inventar von Person`, personEl);
+
+					removeObjectFromInventory(personEl, index);
+
+					// Kontextmenü neu bauen, da sich Inventar geändert hat
+					removeExistingContextMenus();
+					toggleContextMenu(personEl, JSON.parse(personEl.dataset.attributes));
+				});
+
+				li.appendChild(text);
+				li.appendChild(deleteBtn);
+				ul.appendChild(li);
+			});
+		}
+
+		return menu;
+	}
+
+	function getContextMenuStyles() {
+		return {
+			position: "absolute",
+			top: "100%",
+			left: "50%",
+			transform: "translateX(-50%)",
+			backgroundColor: "#fff",
+			border: "1px solid #ccc",
+			boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+			padding: "8px",
+			fontSize: "12px",
+			zIndex: 11,  // <- muss größer sein als der zIndex anderer Elemente IM Kreis
+			marginTop: "4px",
+			minWidth: "150px",
+			textAlign: "left"
+		};
+	}
+
+	function positionContextMenu(circle, menu) {
+		try {
+			// bereits top: 100% + marginTop in CSS
+			// relative zu circle platzieren
+			circle.style.position = "relative";
+		} catch (error) {
+			console.error("Fehler beim Positionieren des Kontextmenüs:", error);
+		}
+	}
+
+	const addBtn = document.getElementById("addBtn");
+
+	if (addBtn) {
+		addBtn.addEventListener("click", () => {
+			cancelpersonBtnFunction()
 		});
 	}
 
-	return menu;
-}
 
-function getContextMenuStyles() {
-	return {
-		position: "absolute",
-		top: "100%",
-		left: "50%",
-		transform: "translateX(-50%)",
-		backgroundColor: "#fff",
-		border: "1px solid #ccc",
-		boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
-		padding: "8px",
-		fontSize: "12px",
-		zIndex: 11,  // <- muss größer sein als der zIndex anderer Elemente IM Kreis
-		marginTop: "4px",
-		minWidth: "150px",
-		textAlign: "left"
-	};
-}
 
-function positionContextMenu(circle, menu) {
-	try {
-		// bereits top: 100% + marginTop in CSS
-		// relative zu circle platzieren
-		circle.style.position = "relative";
-	} catch (error) {
-		console.error("Fehler beim Positionieren des Kontextmenüs:", error);
+
+	function getInputValue(id) {
+		const input = document.getElementById(id);
+		//console.log(`getInputValue: id=${id}, element found? ${input !== null}`);
+		if (!input) return null;
+		return input.value.trim();
 	}
-}
 
-const addBtn = document.getElementById("addBtn");
+	function getAllOptions() {
+		const options = {
+			option1: getInputValue("option1"),
+			option2: getInputValue("option2"),
+			option3: getInputValue("option3"),
+			option4: getInputValue("option4")
+		};
+		//console.log("getAllOptions:", options);
+		return options;
+	}
 
-if (addBtn) {
-	addBtn.addEventListener("click", () => {
-		cancelpersonBtnFunction()
-	});
-}
+	function createOptionsDiv(obj) {
+		//console.log("createOptionsDiv mit Objekt:", obj);
+		const div = document.createElement("div");
+		div.className = "optionContainer";
+		div.style.position = "absolute";
+		div.style.cursor = "grab";
+		div.style.visibility = "hidden";
+		div.style.backgroundColor = "rgba(0, 0, 0, 0)";
 
+		// Speichere das ganze Objekt als Dataset
+		div.dataset.attributes = JSON.stringify(obj);
+		div.dataset.raum = "";
 
-
-
-function getInputValue(id) {
-	const input = document.getElementById(id);
-	//console.log(`getInputValue: id=${id}, element found? ${input !== null}`);
-	if (!input) return null;
-	return input.value.trim();
-}
-
-function getAllOptions() {
-	const options = {
-		option1: getInputValue("option1"),
-		option2: getInputValue("option2"),
-		option3: getInputValue("option3"),
-		option4: getInputValue("option4")
-	};
-	//console.log("getAllOptions:", options);
-	return options;
-}
-
-function createOptionsDiv(obj) { 
-  //console.log("createOptionsDiv mit Objekt:", obj);
-  const div = document.createElement("div");
-  div.className = "optionContainer";
-  div.style.position = "absolute";
-  div.style.cursor = "grab";
-  div.style.visibility = "hidden";
-  div.style.backgroundColor = "rgba(0, 0, 0, 0)";
-
-  // Speichere das ganze Objekt als Dataset
-  div.dataset.attributes = JSON.stringify(obj);
-  div.dataset.raum = "";
-
-  div.innerHTML = `
+		div.innerHTML = `
     <p><strong>Name:</strong> ${obj.name}</p>
     <p><strong>Preis:</strong> ${obj.Preis} €</p>
     <p><strong>Kategorie:</strong> ${obj.category}</p>
   `;
 
-  // Temporär anhängen, um Größe zu messen
-  document.body.appendChild(div);
-  const { offsetWidth: width, offsetHeight: height } = div;
-  document.body.removeChild(div);
+		// Temporär anhängen, um Größe zu messen
+		document.body.appendChild(div);
+		const { offsetWidth: width, offsetHeight: height } = div;
+		document.body.removeChild(div);
 
-  // Position im Viewport (Mitte vom Fenster)
-  const centerXInViewport = window.innerWidth / 2;
-  const centerYInViewport = window.innerHeight / 2;
+		// Position im Viewport (Mitte vom Fenster)
+		const centerXInViewport = window.innerWidth / 2;
+		const centerYInViewport = window.innerHeight / 2;
 
-  // Umrechnen in Koordinaten relativ zum floorplan
-  const floorplanRect = floorplan.getBoundingClientRect();
-  const x = centerXInViewport - floorplanRect.left - width / 2;
-  const y = centerYInViewport - floorplanRect.top - height / 2;
+		// Umrechnen in Koordinaten relativ zum floorplan
+		const floorplanRect = floorplan.getBoundingClientRect();
+		const x = centerXInViewport - floorplanRect.left - width / 2;
+		const y = centerYInViewport - floorplanRect.top - height / 2;
 
-  div.style.left = `${x}px`;
-  div.style.top = `${y}px`;
-  div.style.visibility = "visible";
+		div.style.left = `${x}px`;
+		div.style.top = `${y}px`;
+		div.style.visibility = "visible";
 
-  floorplan.appendChild(div);
-  makeDraggable(div);
-  
-  applyInvertFilterToElements(theme)
-  return div;
-}
+		floorplan.appendChild(div);
+		makeDraggable(div);
 
-
-function appendToContainer(div, containerId = "generatedObjectsContainer") {
-	const container = document.getElementById(containerId);
-	//console.log(`appendToContainer: Container mit ID '${containerId}' gefunden? ${container !== null}`);
-	if (!container) {
-		//console.error(`FEHLER: Container mit ID '${containerId}' nicht gefunden!`);
-		return;
+		applyInvertFilterToElements(theme)
+		return div;
 	}
-	container.appendChild(div);
-	//console.log("appendToContainer: Div hinzugefügt");
-	applyInvertFilterToElements(theme) 
-}
 
-function clearFormFields() {
-	["option1", "option2", "option3", "option4"].forEach(id => {
-		const input = document.getElementById(id);
-		if (input) {
-			input.value = "";
-			//console.log(`clearFormFields: Feld '${id}' geleert`);
-		} else {
-			//console.warn(`clearFormFields: Feld '${id}' nicht gefunden`);
+
+	function appendToContainer(div, containerId = "generatedObjectsContainer") {
+		const container = document.getElementById(containerId);
+		//console.log(`appendToContainer: Container mit ID '${containerId}' gefunden? ${container !== null}`);
+		if (!container) {
+			//console.error(`FEHLER: Container mit ID '${containerId}' nicht gefunden!`);
+			return;
 		}
-	});
-}
+		container.appendChild(div);
+		//console.log("appendToContainer: Div hinzugefügt");
+		applyInvertFilterToElements(theme)
+	}
+
+	function clearFormFields() {
+		["option1", "option2", "option3", "option4"].forEach(id => {
+			const input = document.getElementById(id);
+			if (input) {
+				input.value = "";
+				//console.log(`clearFormFields: Feld '${id}' geleert`);
+			} else {
+				//console.warn(`clearFormFields: Feld '${id}' nicht gefunden`);
+			}
+		});
+	}
 
 
 
 
-function handleSave() {
-	//console.log("handleSave: Start");
-	const options = getAllOptions();
-	const newDiv = createOptionsDiv(options);
-	appendToContainer(newDiv);
-	clearFormFields();
-	hideForm();
-	//console.log("handleSave: Fertig");
-	applyInvertFilterToElements(theme)
-}
-
-
-
-window.addEventListener("DOMContentLoaded", () => {
-	// Automatisch div mit aktuellen Eingaben erstellen, falls vorhanden
-	const options = getAllOptions();
-
-	// Prüfen, ob mindestens ein Eingabefeld ausgefüllt ist
-	if (Object.values(options).some(value => value)) {
+	function handleSave() {
+		//console.log("handleSave: Start");
+		const options = getAllOptions();
 		const newDiv = createOptionsDiv(options);
 		appendToContainer(newDiv);
-	}
-});
-
-function updateContextMenuInventory(personEl) {
-	const menu = document.querySelector(".context-menu");
-	if (!menu) {
-		//console.log("ℹ️ Kein Kontextmenü offen, Inventar wird nicht angezeigt.");
-		return;
+		clearFormFields();
+		hideForm();
+		//console.log("handleSave: Fertig");
+		applyInvertFilterToElements(theme)
 	}
 
-	const ul = menu.querySelector(".question-list");
-	if (!ul) {
-		//console.warn("❌ Keine <ul class='question-list'> im Menü gefunden.");
-		return;
-	}
 
-	let attributes = {};
-	try {
-		attributes = JSON.parse(personEl.dataset.attributes || "{}");
-	} catch (err) {
-		//console.error("❌ Fehler beim Parsen der Personen-Attribute:", err);
-		return;
-	}
 
-	const inventory = attributes.inventory || [];
-	ul.innerHTML = "";
+	window.addEventListener("DOMContentLoaded", () => {
+		// Automatisch div mit aktuellen Eingaben erstellen, falls vorhanden
+		const options = getAllOptions();
 
-	if (inventory.length === 0) {
-		const li = document.createElement("li");
-		li.textContent = "Inventar ist leer";
-		ul.appendChild(li);
-	} else {
-		inventory.forEach((item, index) => {
+		// Prüfen, ob mindestens ein Eingabefeld ausgefüllt ist
+		if (Object.values(options).some(value => value)) {
+			const newDiv = createOptionsDiv(options);
+			appendToContainer(newDiv);
+		}
+	});
+
+	function updateContextMenuInventory(personEl) {
+		const menu = document.querySelector(".context-menu");
+		if (!menu) {
+			//console.log("ℹ️ Kein Kontextmenü offen, Inventar wird nicht angezeigt.");
+			return;
+		}
+
+		const ul = menu.querySelector(".question-list");
+		if (!ul) {
+			//console.warn("❌ Keine <ul class='question-list'> im Menü gefunden.");
+			return;
+		}
+
+		let attributes = {};
+		try {
+			attributes = JSON.parse(personEl.dataset.attributes || "{}");
+		} catch (err) {
+			//console.error("❌ Fehler beim Parsen der Personen-Attribute:", err);
+			return;
+		}
+
+		const inventory = attributes.inventory || [];
+		ul.innerHTML = "";
+
+		if (inventory.length === 0) {
 			const li = document.createElement("li");
-			li.style.display = "flex";
-			li.style.justifyContent = "space-between";
-			li.style.alignItems = "center";
-			li.style.padding = "2px 4px";
-			li.style.borderBottom = "1px solid #eee";
-
-			const text = document.createElement("span");
-			text.textContent = Object.values(item).join(", ");
-
-			const deleteBtn = document.createElement("button");
-			deleteBtn.textContent = "✖";
-			deleteBtn.title = "Objekt entfernen";
-			deleteBtn.style.cursor = "pointer";
-			deleteBtn.style.border = "none";
-			deleteBtn.style.background = "transparent";
-			deleteBtn.style.color = "#900";
-			deleteBtn.style.fontWeight = "bold";
-			deleteBtn.style.fontSize = "14px";
-			deleteBtn.style.padding = "0 4px";
-
-			deleteBtn.addEventListener("click", (e) => {
-				e.stopPropagation();
-				removeObjectFromInventory(personEl, index);
-				updateContextMenuInventory(personEl);
-			});
-
-			li.appendChild(text);
-			li.appendChild(deleteBtn);
+			li.textContent = "Inventar ist leer";
 			ul.appendChild(li);
-		});
+		} else {
+			inventory.forEach((item, index) => {
+				const li = document.createElement("li");
+				li.style.display = "flex";
+				li.style.justifyContent = "space-between";
+				li.style.alignItems = "center";
+				li.style.padding = "2px 4px";
+				li.style.borderBottom = "1px solid #eee";
+
+				const text = document.createElement("span");
+				text.textContent = Object.values(item).join(", ");
+
+				const deleteBtn = document.createElement("button");
+				deleteBtn.textContent = "✖";
+				deleteBtn.title = "Objekt entfernen";
+				deleteBtn.style.cursor = "pointer";
+				deleteBtn.style.border = "none";
+				deleteBtn.style.background = "transparent";
+				deleteBtn.style.color = "#900";
+				deleteBtn.style.fontWeight = "bold";
+				deleteBtn.style.fontSize = "14px";
+				deleteBtn.style.padding = "0 4px";
+
+				deleteBtn.addEventListener("click", (e) => {
+					e.stopPropagation();
+					removeObjectFromInventory(personEl, index);
+					updateContextMenuInventory(personEl);
+				});
+
+				li.appendChild(text);
+				li.appendChild(deleteBtn);
+				ul.appendChild(li);
+			});
+		}
 	}
-}
 
-function removeObjectFromInventory(personEl, itemIndex) {
-	// Person-Attribute parsen
-	let attributes = {};
-	try {
-		attributes = JSON.parse(personEl.dataset.attributes || "{}");
-	} catch {
-		console.error("Fehler beim Parsen der Personen-Attribute");
-		return;
+	function removeObjectFromInventory(personEl, itemIndex) {
+		// Person-Attribute parsen
+		let attributes = {};
+		try {
+			attributes = JSON.parse(personEl.dataset.attributes || "{}");
+		} catch {
+			console.error("Fehler beim Parsen der Personen-Attribute");
+			return;
+		}
+
+		if (!attributes.inventory || !Array.isArray(attributes.inventory)) {
+			console.warn("Kein Inventar gefunden");
+			return;
+		}
+
+		// Objekt aus dem Inventar entfernen
+		const removedItem = attributes.inventory.splice(itemIndex, 1)[0];
+
+		// Attribute aktualisieren
+		personEl.dataset.attributes = JSON.stringify(attributes);
+
+		// Falls personEl.dataset.inventory separat gepflegt wird:
+		try {
+			let inv = JSON.parse(personEl.dataset.inventory || "[]");
+			inv.splice(itemIndex, 1);
+			personEl.dataset.inventory = JSON.stringify(inv);
+		} catch {
+			console.warn("Fehler beim Parsen von dataset.inventory");
+		}
+
+		// Neues Objekt-Element erzeugen (wie beim normalen Erstellen)
+		const newObjEl = createOptionsDiv(removedItem);
+
+		// An richtigen Container anhängen
+		appendToContainer(newObjEl);
+		//log("appendToContainer: Neues Objekt-Element erstellt und angehängt:", newObjEl);
+
+		var object_id = $(newObjEl).data("attributes").id;
+		var person_id = JSON.parse(personEl.dataset.attributes).id;
+
+		//log(`Speichere Objekt ${object_id} zu Person ${person_id}`);
+
+		deleteObjectFromPerson(person_id, object_id);
+		//console.log("✅ Objekt wurde aus Inventar entfernt und neu erstellt auf dem Floorplan:", removedItem);
+
+		// Kontextmenü aktualisieren
+		updateContextMenuInventory(personEl);
+
+		applyInvertFilterToElements(theme);
 	}
 
-	if (!attributes.inventory || !Array.isArray(attributes.inventory)) {
-		console.warn("Kein Inventar gefunden");
-		return;
+	// Initial
+	loadFloorplan(building_id, etage);
+
+	const cancelPersonBtn = document.getElementById("cancelPersonBtn");
+
+	cancelPersonBtn.addEventListener("click", cancelpersonBtnFunction);
+
+	function cancelpersonBtnFunction() {
+		personForm.style.display = "none";
+		dynamicForm.innerHTML = "";
+		dynamicForm.style.display = "none";
 	}
 
-	// Objekt aus dem Inventar entfernen
-	const removedItem = attributes.inventory.splice(itemIndex, 1)[0];
+	document.addEventListener("DOMContentLoaded", function () {
+		loadPersonDatabase();
+		load_persons_from_db();
+	});
 
-	// Attribute aktualisieren
-	personEl.dataset.attributes = JSON.stringify(attributes);
+	document.addEventListener('keydown', function (event) {
+		if (event.key === 'Escape') {
+			cancelpersonBtnFunction();
+		}
+	});
 
-	// Falls personEl.dataset.inventory separat gepflegt wird:
-	try {
-		let inv = JSON.parse(personEl.dataset.inventory || "[]");
-		inv.splice(itemIndex, 1);
-		personEl.dataset.inventory = JSON.stringify(inv);
-	} catch {
-		console.warn("Fehler beim Parsen von dataset.inventory");
-	}
+	window.addEventListener("DOMContentLoaded", () => {
+		const people = document.querySelectorAll(".person-circle");
 
-	// Neues Objekt-Element erzeugen (wie beim normalen Erstellen)
-	const newObjEl = createOptionsDiv(removedItem);
-
-	// An richtigen Container anhängen
-	appendToContainer(newObjEl);
-	//log("appendToContainer: Neues Objekt-Element erstellt und angehängt:", newObjEl);
-
-	var object_id = $(newObjEl).data("attributes").id;
-	var person_id = JSON.parse(personEl.dataset.attributes).id;
-
-	//log(`Speichere Objekt ${object_id} zu Person ${person_id}`);
-
-	deleteObjectFromPerson(person_id, object_id);
-	//console.log("✅ Objekt wurde aus Inventar entfernt und neu erstellt auf dem Floorplan:", removedItem);
-
-	// Kontextmenü aktualisieren
-	updateContextMenuInventory(personEl);
-
-	applyInvertFilterToElements(theme);
-}
-
-// Initial
-loadFloorplan(building_id, etage);
-
-const cancelPersonBtn = document.getElementById("cancelPersonBtn");
-
-cancelPersonBtn.addEventListener("click", cancelpersonBtnFunction);
-
-function cancelpersonBtnFunction() {
-	personForm.style.display = "none";
-	dynamicForm.innerHTML = "";
-	dynamicForm.style.display = "none";
-}
-
-document.addEventListener("DOMContentLoaded", function () {
-	loadPersonDatabase();
-	load_persons_from_db();
-});
-
-document.addEventListener('keydown', function (event) {
-	if (event.key === 'Escape') {
-		cancelpersonBtnFunction();
-	}
-});
-
-window.addEventListener("DOMContentLoaded", () => {
-	const people = document.querySelectorAll(".person-circle");
-
-	people.forEach(person => {
-		person.addEventListener("contextmenu", (event) => {
-			event.preventDefault(); // verhindert das native Kontextmenü
-			const attributes = JSON.parse(person.getAttribute("data-attributes"));
-			toggleContextMenu(person, attributes);
+		people.forEach(person => {
+			person.addEventListener("contextmenu", (event) => {
+				event.preventDefault(); // verhindert das native Kontextmenü
+				const attributes = JSON.parse(person.getAttribute("data-attributes"));
+				toggleContextMenu(person, attributes);
+			});
 		});
 	});
-});
 
 }
 
 
 
 // Wenn auf "Objekt hinzufügen" geklickt wird, Select anzeigen und Optionen füllen
-  addBtn.addEventListener("click", () => {
-    // Optionen zurücksetzen
-    objektSelect.innerHTML = '<option value="">-- Bitte wählen --</option>';
-    // Optionen hinzufügen
-    objekte.forEach(obj => {
-      const option = document.createElement("option");
-      option.value = obj.id;
-      option.textContent = obj.name;
-      objektSelect.appendChild(option);
-    });
+addBtn.addEventListener("click", () => {
+	// Optionen zurücksetzen
+	objektSelect.innerHTML = '<option value="">-- Bitte wählen --</option>';
+	// Optionen hinzufügen
+	objekte.forEach(obj => {
+		const option = document.createElement("option");
+		option.value = obj.id;
+		option.textContent = obj.name;
+		objektSelect.appendChild(option);
+	});
 
-    selectContainer.style.display = "block";
-  });
+	selectContainer.style.display = "block";
+});
 
-  // Auswahl speichern
-  saveSelectedBtn.addEventListener("click", () => {
-  const selectedId = parseInt(objektSelect.value);
-  if (!selectedId) {
-    //alert("Bitte wähle ein Objekt aus.");
-    return;
-  }
+// Auswahl speichern
+saveSelectedBtn.addEventListener("click", () => {
+	const selectedId = parseInt(objektSelect.value);
+	if (!selectedId) {
+		//alert("Bitte wähle ein Objekt aus.");
+		return;
+	}
 
-  const selectedObjekt = objekte.find(obj => obj.id === selectedId);
+	const selectedObjekt = objekte.find(obj => obj.id === selectedId);
 
-  // Ein neues DIV basierend auf dem Objekt erstellen
-  createOptionsDiv(selectedObjekt);
+	// Ein neues DIV basierend auf dem Objekt erstellen
+	createOptionsDiv(selectedObjekt);
 
-  // Optional anzeigen, was gerade eingefügt wurde
-  selectedInfo.textContent = `Eingefügt: ${selectedObjekt.name}, Preis: ${selectedObjekt.Preis} €, Kategorie: ${selectedObjekt.category}`;
+	// Optional anzeigen, was gerade eingefügt wurde
+	selectedInfo.textContent = `Eingefügt: ${selectedObjekt.name}, Preis: ${selectedObjekt.Preis} €, Kategorie: ${selectedObjekt.category}`;
 
-  // Select ausblenden
-  selectContainer.style.display = "none";
+	// Select ausblenden
+	selectContainer.style.display = "none";
 });
