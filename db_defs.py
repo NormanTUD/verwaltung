@@ -77,30 +77,25 @@ class Person(Base):
     räume = relationship("PersonToRaum", back_populates="person", cascade="all, delete")
     transponders_issued = relationship("Transponder", foreign_keys="[Transponder.ausgeber_id]", back_populates="ausgeber")
     transponders_owned = relationship("Transponder", foreign_keys="[Transponder.besitzer_id]", back_populates="besitzer")
-    departments = relationship("Abteilung", back_populates="leiter")
+
+    departments = relationship(
+        "Abteilung",
+        foreign_keys="[Abteilung.abteilungsleiter_id]",
+        back_populates="leiter"
+    )
+
+    vertretende_abteilungen = relationship(
+        "Abteilung",
+        foreign_keys="[Abteilung.vertretungs_id]",
+        back_populates="vertretung"
+    )
+
     person_abteilungen = relationship("PersonToAbteilung", back_populates="person", cascade="all, delete")
     professuren = relationship("ProfessurToPerson", back_populates="person", cascade="all, delete")
-    
+
     __table_args__ = (
         UniqueConstraint("title", "vorname", "nachname", name="uq_person_name_title"),
     )
-
-    def get_all(self) -> List:
-        try:
-            query = select(Person)
-            result = self.session.execute(query).scalars().all()
-            return result
-        except Exception as e:
-            print(f"❌ Fehler bei get_all in PersonHandler: {e}")
-            return []
-
-    def to_dict(self) -> Dict[str, Any]:
-        try:
-            return {col.name: getattr(self, col.name) for col in self.__table__.columns}
-        except Exception as e:
-            print(f"❌ Fehler bei to_dict in PersonHandler: {e}")
-            return {}
-
 
 class PersonContact(Base):
     __tablename__ = "person_contact"
@@ -127,9 +122,10 @@ class Abteilung(Base):
     id = Column(Integer, primary_key=True)
     name = Column(Text)
     abteilungsleiter_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
+    vertretungs_id = Column(Integer, ForeignKey("person.id", ondelete="SET NULL"))
 
-    leiter = relationship("Person", back_populates="departments")
-    vertretung = relationship("Person", back_populates="departments")
+    leiter = relationship("Person", foreign_keys=[abteilungsleiter_id], back_populates="departments")
+    vertretung = relationship("Person", foreign_keys=[vertretungs_id], back_populates="vertretende_abteilungen")
 
     persons = relationship("PersonToAbteilung", back_populates="abteilung", cascade="all, delete")
     
