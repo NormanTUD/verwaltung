@@ -90,6 +90,12 @@ class Person(Base):
         back_populates="vertretung"
     )
 
+    principal_investigator_abteilungen = relationship(
+        "PrincipalInvestigatorToAbteilung",
+        back_populates="person",
+        cascade="all, delete"
+    )
+
     person_abteilungen = relationship("PersonToAbteilung", back_populates="person", cascade="all, delete")
     professuren = relationship("ProfessurToPerson", back_populates="person", cascade="all, delete")
 
@@ -129,8 +135,28 @@ class Abteilung(Base):
 
     persons = relationship("PersonToAbteilung", back_populates="abteilung", cascade="all, delete")
     
+    principal_investigators = relationship(
+        "PrincipalInvestigatorToAbteilung",
+        back_populates="abteilung",
+        cascade="all, delete"
+    )
+    
     __table_args__ = (
         UniqueConstraint("name", name="uq_abteilung_name"),
+    )
+
+class PrincipalInvestigatorToAbteilung(Base):
+    __tablename__ = "principal_investigator_to_abteilung"
+    __versioned__ = {}
+    id = Column(Integer, primary_key=True)
+    person_id = Column(Integer, ForeignKey("person.id", ondelete="CASCADE"), nullable=False)
+    abteilung_id = Column(Integer, ForeignKey("abteilung.id", ondelete="CASCADE"), nullable=False)
+
+    person = relationship("Person", back_populates="principal_investigator_abteilungen")
+    abteilung = relationship("Abteilung", back_populates="principal_investigators")
+
+    __table_args__ = (
+        UniqueConstraint("person_id", "abteilung_id", name="uq_pi_to_abteilung"),
     )
 
 class PersonToAbteilung(Base):
