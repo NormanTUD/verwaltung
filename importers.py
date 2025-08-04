@@ -306,6 +306,8 @@ def __import_process_row(index, row, session, structured_map, area_code_map, log
 
         log.append(f"Zeile {index + 1}: {'Neue Person erstellt' if created else 'Person aktualisiert'}: {filter_person}")
 
+        session.flush()  # Flush hier, um person.id sicher zu haben!
+
         __import_save_contacts(person, person_related["contacts"], index, session, log)
         __import_link_abteilungen(person, person_related["abteilungen"], index, session, log, errors)
 
@@ -317,6 +319,7 @@ def __import_process_row(index, row, session, structured_map, area_code_map, log
     except Exception as ex:
         session.rollback()
         errors.append(f"Zeile {index + 1}: Allgemeiner Fehler: {str(ex)}")
+
 
 def __import_model_name_to_key(name):
     mapping = {
