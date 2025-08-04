@@ -4250,32 +4250,41 @@ def import_upload():
         df = None
         filename = None
 
-        if file and file.filename:
-            filename = secure_filename(file.filename)
-            ext = os.path.splitext(filename)[1].lower()
-            if ext == ".csv":
-                df = pd.read_csv(file)
-            elif ext in [".xls", ".xlsx"]:
-                df = pd.read_excel(file)
-        elif csvtext:
-            df = pd.read_csv(io.StringIO(csvtext))
+        try:
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                ext = os.path.splitext(filename)[1].lower()
+                if ext == ".csv":
+                    df = pd.read_csv(file)
+                elif ext in [".xls", ".xlsx"]:
+                    df = pd.read_excel(file)
+            elif csvtext:
+                # Versuche Tab als Trenner
+                try:
+                    df = pd.read_csv(io.StringIO(csvtext), sep="\t")
+                except pd.errors.ParserError:
+                    # Fallback: Komma als Trenner
+                    df = pd.read_csv(io.StringIO(csvtext), sep=",")
+        except Exception as e:
+            return f"Fehler beim Einlesen der Datei: {str(e)}", 400
 
         if df is None or df.empty:
-            return "Fehler beim Einlesen der Datei", 400
+            return "Fehler beim Einlesen der Datei oder Datei leer", 400
 
         column_map = {}
         for col in df.columns:
             column_map[col] = match_column(col)
 
-        return render_template("import_preview.html",
-                               columns=df.columns,
-                               rows=df.to_dict(orient="records"),
-                               column_map=column_map,
-                               possible_targets=list(ALIAS_MAPPING.keys()),
-                               data_json=df.to_json(orient="records"))
+        return render_template(
+            "import_preview.html",
+            columns=df.columns,
+            rows=df.to_dict(orient="records"),
+            column_map=column_map,
+            possible_targets=list(ALIAS_MAPPING.keys()),
+            data_json=df.to_json(orient="records")
+        )
 
     return render_template("import_upload.html")
-
 
 @app.route("/import/commit", methods=["POST"])
 @login_required        

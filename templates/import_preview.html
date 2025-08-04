@@ -6,7 +6,7 @@
 
 <form action="{{ url_for('import_commit') }}" method="post">
     <textarea name="data_json" hidden>{{ data_json }}</textarea>
-    <table border="1">
+    <table border="1" dont_sort="1">
         <thead>
             <tr>
                 {% for col in columns %}
