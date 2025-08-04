@@ -1,26 +1,23 @@
 {% extends "layout.html" %}
-{% block title %}Vorschau{% endblock %}
+{% block title %}Importvorschau{% endblock %}
 
 {% block content %}
-<h2>Vorschau – Zuordnung überprüfen</h2>
+<h2>Importvorschau</h2>
 
-<form action="{{ url_for('import_commit') }}" method="post">
-    <textarea name="data_json" hidden>{{ data_json }}</textarea>
-    <table border="1" dont_sort="1">
+<form action="{{ url_for('import_commit') }}" method="post" id="importForm">
+    <table border="1" cellpadding="5" cellspacing="0" dont_sort="1">
         <thead>
             <tr>
                 {% for col in columns %}
-                    <th>
-                        {{ col }}<br>
-                        <select name="column_map[{{ col }}]">
-                            <option value="">-- ignorieren --</option>
-                            {% for target in possible_targets %}
-                                <option value="{{ target }}" {% if column_map[col] == target %}selected{% endif %}>
-                                    {{ target }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </th>
+                <th>
+                    {{ col }}<br>
+                    <select name="column_map[{{ col }}]">
+                        <option value="">-- Ignorieren --</option>
+                        {% for target in possible_targets %}
+                            <option value="{{ target }}" {% if column_map[col] == target %}selected{% endif %}>{{ target }}</option>
+                        {% endfor %}
+                    </select>
+                </th>
                 {% endfor %}
             </tr>
         </thead>
@@ -34,7 +31,21 @@
             {% endfor %}
         </tbody>
     </table>
-    <br>
-    <button type="submit">Eintragen</button>
+
+    <input type="hidden" name="data_json" id="data_json_input" value="">
+
+    <button type="submit">Import starten</button>
 </form>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var data = {{ data_json | tojson | safe }};
+    var form = document.getElementById("importForm");
+    form.addEventListener("submit", function(event) {
+        var jsonString = JSON.stringify(data);
+        document.getElementById("data_json_input").value = jsonString;
+    });
+});
+</script>
+
 {% endblock %}

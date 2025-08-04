@@ -4225,12 +4225,19 @@ def merge_interface():
         entries=entries,
     )
 
+
 ALIAS_MAPPING = {
     "Person.vorname": ["Vorname", "first_name", "Name"],
     "Person.nachname": ["Nachname", "last_name", "surname"],
     "Person.geburtsdatum": ["Geburtsdatum", "birthdate", "dob"],
-    "Adresse.strasse": ["Straße", "street"],
-    "Adresse.ort": ["Ort", "city", "Stadt"]
+    "Person.title": ["Titel", "Title"],
+    "Person.kommentar": ["Kommentar", "Note", "Bemerkung"],
+    "PersonContact.email": ["Email", "E-Mail", "email"],
+    "PersonContact.phone": ["Telefon", "Phone", "Telefonnummer"],
+    "Abteilung.name": ["Abteilung", "Department", "Abteilungsname"],
+    "Building.name": ["Gebäude", "Building", "Gebäudename"],
+    "Raum.name": ["Raum", "Room", "Raumname"],
+    # ... je nach Bedarf erweitern
 }
 
 def match_column(col_name):
@@ -4258,12 +4265,12 @@ def import_upload():
                     df = pd.read_csv(file)
                 elif ext in [".xls", ".xlsx"]:
                     df = pd.read_excel(file)
+                else:
+                    return "Nur CSV, XLS, XLSX-Dateien erlaubt.", 400
             elif csvtext:
-                # Versuche Tab als Trenner
                 try:
                     df = pd.read_csv(io.StringIO(csvtext), sep="\t")
                 except pd.errors.ParserError:
-                    # Fallback: Komma als Trenner
                     df = pd.read_csv(io.StringIO(csvtext), sep=",")
         except Exception as e:
             return f"Fehler beim Einlesen der Datei: {str(e)}", 400
@@ -4281,32 +4288,33 @@ def import_upload():
             rows=df.to_dict(orient="records"),
             column_map=column_map,
             possible_targets=list(ALIAS_MAPPING.keys()),
-            data_json=df.to_json(orient="records")
+            data_json=df.to_dict(orient="records")
         )
 
     return render_template("import_upload.html")
 
-@app.route("/import/commit", methods=["POST"])
-@login_required        
-@admin_required        
-def import_commit():   
-    session = Session()
-    log = []           
-    errors = []        
 
-    try:               
+@app.route("/import/commit", methods=["POST"])
+@login_required
+@admin_required
+def import_commit():
+    session = Session()
+    log = []
+    errors = []
+
+    try:
         raw_json = request.form.get("data_json")
         if not raw_json:
             return render_template("import_result.html", success=False, message="Fehler: Kein JSON übergeben!", log=log, errors=errors), 400
 
-        try:           
+        try:
             data = json.loads(raw_json)
         except json.JSONDecodeError as e:
             return render_template(
-                "import_result.html", 
-                success=False, 
-                message=f"Fehler beim Parsen von JSON: {str(e)}\n\nInhalt: {raw_json[:1000]}", 
-                log=log, 
+                "import_result.html",
+                success=False,
+                message=f"Fehler beim Parsen von JSON: {str(e)}, raw_json:",
+                log=log,
                 errors=errors
             ), 400
 
@@ -4317,60 +4325,136 @@ def import_commit():
                 if val.strip():
                     structured_map[colname] = val.strip()
 
-        # Umgekehrtes Mapping: table_name -> [{rowdata}]
-        table_data = {}
+        # Hilfsfunktion: Suche ein Objekt anhand von UniqueConstraints oder erstellt neu
+        def get_or_create(model_class, filter_data, create_data):
+            try:
+                instance = session.query(model_class).filter_by(**filter_data).first()
+                if instance:
+                    # Update Attribute
+                    for k, v in create_data.items():
+                        setattr(instance, k, v)
+                    return instance, False
+                else:
+                    instance = model_class(**create_data)
+                    session.add(instance)
+                    return instance, True
+            except Exception as e:
+                errors.append(f"Fehler bei get_or_create für {model_class.__name__}: {str(e)}")
+                return None, False
 
         for row_index, row in enumerate(data):
-            row_models = {}
+            try:
+                # Beispiel für komplexe Zuordnung
+                # 1. Person-Daten sammeln
+                person_data = {}
+                person_related = {
+                    "contacts": [],
+                    "abteilungen": [],
+                    "professuren": [],
+                    "räume": [],
+                }
 
-            for colname, full_target in structured_map.items():
-                if not full_target:
-                    continue
-                if '.' not in full_target:
-                    errors.append(f"Ungültiges Mapping '{full_target}' für Spalte '{colname}'")
-                    continue
-
-                model_name, attr = full_target.split('.', 1)
-                value = row.get(colname)
-
-                if model_name not in row_models:
-                    row_models[model_name] = {}
-
-                row_models[model_name][attr] = value
-
-            for model_name, values in row_models.items():
-                if model_name not in globals():
-                    errors.append(f"Modell '{model_name}' nicht gefunden für Zeile {row_index + 1}")
-                    continue
-
-                ModelClass = globals()[model_name]
-                try:
-                    existing = session.query(ModelClass).filter_by(**values).first()
-                    if not existing:
-                        instance = ModelClass(**values)
-                        log.append(f"NEU: {model_name}: {values}")
+                # Sammle alle Spalten, die zur Person gehören
+                for colname, target in structured_map.items():
+                    if not target:
+                        continue
+                    if '.' not in target:
+                        errors.append(f"Ungültiges Mapping '{target}' für Spalte '{colname}'")
+                        continue
+                    model_name, attr = target.split('.', 1)
+                    value = row.get(colname)
+                    if model_name == "Person":
+                        person_data[attr] = value
+                    elif model_name == "PersonContact":
+                        # Wir sammeln Kontakte als dict (falls mehrere Spalten)
+                        person_related["contacts"].append({attr: value})
+                    elif model_name == "Abteilung":
+                        person_related["abteilungen"].append({attr: value})
+                    elif model_name == "Professur":
+                        person_related["professuren"].append({attr: value})
+                    elif model_name == "Raum":
+                        person_related["räume"].append({attr: value})
                     else:
-                        instance = existing
-                        for k, v in values.items():
-                            setattr(instance, k, v)
-                        log.append(f"UPDATE: {model_name}: {values}")
-                    session.add(instance)
-                except Exception as model_error:
-                    errors.append(f"{model_name} (Zeile {row_index + 1}): {str(model_error)}")
+                        # Andere Modelle können ähnlich ergänzt werden
+                        pass
+
+                # 2. Person holen oder anlegen
+                filter_person = {}
+                # Prüfe UniqueConstraint Felder für Person (title, vorname, nachname)
+                for key in ["title", "vorname", "nachname"]:
+                    if key in person_data and person_data[key]:
+                        filter_person[key] = person_data[key]
+
+                if not filter_person:
+                    errors.append(f"Zeile {row_index + 1}: Keine eindeutigen Felder für Person vorhanden.")
+                    continue
+
+                person, created = get_or_create(Person, filter_person, person_data)
+                if not person:
+                    errors.append(f"Zeile {row_index + 1}: Person konnte nicht erstellt werden.")
+                    continue
+
+                if created:
+                    log.append(f"Zeile {row_index + 1}: Neue Person erstellt: {filter_person}")
+                else:
+                    log.append(f"Zeile {row_index + 1}: Person aktualisiert: {filter_person}")
+
+                # 3. Kontakte anlegen (eindeutige email/phone/fax pro Person)
+                for contact_data in person_related["contacts"]:
+                    if not contact_data:
+                        continue
+                    filter_contact = {"person_id": person.id}
+                    if "email" in contact_data and contact_data["email"]:
+                        filter_contact["email"] = contact_data["email"]
+                    elif "phone" in contact_data and contact_data["phone"]:
+                        filter_contact["phone"] = contact_data["phone"]
+                    else:
+                        # Keine identifizierenden Kontaktinformationen
+                        continue
+
+                    # create or update PersonContact
+                    contact, c_created = get_or_create(PersonContact, filter_contact, {**contact_data, "person_id": person.id})
+                    if c_created:
+                        log.append(f"Zeile {row_index + 1}: Neuer Kontakt hinzugefügt: {contact_data}")
+                    else:
+                        log.append(f"Zeile {row_index + 1}: Kontakt aktualisiert: {contact_data}")
+
+                # 4. Abteilungen, Professuren, Räume analog verknüpfen (Beispiel für Abteilung)
+                for abt_data in person_related["abteilungen"]:
+                    if not abt_data or "name" not in abt_data or not abt_data["name"]:
+                        continue
+                    abt, a_created = get_or_create(Abteilung, {"name": abt_data["name"]}, abt_data)
+                    if abt:
+                        # Verknüpfe Person <-> Abteilung wenn ManyToMany
+                        if abt not in person.abteilungen:
+                            person.abteilungen.append(abt)
+                            log.append(f"Zeile {row_index + 1}: Abteilung '{abt.name}' mit Person verknüpft.")
+                    else:
+                        errors.append(f"Zeile {row_index + 1}: Abteilung konnte nicht erstellt/verknüpft werden.")
+
+                # Ähnlich für Professur und Raum falls Beziehungen vorhanden
+
+                session.flush()
+
+            except IntegrityError as ie:
+                session.rollback()
+                errors.append(f"Zeile {row_index + 1}: Datenbank-Fehler: {str(ie)}")
+            except Exception as ex:
+                session.rollback()
+                errors.append(f"Zeile {row_index + 1}: Allgemeiner Fehler: {str(ex)}")
+
+        # Commit wenn keine schweren Fehler aufgetreten sind
+        if errors:
+            session.rollback()
+            return render_template("import_result.html", success=False, message="Fehler beim Import", log=log, errors=errors)
 
         session.commit()
-
-        return render_template(
-            "import_result.html",
-            success=(len(errors) == 0),
-            message="Import erfolgreich!" if len(errors) == 0 else "Import abgeschlossen mit Fehlern.",
-            log=log,
-            errors=errors
-        )
+        return render_template("import_result.html", success=True, message="Import erfolgreich", log=log, errors=errors)
 
     except Exception as e:
         session.rollback()
-        return render_template("import_result.html", success=False, message=f"Allgemeiner Fehler: {str(e)}", log=log, errors=errors), 500
+        return render_template("import_result.html", success=False, message=f"Unbekannter Fehler: {str(e)}", log=log, errors=errors)
+
     finally:
         session.close()
 

@@ -1,29 +1,28 @@
 {% extends "layout.html" %}
-
-{% block title %}
-Import Ergebnis
-{% endblock %}
+{% block title %}Importergebnis{% endblock %}
 
 {% block content %}
-<h2>Import Ergebnis</h2>
+<h2>Importergebnis</h2>
 
-{% if success %}
-    <div style="color: green; font-weight: bold; margin-bottom: 1em;">
-        {{ message }}
-    </div>
-{% else %}
-    <div style="color: red; font-weight: bold; margin-bottom: 1em;">
-        {{ message }}
-    </div>
-{% endif %}
+<p>{{ message }}</p>
 
 {% if log %}
-    <h3>Log:</h3>
-    <pre style="background-color: black; padding: 10px; border-radius: 4px; color: white;">{{ log | join("\n") }}</pre>
+<h3>Protokoll</h3>
+<ul>
+    {% for entry in log %}
+        <li>{{ entry }}</li>
+    {% endfor %}
+</ul>
 {% endif %}
 
 {% if errors %}
-    <h3>Fehler:</h3>
-    <pre style="background-color: black; color: red; padding: 10px; border-radius: 4px;">{{ errors | join("\n") }}</pre>
+<h3 style="color: red;">Fehler</h3>
+<ul>
+    {% for err in errors %}
+        <li>{{ err }}</li>
+    {% endfor %}
+</ul>
 {% endif %}
+
+<a href="{{ url_for('import_upload') }}">Neuen Import starten</a>
 {% endblock %}
