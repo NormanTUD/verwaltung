@@ -619,7 +619,12 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 		circle.dataset.attributes = JSON.stringify(attributes);
 		circle.style.position = "absolute";
 
-		// 🔴 ❌ Button oben rechts
+		if (attributes.x && attributes.y) {
+			circle.style.left = attributes.x + "px";
+			circle.style.top = attributes.y + "px";
+		}
+
+		// ❌ Button oben rechts
 		const closeBtn = document.createElement("div");
 		closeBtn.className = "circle-close-button";
 		closeBtn.textContent = "×";
@@ -710,8 +715,6 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 
 			if (Array.isArray(personEntry.räume) && personEntry.räume.length > 0) {
 				for (const raumEntry of personEntry.räume) {
-
-					log("raumEntry:", raumEntry);
 					const layout = raumEntry.layout || null;
 					const position = extractPositionFromLayout(layout);
 
