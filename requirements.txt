@@ -1,4 +1,5 @@
 flask
+pymysql
 flask_login
 flask_sqlalchemy
 cryptography
@@ -12,3 +13,4 @@ sqlalchemy_schemadisplay
 sqlalchemy_utils
 inflect
 pandas
+mod_wsgi

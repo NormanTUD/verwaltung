@@ -23,6 +23,28 @@ parser.add_argument('--secret', type=str, default='geheim', help='SECRET_KEY fü
 parser.add_argument('--engine-db', type=str, default='sqlite:///database.db', help='URI für create_engine()')
 args = parser.parse_args()
 
+db_engine_file = "/etc/db_engine"
+
+if os.path.isfile(db_engine_file):
+    print(f"[DEBUG] {db_engine_file} ist eine Datei", file=sys.stderr)
+    if os.access(db_engine_file, os.R_OK):
+        print(f"[DEBUG] {db_engine_file} ist lesbar", file=sys.stderr)
+        try:
+            with open(db_engine_file, "r", encoding="utf-8") as f:
+                file_content = f.read().strip()
+                print(f"[DEBUG] Gelesener Inhalt: '{file_content}'", file=sys.stderr)
+                if file_content:
+                    args.engine_db = file_content
+                    print(f"[DEBUG] args.engine_db auf '{args.engine_db}' gesetzt", file=sys.stderr)
+                else:
+                    print(f"[WARN] {db_engine_file} ist leer", file=sys.stderr)
+        except Exception as e:
+            print(f"[ERROR] Fehler beim Lesen von {db_engine_file}: {str(e)}", file=sys.stderr)
+    else:
+        print(f"[ERROR] Keine Leserechte für {db_engine_file}", file=sys.stderr)
+else:
+    print(f"[ERROR] {db_engine_file} existiert nicht oder ist keine reguläre Datei", file=sys.stderr)
+
 IGNORED_TABLES = {"transaction", "user", "roles"}
 
 try:
@@ -36,9 +58,29 @@ from pathlib import Path
 VENV_PATH = Path.home() / ".verwaltung_venv"
 PYTHON_BIN = VENV_PATH / ("Scripts" if platform.system() == "Windows" else "bin") / ("python.exe" if platform.system() == "Windows" else "python")
 
-def get_from_requirements_txt_file(path="requirements.txt"):
-    with open(path) as f:
-        return [line.strip() for line in f if line.strip() and not line.startswith("#")]
+def get_from_requirements_txt_file(path=None):
+    try:
+        if path is None:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            path = os.path.join(script_dir, "requirements.txt")
+
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"requirements.txt not found at: {path}")
+
+        with open(path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        requirements = []
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                requirements.append(line)
+
+        return requirements
+
+    except Exception as e:
+        print(f"Error reading requirements file: {e}")
+        return []
 
 pip_install_modules = [
     PYTHON_BIN, "-m", "pip", "install", "-q", "--upgrade",
@@ -114,7 +156,7 @@ try:
     from db_interface import *
     
     from importers import importers_bp
-    from auth import admin_required
+    from auth import admin_required, is_admin_user
     from db import *
 except ModuleNotFoundError as e:
     if not VENV_PATH.exists():
@@ -2175,7 +2217,7 @@ def map_editor():
     building_id_param = request.args.get("building_id")
     etage_param = request.args.get("etage")
 
-    etageplan_dir = os.path.join("static", "floorplans")
+    etageplan_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "floorplans")
 
     # floorplan als Struktur: { building_id: [etage1, etage2, ...] }
     building_map = {}
@@ -2238,7 +2280,7 @@ def map_editor():
         session.close()
         return f"Error opening image: {str(e)}", 500
 
-    image_url = f"static/floorplans/b{building_id}_f{etage}.png"
+    image_url = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"static/floorplans/b{building_id}_f{etage}.png")
 
     image_width = 1
     image_height = 1
@@ -2908,7 +2950,7 @@ def etageplan():
         return "Invalid 'building_id' or 'etage' – must be integers", 400
 
     # Lade alle verfügbaren Gebäude & Etagen
-    etageplan_dir = os.path.join("static", "floorplans")
+    etageplan_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "floorplans")
     building_map = {}
 
     for filename in os.listdir(etageplan_dir):

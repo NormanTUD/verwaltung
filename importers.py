@@ -1,3 +1,4 @@
+from typing import Optional, Tuple
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask import Blueprint, request, jsonify, render_template
 from auth import admin_required
@@ -7,6 +8,7 @@ import json
 import re
 from sqlalchemy.exc import IntegrityError
 from db import *
+from pprint import pprint
 
 importers_bp = Blueprint('importers', __name__)
 
@@ -36,6 +38,40 @@ ALIAS_MAPPING = {
     "Inventar.kostenstelle_id": ["Verantw.Kostenstelle", "Kostenstelle", "Kostenstellen-ID"],
     "Object.bezeichnung": ["Anlagenbezeichnung", "Objektbezeichnung", "Bezeichnung"],
 }
+
+def get_or_create_object_and_kategorie(
+    session: Session,
+    object_name: str,
+    kategorie_name: str,
+    preis: Optional[float] = None
+) -> Tuple[int, int]:
+    print(f"object_name: {object_name}, kategorie_name: {kategorie_name}, preis: {preis}")
+    try:
+        # Kategorie prüfen oder erstellen
+        kategorie = session.query(ObjectKategorie).filter_by(name=kategorie_name).first()
+        if kategorie is None:
+            kategorie = ObjectKategorie(name=kategorie_name)
+            session.add(kategorie)
+            session.flush()  # um ID zu erhalten, ohne commit
+
+        # Objekt prüfen oder erstellen
+        query = session.query(Object).filter_by(name=object_name, kategorie_id=kategorie.id)
+        if preis is None:
+            query = query.filter(Object.preis == None)
+        else:
+            query = query.filter_by(preis=preis)
+
+        obj = query.first()
+        if obj is None:
+            obj = Object(name=object_name, preis=preis, kategorie_id=kategorie.id)
+            session.add(obj)
+            session.flush()  # um ID zu erhalten
+
+        return (obj.id, kategorie.id)
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        raise RuntimeError(f"Fehler beim Einfügen oder Abrufen: {e}")
 
 def get_or_create(model_class, filter_data: dict, create_data: dict, session=None):
     """
@@ -282,6 +318,8 @@ def __import_process_row(index, row, session, structured_map, area_code_map, log
             "inventar": []
         }
 
+        ignored_col_names = []
+
         for colname, target in structured_map.items():
             if not target or '.' not in target:
                 if target:
@@ -291,28 +329,52 @@ def __import_process_row(index, row, session, structured_map, area_code_map, log
             model_name, attr = target.split('.', 1)
             value = row.get(colname)
 
+            done = False
+
             if model_name == "PersonContact" and attr == "phone":
                 area_code = area_code_map.get(colname, "")
                 value = __import_process_phone(value, area_code)
+                done = True
 
             if model_name == "Person" and attr == "nachname" and value and "," in str(value):
                 parts = __import_split_name(value)
                 if parts["vorname"]:
                     person_data["vorname"] = parts["vorname"]
+                    done = True
                 if parts["nachname"]:
                     person_data["nachname"] = parts["nachname"]
+                    done = True
+                continue
+
+            if model_name == "Objekt" and attr in ["bezeichnung"]:
+                price = 12321
+                category_name = "AUTO_INSERTED_CATEGORY"
+                
+                person_related["inventar"].append(get_or_create_object_and_kategorie(session, value, category_name, price))
+                done = True
                 continue
 
             if model_name == "Abteilung" and attr in ["abteilungsleiter", "vertretung"]:
                 __import_handle_abteilung_special(index, row, attr, value, session, log, errors)
+                done = True
                 continue
 
             if model_name == "Person":
                 person_data[attr] = value
+                done = True
             else:
                 related_key = __import_model_name_to_key(model_name)
                 if related_key:
                     person_related[related_key].append({attr: value})
+                    done = True
+
+            if not done:
+                if colname not in ignored_col_names:
+                    ignored_col_names.append(colname)
+
+        if len(ignored_col_names):
+            for err in ignored_col_names:
+                errors.append(f"Ignorierte Spalte: {err}")
 
         # Filter für eindeutige Identifikation
         filter_person = {k: v for k, v in person_data.items() if k in ["title", "vorname", "nachname"] and v}
