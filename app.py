@@ -3517,6 +3517,30 @@ def get_person_database():
         session.close()
         return jsonify({"error": "Fehler beim Abrufen der Personen"}), 500
     
+@app.route("/api/get_object_database", methods=["GET"])
+def get_object_database():
+    try:
+        session = Session()
+        objects = session.query(Object).all()
+
+        result = []
+        for obj in objects:
+            result.append({
+                "id": obj.id,
+                "name": obj.name or "",
+                "Preis": obj.preis or 0,
+                "category": obj.kategorie.name if obj.kategorie else ""
+            })
+
+        session.close()
+        return jsonify(result), 200
+
+    except Exception as e:
+        print(f"❌ Fehler bei /api/get_object_database: {e}")
+        session.close()
+        return jsonify({"error": "Fehler beim Abrufen der Objekte"}), 500
+
+    
 @app.route("/api/get_raum_id")
 def get_raum_id():
     session = Session()
