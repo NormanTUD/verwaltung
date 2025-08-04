@@ -3777,7 +3777,7 @@ def schema():
         tables=tables,
         engine=engine
     )
-    graph.write_png('/tmp/schema.png')
+    graph.write_png('/tmp/schema.png', encoding='utf-8')
     return send_file('/tmp/schema.png', mimetype='image/png')
 
 @app.route('/api/get_names/<table_name>', methods=['GET'])
