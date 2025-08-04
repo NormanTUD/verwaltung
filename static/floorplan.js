@@ -4,6 +4,7 @@ let params;
 let scale = 1;
 const räume = {};
 const dynamicForm = document.getElementById("dynamicPersonForm");
+let personDatabase = [];
 
 try {
 	params = new URLSearchParams(window.location.search);
@@ -491,7 +492,6 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 	}
 
 	// Globale Personendatenbank
-	let personDatabase = [];
 
 	const addPersonBtn = document.getElementById("addPersonBtn");
 	const personForm = document.getElementById("personForm");
@@ -548,10 +548,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 		}
 
 		const person = personDatabase[selectedIndex];
-		if (!person) {
-			console.error("Person an ausgewähltem Index nicht gefunden:", selectedIndex);
-			return;
-		}
+		log(`selected selectedIndex ${selectedIndex} from personDatabase`, person, personDatabase);
 
 		//console.log("Existierende Person ausgewählt:", person);
 		createPersonCircle(person);
@@ -586,12 +583,12 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 	}
 
 	// Erstelle Person-Kreis und hänge an Floorplan an
-	function createPersonCircle(attributes) {
-		const circle = createCircleElement(attributes);
+	function createPersonCircle(person) {
+		const circle = createCircleElement(person);
 		addCircleToFloorplan(circle);
 		makeDraggable(circle);
-		setupContextMenu(circle, attributes);
-		//add_or_update_person(attributes);
+		setupContextMenu(circle, person);
+		//add_or_update_person(person);
 		applyInvertFilterToElements(theme)
 	}
 
@@ -619,7 +616,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 		circle.dataset.attributes = JSON.stringify(attributes);
 		circle.style.position = "absolute";
 
-		if (attributes.x && attributes.y) {
+		if (attributes && attributes.x && attributes.y) {
 			circle.style.left = attributes.x + "px";
 			circle.style.top = attributes.y + "px";
 		}
@@ -663,7 +660,7 @@ if (!isNaN(building_id) && !isNaN(etage)) {
 		circle.appendChild(closeBtn);
 
 		// 🖼️ Bild oder Name
-		if (attributes.image_url) {
+		if (attributes && attributes.image_url) {
 			const img = document.createElement("img");
 			img.src = attributes.image_url;
 			img.alt = `${attributes.vorname} ${attributes.nachname}`;
