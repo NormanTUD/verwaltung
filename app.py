@@ -4240,6 +4240,40 @@ ALIAS_MAPPING = {
     "Raum.name": ["Raum", "Room", "Raumname"],
 }
 
+def get_or_create(model_class, filter_data: dict, create_data: dict, session=None):
+    """
+    Holt ein existierendes Objekt anhand der Filterdaten oder erstellt es neu.
+    
+    :param model_class: SQLAlchemy Modelklasse
+    :param filter_data: dict mit Attributen zur Identifikation
+    :param create_data: dict mit Attributen zur Erstellung
+    :param session: optional, SQLAlchemy-Session. Wenn None, wird über das Objekt eine gezogen.
+    :return: (Objekt, True wenn erstellt, sonst False)
+    """
+    try:
+        if session is None:
+            # Versuche eine Session aus einem der Filter-Werte zu bekommen
+            for value in filter_data.values():
+                if hasattr(value, '__class__'):
+                    session = Session.object_session(value)
+                    break
+        if session is None:
+            raise RuntimeError("Session muss übergeben werden oder aus Objekten ableitbar sein")
+
+        instance = session.query(model_class).filter_by(**filter_data).first()
+        if instance:
+            # Optional aktualisieren mit zusätzlichen Daten
+            for key, value in create_data.items():
+                setattr(instance, key, value)
+            return instance, False
+        else:
+            instance = model_class(**create_data)
+            session.add(instance)
+            return instance, True
+
+    except Exception as e:
+        raise RuntimeError(f"get_or_create fehlgeschlagen für {model_class.__name__}: {str(e)}")
+
 def split_name(name: str) -> dict:
     """
     Erwartet ein Format wie 'Nachname, Vorname' oder 'Vorname Nachname'.
@@ -4348,6 +4382,8 @@ def import_upload():
 
     return render_template("import_upload.html")
 
+
+
 @app.route("/import/commit", methods=["POST"])
 @login_required
 @admin_required
@@ -4356,223 +4392,212 @@ def import_commit():
     log = []
     errors = []
 
-    def split_name(name: str) -> dict:
-        if not name or not isinstance(name, str):
-            return {"vorname": None, "nachname": None}
-        parts = name.strip().split(",", 1)
-        if len(parts) == 2:
-            return {"nachname": parts[0].strip(), "vorname": parts[1].strip()}
-        parts = name.strip().split()
-        if len(parts) >= 2:
-            return {"vorname": parts[0].strip(), "nachname": " ".join(parts[1:]).strip()}
-        return {"vorname": None, "nachname": name.strip()}
-
-    def resolve_person_by_name(name_str):
-        name_parts = split_name(name_str)
-        if not name_parts["vorname"] or not name_parts["nachname"]:
-            return None
-        person_filter = {
-            "vorname": name_parts["vorname"],
-            "nachname": name_parts["nachname"]
-        }
-        return get_or_create(Person, person_filter, person_filter)[0]
-
     try:
         raw_json = request.form.get("data_json")
         if not raw_json:
-            return render_template("import_result.html", success=False, message="Fehler: Kein JSON übergeben!", log=log, errors=errors), 400
+            return __import_render_error("Fehler: Kein JSON übergeben!", log, errors)
 
         try:
             data = json.loads(raw_json)
         except json.JSONDecodeError as e:
-            return render_template(
-                "import_result.html",
-                success=False,
-                message=f"Fehler beim Parsen von JSON: {str(e)}",
-                log=log,
-                errors=errors
-            ), 400
+            return __import_render_error(f"Fehler beim Parsen von JSON: {str(e)}", log, errors)
 
-        structured_map = {}
-        area_code_map = {}
-
-        for key, val in request.form.items():
-            if key.startswith("column_map["):
-                colname = key[len("column_map["):-1]
-                if val.strip():
-                    structured_map[colname] = val.strip()
-                    area_code_map[colname] = extract_area_code(colname)
-                else:
-                    structured_map[colname] = ""
-                    area_code_map[colname] = ""
-
-        def get_or_create(model_class, filter_data, create_data):
-            try:
-                instance = session.query(model_class).filter_by(**filter_data).first()
-                if instance:
-                    for k, v in create_data.items():
-                        setattr(instance, k, v)
-                    return instance, False
-                else:
-                    instance = model_class(**create_data)
-                    session.add(instance)
-                    return instance, True
-            except Exception as e:
-                errors.append(f"Fehler bei get_or_create für {model_class.__name__}: {str(e)}")
-                return None, False
+        structured_map, area_code_map = __import_extract_mappings(request.form)
 
         for row_index, row in enumerate(data):
-            try:
-                person_data = {}
-                person_related = {
-                    "contacts": [],
-                    "abteilungen": [],
-                    "professuren": [],
-                    "räume": [],
-                }
-
-                for colname, target in structured_map.items():
-                    if not target:
-                        continue
-                    if '.' not in target:
-                        errors.append(f"Ungültiges Mapping '{target}' für Spalte '{colname}'")
-                        continue
-                    model_name, attr = target.split('.', 1)
-                    value = row.get(colname)
-
-                    # Telefonnummern verarbeiten
-                    if model_name == "PersonContact" and attr == "phone":
-                        area_code = area_code_map.get(colname, "")
-                        if value is not None and value != "":
-                            raw_number = str(value).strip().replace(" ", "")
-                            if area_code:
-                                if not raw_number.startswith(area_code):
-                                    value = area_code + raw_number
-                                else:
-                                    value = raw_number
-                            else:
-                                value = raw_number
-                        else:
-                            value = None
-
-                    # Name-Feld aufteilen
-                    if model_name == "Person" and attr == "nachname" and value and "," in str(value):
-                        parts = split_name(value)
-                        if parts["vorname"]:
-                            person_data["vorname"] = parts["vorname"]
-                        if parts["nachname"]:
-                            person_data["nachname"] = parts["nachname"]
-                        continue
-
-                    # Spezialfall: AL und Vertretung
-                    if model_name == "Abteilung" and attr == "abteilungsleiter":
-                        abt_name = row.get("Abteilung") or row.get("Department") or row.get("Struktureinheit")
-                        if abt_name and value:
-                            leiter = resolve_person_by_name(value)
-                            if leiter:
-                                abt, _ = get_or_create(Abteilung, {"name": abt_name}, {"name": abt_name})
-                                abt.abteilungsleiter_id = leiter.id
-                                session.add(abt)
-                                log.append(f"Zeile {row_index + 1}: Abteilungsleiter für '{abt_name}' gesetzt: {leiter.vorname} {leiter.nachname}")
-                            else:
-                                errors.append(f"Zeile {row_index + 1}: Abteilungsleiter '{value}' konnte nicht erstellt werden.")
-                        continue
-
-                    if model_name == "Abteilung" and attr == "vertretung":
-                        abt_name = row.get("Abteilung") or row.get("Department") or row.get("Struktureinheit")
-                        if abt_name and value:
-                            vertretung = resolve_person_by_name(value)
-                            if vertretung:
-                                abt, _ = get_or_create(Abteilung, {"name": abt_name}, {"name": abt_name})
-                                abt.vertretungs_id = vertretung.id
-                                session.add(abt)
-                                log.append(f"Zeile {row_index + 1}: Vertretung für '{abt_name}' gesetzt: {vertretung.vorname} {vertretung.nachname}")
-                            else:
-                                errors.append(f"Zeile {row_index + 1}: Vertretung '{value}' konnte nicht erstellt werden.")
-                        continue
-
-                    if model_name == "Person":
-                        person_data[attr] = value
-                    elif model_name == "PersonContact":
-                        person_related["contacts"].append({attr: value})
-                    elif model_name == "Abteilung":
-                        person_related["abteilungen"].append({attr: value})
-                    elif model_name == "Professur":
-                        person_related["professuren"].append({attr: value})
-                    elif model_name == "Raum":
-                        person_related["räume"].append({attr: value})
-
-                filter_person = {}
-                for key in ["title", "vorname", "nachname"]:
-                    if key in person_data and person_data[key]:
-                        filter_person[key] = person_data[key]
-
-                if not filter_person:
-                    errors.append(f"Zeile {row_index + 1}: Keine eindeutigen Felder für Person vorhanden.")
-                    continue
-
-                person, created = get_or_create(Person, filter_person, person_data)
-                if not person:
-                    errors.append(f"Zeile {row_index + 1}: Person konnte nicht erstellt werden.")
-                    continue
-
-                if created:
-                    log.append(f"Zeile {row_index + 1}: Neue Person erstellt: {filter_person}")
-                else:
-                    log.append(f"Zeile {row_index + 1}: Person aktualisiert: {filter_person}")
-
-                for contact_data in person_related["contacts"]:
-                    if not contact_data:
-                        continue
-                    filter_contact = {"person_id": person.id}
-                    if "email" in contact_data and contact_data["email"]:
-                        filter_contact["email"] = contact_data["email"]
-                    elif "phone" in contact_data and contact_data["phone"]:
-                        filter_contact["phone"] = contact_data["phone"]
-                    else:
-                        continue
-
-                    contact, c_created = get_or_create(PersonContact, filter_contact, {**contact_data, "person_id": person.id})
-                    if c_created:
-                        log.append(f"Zeile {row_index + 1}: Neuer Kontakt hinzugefügt: {contact_data}")
-                    else:
-                        log.append(f"Zeile {row_index + 1}: Kontakt aktualisiert: {contact_data}")
-
-                for abt_data in person_related["abteilungen"]:
-                    if not abt_data or "name" not in abt_data or not abt_data["name"]:
-                        continue
-                    abt, a_created = get_or_create(Abteilung, {"name": abt_data["name"]}, abt_data)
-                    if abt:
-                        exists = any(pta.abteilung_id == abt.id for pta in person.person_abteilungen)
-                        if not exists:
-                            pta = PersonToAbteilung(person=person, abteilung=abt)
-                            session.add(pta)
-                            log.append(f"Zeile {row_index + 1}: Abteilung '{abt.name}' mit Person verknüpft.")
-                    else:
-                        errors.append(f"Zeile {row_index + 1}: Abteilung konnte nicht erstellt/verknüpft werden.")
-
-                session.flush()
-
-            except IntegrityError as ie:
-                session.rollback()
-                errors.append(f"Zeile {row_index + 1}: Datenbank-Fehler: {str(ie)}")
-            except Exception as ex:
-                session.rollback()
-                errors.append(f"Zeile {row_index + 1}: Allgemeiner Fehler: {str(ex)}")
+            __import_process_row(row_index, row, session, structured_map, area_code_map, log, errors)
 
         if errors:
             session.rollback()
-            return render_template("import_result.html", success=False, message="Fehler beim Import", log=log, errors=errors)
+            return __import_render_error("Fehler beim Import", log, errors)
 
         session.commit()
         return render_template("import_result.html", success=True, message="Import erfolgreich", log=log, errors=errors)
 
     except Exception as e:
         session.rollback()
-        return render_template("import_result.html", success=False, message=f"Unbekannter Fehler: {str(e)}", log=log, errors=errors)
+        return __import_render_error(f"Unbekannter Fehler: {str(e)}", log, errors)
 
     finally:
         session.close()
+
+def __import_render_error(message, log, errors):
+    return render_template("import_result.html", success=False, message=message, log=log, errors=errors), 400
+
+def __import_split_name(name):
+    if not name or not isinstance(name, str):
+        return {"vorname": None, "nachname": None}
+    parts = name.strip().split(",", 1)
+    if len(parts) == 2:
+        return {"nachname": parts[0].strip(), "vorname": parts[1].strip()}
+    parts = name.strip().split()
+    if len(parts) >= 2:
+        return {"vorname": parts[0].strip(), "nachname": " ".join(parts[1:]).strip()}
+    return {"vorname": None, "nachname": name.strip()}
+
+def __import_resolve_person_by_name(name_str, session):
+    name_parts = __import_split_name(name_str)
+    if not name_parts["vorname"] or not name_parts["nachname"]:
+        return None
+    return __import_get_or_create(Person, name_parts, name_parts, session)[0]
+
+def __import_extract_mappings(form_data):
+    structured_map = {}
+    area_code_map = {}
+    for key, val in form_data.items():
+        if key.startswith("column_map["):
+            colname = key[len("column_map["):-1]
+            structured_map[colname] = val.strip() if val.strip() else ""
+            area_code_map[colname] = extract_area_code(colname) if structured_map[colname] else ""
+    return structured_map, area_code_map
+
+def __import_get_or_create(model_class, filter_data, create_data, session):
+    """
+    Holt ein existierendes Objekt anhand der Filterdaten oder erstellt es neu.
+    
+    :param model_class: SQLAlchemy-Modelklasse
+    :param filter_data: dict mit Attributen zur Identifikation
+    :param create_data: dict mit Attributen zur Erstellung/Aktualisierung
+    :param session: SQLAlchemy-Session (muss übergeben werden!)
+    :return: (Objekt, True wenn neu erstellt, sonst False)
+    """
+    try:
+        instance = session.query(model_class).filter_by(**filter_data).first()
+        if instance:
+            for k, v in create_data.items():
+                setattr(instance, k, v)
+            return instance, False
+        else:
+            instance = model_class(**create_data)
+            session.add(instance)
+            return instance, True
+    except Exception as e:
+        raise RuntimeError(f"Fehler bei get_or_create für {model_class.__name__}: {str(e)}")
+
+def __import_process_row(index, row, session, structured_map, area_code_map, log, errors):
+    try:
+        person_data = {}
+        person_related = {"contacts": [], "abteilungen": [], "professuren": [], "räume": []}
+
+        for colname, target in structured_map.items():
+            if not target or '.' not in target:
+                if target:
+                    errors.append(f"Ungültiges Mapping '{target}' für Spalte '{colname}'")
+                continue
+
+            model_name, attr = target.split('.', 1)
+            value = row.get(colname)
+
+            if model_name == "PersonContact" and attr == "phone":
+                area_code = area_code_map.get(colname, "")
+                value = __import_process_phone(value, area_code)
+
+            if model_name == "Person" and attr == "nachname" and value and "," in str(value):
+                parts = __import_split_name(value)
+                if parts["vorname"]:
+                    person_data["vorname"] = parts["vorname"]
+                if parts["nachname"]:
+                    person_data["nachname"] = parts["nachname"]
+                continue
+
+            if model_name == "Abteilung" and attr in ["abteilungsleiter", "vertretung"]:
+                __import_handle_abteilung_special(index, row, attr, value, session, log, errors)
+                continue
+
+            if model_name == "Person":
+                person_data[attr] = value
+            else:
+                person_related_key = __import_model_name_to_key(model_name)
+                if person_related_key:
+                    person_related[person_related_key].append({attr: value})
+
+        filter_person = {k: v for k, v in person_data.items() if k in ["title", "vorname", "nachname"] and v}
+        if not filter_person:
+            errors.append(f"Zeile {index + 1}: Keine eindeutigen Felder für Person vorhanden.")
+            return
+
+        person, created = __import_get_or_create(Person, filter_person, person_data, session)
+        if not person:
+            errors.append(f"Zeile {index + 1}: Person konnte nicht erstellt werden.")
+            return
+
+        log.append(f"Zeile {index + 1}: {'Neue Person erstellt' if created else 'Person aktualisiert'}: {filter_person}")
+
+        __import_save_contacts(person, person_related["contacts"], index, session, log)
+        __import_link_abteilungen(person, person_related["abteilungen"], index, session, log, errors)
+
+        session.flush()
+
+    except IntegrityError as ie:
+        session.rollback()
+        errors.append(f"Zeile {index + 1}: Datenbank-Fehler: {str(ie)}")
+    except Exception as ex:
+        session.rollback()
+        errors.append(f"Zeile {index + 1}: Allgemeiner Fehler: {str(ex)}")
+
+def __import_model_name_to_key(name):
+    mapping = {
+        "PersonContact": "contacts",
+        "Abteilung": "abteilungen",
+        "Professur": "professuren",
+        "Raum": "räume"
+    }
+    return mapping.get(name)
+
+def __import_process_phone(value, area_code):
+    if value is None or value == "":
+        return None
+    raw_number = str(value).strip().replace(" ", "")
+    if area_code and not raw_number.startswith(area_code):
+        return area_code + raw_number
+    return raw_number
+
+def __import_handle_abteilung_special(index, row, attr, value, session, log, errors):
+    abt_name = row.get("Abteilung") or row.get("Department") or row.get("Struktureinheit")
+    if abt_name and value:
+        person = __import_resolve_person_by_name(value, session)
+        if person:
+            abt, _ = __import_get_or_create(Abteilung, {"name": abt_name}, {"name": abt_name}, session)
+            if attr == "abteilungsleiter":
+                abt.abteilungsleiter_id = person.id
+                log.append(f"Zeile {index + 1}: Abteilungsleiter für '{abt_name}' gesetzt: {person.vorname} {person.nachname}")
+            elif attr == "vertretung":
+                abt.vertretungs_id = person.id
+                log.append(f"Zeile {index + 1}: Vertretung für '{abt_name}' gesetzt: {person.vorname} {person.nachname}")
+            session.add(abt)
+        else:
+            role_label = "Abteilungsleiter" if attr == "abteilungsleiter" else "Vertretung"
+            errors.append(f"Zeile {index + 1}: {role_label} '{value}' konnte nicht erstellt werden.")
+
+def __import_save_contacts(person, contacts, index, session, log):
+    for contact_data in contacts:
+        if not contact_data:
+            continue
+        filter_contact = {"person_id": person.id}
+        if "email" in contact_data and contact_data["email"]:
+            filter_contact["email"] = contact_data["email"]
+        elif "phone" in contact_data and contact_data["phone"]:
+            filter_contact["phone"] = contact_data["phone"]
+        else:
+            continue
+        contact_data["person_id"] = person.id
+        contact, c_created = __import_get_or_create(PersonContact, filter_contact, contact_data, session)
+        log.append(f"Zeile {index + 1}: {'Neuer Kontakt hinzugefügt' if c_created else 'Kontakt aktualisiert'}: {contact_data}")
+
+def __import_link_abteilungen(person, abteilungen, index, session, log, errors):
+    for abt_data in abteilungen:
+        if not abt_data or "name" not in abt_data or not abt_data["name"]:
+            continue
+        abt, a_created = __import_get_or_create(Abteilung, {"name": abt_data["name"]}, abt_data, session)
+        if abt:
+            exists = any(pta.abteilung_id == abt.id for pta in person.person_abteilungen)
+            if not exists:
+                pta = PersonToAbteilung(person=person, abteilung=abt)
+                session.add(pta)
+                log.append(f"Zeile {index + 1}: Abteilung '{abt.name}' mit Person verknüpft.")
+        else:
+            errors.append(f"Zeile {index + 1}: Abteilung konnte nicht erstellt/verknüpft werden.")
+
 
 event.listen(Session, "before_flush", block_writes_if_user_readonly)
 event.listen(Session, "before_flush", block_writes_if_data_version_cookie_set)
