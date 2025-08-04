@@ -1428,7 +1428,7 @@ def table_view(table_name):
     # Erweiterte Rückgabe mit missing_input_info
     column_labels, row_html, new_entry_inputs, row_ids, table_has_missing_inputs, missing_input_info = prepare_table_data(session, cls, table_name)
 
-    javascript_code = load_static_file("static/table_scripts.js").replace("{{ table_name }}", table_name)
+    javascript_code = load_static_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "table_scripts.js")).replace("{{ table_name }}", table_name)
 
     row_data = list(zip(row_html, row_ids))
 
