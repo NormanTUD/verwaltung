@@ -5,6 +5,7 @@ import pandas as pd
 import io
 import json
 import re
+from sqlalchemy.exc import IntegrityError
 from db import *
 
 importers_bp = Blueprint('importers', __name__)
@@ -273,7 +274,13 @@ def __import_get_or_create(model_class, filter_data, create_data, session):
 def __import_process_row(index, row, session, structured_map, area_code_map, log, errors):
     try:
         person_data = {}
-        person_related = {"contacts": [], "abteilungen": [], "professuren": [], "räume": []}
+        person_related = {
+            "contacts": [],
+            "abteilungen": [],
+            "professuren": [],
+            "räume": [],
+            "inventar": []
+        }
 
         for colname, target in structured_map.items():
             if not target or '.' not in target:
@@ -303,26 +310,31 @@ def __import_process_row(index, row, session, structured_map, area_code_map, log
             if model_name == "Person":
                 person_data[attr] = value
             else:
-                person_related_key = __import_model_name_to_key(model_name)
-                if person_related_key:
-                    person_related[person_related_key].append({attr: value})
+                related_key = __import_model_name_to_key(model_name)
+                if related_key:
+                    person_related[related_key].append({attr: value})
 
+        # Filter für eindeutige Identifikation
         filter_person = {k: v for k, v in person_data.items() if k in ["title", "vorname", "nachname"] and v}
         if not filter_person:
             errors.append(f"Zeile {index + 1}: Keine eindeutigen Felder für Person vorhanden.")
             return
 
+        # Person erstellen oder holen
         person, created = __import_get_or_create(Person, filter_person, person_data, session)
         if not person:
             errors.append(f"Zeile {index + 1}: Person konnte nicht erstellt werden.")
             return
 
         log.append(f"Zeile {index + 1}: {'Neue Person erstellt' if created else 'Person aktualisiert'}: {filter_person}")
+        session.flush()  # für person.id
 
-        session.flush()  # Flush hier, um person.id sicher zu haben!
-
+        # Verwandte Entitäten verarbeiten
         __import_save_contacts(person, person_related["contacts"], index, session, log)
         __import_link_abteilungen(person, person_related["abteilungen"], index, session, log, errors)
+        __import_link_professuren(person, person_related["professuren"], index, session, log, errors)
+        __import_link_raeume(person, person_related["räume"], index, session, log, errors)
+        __import_save_inventar(person, person_related["inventar"], index, session, log, errors)
 
         session.flush()
 
@@ -332,7 +344,6 @@ def __import_process_row(index, row, session, structured_map, area_code_map, log
     except Exception as ex:
         session.rollback()
         errors.append(f"Zeile {index + 1}: Allgemeiner Fehler: {str(ex)}")
-
 
 def __import_model_name_to_key(name):
     mapping = {
@@ -452,4 +463,58 @@ def __import_link_abteilungen(person, abteilungen, index, session, log, errors):
                 log.append(f"Zeile {index + 1}: Abteilung '{abt.name}' mit Person verknüpft.")
         else:
             errors.append(f"Zeile {index + 1}: Abteilung konnte nicht erstellt/verknüpft werden.")
+
+def __import_link_professuren(person, professuren, index, session, log, errors):
+    for prof_data in professuren:
+        if not prof_data or "name" not in prof_data or not prof_data["name"]:
+            continue
+
+        prof, created = __import_get_or_create(Professur, {"name": prof_data["name"]}, prof_data, session)
+        if not prof:
+            errors.append(f"Zeile {index + 1}: Professur '{prof_data.get('name')}' konnte nicht erstellt/verknüpft werden.")
+            continue
+
+        exists = any(ptp.professur_id == prof.id for ptp in person.professuren)
+        if not exists:
+            ptp = ProfessurToPerson(person=person, professur=prof)
+            session.add(ptp)
+            log.append(f"Zeile {index + 1}: Professur '{prof.name}' mit Person verknüpft.")
+            
+def __import_link_raeume(person, raeume, index, session, log, errors):
+    for raum_data in raeume:
+        if not raum_data or "name" not in raum_data or not raum_data["name"]:
+            continue
+
+        raum, created = __import_get_or_create(Raum, {"name": raum_data["name"]}, raum_data, session)
+        if not raum:
+            errors.append(f"Zeile {index + 1}: Raum '{raum_data.get('name')}' konnte nicht erstellt/verknüpft werden.")
+            continue
+
+        exists = any(ptr.raum_id == raum.id for ptr in person.räume)
+        if not exists:
+            ptr = PersonToRaum(person=person, room=raum)
+            session.add(ptr)
+            log.append(f"Zeile {index + 1}: Raum '{raum.name}' mit Person verknüpft.")
+
+def __import_save_inventar(person, inventar_list, index, session, log, errors):
+    for inv_data in inventar_list:
+        if not inv_data:
+            continue
+
+        inv_data["besitzer_id"] = person.id
+
+        filter_inv = {}
+        if "inventarnummer" in inv_data and inv_data["inventarnummer"]:
+            filter_inv["inventarnummer"] = inv_data["inventarnummer"]
+        elif "anlagennummer" in inv_data and inv_data["anlagennummer"]:
+            filter_inv["anlagennummer"] = inv_data["anlagennummer"]
+        else:
+            errors.append(f"Zeile {index + 1}: Kein eindeutiger Inventar-Identifier vorhanden.")
+            continue
+
+        inventar, created = __import_get_or_create(Inventar, filter_inv, inv_data, session)
+        if inventar:
+            log.append(f"Zeile {index + 1}: Inventar {'erstellt' if created else 'aktualisiert'}: {filter_inv}")
+        else:
+            errors.append(f"Zeile {index + 1}: Inventar konnte nicht erstellt/aktualisiert werden.")
 
