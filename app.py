@@ -2217,7 +2217,7 @@ def map_editor():
     building_id_param = request.args.get("building_id")
     etage_param = request.args.get("etage")
 
-    etageplan_dir = os.path.join("static", "floorplans")
+    etageplan_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "floorplans")
 
     # floorplan als Struktur: { building_id: [etage1, etage2, ...] }
     building_map = {}
