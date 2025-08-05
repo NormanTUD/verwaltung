@@ -1,6 +1,7 @@
 from typing import Optional, Tuple
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask import Blueprint, request, jsonify, render_template
+from sqlalchemy.exc import SQLAlchemyError
 from auth import admin_required
 import pandas as pd
 import io
@@ -44,7 +45,7 @@ def get_or_create_object_and_kategorie(
     object_name: str,
     kategorie_name: str,
     preis: Optional[float] = None
-) -> Tuple[int, int]:
+) -> Tuple[Column[int], Column[int]]:
     print(f"object_name: {object_name}, kategorie_name: {kategorie_name}, preis: {preis}")
     try:
         # Kategorie prüfen oder erstellen

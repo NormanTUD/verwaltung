@@ -2,44 +2,86 @@
 {% block title %}Aggregat{% endblock %}
 {% block content %}
 
-    <h1>Datenbankeinträge zusammenführen</h1>
+<h1>Datenbankeinträge zusammenführen</h1>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="{{ category }}">{{ message }}</div>
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="{{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<form method="GET">
+    <label>Welche Tabelle möchtest du mergen?</label>
+    <select name="table" onchange="this.form.submit()">
+        <option value="">-- Tabelle auswählen --</option>
+        {% for tbl in tables %}
+            <option value="{{ tbl }}" {% if tbl == selected_table %}selected{% endif %}>{{ tbl }}</option>
         {% endfor %}
-      {% endif %}
-    {% endwith %}
+    </select>
+</form>
 
-    <form method="GET">
-        <label>Welche Tabelle möchtest du mergen?</label>
-        <select name="table" onchange="this.form.submit()">
-            <option value="">-- Tabelle auswählen --</option>
-            {% for tbl in tables %}
-                <option value="{{ tbl }}" {% if tbl == selected_table %}selected{% endif %}>{{ tbl }}</option>
-            {% endfor %}
-        </select>
-    </form>
-
+{% if selected_table %}
     {% if entries %}
-    <hr>
-    <form method="POST">
-        <p><strong>Ziel-Eintrag (bleibt erhalten):</strong></p>
-        <select name="target_id" required>
-            {% for entry in entries %}
-		<option value="{{ entry.id }}">{{ entry_display(entry) }}</option>
-            {% endfor %}
-        </select>
+        <hr>
+        <form method="POST">
+            <div style="display: flex; gap: 30px; align-items: flex-start;">
+                <div>
+                    <h3>Einträge zum Zusammenführen</h3>
+                    <table border="1">
+                        <thead>
+                            <tr>
+                                <th>Auswahl</th>
+                                {% for col in columns %}
+                                    <th>{{ col }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in entries %}
+                                <tr>
+                                    <td><input type="checkbox" name="merge_ids" value="{{ entry['id'] }}"></td>
+                                    {% for col in columns %}
+                                        <td>{{ entry[col] }}</td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
 
-        <p><strong>Einträge zum Zusammenführen:</strong></p>
-	<select name="merge_ids" required>
-	    {% for entry in entries %}
-		<option value="{{ entry.id }}">{{ entry_display(entry) }}</option>
-	    {% endfor %}
-	</select>
+                <div>
+                    <h3>Ziel-Eintrag</h3>
+                    <table border="1">
+                        <thead>
+                            <tr>
+                                <th>Ziel</th>
+                                {% for col in columns %}
+                                    <th>{{ col }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in entries %}
+                                <tr>
+                                    <td><input type="radio" name="target_id" value="{{ entry['id'] }}" required></td>
+                                    {% for col in columns %}
+                                        <td>{{ entry[col] }}</td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
-        <br><button type="submit">Merge durchführen</button>
-    </form>
+            <br>
+            <button type="submit">Merge durchführen</button>
+        </form>
+    {% else %}
+        <p>Keine Einträge gefunden in der Tabelle "{{ selected_table }}".</p>
     {% endif %}
+{% endif %}
+
 {% endblock %}

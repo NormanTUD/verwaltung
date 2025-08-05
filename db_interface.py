@@ -7,6 +7,7 @@ from db_defs import (
     Building, Raum, PersonToRaum, Transponder, TransponderToRaum
 )
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import Column
 
 class AbstractDBHandler:
     def __init__(self, session: Session, model: Type):
@@ -219,7 +220,7 @@ class PersonHandler(AbstractDBHandler):
     def __init__(self, session: Session):
         super().__init__(session, Person)
 
-    def insert_person(self, data: Dict[str, Any]) -> int:
+    def insert_person(self, data: Dict[str, Any]) -> Optional[int]:
         if "created_at" not in data:
             data["created_at"] = datetime.datetime.utcnow()
         return self.insert_into_db(data)
@@ -259,7 +260,7 @@ class PersonWithContactHandler(AbstractDBHandler):
     def __init__(self, session: Session):
         super().__init__(session, Person)
 
-    def insert_person_with_contacts(self, person_data: dict, contacts: List[dict]) -> Optional[int]:
+    def insert_person_with_contacts(self, person_data: dict, contacts: List[dict]) -> Optional[Column[int]]:
         try:
             stmt = select(Person).where(
                 Person.title == person_data.get("title"),
@@ -294,6 +295,7 @@ class PersonWithContactHandler(AbstractDBHandler):
                     self.session.add(contact)
 
             self.session.commit()
+
             return new_person.id
         except IntegrityError as e:
             self.session.rollback()
@@ -368,7 +370,7 @@ class PersonWithContactHandler(AbstractDBHandler):
             print(f"❌ Fehler bei get_person_contacts: {e}")
             return []
 
-    def add_contact_to_person(self, person_id: int, contact_data: Dict[str, Any]) -> Optional[int]:
+    def add_contact_to_person(self, person_id: int, contact_data: Dict[str, Any]) -> Optional[Column[int]]:
         try:
             person = self.session.get(Person, person_id)
             if person is None:

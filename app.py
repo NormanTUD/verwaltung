@@ -11,10 +11,9 @@ import datetime
 from copy import deepcopy
 import csv
 import uuid
-from functools import wraps
-import re
 import json
 from collections import defaultdict
+from pathlib import Path
 
 parser = argparse.ArgumentParser(description="Starte die Flask-App mit konfigurierbaren Optionen.")
 parser.add_argument('--debug', action='store_true', help='Aktiviere den Debug-Modus')
@@ -42,8 +41,6 @@ if os.path.isfile(db_engine_file):
             print(f"[ERROR] Fehler beim Lesen von {db_engine_file}: {str(e)}", file=sys.stderr)
     else:
         print(f"[ERROR] Keine Leserechte für {db_engine_file}", file=sys.stderr)
-else:
-    print(f"[ERROR] {db_engine_file} existiert nicht oder ist keine reguläre Datei", file=sys.stderr)
 
 IGNORED_TABLES = {"transaction", "user", "role"}
 
@@ -52,8 +49,6 @@ try:
 except ModuleNotFoundError:
     print("venv not found. Is python3-venv installed?")
     sys.exit(1)
-
-from pathlib import Path
 
 VENV_PATH = Path.home() / ".verwaltung_venv"
 PYTHON_BIN = VENV_PATH / ("Scripts" if platform.system() == "Windows" else "bin") / ("python.exe" if platform.system() == "Windows" else "python")
@@ -67,8 +62,8 @@ def get_from_requirements_txt_file(path=None):
         if not os.path.isfile(path):
             raise FileNotFoundError(f"requirements.txt not found at: {path}")
 
-        with open(path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
+        with open(path, "r", encoding="utf-8") as _f:
+            lines = _f.readlines()
 
         requirements = []
         for line in lines:
@@ -112,12 +107,13 @@ def restart_with_venv():
 
 try:
     from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context, Response
-    from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+    from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 
     from markupsafe import Markup
 
-    from sqlalchemy import create_engine, inspect, Date, DateTime, text, func, event
+    from sqlalchemy import create_engine, inspect, Date, DateTime, text, func, event, String, Unicode, Text
     from sqlalchemy.orm import sessionmaker, joinedload, Session, Query
+    from sqlalchemy.orm.attributes import flag_modified
     from sqlalchemy.orm.exc import NoResultFound, DetachedInstanceError
     from sqlalchemy.exc import SQLAlchemyError
     from sqlalchemy.event import listens_for
@@ -154,7 +150,7 @@ try:
     from markupsafe import escape
 
     from db_interface import *
-    
+
     from importers import importers_bp
     from auth import admin_required, is_admin_user
     from db import *
@@ -174,7 +170,6 @@ except ModuleNotFoundError as e:
     try:
         restart_with_venv()
     except KeyboardInterrupt:
-        print("You cancelled installation")
         sys.exit(0)
 
 app = Flask(__name__)
@@ -264,12 +259,16 @@ HIDDEN_FIELD_NAMES = {"version", "Versions", "_version", "guid"}
 def get_col_type(col):
     if isinstance(col.type, (Integer, Float)):
         return "number"
-    elif isinstance(col.type, (Text, String)):
+
+    if isinstance(col.type, (Text, String)):
         return "text"
-    elif isinstance(col.type, Date):
+
+    if isinstance(col.type, Date):
         return "date"
-    elif isinstance(col.type, Boolean):
+
+    if isinstance(col.type, Boolean):
         return "checkbox"
+
     return "text"
 
 def labelize(col_name):
@@ -495,10 +494,6 @@ WIZARDS = {
         RaumLayout,
         title="Raumlayout definieren",
     ),
-    "Person zu Raum": create_wizard_from_model(
-        PersonToRaum,
-        title="Person zu Raum zuordnen",
-    ),
     "Professur zu Person": create_wizard_from_model(
         ProfessurToPerson,
         title="Professur zu Person zuordnen",
@@ -580,13 +575,10 @@ def block_writes_if_data_version_cookie_set(session, flush_context, instances):
 def add_version_filter(query):
     if not has_app_context():
         print("[DEBUG] Kein Flask-App-Kontext aktiv – Versionierung wird übersprungen")
-        return query    
+        return query
 
-    if not hasattr(g, 'issued_at'):
-        return query    
-
-    if g.issued_at is None:
-        return query                                                                  
+    if not hasattr(g, 'issued_at') or g.issued_at is None:
+        return query
 
     print(f"[DEBUG] g.issued_at gesetzt auf: {g.issued_at}")
 
@@ -1013,11 +1005,6 @@ def register():
         session.close()
 
     return render_template('register.html')
-
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    return f'Hello, {current_user.username}!'
 
 @app.route('/logout')
 @login_required
@@ -1854,6 +1841,31 @@ def is_option_on_versions(opt):
     # Falls es ein string ist oder anderes, prüfen wir nicht
     return False
 
+def build_filter_config_from_request_args(args, column_labels):
+    filter_config = {}
+    for key in args.keys():
+        val = args.get(key)
+        if val is None:
+            continue
+        val = val.strip()
+        if val == "":
+            # Leere Werte ignorieren
+            continue
+        # Prüfe, ob val ein Boolean (0 oder 1) ist
+        if val in ("0", "1"):
+            filter_config[key] = (bool, key)
+            continue
+        # Prüfe, ob val ein Integer ist
+        try:
+            int_val = int(val)
+            filter_config[key] = (int, key)
+            continue
+        except (ValueError, TypeError):
+            pass
+        # Standard: String
+        filter_config[key] = (str, key)
+    return filter_config
+
 def create_aggregate_view(view_id):
     config = AGGREGATE_VIEWS[view_id]
 
@@ -1863,7 +1875,6 @@ def create_aggregate_view(view_id):
         raw_options = config.get("options", [])
         print(f"[DEBUG] Loaded raw options for view_id={view_id}: {raw_options}")
 
-        # Filter out eager loading options that load 'versions' relationship robustly
         options = []
         for opt in raw_options:
             if is_option_on_versions(opt):
@@ -1875,17 +1886,50 @@ def create_aggregate_view(view_id):
 
         try:
             query = session.query(config["model"]).options(*options)
-            print(f"[DEBUG] Query successfully created with options")
+            print("[DEBUG] Query successfully created with options")
         except Exception as e:
             print(f"[ERROR] Exception during query creation with options: {e}")
+            session.close()
             raise
 
+        # --- Definiere column_labels VOR Nutzung ---
+        # Falls in config vorab definiert, z.B. als config["column_labels"], sonst leer
+        if "column_labels" in config:
+            column_labels = config["column_labels"]
+        else:
+            # Versuche Spaltennamen aus dem Model abzuleiten, falls möglich (z.B. SQLAlchemy model.__table__.columns)
+            try:
+                column_labels = [col.name for col in config["model"].__table__.columns]
+            except Exception:
+                column_labels = []
+
         # Filter aus Request-Parametern parsen
+        if "filter_config" in config:
+            filter_config = config["filter_config"]
+        else:
+            filter_config = build_filter_config_from_request_args(request.args, column_labels)
+
+        if not filter_config:
+            print("[DEBUG] No filter_config defined in config; building from request.args dynamically")
+            filter_config = {}
+            for key in request.args.keys():
+                val = request.args.get(key)
+                if val in ("0", "1"):
+                    filter_config[key] = (bool, key)
+                else:
+                    try:
+                        int(val)
+                        filter_config[key] = (int, key)
+                    except (ValueError, TypeError):
+                        filter_config[key] = (str, key)
+
+        print(f"[DEBUG] Using filter_config from config or dynamic: {filter_config}")
+
         filters = {}
-        for key, (typ, param) in config.get("filters", {}).items():
+        for key, (typ, param) in filter_config.items():
             val = request.args.get(param)
             if typ == bool:
-                filters[key] = (val == "1")
+                filters[key] = val == "1"
             elif typ == int:
                 try:
                     filters[key] = int(val)
@@ -1893,6 +1937,7 @@ def create_aggregate_view(view_id):
                     filters[key] = None
             else:
                 filters[key] = val if val is not None else None
+
         print(f"[DEBUG] Parsed filters: {filters}")
 
         try:
@@ -1900,30 +1945,35 @@ def create_aggregate_view(view_id):
             print("[DEBUG] Filter function applied successfully")
         except Exception as e:
             print(f"[ERROR] Exception during filter_func application: {e}")
+            session.close()
             raise
 
         try:
             data_list = query.all()
-            print(f"[DEBUG] Query executed, {len(data_list)} rows fetched")
+            print(f"[DEBUG] Query executed after filter, {len(data_list)} rows fetched")
         except sqlalchemy.exc.InvalidRequestError as e:
             if "versions" in str(e):
                 print("[ERROR] Query failed due to eager loading of 'versions' relationship. Please remove such options.")
+            session.close()
             raise
         except Exception as e:
             print(f"[ERROR] Exception during query execution: {e}")
+            session.close()
             raise
 
-        rows = []
         try:
             rows = [config["map_func"](obj) for obj in data_list]
-            print(f"[DEBUG] map_func applied to all rows")
+            print("[DEBUG] map_func reapplied to filtered rows")
         except Exception as e:
             print(f"[ERROR] Exception during map_func application: {e}")
+            session.close()
             raise
 
+        # Spaltenlabels aktualisieren basierend auf den gemappten Daten
         column_labels = list(rows[0].keys()) if rows else []
         if "add_columns" in config:
             column_labels += config["add_columns"]
+
         print(f"[DEBUG] Column labels: {column_labels}")
 
         row_data = []
@@ -1943,6 +1993,7 @@ def create_aggregate_view(view_id):
             "row_data": row_data,
             "filters": filters,
             "url_for_view": request.endpoint and url_for(request.endpoint, aggregate_name=view_id),
+            "filter_config": filter_config,
         }
 
         if "extra_context_func" in config:
@@ -1952,8 +2003,11 @@ def create_aggregate_view(view_id):
                 print("[DEBUG] extra_context_func applied")
             except Exception as e:
                 print(f"[ERROR] Exception during extra_context_func: {e}")
+                session.close()
                 raise
 
+        session.close()
+        print(f"[DEBUG] Rendering template with context keys: {list(ctx.keys())}")
         return render_template("aggregate_view.html", **ctx)
 
     return view_func
@@ -1961,17 +2015,7 @@ def create_aggregate_view(view_id):
 @app.route("/aggregate/<string:aggregate_name>")
 @login_required
 def aggregate_view(aggregate_name):
-    allowed_aggregates = {
-        "inventar",
-        "transponder",
-        "person",
-        "abteilung",
-        "kostenstelle",
-        "raum",
-        "object_kategorie",
-        "lager",
-    }
-    if aggregate_name not in allowed_aggregates:
+    if aggregate_name not in AGGREGATE_VIEWS.keys():
         # Optional: 404 oder Fehlerseite
         abort(404)
 
@@ -2227,10 +2271,10 @@ def map_editor():
             try:
                 parts = filename.removeprefix("b").removesuffix(".png").split("_f")
                 b_id = int(parts[0])
-                f = int(parts[1])
+                _f = int(parts[1])
                 if b_id not in building_map:
                     building_map[b_id] = []
-                building_map[b_id].append(f)
+                building_map[b_id].append(_f)
             except Exception:
                 continue
 
@@ -2330,10 +2374,11 @@ def get_json_safe_config(wizard):
     def strip(obj):
         if isinstance(obj, dict):
             return {k: strip(v) for k, v in obj.items() if k != "table"}
-        elif isinstance(obj, list):
+
+        if isinstance(obj, list):
             return [strip(i) for i in obj]
-        else:
-            return obj
+
+        return obj
 
     return strip(wizard)
 
@@ -2348,7 +2393,7 @@ def _wizard_internal(name):
     success = False
     error = None
     form_data = {}
-    
+
     if request.method == "POST":
         try:
             main_model = config["table"]
@@ -2357,23 +2402,23 @@ def _wizard_internal(name):
                 f["name"]: convert_datetime_value(f, request.form.get(f["name"], "").strip() or None)
                 for f in config["fields"]
             }
-            
+
             # Pflichtfelder prüfen
             missing = [f['name'] for f in config['fields'] if f.get('required') and not main_data[f['name']]]
             if missing:
                 session.close()
                 raise ValueError(f"Pflichtfelder fehlen: {', '.join(missing)}")
-            
+
             main_instance = main_model(**main_data)
             session.add(main_instance)
             session.flush()
-            
+
             for sub in config.get("subforms", []):
                 table = sub["table"]
                 foreign_key = sub["foreign_key"]
                 field_names = [f["name"] for f in sub["fields"]]
                 data_lists = {f: request.form.getlist(f + "[]") for f in field_names}
-                
+
                 for i in range(max(len(l) for l in data_lists.values())):
                     entry = {
                         f: data_lists[f][i].strip() if i < len(data_lists[f]) else None
@@ -2382,23 +2427,23 @@ def _wizard_internal(name):
                     if any(entry.values()):
                         entry[foreign_key] = main_instance.id
                         session.add(table(**entry))
-            
+
             session.commit()
             success = True
-        
+
         except IntegrityError as e:
             session.rollback()
             # Hier kannst du die eigentliche Fehlermeldung aus e.orig oder e.args parsen, je nach DB-Backend
-            error = "Ein Datenbank-Integritätsfehler ist aufgetreten: " + str(e.orig)  
-            
+            error = "Ein Datenbank-Integritätsfehler ist aufgetreten: " + str(e.orig)
+
             # Formulardaten zum Wiederbefüllen speichern
-            form_data = request.form.to_dict(flat=False)  
-            
+            form_data = request.form.to_dict(flat=False)
+
         except Exception as e:
             session.rollback()
             error = str(e)
             form_data = request.form.to_dict(flat=False)
-        
+
     session.close()
 
     return render_template(
@@ -2576,7 +2621,7 @@ def generate_fields_for_schluesselausgabe_from_metadata(
 
     return data
 
-def get_transponder_metadata(transponder_id: int) -> dict:
+def get_transponder_metadata(transponder_id: int) -> Optional[dict]:
     session = Session()
 
     try:
@@ -3223,8 +3268,10 @@ def delete_person_from_raum():
 
     # Validierung der Parameter
     if person_id is None:
+        session.close()
         return jsonify({"error": "Missing or invalid 'person_id' parameter"}), 400
     if raum_id is None:
+        session.close()
         return jsonify({"error": "Missing or invalid 'raum_id' parameter"}), 400
 
     session = Session()
@@ -3255,17 +3302,18 @@ def delete_person_from_raum():
 @app.route("/api/delete_person_id_to_object_id", methods=["GET"])
 @login_required
 def delete_person_id_to_object_id():
+    session = Session()
     # Parameter auslesen
     person_id = request.args.get("person_id", type=int)
     object_id = request.args.get("object_id", type=int)
 
     # Validierung
     if person_id is None:
+        session.close()
         return jsonify({"error": "Missing or invalid 'person_id' parameter"}), 400
     if object_id is None:
+        session.close()
         return jsonify({"error": "Missing or invalid 'object_id' parameter"}), 400
-
-    session = Session()
 
     try:
         # Eintrag suchen mit passender besitzer_id und object_id
@@ -3288,8 +3336,6 @@ def delete_person_id_to_object_id():
         session.rollback()
         session.close()
         return jsonify({"error": str(e)}), 500
-
-
 
 @app.route("/api/delete_room", methods=["POST"])
 @login_required
@@ -3493,7 +3539,7 @@ def save_person_to_raum():
             "error": f"Unexpected server error: {e}",
             "details": str(e)
         }), 500
-        
+
 @app.route("/api/save_object_to_person", methods=["POST"])
 @login_required
 def save_object_to_person():
@@ -3613,9 +3659,9 @@ def get_person_database():
                 "etage": 0,
                 "kommentar": person.kommentar or "",
                 "id": person.id,
-                "image_url": person.image_url or "" 
+                "image_url": person.image_url or ""
             })
-            
+
 
         session.close()
         return jsonify(result), 200
@@ -3623,7 +3669,7 @@ def get_person_database():
         print(f"❌ Fehler bei /api/get_person_database: {e}")
         session.close()
         return jsonify({"error": "Fehler beim Abrufen der Personen"}), 500
-    
+
 @app.route("/api/get_object_database", methods=["GET"])
 def get_object_database():
     try:
@@ -3667,7 +3713,7 @@ def get_person_id_object_id_database():
     finally:
         session.close()
 
-    
+
 @app.route("/api/get_raum_id")
 def get_raum_id():
     session = Session()
@@ -3722,11 +3768,11 @@ def get_raum_id():
         print(f"DB error: {e}")
         session.close()
         return jsonify({"error": "Internal server error"}), 500
-    
+
 @app.route('/api/get_building_names', methods=['GET'])
 def get_building_names():
     session = Session()
-    
+
     buildings = session.query(Building.name).order_by(Building.name).all()
     names = [b.name for b in buildings if b.name]
 
@@ -3942,8 +3988,6 @@ def get_person_raum_data():
         if session:
             session.close()
 
-        from pprint import pprint
-        pprint(person_dict_map)
         result = list(person_dict_map.values())
         return jsonify(result)
 
@@ -3963,6 +4007,7 @@ def get_person_raum_data():
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('404.html'), 404
+
 @app.route('/search')
 @login_required
 def search():
@@ -3983,15 +4028,15 @@ def search():
                 'url': route
             })
 
-    if 'inventar'.startswith(query):
-        results.append({'label': '📦 Inventar', 'url': url_for('aggregate_inventar_view')})
-    if 'transponder'.startswith(query):
-        results.append({'label': '📦 Transponder', 'url': url_for('aggregate_transponder_view')})
-    if 'person'.startswith(query):
-        results.append({'label': '📦 Person', 'url': url_for('aggregate_persons_view')})
-    if is_admin_user(session):
-        if 'admin'.startswith(query):
-            results.append({'label': '🛠️ Admin', 'url': '/admin'})
+
+    for key, config in AGGREGATE_VIEWS.items():
+        title = config.get("title", key).strip()
+        if key.startswith(query) or title.lower().startswith(query):
+            if not key.endswith("version"):
+                results.append({
+                    'label': f'📦 {title}',
+                    'url': url_for('aggregate_view', aggregate_name=key)  # ✅ Korrekt
+                })
 
     # 🔍 Personensuche nach Name, Email, Telefon, Fax
     people = session.query(Person).options(joinedload(Person.contacts)).all()
@@ -4010,7 +4055,7 @@ def search():
         if matched:
             results.append({
                 'label': f'👤 {person.vorname} {person.nachname}',
-                'url': url_for('aggregate_persons_view', person_id=person.id)
+                'url': url_for('aggregate_view', aggregate_name="Person")
             })
 
     # Admin-Zeug
@@ -4020,6 +4065,9 @@ def search():
             for cls in Base.__subclasses__()
             if hasattr(cls, '__tablename__') and cls.__tablename__ not in ["role", "user"]
         ]
+
+        if 'admin' in query:
+            results.append({'label': '🛠️ Admin', 'url': '/admin'})
 
         for table in tables:
             if query in table.lower():
@@ -4034,6 +4082,7 @@ def search():
         results.append({'label': '🗺️ etageplan', 'url': '/etageplan'})
 
     session.close()
+
     return jsonify(results)
 
 @app.route('/api/versions')
@@ -4059,26 +4108,6 @@ def get_versions():
         return jsonify([]), 500
     finally:
         session.close()
-
-def extract_multiindex_form_data(prefix: str) -> List[List[str]]:
-    """
-    Extrahiert verschachtelte Formularfelder wie transponder_serial[0][], transponder_serial[1][]
-    und gibt sie als Liste von Listen zurück, z.B. [["123", "234"], ["345"]]
-    """
-
-    pattern = re.compile(rf"{re.escape(prefix)}\[(\d+)\]\[\]")
-    grouped_data = defaultdict(list)
-
-    for key in request.form.keys():
-        match = pattern.match(key)
-        if match:
-            index = int(match.group(1))
-            values = request.form.getlist(key)
-            grouped_data[index].extend(values)
-
-    # Sortiere nach Index und gib Liste von Listen zurück
-    result = [grouped_data[i] for i in sorted(grouped_data.keys())]
-    return result
 
 @app.route("/api/auto_update/transponder", methods=["GET"])
 def update_transponder_field():
@@ -4167,11 +4196,13 @@ def update_transponder_field():
 
     finally:
         session.close()
-    
+
 def _readonly_block_check():
     session = Session()
 
     is_admin = is_admin_user(session)
+
+    session.close()
 
     if is_admin:
         return
@@ -4181,6 +4212,7 @@ def _readonly_block_check():
 
 def block_writes_if_user_readonly(session, flush_context, instances):
     write_ops = session.new.union(session.dirty).union(session.deleted)
+
     if not write_ops:
         return  # nichts zu tun
 
@@ -4295,33 +4327,98 @@ def merge_model_entries(session, model, ids_to_merge, target_id):
         return
 
     model_name = model.__tablename__
-    related_models = Base.registry.mappers
-
-    for related_mapper in related_models:
-        for prop in related_mapper.attrs:
-            if hasattr(prop, "columns"):
-                for col in prop.columns:
-                    if col.foreign_keys:
-                        for fk in col.foreign_keys:
-                            if fk.column.table.name == model_name:
-                                related_cls = related_mapper.class_
-                                fk_col = col.name
-                                q = session.query(related_cls).filter(getattr(related_cls, fk_col).in_(ids_to_merge))
-                                for obj in q.all():
-                                    setattr(obj, fk_col, target_id)
-                                    flag_modified(obj, fk_col)
-                                break
-
-    for id_ in ids_to_merge:
-        obj = session.get(model, id_)
-        if obj:
-            session.delete(obj)
+    related_mappers = Base.registry.mappers
 
     try:
-        session.commit()
-    except IntegrityError:
+        with session.no_autoflush:
+            for related_mapper in related_mappers:
+                for prop in related_mapper.attrs:
+                    if hasattr(prop, "columns"):
+                        for col in prop.columns:
+                            if col.foreign_keys:
+                                for fk in col.foreign_keys:
+                                    if fk.column.table.name == model_name:
+                                        related_cls = related_mapper.class_
+                                        fk_col = col.name
+
+                                        q = session.query(related_cls).filter(getattr(related_cls, fk_col).in_(ids_to_merge))
+                                        for obj in q.all():
+                                            # Prüfen, ob es bereits einen Eintrag mit target_id gibt, der die Unique-Constraint verletzen würde
+                                            other_fk_cols = []
+                                            for c in related_cls.__table__.columns:
+                                                for fk_constraint in c.foreign_keys:
+                                                    if fk_constraint.column.table.name == model_name and c.name != fk_col:
+                                                        other_fk_cols.append(c.name)
+
+                                            filter_conditions = [getattr(related_cls, fk_col) == target_id]
+                                            for other_fk_col in other_fk_cols:
+                                                filter_conditions.append(getattr(related_cls, other_fk_col) == getattr(obj, other_fk_col))
+
+                                            exists = session.query(related_cls).filter(*filter_conditions).first()
+                                            if exists:
+                                                session.delete(obj)
+                                            else:
+                                                setattr(obj, fk_col, target_id)
+                                                flag_modified(obj, fk_col)
+                                        break
+
+            for id_ in ids_to_merge:
+                obj = session.get(model, id_)
+                if obj:
+                    session.delete(obj)
+
+            session.commit()
+    except IntegrityError as e:
         session.rollback()
-        raise
+        raise e
+
+def get_referenced_tablenames():
+    referenced = set()
+    for mapper in Base.registry.mappers:
+        for prop in mapper.attrs:
+            if hasattr(prop, "columns"):
+                for col in prop.columns:
+                    for fk in col.foreign_keys:
+                        referenced.add(fk.column.table.name)
+    return referenced
+
+
+def merge_entry_display(entry):
+    if entry is None:
+        return ""
+
+    # Versuche bevorzugte Attribute
+    preferred_attrs = ["name", "title", "label"]
+    for attr in preferred_attrs:
+        val = getattr(entry, attr, None)
+        if val is not None and isinstance(val, str) and val.strip():
+            return val.strip()
+
+    # Wenn keine bevorzugten Attribute, suche erste String-Spalte im Modell
+    try:
+        # entry.__mapper__ ist SQLAlchemy Mapper für das Modell
+        for attr_key, attr_val in entry.__mapper__.c.items():
+            # attr_val ist Column-Objekt
+            # Prüfe ob Column vom Typ String/Text ist
+            col_type = attr_val.type
+            if isinstance(col_type, (String, Unicode, Text)):
+                val = getattr(entry, attr_key, None)
+                if val is not None and isinstance(val, str) and val.strip():
+                    return val.strip()
+    except Exception:
+        pass
+
+    # Fallback: Versuche id auszugeben
+    if hasattr(entry, "id"):
+        return f"ID {entry.id}"
+
+    # Sonst repr
+    return repr(entry)
+
+@app.context_processor
+def utility_processor():
+    return dict(entry_display=merge_entry_display, getattr=getattr)
+
 
 @app.route("/merge", methods=["GET", "POST"])
 @login_required
@@ -4329,45 +4426,78 @@ def merge_model_entries(session, model, ids_to_merge, target_id):
 def merge_interface():
     session = Session()
 
-    # Alle Tabellen ermitteln, außer die ignorierten und Versions-Tabellen
-    all_tables = [
-        mapper.class_.__tablename__
-        for mapper in Base.registry.mappers
-        if hasattr(mapper.class_, "__tablename__")
-        and mapper.class_.__tablename__ is not None
-        and mapper.class_.__tablename__ not in IGNORED_TABLES
-        and not mapper.class_.__name__.endswith("Version")  # continuum Version-Tabellen ignorieren
-    ]
+    try:
+        referenced_tables = get_referenced_tablenames()
 
-    selected_table = request.args.get("table")
-    Model = get_model_by_tablename(selected_table) if selected_table else None
-    entries = session.query(Model).all() if Model else []
+        all_tables = [
+            mapper.class_.__tablename__
+            for mapper in Base.registry.mappers
+            if hasattr(mapper.class_, "__tablename__")
+            and mapper.class_.__tablename__ in referenced_tables
+            and mapper.class_.__tablename__ not in IGNORED_TABLES
+            and not mapper.class_.__name__.endswith("Version")
+        ]
 
-    if request.method == "POST":
-        selected_ids = list(map(int, request.form.getlist("merge_ids")))
-        target_id = int(request.form["target_id"])
+        selected_table = request.args.get("table")
+        Model = get_model_by_tablename(selected_table) if selected_table else None
+        entries = session.query(Model).all() if Model else []
 
-        # Sicherstellen, dass target_id nicht in selected_ids ist
-        if target_id in selected_ids:
-            selected_ids.remove(target_id)
-
-        if not selected_ids:
-            flash("Bitte mindestens einen Eintrag zum Zusammenführen auswählen.", "error")
-        else:
+        # Alle Spaltennamen des Models (SQLAlchemy Columns)
+        columns = []
+        if Model is not None:
             try:
-                merge_model_entries(session, Model, selected_ids, target_id)
-                flash("Merge erfolgreich durchgeführt.", "success")
-                return redirect(url_for("merge_interface", table=selected_table))
-            except Exception as e:
-                flash(f"Fehler beim Mergen: {e}", "error")
+                columns = [col.key for col in Model.__mapper__.columns]
+            except Exception:
+                columns = []
+
+        # Wandle SQLAlchemy-Objekte in dicts um, damit sie unabhängig von der Session sind
+        entries_data = []
+        for entry in entries:
+            entry_dict = {}
+            for col in columns:
+                try:
+                    entry_dict[col] = getattr(entry, col)
+                except Exception:
+                    entry_dict[col] = None
+            # Zusätzlich id für Formularwerte sichern, falls 'id' nicht in columns ist
+            if 'id' not in columns and hasattr(entry, 'id'):
+                entry_dict['id'] = entry.id
+            entries_data.append(entry_dict)
+
+        if request.method == "POST":
+            selected_ids = list(map(int, request.form.getlist("merge_ids")))
+            target_id = int(request.form["target_id"])
+
+            if target_id in selected_ids:
+                selected_ids.remove(target_id)
+
+            if not selected_ids:
+                flash("Bitte mindestens einen Eintrag zum Zusammenführen auswählen.", "error")
+            else:
+                try:
+                    merge_model_entries(session, Model, selected_ids, target_id)
+                    session.commit()
+                    flash("Merge erfolgreich durchgeführt.", "success")
+                    return redirect(url_for("merge_interface", table=selected_table))
+                except Exception as e:
+                    session.rollback()
+                    flash(f"Fehler beim Mergen: {e}", "error")
+    except Exception as global_e:
+        flash(f"Interner Fehler: {global_e}", "error")
+        entries_data = []
+        columns = []
+        all_tables = []
+        selected_table = None
+    finally:
+        session.close()
 
     return render_template(
         "merge_generic.html",
         tables=all_tables,
         selected_table=selected_table,
-        entries=entries,
+        entries=entries_data,
+        columns=columns,  # Hier Spaltennamen hinzufügen
     )
-
 
 event.listen(Session, "before_flush", block_writes_if_user_readonly)
 event.listen(Session, "before_flush", block_writes_if_data_version_cookie_set)
