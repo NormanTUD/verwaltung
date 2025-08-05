@@ -44,7 +44,7 @@ def get_or_create_object_and_kategorie(
     object_name: str,
     kategorie_name: str,
     preis: Optional[float] = None
-) -> Tuple[int, int]:
+) -> Tuple[Column[int], Column[int]]:
     print(f"object_name: {object_name}, kategorie_name: {kategorie_name}, preis: {preis}")
     try:
         # Kategorie prüfen oder erstellen
