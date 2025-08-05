@@ -1,32 +1,15 @@
 {% extends "layout.html" %}
 {% block title %}Startseite{% endblock %}
 {% block content %}
-		<style>
-			#lottie {
-				width: 300px;
-				height: 300px;
-				margin-bottom: 1em;
-			}
-		</style>
 		<h1>404</h1>
 
-		<div id="lottie"></div>
+		<img src="/static/404.jpg" width=512 />
 
 		<p class="message" id="funny-msg">Hmm... Die Katze findet hier nix!</p>
 
 		<a href="/">Zur Startseite</a>
 
-		<!-- Lottie Player -->
 		<script>
-			// Lottie Animation laden
-			var animation = lottie.loadAnimation({
-				container: document.getElementById('lottie'),
-				renderer: 'svg',
-				loop: true,
-				autoplay: true,
-				path: "{{ url_for('static', filename='searching_cat.json') }}"
-			});
-
 			// Lustige Nachrichten
 			const messages = [
 				"Hmm... Die Katze findet hier nix!",
