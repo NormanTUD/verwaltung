@@ -3991,10 +3991,6 @@ def search():
                     'url': url_for('aggregate_view', aggregate_name=key)  # ✅ Korrekt
                 })
 
-    if is_admin_user(session):
-        if 'admin'.startswith(query):
-            results.append({'label': '🛠️ Admin', 'url': '/admin'})
-
     # 🔍 Personensuche nach Name, Email, Telefon, Fax
     people = session.query(Person).options(joinedload(Person.contacts)).all()
     for person in people:
@@ -4022,6 +4018,9 @@ def search():
             for cls in Base.__subclasses__()
             if hasattr(cls, '__tablename__') and cls.__tablename__ not in ["role", "user"]
         ]
+
+        if 'admin'.startswith(query):
+            results.append({'label': '🛠️ Admin', 'url': '/admin'})
 
         for table in tables:
             if query in table.lower():
