@@ -1919,7 +1919,7 @@ def create_aggregate_view(view_id):
         rows = []
         try:
             rows = [config["map_func"](obj) for obj in data_list]
-            print(f"[DEBUG] map_func applied to all rows")
+            print("[DEBUG] map_func applied to all rows")
         except Exception as e:
             print(f"[ERROR] Exception during map_func application: {e}")
             session.close()
@@ -4072,26 +4072,6 @@ def get_versions():
         return jsonify([]), 500
     finally:
         session.close()
-
-def extract_multiindex_form_data(prefix: str) -> List[List[str]]:
-    """
-    Extrahiert verschachtelte Formularfelder wie transponder_serial[0][], transponder_serial[1][]
-    und gibt sie als Liste von Listen zurück, z.B. [["123", "234"], ["345"]]
-    """
-
-    pattern = re.compile(rf"{re.escape(prefix)}\[(\d+)\]\[\]")
-    grouped_data = defaultdict(list)
-
-    for key in request.form.keys():
-        match = pattern.match(key)
-        if match:
-            index = int(match.group(1))
-            values = request.form.getlist(key)
-            grouped_data[index].extend(values)
-
-    # Sortiere nach Index und gib Liste von Listen zurück
-    result = [grouped_data[i] for i in sorted(grouped_data.keys())]
-    return result
 
 @app.route("/api/auto_update/transponder", methods=["GET"])
 def update_transponder_field():
