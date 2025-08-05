@@ -8,7 +8,7 @@
 				{% for label, (typ, param) in filter_config.items() %}
 					<div>
 						<label>
-							<input type="checkbox" name="_use_filter_{{ param }}" {% if filters.get(label) is not none %}checked{% endif %}>
+							<input type="checkbox" name="_use_filter_{{ param }}" {% if label is not none %}checked{% endif %}>
 							{{ label.replace('_filter', '').replace('_', ' ')|capitalize }}
 						</label>
 
@@ -18,14 +18,14 @@
 							<input
 								type="text"
 								name="{{ param }}"
-								value="{{ filters[label] if filters[label] is not none else '' }}"
+								value="{{ label  }}"
 								style="background-color: rgb(26, 32, 44); color: rgb(247, 250, 252); border: 1px solid rgb(61, 174, 233);"
 							>
 						{% else %}
 							<input
 								type="text"
 								name="{{ param }}"
-								value="{{ filters[label] if filters[label] is not none else '' }}"
+								value="{{ label }}"
 								style="background-color: rgb(26, 32, 44); color: rgb(247, 250, 252); border: 1px solid rgb(61, 174, 233);"
 							>
 						{% endif %}

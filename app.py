@@ -1702,6 +1702,11 @@ AGGREGATE_VIEWS = generate_aggregate_views(Base, {
 
     "person": {
         "title": "Personenübersicht",
+        "filters": {
+            "Titel": (str, "title"),
+            "Vorname": (str, "vorname"),
+            "Nachname": (str, "nachname")
+        },
         "map_func": lambda p: {
             "ID": p.id,
             "Titel": p.title or "-",
@@ -1841,31 +1846,6 @@ def is_option_on_versions(opt):
     # Falls es ein string ist oder anderes, prüfen wir nicht
     return False
 
-def build_filter_config_from_request_args(args, column_labels):
-    filter_config = {}
-    for key in args.keys():
-        val = args.get(key)
-        if val is None:
-            continue
-        val = val.strip()
-        if val == "":
-            # Leere Werte ignorieren
-            continue
-        # Prüfe, ob val ein Boolean (0 oder 1) ist
-        if val in ("0", "1"):
-            filter_config[key] = (bool, key)
-            continue
-        # Prüfe, ob val ein Integer ist
-        try:
-            int_val = int(val)
-            filter_config[key] = (int, key)
-            continue
-        except (ValueError, TypeError):
-            pass
-        # Standard: String
-        filter_config[key] = (str, key)
-    return filter_config
-
 def create_aggregate_view(view_id):
     config = AGGREGATE_VIEWS[view_id]
 
@@ -1903,50 +1883,19 @@ def create_aggregate_view(view_id):
             except Exception:
                 column_labels = []
 
-        # Filter aus Request-Parametern parsen
-        if "filter_config" in config:
-            filter_config = config["filter_config"]
-        else:
-            filter_config = build_filter_config_from_request_args(request.args, column_labels)
+        filter_config = {}
 
-        if not filter_config:
-            print("[DEBUG] No filter_config defined in config; building from request.args dynamically")
-            filter_config = {}
-            for key in request.args.keys():
-                val = request.args.get(key)
-                if val in ("0", "1"):
-                    filter_config[key] = (bool, key)
-                else:
-                    try:
-                        int(val)
-                        filter_config[key] = (int, key)
-                    except (ValueError, TypeError):
-                        filter_config[key] = (str, key)
+        if "filters" in config:
+            if len(config["filters"]):
+                print("============================")
+                filter_config = config["filters"]
+                print("============================")
+            else:
+                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! _config.filters is empty")
+        else:
+            print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! filters not in config: {config}")
 
         print(f"[DEBUG] Using filter_config from config or dynamic: {filter_config}")
-
-        filters = {}
-        for key, (typ, param) in filter_config.items():
-            val = request.args.get(param)
-            if typ == bool:
-                filters[key] = val == "1"
-            elif typ == int:
-                try:
-                    filters[key] = int(val)
-                except (ValueError, TypeError):
-                    filters[key] = None
-            else:
-                filters[key] = val if val is not None else None
-
-        print(f"[DEBUG] Parsed filters: {filters}")
-
-        try:
-            query = config["filter_func"](query, filters)
-            print("[DEBUG] Filter function applied successfully")
-        except Exception as e:
-            print(f"[ERROR] Exception during filter_func application: {e}")
-            session.close()
-            raise
 
         try:
             data_list = query.all()
@@ -1991,7 +1940,6 @@ def create_aggregate_view(view_id):
             "title": config["title"],
             "column_labels": column_labels,
             "row_data": row_data,
-            "filters": filters,
             "url_for_view": request.endpoint and url_for(request.endpoint, aggregate_name=view_id),
             "filter_config": filter_config,
         }
