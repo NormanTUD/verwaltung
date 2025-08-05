@@ -30,8 +30,6 @@ if os.path.isfile(db_engine_file):
             print(f"[ERROR] Fehler beim Lesen von {db_engine_file}: {str(e)}", file=sys.stderr)
     else:
         print(f"[ERROR] Keine Leserechte für {db_engine_file}", file=sys.stderr)
-else:
-    print(f"[ERROR] {db_engine_file} existiert nicht oder ist keine reguläre Datei", file=sys.stderr)
 
 engine = create_engine(full_url)
 

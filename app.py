@@ -42,8 +42,6 @@ if os.path.isfile(db_engine_file):
             print(f"[ERROR] Fehler beim Lesen von {db_engine_file}: {str(e)}", file=sys.stderr)
     else:
         print(f"[ERROR] Keine Leserechte für {db_engine_file}", file=sys.stderr)
-else:
-    print(f"[ERROR] {db_engine_file} existiert nicht oder ist keine reguläre Datei", file=sys.stderr)
 
 IGNORED_TABLES = {"transaction", "user", "role"}
 
@@ -1943,7 +1941,11 @@ def create_aggregate_view(view_id):
             "row_data": row_data,
             "filters": filters,
             "url_for_view": request.endpoint and url_for(request.endpoint, aggregate_name=view_id),
+            "filter_config": config.get("filters", {}),  # ← DAS HAT GEFEHLT
         }
+        
+        from pprint import pprint
+        pprint(ctx)
 
         if "extra_context_func" in config:
             try:

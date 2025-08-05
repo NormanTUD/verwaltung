@@ -4,27 +4,33 @@
 		<h1>{{ title }}</h1>
 
 		<div class="filter-box">
-			<form method="get" action="{{ url_for_view }}">
-				<label>
-					<input type="checkbox" name="unreturned" value="1" {% if filters["Nur nicht zurückgegebene anzeigen"] %}checked{% endif %}>
-					Nur nicht zurückgegebene Einträge anzeigen
-				</label>
+			<form method="get">
+				{% for label, (typ, param) in filter_config.items() %}
+					<div>
+						<label>
+							<input type="checkbox" name="_use_filter_{{ param }}" {% if filters.get(label) is not none %}checked{% endif %}>
+							{{ label.replace('_filter', '').replace('_', ' ')|capitalize }}
+						</label>
 
-				<label for="owner-input">Ausgegeben an (Owner ID):</label>
-				<input
-					type="text"
-					id="owner-input"
-					value="{{ filters.owner_id | default('') }}"
-					placeholder="Owner ID eingeben"
-				/>
-
-				<label for="issuer-input">Ausgegeben durch (Issuer ID):</label>
-				<input
-					type="text"
-					id="issuer-input"
-					value="{{ filters.issuer_id | default('') }}"
-					placeholder="Issuer ID eingeben"
-				/>
+						{% if typ == bool %}
+							<!-- Kein Eingabefeld bei boolean-Filter nötig -->
+						{% elif typ == int or typ == float or typ == str %}
+							<input
+								type="text"
+								name="{{ param }}"
+								value="{{ filters[label] if filters[label] is not none else '' }}"
+								style="background-color: rgb(26, 32, 44); color: rgb(247, 250, 252); border: 1px solid rgb(61, 174, 233);"
+							>
+						{% else %}
+							<input
+								type="text"
+								name="{{ param }}"
+								value="{{ filters[label] if filters[label] is not none else '' }}"
+								style="background-color: rgb(26, 32, 44); color: rgb(247, 250, 252); border: 1px solid rgb(61, 174, 233);"
+							>
+						{% endif %}
+					</div>
+				{% endfor %}
 
 				<button type="submit">Filter anwenden</button>
 				<a href="{{ url_for_view }}">Alle anzeigen</a>
