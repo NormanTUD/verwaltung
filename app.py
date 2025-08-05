@@ -1886,14 +1886,23 @@ def create_aggregate_view(view_id):
         filter_config = {}
 
         if "filters" in config:
-            if len(config["filters"]):
-                print("============================")
-                filter_config = config["filters"]
-                print("============================")
-            else:
-                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! _config.filters is empty")
-        else:
-            print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! filters not in config: {config}")
+            filter_config = config["filters"]
+            if len(filter_config):
+                updated_filters = {}
+                get_data = request.args
+
+                for key, (cast_type, param_name) in config["filters"].items():
+                    if param_name in get_data:
+                        try:
+                            value = cast_type(get_data[param_name])
+                            updated_filters[key] = (cast_type, param_name, value)
+                        except (ValueError, TypeError):
+                            updated_filters[key] = (cast_type, param_name, None)
+                    else:
+                        updated_filters[key] = (cast_type, param_name, None)
+
+                filter_config = updated_filters
+
 
         print(f"[DEBUG] Using filter_config from config or dynamic: {filter_config}")
 
