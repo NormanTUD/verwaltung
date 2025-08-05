@@ -4035,6 +4035,7 @@ def search():
         results.append({'label': '🗺️ etageplan', 'url': '/etageplan'})
 
     session.close()
+
     return jsonify(results)
 
 @app.route('/api/versions')
