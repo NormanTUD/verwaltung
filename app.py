@@ -1960,17 +1960,7 @@ def create_aggregate_view(view_id):
 @app.route("/aggregate/<string:aggregate_name>")
 @login_required
 def aggregate_view(aggregate_name):
-    allowed_aggregates = {
-        "inventar",
-        "transponder",
-        "person",
-        "abteilung",
-        "kostenstelle",
-        "raum",
-        "object_kategorie",
-        "lager",
-    }
-    if aggregate_name not in allowed_aggregates:
+    if aggregate_name not in AGGREGATE_VIEWS.keys():
         # Optional: 404 oder Fehlerseite
         abort(404)
 
