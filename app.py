@@ -1846,6 +1846,7 @@ def is_option_on_versions(opt):
     # Falls es ein string ist oder anderes, prüfen wir nicht
     return False
 
+
 def create_aggregate_view(view_id):
     config = AGGREGATE_VIEWS[view_id]
 
@@ -1883,28 +1884,36 @@ def create_aggregate_view(view_id):
             except Exception:
                 column_labels = []
 
-        filter_config = {}
+        # filter_config aus config oder leer, aber wir holen URL-Params unabhängig
+        filter_config = config.get("filters", {})
 
-        if "filters" in config:
-            filter_config = config["filters"]
-            if len(filter_config):
-                updated_filters = {}
-                get_data = request.args
+        get_data = request.args  # Alle URL-Parameter unabhängig von filter_config
 
-                for key, (cast_type, param_name) in config["filters"].items():
-                    if param_name in get_data:
-                        try:
-                            value = cast_type(get_data[param_name])
-                            updated_filters[key] = (cast_type, param_name, value)
-                        except (ValueError, TypeError):
-                            updated_filters[key] = (cast_type, param_name, None)
-                    else:
+        # Filter auf Query anwenden basierend auf filter_config + Param-Werte aus URL
+        if filter_config:
+            updated_filters = {}
+            for key, (cast_type, param_name) in filter_config.items():
+                if param_name in get_data:
+                    try:
+                        value = cast_type(get_data[param_name])
+                        updated_filters[key] = (cast_type, param_name, value)
+                    except (ValueError, TypeError):
                         updated_filters[key] = (cast_type, param_name, None)
+                else:
+                    updated_filters[key] = (cast_type, param_name, None)
+            filter_config = updated_filters
 
-                filter_config = updated_filters
-
+            # Filter dynamisch auf Query anwenden
+            for key, (cast_type, param_name, value) in filter_config.items():
+                if value is not None and value != "":
+                    attr_name = param_name.split(".")[-1]
+                    model_attr = getattr(config["model"], attr_name, None)
+                    if model_attr is not None:
+                        # Beispiel: ilike-Filter mit %value%
+                        query = query.filter(model_attr.ilike(f"%{value}%"))
 
         print(f"[DEBUG] Using filter_config from config or dynamic: {filter_config}")
+        print(f"[DEBUG] URL parameters (request.args): {dict(get_data)}")
 
         try:
             data_list = query.all()
@@ -1951,6 +1960,7 @@ def create_aggregate_view(view_id):
             "row_data": row_data,
             "url_for_view": request.endpoint and url_for(request.endpoint, aggregate_name=view_id),
             "filter_config": filter_config,
+            "url_params": dict(get_data),  # URL-Parameter für Template verfügbar machen
         }
 
         if "extra_context_func" in config:
@@ -1968,6 +1978,7 @@ def create_aggregate_view(view_id):
         return render_template("aggregate_view.html", **ctx)
 
     return view_func
+
 
 @app.route("/aggregate/<string:aggregate_name>")
 @login_required
