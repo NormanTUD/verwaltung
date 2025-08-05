@@ -1876,6 +1876,7 @@ def create_aggregate_view(view_id):
             print(f"[DEBUG] Query successfully created with options")
         except Exception as e:
             print(f"[ERROR] Exception during query creation with options: {e}")
+            session.close()
             raise
 
         # Filter aus Request-Parametern parsen
@@ -1898,6 +1899,7 @@ def create_aggregate_view(view_id):
             print("[DEBUG] Filter function applied successfully")
         except Exception as e:
             print(f"[ERROR] Exception during filter_func application: {e}")
+            session.close()
             raise
 
         try:
@@ -1906,9 +1908,11 @@ def create_aggregate_view(view_id):
         except sqlalchemy.exc.InvalidRequestError as e:
             if "versions" in str(e):
                 print("[ERROR] Query failed due to eager loading of 'versions' relationship. Please remove such options.")
+            session.close()
             raise
         except Exception as e:
             print(f"[ERROR] Exception during query execution: {e}")
+            session.close()
             raise
 
         rows = []
@@ -1917,6 +1921,7 @@ def create_aggregate_view(view_id):
             print(f"[DEBUG] map_func applied to all rows")
         except Exception as e:
             print(f"[ERROR] Exception during map_func application: {e}")
+            session.close()
             raise
 
         column_labels = list(rows[0].keys()) if rows else []
@@ -1951,7 +1956,10 @@ def create_aggregate_view(view_id):
                 print("[DEBUG] extra_context_func applied")
             except Exception as e:
                 print(f"[ERROR] Exception during extra_context_func: {e}")
+                session.close()
                 raise
+
+        session.close()
 
         return render_template("aggregate_view.html", **ctx)
 
