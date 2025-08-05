@@ -8,6 +8,7 @@ from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy_continuum import make_versioned, TransactionFactory, version_class
 from sqlalchemy.orm import configure_mappers
+from sqlalchemy.orm import DeclarativeBase
 
 make_versioned(user_cls=None)
 
@@ -27,7 +28,9 @@ class CustomBase:
             print(f"❌ Fehler bei to_dict: {e}")
             return {}
 
-Base = declarative_base(cls=CustomBase)
+#Base = declarative_base(cls=CustomBase)
+class Base(DeclarativeBase, CustomBase):
+    pass
 
 class User(UserMixin, Base):
     __tablename__ = "user"
