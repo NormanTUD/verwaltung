@@ -170,7 +170,6 @@ except ModuleNotFoundError as e:
     try:
         restart_with_venv()
     except KeyboardInterrupt:
-        print("You cancelled installation")
         sys.exit(0)
 
 app = Flask(__name__)
