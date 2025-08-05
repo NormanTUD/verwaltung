@@ -7,6 +7,7 @@ from db_defs import (
     Building, Raum, PersonToRaum, Transponder, TransponderToRaum
 )
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import Column
 
 class AbstractDBHandler:
     def __init__(self, session: Session, model: Type):
