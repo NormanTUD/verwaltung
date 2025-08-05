@@ -4055,7 +4055,7 @@ def search():
         if matched:
             results.append({
                 'label': f'👤 {person.vorname} {person.nachname}',
-                'url': url_for('aggregate_view', aggregate_name="Person")
+                'url': url_for('aggregate_view', aggregate_name="person", person_id=person.id)
             })
 
     # Admin-Zeug
