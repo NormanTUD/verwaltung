@@ -24,7 +24,6 @@
 
 {% if selected_table %}
     {% if entries %}
-        <!-- Zwei-Tabellen-HTML wie vorher -->
         <hr>
         <form method="POST">
             <div style="display: flex; gap: 30px; align-items: flex-start;">
@@ -34,16 +33,18 @@
                         <thead>
                             <tr>
                                 <th>Auswahl</th>
-                                <th>ID</th>
-                                <th>Eintrag</th>
+                                {% for col in columns %}
+                                    <th>{{ col }}</th>
+                                {% endfor %}
                             </tr>
                         </thead>
                         <tbody>
                             {% for entry in entries %}
                                 <tr>
                                     <td><input type="checkbox" name="merge_ids" value="{{ entry.id }}"></td>
-                                    <td>{{ entry.id }}</td>
-                                    <td>{{ entry_display(entry) }}</td>
+                                    {% for col in columns %}
+                                        <td>{{ getattr(entry, col) }}</td>
+                                    {% endfor %}
                                 </tr>
                             {% endfor %}
                         </tbody>
@@ -56,16 +57,18 @@
                         <thead>
                             <tr>
                                 <th>Ziel</th>
-                                <th>ID</th>
-                                <th>Eintrag</th>
+                                {% for col in columns %}
+                                    <th>{{ col }}</th>
+                                {% endfor %}
                             </tr>
                         </thead>
                         <tbody>
                             {% for entry in entries %}
                                 <tr>
                                     <td><input type="radio" name="target_id" value="{{ entry.id }}" required></td>
-                                    <td>{{ entry.id }}</td>
-                                    <td>{{ entry_display(entry) }}</td>
+                                    {% for col in columns %}
+                                        <td>{{ getattr(entry, col) }}</td>
+                                    {% endfor %}
                                 </tr>
                             {% endfor %}
                         </tbody>

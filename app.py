@@ -111,7 +111,7 @@ try:
 
     from markupsafe import Markup
 
-    from sqlalchemy import create_engine, inspect, Date, DateTime, text, func, event
+    from sqlalchemy import create_engine, inspect, Date, DateTime, text, func, event, String, Unicode, Text
     from sqlalchemy.orm import sessionmaker, joinedload, Session, Query
     from sqlalchemy.orm.exc import NoResultFound, DetachedInstanceError
     from sqlalchemy.exc import SQLAlchemyError
@@ -4364,7 +4364,7 @@ def merge_entry_display(entry):
 
 @app.context_processor
 def utility_processor():
-    return dict(entry_display=merge_entry_display)
+    return dict(entry_display=merge_entry_display, getattr=getattr)
 
 @app.route("/merge", methods=["GET", "POST"])
 @login_required
@@ -4386,6 +4386,14 @@ def merge_interface():
     selected_table = request.args.get("table")
     Model = get_model_by_tablename(selected_table) if selected_table else None
     entries = session.query(Model).all() if Model else []
+
+    # Alle Spaltennamen des Models (SQLAlchemy Columns)
+    columns = []
+    if Model is not None:
+        try:
+            columns = [col.key for col in Model.__mapper__.columns]
+        except Exception:
+            columns = []
 
     if request.method == "POST":
         selected_ids = list(map(int, request.form.getlist("merge_ids")))
@@ -4409,15 +4417,13 @@ def merge_interface():
                 flash(f"Fehler beim Mergen: {e}", "error")
 
     session.close()
-    
-    print(all_tables)
-    print(entries)
 
     return render_template(
         "merge_generic.html",
         tables=all_tables,
         selected_table=selected_table,
         entries=entries,
+        columns=columns,  # Hier Spaltennamen hinzufügen
     )
 
 event.listen(Session, "before_flush", block_writes_if_user_readonly)
