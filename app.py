@@ -2585,7 +2585,7 @@ def generate_fields_for_schluesselausgabe_from_metadata(
 
     return data
 
-def get_transponder_metadata(transponder_id: int) -> dict:
+def get_transponder_metadata(transponder_id: int) -> Optional[dict]:
     session = Session()
 
     try:
