@@ -3230,8 +3230,10 @@ def delete_person_from_raum():
 
     # Validierung der Parameter
     if person_id is None:
+        session.close()
         return jsonify({"error": "Missing or invalid 'person_id' parameter"}), 400
     if raum_id is None:
+        session.close()
         return jsonify({"error": "Missing or invalid 'raum_id' parameter"}), 400
 
     session = Session()
@@ -3262,17 +3264,18 @@ def delete_person_from_raum():
 @app.route("/api/delete_person_id_to_object_id", methods=["GET"])
 @login_required
 def delete_person_id_to_object_id():
+    session = Session()
     # Parameter auslesen
     person_id = request.args.get("person_id", type=int)
     object_id = request.args.get("object_id", type=int)
 
     # Validierung
     if person_id is None:
+        session.close()
         return jsonify({"error": "Missing or invalid 'person_id' parameter"}), 400
     if object_id is None:
+        session.close()
         return jsonify({"error": "Missing or invalid 'object_id' parameter"}), 400
-
-    session = Session()
 
     try:
         # Eintrag suchen mit passender besitzer_id und object_id
@@ -3295,8 +3298,6 @@ def delete_person_id_to_object_id():
         session.rollback()
         session.close()
         return jsonify({"error": str(e)}), 500
-
-
 
 @app.route("/api/delete_room", methods=["POST"])
 @login_required
@@ -4183,6 +4184,8 @@ def _readonly_block_check():
 
     is_admin = is_admin_user(session)
 
+    session.close()
+
     if is_admin:
         return
 
@@ -4362,14 +4365,19 @@ def merge_interface():
             selected_ids.remove(target_id)
 
         if not selected_ids:
+            session.close()
             flash("Bitte mindestens einen Eintrag zum Zusammenführen auswählen.", "error")
         else:
             try:
                 merge_model_entries(session, Model, selected_ids, target_id)
+                session.close()
                 flash("Merge erfolgreich durchgeführt.", "success")
                 return redirect(url_for("merge_interface", table=selected_table))
             except Exception as e:
+                session.close()
                 flash(f"Fehler beim Mergen: {e}", "error")
+
+    session.close()
 
     return render_template(
         "merge_generic.html",
