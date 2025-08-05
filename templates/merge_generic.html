@@ -41,9 +41,9 @@
                         <tbody>
                             {% for entry in entries %}
                                 <tr>
-                                    <td><input type="checkbox" name="merge_ids" value="{{ entry.id }}"></td>
+                                    <td><input type="checkbox" name="merge_ids" value="{{ entry['id'] }}"></td>
                                     {% for col in columns %}
-                                        <td>{{ getattr(entry, col) }}</td>
+                                        <td>{{ entry[col] }}</td>
                                     {% endfor %}
                                 </tr>
                             {% endfor %}
@@ -65,9 +65,9 @@
                         <tbody>
                             {% for entry in entries %}
                                 <tr>
-                                    <td><input type="radio" name="target_id" value="{{ entry.id }}" required></td>
+                                    <td><input type="radio" name="target_id" value="{{ entry['id'] }}" required></td>
                                     {% for col in columns %}
-                                        <td>{{ getattr(entry, col) }}</td>
+                                        <td>{{ entry[col] }}</td>
                                     {% endfor %}
                                 </tr>
                             {% endfor %}

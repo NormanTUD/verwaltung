@@ -113,6 +113,7 @@ try:
 
     from sqlalchemy import create_engine, inspect, Date, DateTime, text, func, event, String, Unicode, Text
     from sqlalchemy.orm import sessionmaker, joinedload, Session, Query
+    from sqlalchemy.orm.attributes import flag_modified
     from sqlalchemy.orm.exc import NoResultFound, DetachedInstanceError
     from sqlalchemy.exc import SQLAlchemyError
     from sqlalchemy.event import listens_for
@@ -4291,33 +4292,50 @@ def merge_model_entries(session, model, ids_to_merge, target_id):
         return
 
     model_name = model.__tablename__
-    related_models = Base.registry.mappers
-
-    for related_mapper in related_models:
-        for prop in related_mapper.attrs:
-            if hasattr(prop, "columns"):
-                for col in prop.columns:
-                    if col.foreign_keys:
-                        for fk in col.foreign_keys:
-                            if fk.column.table.name == model_name:
-                                related_cls = related_mapper.class_
-                                fk_col = col.name
-                                q = session.query(related_cls).filter(getattr(related_cls, fk_col).in_(ids_to_merge))
-                                for obj in q.all():
-                                    setattr(obj, fk_col, target_id)
-                                    flag_modified(obj, fk_col)
-                                break
-
-    for id_ in ids_to_merge:
-        obj = session.get(model, id_)
-        if obj:
-            session.delete(obj)
+    related_mappers = Base.registry.mappers
 
     try:
-        session.commit()
-    except IntegrityError:
+        with session.no_autoflush:
+            for related_mapper in related_mappers:
+                for prop in related_mapper.attrs:
+                    if hasattr(prop, "columns"):
+                        for col in prop.columns:
+                            if col.foreign_keys:
+                                for fk in col.foreign_keys:
+                                    if fk.column.table.name == model_name:
+                                        related_cls = related_mapper.class_
+                                        fk_col = col.name
+
+                                        q = session.query(related_cls).filter(getattr(related_cls, fk_col).in_(ids_to_merge))
+                                        for obj in q.all():
+                                            # Prüfen, ob es bereits einen Eintrag mit target_id gibt, der die Unique-Constraint verletzen würde
+                                            other_fk_cols = []
+                                            for c in related_cls.__table__.columns:
+                                                for fk_constraint in c.foreign_keys:
+                                                    if fk_constraint.column.table.name == model_name and c.name != fk_col:
+                                                        other_fk_cols.append(c.name)
+
+                                            filter_conditions = [getattr(related_cls, fk_col) == target_id]
+                                            for other_fk_col in other_fk_cols:
+                                                filter_conditions.append(getattr(related_cls, other_fk_col) == getattr(obj, other_fk_col))
+
+                                            exists = session.query(related_cls).filter(*filter_conditions).first()
+                                            if exists:
+                                                session.delete(obj)
+                                            else:
+                                                setattr(obj, fk_col, target_id)
+                                                flag_modified(obj, fk_col)
+                                        break
+
+            for id_ in ids_to_merge:
+                obj = session.get(model, id_)
+                if obj:
+                    session.delete(obj)
+
+            session.commit()
+    except IntegrityError as e:
         session.rollback()
-        raise
+        raise e
 
 def get_referenced_tablenames():
     referenced = set()
@@ -4366,63 +4384,83 @@ def merge_entry_display(entry):
 def utility_processor():
     return dict(entry_display=merge_entry_display, getattr=getattr)
 
+
 @app.route("/merge", methods=["GET", "POST"])
 @login_required
 @admin_required
 def merge_interface():
     session = Session()
 
-    referenced_tables = get_referenced_tablenames()
+    try:
+        referenced_tables = get_referenced_tablenames()
 
-    all_tables = [
-        mapper.class_.__tablename__
-        for mapper in Base.registry.mappers
-        if hasattr(mapper.class_, "__tablename__")
-        and mapper.class_.__tablename__ in referenced_tables
-        and mapper.class_.__tablename__ not in IGNORED_TABLES
-        and not mapper.class_.__name__.endswith("Version")
-    ]
+        all_tables = [
+            mapper.class_.__tablename__
+            for mapper in Base.registry.mappers
+            if hasattr(mapper.class_, "__tablename__")
+            and mapper.class_.__tablename__ in referenced_tables
+            and mapper.class_.__tablename__ not in IGNORED_TABLES
+            and not mapper.class_.__name__.endswith("Version")
+        ]
 
-    selected_table = request.args.get("table")
-    Model = get_model_by_tablename(selected_table) if selected_table else None
-    entries = session.query(Model).all() if Model else []
+        selected_table = request.args.get("table")
+        Model = get_model_by_tablename(selected_table) if selected_table else None
+        entries = session.query(Model).all() if Model else []
 
-    # Alle Spaltennamen des Models (SQLAlchemy Columns)
-    columns = []
-    if Model is not None:
-        try:
-            columns = [col.key for col in Model.__mapper__.columns]
-        except Exception:
-            columns = []
-
-    if request.method == "POST":
-        selected_ids = list(map(int, request.form.getlist("merge_ids")))
-        target_id = int(request.form["target_id"])
-
-        if target_id in selected_ids:
-            selected_ids.remove(target_id)
-
-        if not selected_ids:
-            session.close()
-            flash("Bitte mindestens einen Eintrag zum Zusammenführen auswählen.", "error")
-        else:
+        # Alle Spaltennamen des Models (SQLAlchemy Columns)
+        columns = []
+        if Model is not None:
             try:
-                merge_model_entries(session, Model, selected_ids, target_id)
-                session.close()
-                flash("Merge erfolgreich durchgeführt.", "success")
-                return redirect(url_for("merge_interface", table=selected_table))
-            except Exception as e:
-                session.rollback()
-                session.close()
-                flash(f"Fehler beim Mergen: {e}", "error")
+                columns = [col.key for col in Model.__mapper__.columns]
+            except Exception:
+                columns = []
 
-    session.close()
+        # Wandle SQLAlchemy-Objekte in dicts um, damit sie unabhängig von der Session sind
+        entries_data = []
+        for entry in entries:
+            entry_dict = {}
+            for col in columns:
+                try:
+                    entry_dict[col] = getattr(entry, col)
+                except Exception:
+                    entry_dict[col] = None
+            # Zusätzlich id für Formularwerte sichern, falls 'id' nicht in columns ist
+            if 'id' not in columns and hasattr(entry, 'id'):
+                entry_dict['id'] = entry.id
+            entries_data.append(entry_dict)
+
+        if request.method == "POST":
+            selected_ids = list(map(int, request.form.getlist("merge_ids")))
+            target_id = int(request.form["target_id"])
+
+            if target_id in selected_ids:
+                selected_ids.remove(target_id)
+
+            if not selected_ids:
+                flash("Bitte mindestens einen Eintrag zum Zusammenführen auswählen.", "error")
+            else:
+                try:
+                    merge_model_entries(session, Model, selected_ids, target_id)
+                    session.commit()
+                    flash("Merge erfolgreich durchgeführt.", "success")
+                    return redirect(url_for("merge_interface", table=selected_table))
+                except Exception as e:
+                    session.rollback()
+                    flash(f"Fehler beim Mergen: {e}", "error")
+    except Exception as global_e:
+        flash(f"Interner Fehler: {global_e}", "error")
+        entries_data = []
+        columns = []
+        all_tables = []
+        selected_table = None
+    finally:
+        session.close()
 
     return render_template(
         "merge_generic.html",
         tables=all_tables,
         selected_table=selected_table,
-        entries=entries,
+        entries=entries_data,
         columns=columns,  # Hier Spaltennamen hinzufügen
     )
 
