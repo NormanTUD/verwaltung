@@ -3960,6 +3960,7 @@ def get_person_raum_data():
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('404.html'), 404
+
 @app.route('/search')
 @login_required
 def search():
