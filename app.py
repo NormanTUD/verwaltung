@@ -260,12 +260,16 @@ HIDDEN_FIELD_NAMES = {"version", "Versions", "_version", "guid"}
 def get_col_type(col):
     if isinstance(col.type, (Integer, Float)):
         return "number"
-    elif isinstance(col.type, (Text, String)):
+
+    if isinstance(col.type, (Text, String)):
         return "text"
-    elif isinstance(col.type, Date):
+
+    if isinstance(col.type, Date):
         return "date"
-    elif isinstance(col.type, Boolean):
+
+    if isinstance(col.type, Boolean):
         return "checkbox"
+
     return "text"
 
 def labelize(col_name):
