@@ -4019,7 +4019,7 @@ def search():
             if hasattr(cls, '__tablename__') and cls.__tablename__ not in ["role", "user"]
         ]
 
-        if 'admin'.startswith(query):
+        if 'admin' in query:
             results.append({'label': '🛠️ Admin', 'url': '/admin'})
 
         for table in tables:
