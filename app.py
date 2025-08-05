@@ -12,7 +12,6 @@ from copy import deepcopy
 import csv
 import uuid
 from functools import wraps
-import re
 import json
 from collections import defaultdict
 
