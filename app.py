@@ -152,7 +152,7 @@ try:
     from markupsafe import escape
 
     from db_interface import *
-    
+
     from importers import importers_bp
     from auth import admin_required, is_admin_user
     from db import *
@@ -578,13 +578,10 @@ def block_writes_if_data_version_cookie_set(session, flush_context, instances):
 def add_version_filter(query):
     if not has_app_context():
         print("[DEBUG] Kein Flask-App-Kontext aktiv – Versionierung wird übersprungen")
-        return query    
+        return query
 
-    if not hasattr(g, 'issued_at'):
-        return query    
-
-    if g.issued_at is None:
-        return query                                                                  
+    if not hasattr(g, 'issued_at') or g.issued_at is None:
+        return query
 
     print(f"[DEBUG] g.issued_at gesetzt auf: {g.issued_at}")
 
@@ -1948,7 +1945,7 @@ def create_aggregate_view(view_id):
             "url_for_view": request.endpoint and url_for(request.endpoint, aggregate_name=view_id),
             "filter_config": config.get("filters", {}),  # ← DAS HAT GEFEHLT
         }
-        
+
         if "extra_context_func" in config:
             try:
                 extra = config["extra_context_func"]()
@@ -2355,7 +2352,7 @@ def _wizard_internal(name):
     success = False
     error = None
     form_data = {}
-    
+
     if request.method == "POST":
         try:
             main_model = config["table"]
@@ -2364,23 +2361,23 @@ def _wizard_internal(name):
                 f["name"]: convert_datetime_value(f, request.form.get(f["name"], "").strip() or None)
                 for f in config["fields"]
             }
-            
+
             # Pflichtfelder prüfen
             missing = [f['name'] for f in config['fields'] if f.get('required') and not main_data[f['name']]]
             if missing:
                 session.close()
                 raise ValueError(f"Pflichtfelder fehlen: {', '.join(missing)}")
-            
+
             main_instance = main_model(**main_data)
             session.add(main_instance)
             session.flush()
-            
+
             for sub in config.get("subforms", []):
                 table = sub["table"]
                 foreign_key = sub["foreign_key"]
                 field_names = [f["name"] for f in sub["fields"]]
                 data_lists = {f: request.form.getlist(f + "[]") for f in field_names}
-                
+
                 for i in range(max(len(l) for l in data_lists.values())):
                     entry = {
                         f: data_lists[f][i].strip() if i < len(data_lists[f]) else None
@@ -2389,23 +2386,23 @@ def _wizard_internal(name):
                     if any(entry.values()):
                         entry[foreign_key] = main_instance.id
                         session.add(table(**entry))
-            
+
             session.commit()
             success = True
-        
+
         except IntegrityError as e:
             session.rollback()
             # Hier kannst du die eigentliche Fehlermeldung aus e.orig oder e.args parsen, je nach DB-Backend
-            error = "Ein Datenbank-Integritätsfehler ist aufgetreten: " + str(e.orig)  
-            
+            error = "Ein Datenbank-Integritätsfehler ist aufgetreten: " + str(e.orig)
+
             # Formulardaten zum Wiederbefüllen speichern
-            form_data = request.form.to_dict(flat=False)  
-            
+            form_data = request.form.to_dict(flat=False)
+
         except Exception as e:
             session.rollback()
             error = str(e)
             form_data = request.form.to_dict(flat=False)
-        
+
     session.close()
 
     return render_template(
@@ -3501,7 +3498,7 @@ def save_person_to_raum():
             "error": f"Unexpected server error: {e}",
             "details": str(e)
         }), 500
-        
+
 @app.route("/api/save_object_to_person", methods=["POST"])
 @login_required
 def save_object_to_person():
@@ -3621,9 +3618,9 @@ def get_person_database():
                 "etage": 0,
                 "kommentar": person.kommentar or "",
                 "id": person.id,
-                "image_url": person.image_url or "" 
+                "image_url": person.image_url or ""
             })
-            
+
 
         session.close()
         return jsonify(result), 200
@@ -3631,7 +3628,7 @@ def get_person_database():
         print(f"❌ Fehler bei /api/get_person_database: {e}")
         session.close()
         return jsonify({"error": "Fehler beim Abrufen der Personen"}), 500
-    
+
 @app.route("/api/get_object_database", methods=["GET"])
 def get_object_database():
     try:
@@ -3675,7 +3672,7 @@ def get_person_id_object_id_database():
     finally:
         session.close()
 
-    
+
 @app.route("/api/get_raum_id")
 def get_raum_id():
     session = Session()
@@ -3730,11 +3727,11 @@ def get_raum_id():
         print(f"DB error: {e}")
         session.close()
         return jsonify({"error": "Internal server error"}), 500
-    
+
 @app.route('/api/get_building_names', methods=['GET'])
 def get_building_names():
     session = Session()
-    
+
     buildings = session.query(Building.name).order_by(Building.name).all()
     names = [b.name for b in buildings if b.name]
 
@@ -4178,7 +4175,7 @@ def update_transponder_field():
 
     finally:
         session.close()
-    
+
 def _readonly_block_check():
     session = Session()
 
