@@ -1703,9 +1703,9 @@ AGGREGATE_VIEWS = generate_aggregate_views(Base, {
     "person": {
         "title": "Personenübersicht",
         "filters": {
-            "Titel": (str, "title"),
-            "Vorname": (str, "vorname"),
-            "Nachname": (str, "nachname")
+            "Titel": (str, "Person.title"),
+            "Vorname": (str, "Person.vorname"),
+            "Nachname": (str, "Person.nachname")
         },
         "map_func": lambda p: {
             "ID": p.id,
