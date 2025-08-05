@@ -4319,20 +4319,68 @@ def merge_model_entries(session, model, ids_to_merge, target_id):
         session.rollback()
         raise
 
+def get_referenced_tablenames():
+    referenced = set()
+    for mapper in Base.registry.mappers:
+        for prop in mapper.attrs:
+            if hasattr(prop, "columns"):
+                for col in prop.columns:
+                    for fk in col.foreign_keys:
+                        referenced.add(fk.column.table.name)
+    return referenced
+
+
+def merge_entry_display(entry):
+    if entry is None:
+        return ""
+
+    # Versuche bevorzugte Attribute
+    preferred_attrs = ["name", "title", "label"]
+    for attr in preferred_attrs:
+        val = getattr(entry, attr, None)
+        if val is not None and isinstance(val, str) and val.strip():
+            return val.strip()
+
+    # Wenn keine bevorzugten Attribute, suche erste String-Spalte im Modell
+    try:
+        # entry.__mapper__ ist SQLAlchemy Mapper für das Modell
+        for attr_key, attr_val in entry.__mapper__.c.items():
+            # attr_val ist Column-Objekt
+            # Prüfe ob Column vom Typ String/Text ist
+            col_type = attr_val.type
+            if isinstance(col_type, (String, Unicode, Text)):
+                val = getattr(entry, attr_key, None)
+                if val is not None and isinstance(val, str) and val.strip():
+                    return val.strip()
+    except Exception:
+        pass
+
+    # Fallback: Versuche id auszugeben
+    if hasattr(entry, "id"):
+        return f"ID {entry.id}"
+
+    # Sonst repr
+    return repr(entry)
+
+@app.context_processor
+def utility_processor():
+    return dict(entry_display=merge_entry_display)
+
 @app.route("/merge", methods=["GET", "POST"])
 @login_required
 @admin_required
 def merge_interface():
     session = Session()
 
-    # Alle Tabellen ermitteln, außer die ignorierten und Versions-Tabellen
+    referenced_tables = get_referenced_tablenames()
+
     all_tables = [
         mapper.class_.__tablename__
         for mapper in Base.registry.mappers
         if hasattr(mapper.class_, "__tablename__")
-        and mapper.class_.__tablename__ is not None
+        and mapper.class_.__tablename__ in referenced_tables
         and mapper.class_.__tablename__ not in IGNORED_TABLES
-        and not mapper.class_.__name__.endswith("Version")  # continuum Version-Tabellen ignorieren
+        and not mapper.class_.__name__.endswith("Version")
     ]
 
     selected_table = request.args.get("table")
@@ -4343,7 +4391,6 @@ def merge_interface():
         selected_ids = list(map(int, request.form.getlist("merge_ids")))
         target_id = int(request.form["target_id"])
 
-        # Sicherstellen, dass target_id nicht in selected_ids ist
         if target_id in selected_ids:
             selected_ids.remove(target_id)
 
@@ -4357,10 +4404,14 @@ def merge_interface():
                 flash("Merge erfolgreich durchgeführt.", "success")
                 return redirect(url_for("merge_interface", table=selected_table))
             except Exception as e:
+                session.rollback()
                 session.close()
                 flash(f"Fehler beim Mergen: {e}", "error")
 
     session.close()
+    
+    print(all_tables)
+    print(entries)
 
     return render_template(
         "merge_generic.html",
@@ -4368,7 +4419,6 @@ def merge_interface():
         selected_table=selected_table,
         entries=entries,
     )
-
 
 event.listen(Session, "before_flush", block_writes_if_user_readonly)
 event.listen(Session, "before_flush", block_writes_if_data_version_cookie_set)
