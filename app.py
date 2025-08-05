@@ -3981,12 +3981,16 @@ def search():
                 'url': route
             })
 
-    if 'inventar'.startswith(query):
-        results.append({'label': '📦 Inventar', 'url': url_for('aggregate_inventar_view')})
-    if 'transponder'.startswith(query):
-        results.append({'label': '📦 Transponder', 'url': url_for('aggregate_transponder_view')})
-    if 'person'.startswith(query):
-        results.append({'label': '📦 Person', 'url': url_for('aggregate_persons_view')})
+
+    for key, config in AGGREGATE_VIEWS.items():
+        title = config.get("title", key).strip()
+        if key.startswith(query) or title.lower().startswith(query):
+            if not key.endswith("version"):
+                results.append({
+                    'label': f'📦 {title}',
+                    'url': url_for('aggregate_view', aggregate_name=key)  # ✅ Korrekt
+                })
+
     if is_admin_user(session):
         if 'admin'.startswith(query):
             results.append({'label': '🛠️ Admin', 'url': '/admin'})
