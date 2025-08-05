@@ -1841,6 +1841,31 @@ def is_option_on_versions(opt):
     # Falls es ein string ist oder anderes, prüfen wir nicht
     return False
 
+def build_filter_config_from_request_args(args, column_labels):
+    filter_config = {}
+    for key in args.keys():
+        val = args.get(key)
+        if val is None:
+            continue
+        val = val.strip()
+        if val == "":
+            # Leere Werte ignorieren
+            continue
+        # Prüfe, ob val ein Boolean (0 oder 1) ist
+        if val in ("0", "1"):
+            filter_config[key] = (bool, key)
+            continue
+        # Prüfe, ob val ein Integer ist
+        try:
+            int_val = int(val)
+            filter_config[key] = (int, key)
+            continue
+        except (ValueError, TypeError):
+            pass
+        # Standard: String
+        filter_config[key] = (str, key)
+    return filter_config
+
 def create_aggregate_view(view_id):
     config = AGGREGATE_VIEWS[view_id]
 
@@ -1850,7 +1875,6 @@ def create_aggregate_view(view_id):
         raw_options = config.get("options", [])
         print(f"[DEBUG] Loaded raw options for view_id={view_id}: {raw_options}")
 
-        # Filter out eager loading options that load 'versions' relationship robustly
         options = []
         for opt in raw_options:
             if is_option_on_versions(opt):
@@ -1868,15 +1892,44 @@ def create_aggregate_view(view_id):
             session.close()
             raise
 
+        # --- Definiere column_labels VOR Nutzung ---
+        # Falls in config vorab definiert, z.B. als config["column_labels"], sonst leer
+        if "column_labels" in config:
+            column_labels = config["column_labels"]
+        else:
+            # Versuche Spaltennamen aus dem Model abzuleiten, falls möglich (z.B. SQLAlchemy model.__table__.columns)
+            try:
+                column_labels = [col.name for col in config["model"].__table__.columns]
+            except Exception:
+                column_labels = []
+
         # Filter aus Request-Parametern parsen
+        if "filter_config" in config:
+            filter_config = config["filter_config"]
+        else:
+            filter_config = build_filter_config_from_request_args(request.args, column_labels)
+
+        if not filter_config:
+            print("[DEBUG] No filter_config defined in config; building from request.args dynamically")
+            filter_config = {}
+            for key in request.args.keys():
+                val = request.args.get(key)
+                if val in ("0", "1"):
+                    filter_config[key] = (bool, key)
+                else:
+                    try:
+                        int(val)
+                        filter_config[key] = (int, key)
+                    except (ValueError, TypeError):
+                        filter_config[key] = (str, key)
+
+        print(f"[DEBUG] Using filter_config from config or dynamic: {filter_config}")
+
         filters = {}
-        for key, (typ, param) in config.get("filters", {}).items():
+        for key, (typ, param) in filter_config.items():
             val = request.args.get(param)
             if typ == bool:
-                if val == "1":
-                    filters[key] = True
-                else:
-                    filters[key] = False
+                filters[key] = val == "1"
             elif typ == int:
                 try:
                     filters[key] = int(val)
@@ -1884,6 +1937,7 @@ def create_aggregate_view(view_id):
                     filters[key] = None
             else:
                 filters[key] = val if val is not None else None
+
         print(f"[DEBUG] Parsed filters: {filters}")
 
         try:
@@ -1896,7 +1950,7 @@ def create_aggregate_view(view_id):
 
         try:
             data_list = query.all()
-            print(f"[DEBUG] Query executed, {len(data_list)} rows fetched")
+            print(f"[DEBUG] Query executed after filter, {len(data_list)} rows fetched")
         except sqlalchemy.exc.InvalidRequestError as e:
             if "versions" in str(e):
                 print("[ERROR] Query failed due to eager loading of 'versions' relationship. Please remove such options.")
@@ -1907,18 +1961,19 @@ def create_aggregate_view(view_id):
             session.close()
             raise
 
-        rows = []
         try:
             rows = [config["map_func"](obj) for obj in data_list]
-            print("[DEBUG] map_func applied to all rows")
+            print("[DEBUG] map_func reapplied to filtered rows")
         except Exception as e:
             print(f"[ERROR] Exception during map_func application: {e}")
             session.close()
             raise
 
+        # Spaltenlabels aktualisieren basierend auf den gemappten Daten
         column_labels = list(rows[0].keys()) if rows else []
         if "add_columns" in config:
             column_labels += config["add_columns"]
+
         print(f"[DEBUG] Column labels: {column_labels}")
 
         row_data = []
@@ -1938,7 +1993,7 @@ def create_aggregate_view(view_id):
             "row_data": row_data,
             "filters": filters,
             "url_for_view": request.endpoint and url_for(request.endpoint, aggregate_name=view_id),
-            "filter_config": config.get("filters", {}),  # ← DAS HAT GEFEHLT
+            "filter_config": filter_config,
         }
 
         if "extra_context_func" in config:
@@ -1952,7 +2007,7 @@ def create_aggregate_view(view_id):
                 raise
 
         session.close()
-
+        print(f"[DEBUG] Rendering template with context keys: {list(ctx.keys())}")
         return render_template("aggregate_view.html", **ctx)
 
     return view_func
@@ -4000,7 +4055,7 @@ def search():
         if matched:
             results.append({
                 'label': f'👤 {person.vorname} {person.nachname}',
-                'url': url_for('aggregate_persons_view', person_id=person.id)
+                'url': url_for('aggregate_view', aggregate_name="Person")
             })
 
     # Admin-Zeug
