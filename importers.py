@@ -1,6 +1,7 @@
 from typing import Optional, Tuple
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask import Blueprint, request, jsonify, render_template
+from sqlalchemy.exc import SQLAlchemyError
 from auth import admin_required
 import pandas as pd
 import io
