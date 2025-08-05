@@ -63,8 +63,8 @@ def get_from_requirements_txt_file(path=None):
         if not os.path.isfile(path):
             raise FileNotFoundError(f"requirements.txt not found at: {path}")
 
-        with open(path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
+        with open(path, "r", encoding="utf-8") as _f:
+            lines = _f.readlines()
 
         requirements = []
         for line in lines:
@@ -2335,10 +2335,11 @@ def get_json_safe_config(wizard):
     def strip(obj):
         if isinstance(obj, dict):
             return {k: strip(v) for k, v in obj.items() if k != "table"}
-        elif isinstance(obj, list):
+
+        if isinstance(obj, list):
             return [strip(i) for i in obj]
-        else:
-            return obj
+
+        return obj
 
     return strip(wizard)
 
