@@ -1,56 +1,13 @@
-<!DOCTYPE html>
-<html lang="de">
-	<head>
-		<meta charset="UTF-8" />
-		<title>404 - Seite nicht gefunden</title>
-		<script src="/static/lottie.min.js"></script>
+{% extends "layout.html" %}
+{% block title %}Startseite{% endblock %}
+{% block content %}
 		<style>
-body {
-	background: #282c34;
-	color: #61dafb;
-	font-family: "Courier New", Courier, monospace;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	height: 100vh;
-	margin: 0;
-	user-select: none;
-}
-
-  h1 {
-	  font-size: 4rem;
-	  margin-bottom: 0.2em;
-  }
-
-  p.message {
-	  font-size: 1.5rem;
-	  margin: 0.5em 0 2em 0;
-	  max-width: 600px;
-	  text-align: center;
-  }
-
-  a {
-	  color: #21a1f1;
-	  text-decoration: none;
-	  font-weight: bold;
-	  font-size: 1.2rem;
-	  margin-top: 2em;
-  }
-
-  a:hover {
-	  text-decoration: underline;
-  }
-
-  #lottie {
-	  width: 300px;
-	  height: 300px;
-	  margin-bottom: 1em;
-  }
+			#lottie {
+				width: 300px;
+				height: 300px;
+				margin-bottom: 1em;
+			}
 		</style>
-	</head>
-	<body>
-
 		<h1>404</h1>
 
 		<div id="lottie"></div>
@@ -85,6 +42,4 @@ body {
 			const randIndex = Math.floor(Math.random() * messages.length);
 			msgElem.textContent = messages[randIndex];
 		</script>
-
-	</body>
-</html>
+{% endblock %}
