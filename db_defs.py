@@ -28,7 +28,6 @@ class CustomBase:
             print(f"❌ Fehler bei to_dict: {e}")
             return {}
 
-#Base = declarative_base(cls=CustomBase)
 class Base(DeclarativeBase, CustomBase):
     pass
 
