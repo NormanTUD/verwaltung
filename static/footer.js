@@ -12,110 +12,57 @@ function getElementsByName(name) {
 
 function createInputField(fieldConfig, fieldName, onOptionsLoaded, default_value) {
 	if (fieldConfig.type === "select") {
-		var input = $('<input>', {
-			type: 'text',
-			class: 'auto_generated_field autocomplete_input',
+		var select = $('<select>', {
+			class: 'auto_generated_field',
 			name: `generated_${fieldName}`,
-			placeholder: fieldConfig.name,
-			autocomplete: 'off',
-			val: default_value || ""
 		});
-
-		var wrapper = $('<div>', { class: 'autocomplete_wrapper', css: { position: 'relative' } });
-		var suggestionsBox = $('<div>', {
-			class: 'autocomplete_suggestions',
-			css: {
-				position: 'absolute',
-				top: '100%',
-				left: 0,
-				right: 0,
-				zIndex: 9999,
-				backgroundColor: '#fff',
-				border: '1px solid #ccc',
-				borderTop: 'none',
-				display: 'none',
-				maxHeight: '150px',
-				overflowY: 'auto'
-			}
-		});
-
-		wrapper.append(input).append(suggestionsBox);
 
 		var optionsUrl = fieldConfig.options_url || fieldConfig.options_url_id_dict;
 
 		$.get(optionsUrl, function(data) {
-			var options = [];
+			select.append($('<option>', {
+				value: "",
+				text: "-"
+			}));
 
 			if (fieldConfig.options_url_id_dict && typeof data === 'object' && !Array.isArray(data)) {
-				options = Object.values(data);
+				for (var id in data) {
+					select.append($('<option>', {
+						value: id,
+						text: data[id],
+						selected: id === default_value
+					}));
+				}
 			} else if (Array.isArray(data)) {
-				options = data;
+				for (var option of data) {
+					select.append($('<option>', {
+						value: option,
+						text: option,
+						selected: option === default_value
+					}));
+				}
 			} else if (typeof data === 'object' && data !== null && Object.values(data).every(v => typeof v === 'string')) {
-				options = Object.values(data);
+				// Fall 3: Daten sind ein Objekt mit numerischen Keys und String-Werten
+				for (var id in data) {
+					select.append($('<option>', {
+						value: id,
+						text: data[id],
+						selected: id === default_value
+					}));
+				}
 			}
 
-			input.val(default_value || "");
-
-			input.on('input', function() {
-				var value = input.val().toLowerCase();
-				suggestionsBox.empty();
-
-				if (!value) {
-					suggestionsBox.hide();
-					return;
-				}
-
-				var filtered = options.filter(function(opt) {
-					return opt.toLowerCase().includes(value);
-				});
-
-				if (filtered.length === 0) {
-					suggestionsBox.hide();
-					return;
-				}
-
-				for (var opt of filtered) {
-					var item = $('<div>', {
-						text: opt,
-						css: {
-							padding: '4px 8px',
-							cursor: 'pointer'
-						},
-						mouseover: function() {
-							$(this).css('background-color', '#eee');
-						},
-						mouseout: function() {
-							$(this).css('background-color', '#fff');
-						},
-						click: function() {
-							input.val($(this).text());
-							suggestionsBox.hide();
-						}
-					});
-					suggestionsBox.append(item);
-				}
-
-				suggestionsBox.show();
-			});
-
-			// Klick außerhalb -> Autocomplete schließen
-			$(document).on('click', function(event) {
-				if (!wrapper[0].contains(event.target)) {
-					suggestionsBox.hide();
-				}
-			});
-
 			if (typeof onOptionsLoaded === "function") {
-				onOptionsLoaded(input);
+				onOptionsLoaded(select);
 			}
 		}).fail(function() {
 			log("Fehler beim Laden der Optionen für " + fieldName);
 			if (typeof onOptionsLoaded === "function") {
-				onOptionsLoaded(input);
+				onOptionsLoaded(select);
 			}
 		});
 
-		return wrapper;
+		return select;
 	} else {
 		return $('<input>', {
 			type: 'text',
