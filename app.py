@@ -1704,8 +1704,7 @@ AGGREGATE_VIEWS = generate_aggregate_views(Base, {
         "title": "Personenübersicht",
         "filters": {
             "Titel": (str, "Person.title"),
-            "Vorname": (str, "Person.vorname"),
-            "Nachname": (str, "Person.nachname")
+            "Name": (str, ["Person.vorname", "Person.nachname"]),
         },
         "map_func": lambda p: {
             "ID": p.id,
@@ -1892,25 +1891,53 @@ def create_aggregate_view(view_id):
         # Filter auf Query anwenden basierend auf filter_config + Param-Werte aus URL
         if filter_config:
             updated_filters = {}
+
             for key, (cast_type, param_name) in filter_config.items():
-                if param_name in get_data:
-                    try:
-                        value = cast_type(get_data[param_name])
-                        updated_filters[key] = (cast_type, param_name, value)
-                    except (ValueError, TypeError):
+                if isinstance(param_name, list):
+                    # Mehrere Felder pro Filter – nimm `get_data[key]` direkt
+                    if key in get_data:
+                        try:
+                            value = cast_type(get_data[key])
+                            updated_filters[key] = (cast_type, param_name, value)
+                        except (ValueError, TypeError):
+                            updated_filters[key] = (cast_type, param_name, None)
+                    else:
                         updated_filters[key] = (cast_type, param_name, None)
                 else:
-                    updated_filters[key] = (cast_type, param_name, None)
+                    # Einzelfeldfilter – wie bisher
+                    if param_name in get_data:
+                        try:
+                            value = cast_type(get_data[param_name])
+                            updated_filters[key] = (cast_type, param_name, value)
+                        except (ValueError, TypeError):
+                            updated_filters[key] = (cast_type, param_name, None)
+                    else:
+                        updated_filters[key] = (cast_type, param_name, None)
+
             filter_config = updated_filters
 
-            # Filter dynamisch auf Query anwenden
             for key, (cast_type, param_name, value) in filter_config.items():
                 if value is not None and value != "":
-                    attr_name = param_name.split(".")[-1]
-                    model_attr = getattr(config["model"], attr_name, None)
-                    if model_attr is not None:
-                        # Beispiel: ilike-Filter mit %value%
-                        query = query.filter(model_attr.ilike(f"%{value}%"))
+                    if isinstance(param_name, list):
+                        # Beispiel: Name -> ["Person.vorname", "Person.nachname"]
+                        words = [word.strip() for word in value.split() if word.strip()]
+                        or_conditions = []
+                        for word in words:
+                            sub_conditions = []
+                            for full_attr_name in param_name:
+                                attr_name = full_attr_name.split(".")[-1]
+                                model_attr = getattr(config["model"], attr_name, None)
+                                if model_attr is not None:
+                                    sub_conditions.append(model_attr.ilike(f"%{word}%"))
+                            if sub_conditions:
+                                or_conditions.append(sqlalchemy.or_(*sub_conditions))
+                        if or_conditions:
+                            query = query.filter(sqlalchemy.and_(*or_conditions))
+                    else:
+                        attr_name = param_name.split(".")[-1]
+                        model_attr = getattr(config["model"], attr_name, None)
+                        if model_attr is not None:
+                            query = query.filter(model_attr.ilike(f"%{value}%"))
 
         print(f"[DEBUG] Using filter_config from config or dynamic: {filter_config}")
         print(f"[DEBUG] URL parameters (request.args): {dict(get_data)}")

@@ -12,7 +12,7 @@
 						{% elif typ == int or typ == float or typ == str %}
 							<input
 								type="text"
-								name="{{ param }}"
+								name="{{ label }}"
 								placeholder="{{ label }}"
 								value="{{ val if val is not none else '' }}"
 								style="background-color: rgb(26, 32, 44); color: rgb(247, 250, 252); border: 1px solid rgb(61, 174, 233);"
@@ -20,7 +20,7 @@
 						{% else %}
 							<input
 								type="text"
-								name="{{ param }}"
+								name="{{ label }}"
 								placeholder="{{ label }}"
 								value="{{ val if val is not none else '' }}"
 								style="background-color: rgb(26, 32, 44); color: rgb(247, 250, 252); border: 1px solid rgb(61, 174, 233);"
