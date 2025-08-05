@@ -107,7 +107,7 @@ def restart_with_venv():
 
 try:
     from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context, Response
-    from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+    from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 
     from markupsafe import Markup
 
@@ -1010,11 +1010,6 @@ def register():
         session.close()
 
     return render_template('register.html')
-
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    return f'Hello, {current_user.username}!'
 
 @app.route('/logout')
 @login_required

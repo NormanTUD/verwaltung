@@ -33,7 +33,6 @@ class Base(DeclarativeBase, CustomBase):
 
 class User(UserMixin, Base):
     __tablename__ = "user"
-    #__versioned__: dict = {}
     id = Column(Integer, primary_key=True)
     username = Column(String(150), unique=True)
     password = Column(String(180))
