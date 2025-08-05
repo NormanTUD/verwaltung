@@ -11,7 +11,6 @@ import datetime
 from copy import deepcopy
 import csv
 import uuid
-from functools import wraps
 import json
 from collections import defaultdict
 from pathlib import Path
@@ -2236,10 +2235,10 @@ def map_editor():
             try:
                 parts = filename.removeprefix("b").removesuffix(".png").split("_f")
                 b_id = int(parts[0])
-                f = int(parts[1])
+                _f = int(parts[1])
                 if b_id not in building_map:
                     building_map[b_id] = []
-                building_map[b_id].append(f)
+                building_map[b_id].append(_f)
             except Exception:
                 continue
 
@@ -4197,6 +4196,7 @@ def _readonly_block_check():
 
 def block_writes_if_user_readonly(session, flush_context, instances):
     write_ops = session.new.union(session.dirty).union(session.deleted)
+
     if not write_ops:
         return  # nichts zu tun
 
