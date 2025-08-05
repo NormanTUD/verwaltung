@@ -14,6 +14,7 @@ import uuid
 from functools import wraps
 import json
 from collections import defaultdict
+from pathlib import Path
 
 parser = argparse.ArgumentParser(description="Starte die Flask-App mit konfigurierbaren Optionen.")
 parser.add_argument('--debug', action='store_true', help='Aktiviere den Debug-Modus')
@@ -49,8 +50,6 @@ try:
 except ModuleNotFoundError:
     print("venv not found. Is python3-venv installed?")
     sys.exit(1)
-
-from pathlib import Path
 
 VENV_PATH = Path.home() / ".verwaltung_venv"
 PYTHON_BIN = VENV_PATH / ("Scripts" if platform.system() == "Windows" else "bin") / ("python.exe" if platform.system() == "Windows" else "python")
@@ -1869,7 +1868,7 @@ def create_aggregate_view(view_id):
 
         try:
             query = session.query(config["model"]).options(*options)
-            print(f"[DEBUG] Query successfully created with options")
+            print("[DEBUG] Query successfully created with options")
         except Exception as e:
             print(f"[ERROR] Exception during query creation with options: {e}")
             session.close()
@@ -1880,7 +1879,10 @@ def create_aggregate_view(view_id):
         for key, (typ, param) in config.get("filters", {}).items():
             val = request.args.get(param)
             if typ == bool:
-                filters[key] = (val == "1")
+                if val == "1":
+                    filters[key] = True
+                else:
+                    filters[key] = False
             elif typ == int:
                 try:
                     filters[key] = int(val)
