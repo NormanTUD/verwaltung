@@ -494,10 +494,6 @@ WIZARDS = {
         RaumLayout,
         title="Raumlayout definieren",
     ),
-    "Person zu Raum": create_wizard_from_model(
-        PersonToRaum,
-        title="Person zu Raum zuordnen",
-    ),
     "Professur zu Person": create_wizard_from_model(
         ProfessurToPerson,
         title="Professur zu Person zuordnen",
