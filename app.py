@@ -1944,9 +1944,6 @@ def create_aggregate_view(view_id):
             "filter_config": config.get("filters", {}),  # ← DAS HAT GEFEHLT
         }
         
-        from pprint import pprint
-        pprint(ctx)
-
         if "extra_context_func" in config:
             try:
                 extra = config["extra_context_func"]()
@@ -3944,8 +3941,6 @@ def get_person_raum_data():
         if session:
             session.close()
 
-        from pprint import pprint
-        pprint(person_dict_map)
         result = list(person_dict_map.values())
         return jsonify(result)
 
