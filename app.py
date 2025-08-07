@@ -1702,6 +1702,10 @@ AGGREGATE_VIEWS = generate_aggregate_views(Base, {
 
     "person": {
         "title": "Personenübersicht",
+        "filters": {
+            "Titel": (str, "Person.title"),
+            "Name": (str, ["Person.vorname", "Person.nachname"]),
+        },
         "map_func": lambda p: {
             "ID": p.id,
             "Titel": p.title or "-",
@@ -1841,30 +1845,6 @@ def is_option_on_versions(opt):
     # Falls es ein string ist oder anderes, prüfen wir nicht
     return False
 
-def build_filter_config_from_request_args(args, column_labels):
-    filter_config = {}
-    for key in args.keys():
-        val = args.get(key)
-        if val is None:
-            continue
-        val = val.strip()
-        if val == "":
-            # Leere Werte ignorieren
-            continue
-        # Prüfe, ob val ein Boolean (0 oder 1) ist
-        if val in ("0", "1"):
-            filter_config[key] = (bool, key)
-            continue
-        # Prüfe, ob val ein Integer ist
-        try:
-            int_val = int(val)
-            filter_config[key] = (int, key)
-            continue
-        except (ValueError, TypeError):
-            pass
-        # Standard: String
-        filter_config[key] = (str, key)
-    return filter_config
 
 def create_aggregate_view(view_id):
     config = AGGREGATE_VIEWS[view_id]
@@ -1903,50 +1883,64 @@ def create_aggregate_view(view_id):
             except Exception:
                 column_labels = []
 
-        # Filter aus Request-Parametern parsen
-        if "filter_config" in config:
-            filter_config = config["filter_config"]
-        else:
-            filter_config = build_filter_config_from_request_args(request.args, column_labels)
+        # filter_config aus config oder leer, aber wir holen URL-Params unabhängig
+        filter_config = config.get("filters", {})
 
-        if not filter_config:
-            print("[DEBUG] No filter_config defined in config; building from request.args dynamically")
-            filter_config = {}
-            for key in request.args.keys():
-                val = request.args.get(key)
-                if val in ("0", "1"):
-                    filter_config[key] = (bool, key)
+        get_data = request.args  # Alle URL-Parameter unabhängig von filter_config
+
+        # Filter auf Query anwenden basierend auf filter_config + Param-Werte aus URL
+        if filter_config:
+            updated_filters = {}
+
+            for key, (cast_type, param_name) in filter_config.items():
+                if isinstance(param_name, list):
+                    # Mehrere Felder pro Filter – nimm `get_data[key]` direkt
+                    if key in get_data:
+                        try:
+                            value = cast_type(get_data[key])
+                            updated_filters[key] = (cast_type, param_name, value)
+                        except (ValueError, TypeError):
+                            updated_filters[key] = (cast_type, param_name, None)
+                    else:
+                        updated_filters[key] = (cast_type, param_name, None)
                 else:
-                    try:
-                        int(val)
-                        filter_config[key] = (int, key)
-                    except (ValueError, TypeError):
-                        filter_config[key] = (str, key)
+                    # Einzelfeldfilter – wie bisher
+                    if param_name in get_data:
+                        try:
+                            value = cast_type(get_data[param_name])
+                            updated_filters[key] = (cast_type, param_name, value)
+                        except (ValueError, TypeError):
+                            updated_filters[key] = (cast_type, param_name, None)
+                    else:
+                        updated_filters[key] = (cast_type, param_name, None)
+
+            filter_config = updated_filters
+
+            for key, (cast_type, param_name, value) in filter_config.items():
+                if value is not None and value != "":
+                    if isinstance(param_name, list):
+                        # Beispiel: Name -> ["Person.vorname", "Person.nachname"]
+                        words = [word.strip() for word in value.split() if word.strip()]
+                        or_conditions = []
+                        for word in words:
+                            sub_conditions = []
+                            for full_attr_name in param_name:
+                                attr_name = full_attr_name.split(".")[-1]
+                                model_attr = getattr(config["model"], attr_name, None)
+                                if model_attr is not None:
+                                    sub_conditions.append(model_attr.ilike(f"%{word}%"))
+                            if sub_conditions:
+                                or_conditions.append(sqlalchemy.or_(*sub_conditions))
+                        if or_conditions:
+                            query = query.filter(sqlalchemy.and_(*or_conditions))
+                    else:
+                        attr_name = param_name.split(".")[-1]
+                        model_attr = getattr(config["model"], attr_name, None)
+                        if model_attr is not None:
+                            query = query.filter(model_attr.ilike(f"%{value}%"))
 
         print(f"[DEBUG] Using filter_config from config or dynamic: {filter_config}")
-
-        filters = {}
-        for key, (typ, param) in filter_config.items():
-            val = request.args.get(param)
-            if typ == bool:
-                filters[key] = val == "1"
-            elif typ == int:
-                try:
-                    filters[key] = int(val)
-                except (ValueError, TypeError):
-                    filters[key] = None
-            else:
-                filters[key] = val if val is not None else None
-
-        print(f"[DEBUG] Parsed filters: {filters}")
-
-        try:
-            query = config["filter_func"](query, filters)
-            print("[DEBUG] Filter function applied successfully")
-        except Exception as e:
-            print(f"[ERROR] Exception during filter_func application: {e}")
-            session.close()
-            raise
+        print(f"[DEBUG] URL parameters (request.args): {dict(get_data)}")
 
         try:
             data_list = query.all()
@@ -1991,9 +1985,9 @@ def create_aggregate_view(view_id):
             "title": config["title"],
             "column_labels": column_labels,
             "row_data": row_data,
-            "filters": filters,
             "url_for_view": request.endpoint and url_for(request.endpoint, aggregate_name=view_id),
             "filter_config": filter_config,
+            "url_params": dict(get_data),  # URL-Parameter für Template verfügbar machen
         }
 
         if "extra_context_func" in config:
@@ -2011,6 +2005,7 @@ def create_aggregate_view(view_id):
         return render_template("aggregate_view.html", **ctx)
 
     return view_func
+
 
 @app.route("/aggregate/<string:aggregate_name>")
 @login_required

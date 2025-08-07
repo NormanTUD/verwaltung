@@ -5,27 +5,24 @@
 
 		<div class="filter-box">
 			<form method="get">
-				{% for label, (typ, param) in filter_config.items() %}
+				{% for label, (typ, param, val) in filter_config.items() %}
 					<div>
-						<label>
-							<input type="checkbox" name="_use_filter_{{ param }}" {% if filters.get(label) is not none %}checked{% endif %}>
-							{{ label.replace('_filter', '').replace('_', ' ')|capitalize }}
-						</label>
-
 						{% if typ == bool %}
 							<!-- Kein Eingabefeld bei boolean-Filter nötig -->
 						{% elif typ == int or typ == float or typ == str %}
 							<input
 								type="text"
-								name="{{ param }}"
-								value="{{ filters[label] if filters[label] is not none else '' }}"
+								name="{{ label }}"
+								placeholder="{{ label }}"
+								value="{{ val if val is not none else '' }}"
 								style="background-color: rgb(26, 32, 44); color: rgb(247, 250, 252); border: 1px solid rgb(61, 174, 233);"
 							>
 						{% else %}
 							<input
 								type="text"
-								name="{{ param }}"
-								value="{{ filters[label] if filters[label] is not none else '' }}"
+								name="{{ label }}"
+								placeholder="{{ label }}"
+								value="{{ val if val is not none else '' }}"
 								style="background-color: rgb(26, 32, 44); color: rgb(247, 250, 252); border: 1px solid rgb(61, 174, 233);"
 							>
 						{% endif %}
