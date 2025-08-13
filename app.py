@@ -1,3 +1,7 @@
+# TOOD: neue person:
+# - welches sekretariat? (person, sekretariat fremder professur, kann leer sein)
+# - welcher PI? welcher abteilungsleiter?
+
 import argparse
 import sys
 import traceback
