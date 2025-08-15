@@ -1,0 +1,24 @@
+<div class="entity-table" data-entity-id="{{entity_id}}">
+  <h4>{{entity_name}}</h4>
+  <table>
+    <thead>
+      <tr>
+        {% for col in columns %}
+        <th>{{ col }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        {% for col in columns %}
+        <td>{{ row.get(col, "") }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="dropzone" data-entity-id="{{entity_id}}">
+    Drop new columns here
+  </div>
+</div>
