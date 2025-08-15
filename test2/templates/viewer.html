@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+<head><title>Viewer: {{entity}}</title></head>
+<body>
+<h1>Viewer for {{entity}}</h1>
+<pre id="data"></pre>
+<script>
+async function loadData() {
+    let res = await fetch(`/api/data/{{entity}}`);
+    let data = await res.json();
+    document.getElementById("data").textContent = JSON.stringify(data, null, 2);
+}
+loadData();
+</script>
+</body>
+</html>

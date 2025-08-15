@@ -1,0 +1,17 @@
+<!doctype html>
+<html>
+<head><title>Entity Manager</title></head>
+<body>
+<h1>Entities</h1>
+<div id="entities"></div>
+<button onclick="location.href='/wizard/person'">Wizard Example</button>
+<script>
+async function loadEntities() {
+    let res = await fetch("/api/entities");
+    let data = await res.json();
+    document.getElementById("entities").innerHTML = JSON.stringify(data, null, 2);
+}
+loadEntities();
+</script>
+</body>
+</html>

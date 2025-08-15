@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head><title>Wizard: {{entity}}</title></head>
+<body>
+<h1>Wizard for {{entity}}</h1>
+<form id="dataForm">
+    <!-- Dynamically load fields -->
+</form>
+<script>
+async function loadFields() {
+    let res = await fetch("/api/entities");
+    let entities = await res.json();
+    let entity = entities.find(e => e._key === "{{entity}}");
+    let form = document.getElementById("dataForm");
+    entity.fields.forEach(f => {
+        let input = document.createElement("input");
+        input.name = f.name;
+        input.placeholder = f.name;
+        form.appendChild(input);
+        form.appendChild(document.createElement("br"));
+    });
+    let btn = document.createElement("button");
+    btn.textContent = "Submit";
+    btn.onclick = async e => {
+        e.preventDefault();
+        let payload = {};
+        entity.fields.forEach(f => payload[f.name] = form.elements[f.name].value);
+        await fetch(`/api/data/{{entity}}`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(payload)
+        });
+        alert("Saved!");
+    };
+    form.appendChild(btn);
+}
+loadFields();
+</script>
+</body>
+</html>
