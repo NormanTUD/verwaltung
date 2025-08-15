@@ -1,3 +1,8 @@
+# TOOD: neue person:
+# - welches sekretariat? (person, sekretariat fremder professur, kann leer sein)
+# - verschiedene kostenstellen pro alles wo kostenstellen sind (drittmittelprojekte)
+# - welcher PI? welcher abteilungsleiter?
+
 import argparse
 import sys
 import traceback
