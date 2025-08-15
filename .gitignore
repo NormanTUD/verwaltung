@@ -9,3 +9,4 @@ database.db
 .env
 flaskenv
 .verwaltung_venv/
+venv
