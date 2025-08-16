@@ -8,26 +8,16 @@
 <body class="p-5">
     <h1>Node Types</h1>
     <p>Hier kannst du neue Node-Typen erstellen:</p>
-    <form id="create-node-type">
-        <input type="text" placeholder="Name des Node-Typs" id="node-type-name">
-        <button type="submit">Erstellen</button>
+    <form id="create-node-type" method="post">
+        <input type="text" placeholder="Name des Node-Typs" name="node_type_name" required>
+        <button type="submit" class="btn btn-primary">Erstellen</button>
     </form>
-    {% if message %}<p>{{ message }}</p>{% endif %}
+    {% if message %}<p class="mt-3">{{ message }}</p>{% endif %}
 
-    <h2>Beispiel-Typen</h2>
+    <h2 class="mt-4">Beispiel-Typen</h2>
     <ul>
         <li><a href="/nodes/Person">Person</a></li>
         <li><a href="/nodes/Gebaeude">Gebäude</a></li>
     </ul>
-
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-        $("#create-node-type").on("submit", function(e){
-            e.preventDefault();
-            let name = $("#node-type-name").val();
-            alert("Node-Type '"+name+"' erstellt (Demo, noch keine DB-Logik).");
-        });
-    </script>
 </body>
 </html>
-
