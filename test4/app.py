@@ -1,54 +1,73 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, jsonify, request
 from neo4j import GraphDatabase
 
 app = Flask(__name__)
-driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "test"))
+driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "test123"))
 
-def run_cypher(query, params=None):
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+# Node-Editor für einen Type
+@app.route("/nodes/<node_type>")
+def node_editor(node_type):
+    return render_template("node_editor.html", node_type=node_type)
+
+# API: Nodes abrufen
+@app.route("/api/nodes/<node_type>")
+def get_nodes(node_type):
     with driver.session() as session:
-        return [dict(r) for r in session.run(query, params or {})]
+        result = session.run(f"MATCH (n:{node_type}) RETURN n")
+        nodes = [record["n"] for record in result]
+        return jsonify(nodes)
 
-# Node-Typ erstellen
-@app.route('/create_node_type', methods=['POST'])
-def create_node_type():
+# API: Node aktualisieren
+@app.route("/api/nodes/<node_type>/<node_id>", methods=["POST"])
+def update_node(node_type, node_id):
     data = request.json
-    name = data['name']
-    props = data['properties']  # {"vorname":"str", "alter":"int"}
-    # Wir speichern den Node-Type in Neo4j als Metadaten-Knoten
-    run_cypher("MERGE (t:NodeType {name:$name}) SET t.props=$props", {"name": name, "props": props})
-    return jsonify(success=True)
+    with driver.session() as session:
+        set_stmt = ", ".join([f"n.{k}=$props.{k}" for k in data.keys()])
+        session.run(f"MATCH (n:{node_type} {{id:$id}}) SET {set_stmt}", props=data, id=node_id)
+    return jsonify({"status": "ok"})
 
-# Node erstellen
-@app.route('/create_node', methods=['POST'])
-def create_node():
+def get_nodes(node_type):
+    with driver.session() as session:
+        result = session.run(f"MATCH (n:{node_type}) RETURN id(n) as id, n")
+        nodes = []
+        for record in result:
+            nodes.append({
+                "id": record["id"],
+                "properties": dict(record["n"])
+            })
+        return nodes
+
+def update_node(node_type, node_id, data):
+    with driver.session() as session:
+        set_str = ", ".join([f"n.{k} = $props.{k}" for k in data.keys()])
+        session.run(f"MATCH (n:{node_type}) WHERE id(n)=$id SET {set_str}", id=int(node_id), props=data)
+
+@app.route("/api/nodes/<node_type>")
+def api_get_nodes(node_type):
+    nodes = get_nodes(node_type)
+    return jsonify(nodes)
+
+@app.route("/api/nodes/<node_type>/<int:node_id>", methods=["POST"])
+def api_update_node(node_type, node_id):
     data = request.json
-    label = data['label']
-    props = data['properties']
-    prop_str = ", ".join([f"{k}: ${k}" for k in props.keys()])
-    cypher = f"CREATE (n:{label} {{ {prop_str} }}) RETURN n"
-    run_cypher(cypher, props)
-    return jsonify(success=True)
+    update_node(node_type, node_id, data)
+    return jsonify({"status": "ok"})
 
-# Alle Nodes eines Typs
-@app.route('/get_nodes/<label>')
-def get_nodes(label):
-    rows = run_cypher(f"MATCH (n:{label}) RETURN n")
-    return jsonify(rows)
+@app.route("/node_types", methods=["GET", "POST"])
+def node_types():
+    if request.method == "POST":
+        node_type_name = request.form.get("node_type_name")
+        if node_type_name:
+            with driver.session() as session:
+                # Dummy-Node anlegen (damit Label existiert)
+                session.run(f"CREATE (n:{node_type_name}) RETURN id(n)")
+        return render_template("node_types.html", message=f"Node-Type '{node_type_name}' erstellt")
+    return render_template("node_types.html", message="")
 
-# Property update
-@app.route('/update_node', methods=['POST'])
-def update_node():
-    data = request.json
-    label = data['label']
-    node_id = data['id']
-    prop = data['property']
-    value = data['value']
-    run_cypher(f"""
-        MATCH (n:{label})
-        WHERE id(n) = $id
-        SET n.{prop} = $value
-    """, {"id": node_id, "value": value})
-    return jsonify(success=True)
+if __name__ == "__main__":
+    app.run(debug=True)
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=True)
