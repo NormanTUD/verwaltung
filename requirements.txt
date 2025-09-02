@@ -13,3 +13,5 @@ sqlalchemy_schemadisplay
 sqlalchemy_utils
 inflect
 pandas
+flask_admin
+wtforms-sqlalchemy
