@@ -1,5 +1,18 @@
 from datetime import datetime
+from typing import Optional, Dict, Any, Type, List
+from sqlalchemy import (create_engine, Column, Integer, String, Text, ForeignKey, Date, Float, TIMESTAMP, UniqueConstraint, Table, Boolean, Index)
+from sqlalchemy.orm.util import AliasedClass
+from sqlalchemy.inspection import inspect
+from sqlalchemy.exc import NoInspectionAvailable
+from sqlalchemy.orm import declarative_base, relationship, Session, class_mapper, RelationshipProperty, aliased, joinedload
+from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy_continuum import make_versioned, TransactionFactory, version_class
+from sqlalchemy.orm import configure_mappers
+from sqlalchemy.orm import DeclarativeBase
+
+make_versioned(user_cls=None)
+
 
 db = SQLAlchemy()
 
