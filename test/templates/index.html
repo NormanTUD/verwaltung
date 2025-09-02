@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dynamic Tables</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+<script src="/static/js/tables.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; }
+  .table-container { display: flex; gap: 20px; flex-wrap: wrap; }
+  .entity-table { border: 1px solid #ccc; padding: 10px; width: 300px; }
+  .entity-table th, .entity-table td { padding: 5px; border: 1px solid #aaa; }
+  .column { background: #f0f0f0; margin: 2px; padding: 2px; cursor: grab; }
+  .dropzone { border: 2px dashed #888; min-height: 50px; padding: 5px; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Dynamic Tables / Virtual Entities</h1>
+<div class="table-container" id="tables"></div>
+
+<h3>Add Column</h3>
+<form id="add-column-form">
+  Entity: <select id="entity-select"></select>
+  Column Name: <input type="text" id="column-name">
+  Reference Entity (optional): <select id="ref-entity-select"></select>
+  <button type="submit">Add Column</button>
+</form>
+
+</body>
+</html>
