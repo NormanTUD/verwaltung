@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional, Dict, Any, Type, List
 from sqlalchemy import (create_engine, Column, Integer, String, Text, ForeignKey, Date, Float, TIMESTAMP, UniqueConstraint, Table, Boolean, Index)
 from sqlalchemy.orm.util import AliasedClass
