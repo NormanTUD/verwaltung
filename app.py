@@ -1472,9 +1472,9 @@ def add_entry(table_name):
             if val == "":
                 setattr(obj, field, None)
             elif isinstance(col_type, Date):
-                setattr(obj, field, datetime.datetime.strptime(val, "%Y-%m-%d").date())
+                setattr(obj, field, datetime.strptime(val, "%Y-%m-%d").date())
             elif isinstance(col_type, DateTime):
-                setattr(obj, field, datetime.datetime.fromisoformat(val))
+                setattr(obj, field, datetime.fromisoformat(val))
             else:
                 setattr(obj, field, val)
 
@@ -1519,9 +1519,9 @@ def update_entry(table_name):
         if value == "":
             setattr(obj, field, None)
         elif isinstance(col_type, Date):
-            setattr(obj, field, datetime.datetime.strptime(value, "%Y-%m-%d").date())
+            setattr(obj, field, datetime.strptime(value, "%Y-%m-%d").date())
         elif isinstance(col_type, DateTime):
-            setattr(obj, field, datetime.datetime.fromisoformat(value))
+            setattr(obj, field, datetime.fromisoformat(value))
         else:
             setattr(obj, field, value)
         session.commit()
@@ -2374,9 +2374,9 @@ def convert_datetime_value(field, value):
     if value is None:
         return None
     if field.get("type") == "date":
-        return datetime.datetime.strptime(value, "%Y-%m-%d").date()
+        return datetime.strptime(value, "%Y-%m-%d").date()
     if field.get("type") == "datetime-local":
-        return datetime.datetime.strptime(value, "%Y-%m-%dT%H:%M")
+        return datetime.strptime(value, "%Y-%m-%dT%H:%M")
     return value
 
 def get_json_safe_config(wizard):
@@ -4103,7 +4103,7 @@ def get_versions():
         versions = []
         for t in transactions:
             timestamp_iso = None
-            if hasattr(t, "issued_at") and isinstance(t.issued_at, datetime.datetime):
+            if hasattr(t, "issued_at") and isinstance(t.issued_at, datetime):
                 timestamp_iso = t.issued_at.isoformat()
 
             versions.append({
