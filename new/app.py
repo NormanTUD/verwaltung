@@ -12,17 +12,11 @@ from flask_admin.form import Select2Widget
 from wtforms.validators import Optional as OptionalValidator
 from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
 
-# -------------------------
-# Flask Setup
-# -------------------------
 app = Flask(__name__)
 app.secret_key = "irgendein_langes_geheimes_string_passwort"
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///test.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-# -------------------------
-# Models
-# -------------------------
 from db_defs import *
 
 class AutoModelView(ModelView):
@@ -150,27 +144,18 @@ class AutoModelView(ModelView):
         return factory
 
 
-# -------------------------
-# Admin Setup
-# -------------------------
 admin = Admin(app, name="DB Verwaltung", template_mode="bootstrap4", base_template="admin_base.html")
 
 for mapper in db.Model.registry.mappers:
     model = mapper.class_
     admin.add_view(AutoModelView(model, db.session))
 
-# -------------------------
-# Dynamische Startseite
-# -------------------------
 @app.route("/")
 def index():
     tables = [{"name": view.name, "url": view.url} for view in admin._views]
     return render_template("index.html", tables=tables)
 
 
-# -------------------------
-# Run App
-# -------------------------
 if __name__ == "__main__":
     with app.app_context():
         db.init_app(app)
