@@ -10,6 +10,7 @@ from wtforms import IntegerField, FloatField
 from wtforms_sqlalchemy.fields import QuerySelectField
 from flask_admin.form import Select2Widget
 from wtforms.validators import Optional as OptionalValidator
+from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
 
 # -------------------------
 # Flask Setup
@@ -24,14 +25,21 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # -------------------------
 from db_defs import *
 
+from flask_admin.contrib.sqla import ModelView
+from sqlalchemy.orm import class_mapper
+from wtforms import IntegerField, FloatField
+from wtforms.validators import Optional as OptionalValidator
+from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
+from flask_admin.form import Select2Widget
+
 class AutoModelView(ModelView):
-    """Automatisch alle Spalten + FK Dropdowns via QuerySelectField"""
+    """Automatisch alle Spalten + FK Dropdowns via QuerySelectField / QuerySelectMultipleField"""
 
     can_create = True
-    can_edit = True   # <-- Damit Edit-Button angezeigt wird
+    can_edit = True
     can_delete = True
-    column_display_pk = True  # ID in List View optional sichtbar
-    form_excluded_columns = ["id"]  # ID im Formular nicht bearbeiten
+    column_display_pk = True
+    form_excluded_columns = ["id"]
 
     def __init__(self, model, session, **kwargs):
         print(f"[DEBUG] Initializing AutoModelView for model: {model.__name__}")
@@ -45,10 +53,11 @@ class AutoModelView(ModelView):
         ]
         self.form_extra_fields = {}
 
-        # Many-to-One Beziehungen → Dropdowns
+        # Beziehungen
         for rel in class_mapper(model).relationships:
+            name = rel.key
+
             if rel.direction.name == "MANYTOONE":
-                name = rel.key
                 if name not in self.form_columns:
                     self.form_columns.append(name)
                 self.form_extra_fields[name] = QuerySelectField(
@@ -59,15 +68,29 @@ class AutoModelView(ModelView):
                     blank_text="-- Keine --",
                     widget=Select2Widget()
                 )
+            elif rel.direction.name == "MANYTOMANY":
+                if name not in self.form_columns:
+                    self.form_columns.append(name)
+                self.form_extra_fields[name] = QuerySelectMultipleField(
+                    label=name.capitalize(),
+                    query_factory=self._make_query_factory(rel, session),
+                    get_label=lambda obj: str(obj),
+                    widget=Select2Widget(multiple=True)
+                )
 
-        # Numerische Spalten (Integer & Float)
+        # Numerische Spalten
         for col in class_mapper(model).columns:
-            if col.type.python_type == int and col.key != "id":
+            try:
+                col_type = col.type.python_type
+            except NotImplementedError:
+                continue  # manche Column-Typen haben kein python_type
+
+            if col_type == int and col.key != "id":
                 self.form_extra_fields[col.key] = IntegerField(
                     col.key.capitalize(),
                     validators=[OptionalValidator()]
                 )
-            elif col.type.python_type == float:
+            elif col_type == float:
                 self.form_extra_fields[col.key] = FloatField(
                     col.key.capitalize(),
                     validators=[OptionalValidator()]
@@ -81,7 +104,6 @@ class AutoModelView(ModelView):
 
         for col in class_mapper(model).columns:
             if col.key.endswith("_id"):
-                # FK wird ersetzt durch Relation
                 rel_name = col.key[:-3]
                 if hasattr(model, rel_name):
                     self.column_list.append(rel_name)
@@ -89,10 +111,13 @@ class AutoModelView(ModelView):
             else:
                 self.column_list.append(col.key)
 
-        # Boolean-Felder als Checkbox anzeigen
+        # Boolean-Felder als Checkbox
         for col in class_mapper(model).columns:
-            if col.type.python_type == bool:
-                self.column_formatters[col.key] = lambda v, c, m, n: "✔" if getattr(m, n) else "✘"
+            try:
+                if col.type.python_type == bool:
+                    self.column_formatters[col.key] = lambda v, c, m, n: "✔" if getattr(m, n) else "✘"
+            except NotImplementedError:
+                continue
 
         super().__init__(model, session, **kwargs)
 
