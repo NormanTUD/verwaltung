@@ -143,7 +143,6 @@ class AutoModelView(ModelView):
             return result
         return factory
 
-
 admin = Admin(app, name="DB Verwaltung", template_mode="bootstrap4", base_template="admin_base.html")
 
 for mapper in db.Model.registry.mappers:
