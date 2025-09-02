@@ -102,8 +102,6 @@ class AutoModelView(ModelView):
     def _make_query_factory(rel, session):
         return lambda rel=rel: session.query(rel.mapper.class_).all()
 
-db.init_app(app)
-
 # -------------------------
 # Admin Setup
 # -------------------------
@@ -126,4 +124,8 @@ def index():
 # Run App
 # -------------------------
 if __name__ == "__main__":
+    with app.app_context():
+        db.init_app(app)
+        Base.metadata.create_all(db.engine)
+
     app.run(debug=True)
