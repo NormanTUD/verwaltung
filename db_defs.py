@@ -54,6 +54,12 @@ class User(UserMixin, Base):
         back_populates="users"
     )
 
+    def __repr__(self):
+        status = "active" if self.is_active else "inactive"
+        readonly_flag = "readonly" if self.readonly else "editable"
+        roles = ", ".join([role.name for role in self.roles]) if self.roles else "no roles"
+        return f"User: {self.username} ({status}, {readonly_flag}, Roles: {roles})"
+
 class Role(Base):
     __tablename__ = 'role'
     id = Column(Integer, primary_key=True)
@@ -64,6 +70,10 @@ class Role(Base):
         secondary=User.user_roles,  # oder: 'user_roles' falls global definiert
         back_populates="roles"
     )
+
+    def __repr__(self):
+        user_list = ", ".join([user.username for user in self.users]) if self.users else "no users"
+        return f"Role: {self.name} (Users: {user_list})"
 
 class Person(Base):
     __tablename__ = "person"
@@ -105,6 +115,12 @@ class Person(Base):
         UniqueConstraint("title", "vorname", "nachname", name="uq_person_name_title"),
     )
 
+    def __repr__(self):
+        return (
+            f"{self.title or ''} {self.vorname or ''} {self.nachname or ''}".strip() +
+            (f" – {self.kommentar}" if self.kommentar else "")
+        )
+
 class PersonContact(Base):
     __tablename__ = "person_contact"
     __versioned__: dict = {}
@@ -123,6 +139,17 @@ class PersonContact(Base):
         Index("ix_person_contact_person_id", "person_id"),
         Index("ix_person_contact_email", "email"),
     )
+
+    def __repr__(self):
+        parts = []
+        if self.phone:
+            parts.append(f"Phone: {self.phone}")
+        if self.fax:
+            parts.append(f"Fax: {self.fax}")
+        if self.email:
+            parts.append(f"Email: {self.email}")
+        contact_info = ", ".join(parts) if parts else "No contact info"
+        return f"PersonContact(id={self.id}, {contact_info})"
 
 class Abteilung(Base):
     __tablename__ = "abteilung"
@@ -147,6 +174,11 @@ class Abteilung(Base):
         UniqueConstraint("name", name="uq_abteilung_name"),
     )
 
+    def __repr__(self):
+        leiter_name = f"{self.leiter.vorname} {self.leiter.nachname}" if self.leiter else "None"
+        vertreter_name = f"{self.vertretung.vorname} {self.vertretung.nachname}" if self.vertretung else "None"
+        return f"Abteilung(id={self.id}, name='{self.name}', leiter={leiter_name}, vertreter={vertreter_name})"
+
 class PrincipalInvestigatorToAbteilung(Base):
     __tablename__ = "principal_investigator_to_abteilung"
     __versioned__: dict = {}
@@ -161,6 +193,12 @@ class PrincipalInvestigatorToAbteilung(Base):
         UniqueConstraint("person_id", "abteilung_id", name="uq_pi_to_abteilung"),
     )
 
+    def __repr__(self):
+        person_name = f"{self.person.vorname} {self.person.nachname}" if self.person else "None"
+        abteilung_name = self.abteilung.name if self.abteilung else "None"
+        return f"PrincipalInvestigatorToAbteilung(id={self.id}, person={person_name}, abteilung={abteilung_name})"
+
+
 class PersonToAbteilung(Base):
     __tablename__ = "person_to_abteilung"
     __versioned__: dict = {}
@@ -174,6 +212,11 @@ class PersonToAbteilung(Base):
     __table_args__ = (
         UniqueConstraint("person_id", "abteilung_id", name="uq_person_to_abteilung"),
     )
+
+    def __repr__(self):
+        person_name = f"{self.person.vorname} {self.person.nachname}" if self.person else "None"
+        abteilung_name = self.abteilung.name if self.abteilung else "None"
+        return f"PersonToAbteilung(id={self.id}, person={person_name}, abteilung={abteilung_name})"
 
 class Kostenstelle(Base):
     __tablename__ = "kostenstelle"
@@ -192,6 +235,10 @@ class Kostenstelle(Base):
         UniqueConstraint("name", name="uq_kostenstelle_name"),
         UniqueConstraint("professur_id", name="uq_professur"),
     )
+
+    def __repr__(self):
+        professur_name = self.professuren[0].name if self.professuren else "None"
+        return f"Kostenstelle(id={self.id}, name={self.name}, professur={professur_name})"
 
 
 class Professur(Base):
@@ -217,6 +264,10 @@ class Professur(Base):
         UniqueConstraint("kostenstelle_id", "name", name="uq_professur_per_kostenstelle"),
     )
 
+    def __repr__(self):
+        kostenstelle_name = self.kostenstelle.name if self.kostenstelle else "None"
+        return f"Professur(id={self.id}, name={self.name}, kostenstelle={kostenstelle_name})"
+
 class ProfessurToPerson(Base):
     __tablename__ = "professur_to_person"
     __versioned__: dict = {}
@@ -230,6 +281,11 @@ class ProfessurToPerson(Base):
         UniqueConstraint("person_id", "professur_id", name="uq_professur_to_person"),
     )
 
+    def __repr__(self):
+        professur_name = self.professur.name if self.professur else "None"
+        person_name = f"{self.person.vorname} {self.person.nachname}" if self.person else "None"
+        return f"ProfessurToPerson(id={self.id}, professur={professur_name}, person={person_name})"
+
 class Building(Base):
     __tablename__ = "building"
     __versioned__: dict = {}
@@ -238,6 +294,9 @@ class Building(Base):
     gebäudenummer = Column(Text)
     abkürzung = Column(Text)
     räume = relationship("Raum", back_populates="building")
+
+    def __repr__(self):
+        return f"Building(id={self.id}, name='{self.name}', gebäudenummer='{self.gebäudenummer}', abkürzung='{self.abkürzung}')"
 
 class Raum(Base):
     __tablename__ = "room"
@@ -260,6 +319,10 @@ class Raum(Base):
         Index("ix_room_guid", "guid"),
     )
 
+    def __repr__(self):
+        building_name = self.building.name if self.building else None
+        return f"Raum(id={self.id}, name='{self.name}', etage={self.etage}, building='{building_name}', guid='{self.guid}')"
+
 class PersonToRaum(Base):
     __tablename__ = "person_to_room"
     __versioned__: dict = {}
@@ -276,6 +339,11 @@ class PersonToRaum(Base):
         Index("ix_person_to_room_person_id", "person_id"),
         Index("ix_person_to_room_raum_id", "raum_id"),
     )
+
+    def __repr__(self):
+        person_name = f"{self.person.vorname} {self.person.nachname}" if self.person else None
+        room_name = self.room.name if self.room else None
+        return f"PersonToRaum(id={self.id}, person='{person_name}', room='{room_name}', x={self.x}, y={self.y})"
 
 class Transponder(Base):
     __tablename__ = "transponder"
@@ -297,6 +365,15 @@ class Transponder(Base):
         Index("ix_transponder_ausgeber_id", "ausgeber_id"),
     )
 
+    def __repr__(self):
+        ausgeber_name = f"{self.ausgeber.vorname} {self.ausgeber.nachname}" if self.ausgeber else None
+        besitzer_name = f"{self.besitzer.vorname} {self.besitzer.nachname}" if self.besitzer else None
+        return (
+            f"Transponder(id={self.id}, seriennummer='{self.seriennummer}', "
+            f"ausgeber='{ausgeber_name}', besitzer='{besitzer_name}', "
+            f"erhaltungsdatum={self.erhaltungsdatum}, rückgabedatum={self.rückgabedatum})"
+        )
+
 class TransponderToRaum(Base):
     __tablename__ = "transponder_to_room"
     __versioned__: dict = {}
@@ -312,11 +389,19 @@ class TransponderToRaum(Base):
         Index("ix_transponder_to_room_raum_id", "raum_id"),
     )
 
+    def __repr__(self):
+        transponder_sn = self.transponder.seriennummer if self.transponder else None
+        raum_name = self.room.name if self.room else None
+        return f"TransponderToRaum(id={self.id}, transponder='{transponder_sn}', raum='{raum_name}')"
+
+
 class ObjectKategorie(Base):
     __tablename__ = "object_kategorie"
     id = Column(Integer, primary_key=True)
     name = Column(Text)
-    # keine relationship hier
+
+    def __repr__(self):
+        return f"ObjectKategorie(id={self.id}, name='{self.name}')"
 
 class Object(Base):
     __tablename__ = "object"
@@ -325,6 +410,11 @@ class Object(Base):
     preis = Column(Float)
     kategorie_id = Column(Integer, ForeignKey("object_kategorie.id", ondelete="SET NULL"))
     kategorie = relationship("ObjectKategorie")
+
+    def __repr__(self):
+        kategorie_name = self.kategorie.name if self.kategorie else None
+        return f"Object(id={self.id}, name='{self.name}', preis={self.preis}, kategorie='{kategorie_name}')"
+
 
 class Lager(Base):
     __tablename__ = "lager"
@@ -338,6 +428,9 @@ class Lager(Base):
         UniqueConstraint("raum_id", name="uq_lager_raum"),
     )
 
+    def __repr__(self):
+        return f"Lager(id={self.id}, name='{self.name}', raum_id={self.raum_id})"
+
 class ObjectToLager(Base):
     __tablename__ = "object_to_lager"
     __versioned__: dict = {}
@@ -348,6 +441,9 @@ class ObjectToLager(Base):
     __table_args__ = (
         UniqueConstraint("object_id", "lager_id", name="uq_object_to_lager"),
     )
+
+    def __repr__(self):
+        return f"ObjectToLager(id={self.id}, object_id={self.object_id}, lager_id={self.lager_id})"
 
 class Inventar(Base):
     __tablename__ = "inventory"
@@ -387,6 +483,13 @@ class Inventar(Base):
         Index("ix_inventory_abteilung_id", "abteilung_id"),
     )
 
+    def __repr__(self):
+        return (
+            f"Inventar(id={self.id}, inventarnummer={self.inventarnummer!r}, anlagennummer={self.anlagennummer!r}, "
+            f"object={self.object.name if self.object else None!r}, besitzer={self.besitzer.nachname if self.besitzer else None!r}, "
+            f"raum={self.room.name if self.room else None!r}, preis={self.preis})"
+        )
+
 class RaumLayout(Base):
     __tablename__ = "room_layout"
     __versioned__: dict = {}
@@ -403,6 +506,13 @@ class RaumLayout(Base):
         UniqueConstraint("raum_id", name="uq_raum_id"),
         UniqueConstraint("raum_id", "x", "y", "width", "height", name="uq_raum_id_x_y_width_height"),
     )
+
+    def __repr__(self):
+        return (
+            f"RaumLayout(id={self.id}, raum={self.room.name if self.room else None!r}, "
+            f"x={self.x}, y={self.y}, width={self.width}, height={self.height})"
+        )
+
 
 class Loan(Base):
     __tablename__ = "loan"
@@ -425,6 +535,15 @@ class Loan(Base):
         Index("ix_loan_rückgabedatum", "rückgabedatum"),
     )
 
+    def __repr__(self):
+        return (
+            f"Loan(id={self.id}, besitzer={self.person.nachname if self.person else None}, "
+            f"ausgeber={self.ausgeber.nachname if self.ausgeber else None}, "
+            f"leihdatum={self.leihdatum}, rückgabedatum={self.rückgabedatum}, "
+            f"kommentar={self.kommentar!r})"
+        )
+
+
 class ObjectToLoan(Base):
     __tablename__ = "object_to_loan"
     __versioned__: dict = {}
@@ -440,3 +559,11 @@ class ObjectToLoan(Base):
         Index("ix_object_to_loan_object_id", "object_id"),
     )
 
+    def __repr__(self):
+        return (
+            f"ObjectToLoan(id={self.id}, "
+            f"loan_id={self.loan_id}, "
+            f"object_name={self.object.name if self.object else None})"
+        )
+
+db = SQLAlchemy(model_class=Base)
