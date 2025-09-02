@@ -30,20 +30,17 @@ from sqlalchemy.orm import class_mapper
 from wtforms import IntegerField, FloatField
 from wtforms.validators import Optional as OptionalValidator
 from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
-from flask_admin.form import Select2Widget
 
 from flask_admin.contrib.sqla import ModelView
 from sqlalchemy.orm import class_mapper
 from wtforms import IntegerField, FloatField
 from wtforms.validators import Optional as OptionalValidator
 from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
-from flask_admin.form import Select2Widget
 from flask_admin.contrib.sqla import ModelView
 from sqlalchemy.orm import class_mapper
 from wtforms import IntegerField, FloatField
 from wtforms.validators import Optional as OptionalValidator
 from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
-from flask_admin.form import Select2Widget
 
 class AutoModelView(ModelView):
     """Automatisch alle Spalten + FK Dropdowns via QuerySelectField / QuerySelectMultipleField"""
