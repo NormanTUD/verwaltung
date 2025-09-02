@@ -32,6 +32,19 @@ from wtforms.validators import Optional as OptionalValidator
 from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
 from flask_admin.form import Select2Widget
 
+from flask_admin.contrib.sqla import ModelView
+from sqlalchemy.orm import class_mapper
+from wtforms import IntegerField, FloatField
+from wtforms.validators import Optional as OptionalValidator
+from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
+from flask_admin.form import Select2Widget
+from flask_admin.contrib.sqla import ModelView
+from sqlalchemy.orm import class_mapper
+from wtforms import IntegerField, FloatField
+from wtforms.validators import Optional as OptionalValidator
+from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
+from flask_admin.form import Select2Widget
+
 class AutoModelView(ModelView):
     """Automatisch alle Spalten + FK Dropdowns via QuerySelectField / QuerySelectMultipleField"""
 
@@ -44,53 +57,70 @@ class AutoModelView(ModelView):
     def __init__(self, model, session, **kwargs):
         print(f"[DEBUG] Initializing AutoModelView for model: {model.__name__}")
 
-        # -----------------------------
-        # FORM
-        # -----------------------------
         self.form_columns = [
             c.key for c in class_mapper(model).columns
             if c.key != "id" and not c.key.endswith("_id")
         ]
         self.form_extra_fields = {}
 
-        # Beziehungen
+        # -----------------------------
+        # Beziehungen debug
+        # -----------------------------
         for rel in class_mapper(model).relationships:
+            print(f"[DEBUG] Processing relationship: {rel.key}, direction={rel.direction.name}")
             name = rel.key
+
+            factory = self._make_query_factory(rel, session)
+            print(f"[DEBUG] Query factory for {name}: {factory}")
 
             if rel.direction.name == "MANYTOONE":
                 if name not in self.form_columns:
                     self.form_columns.append(name)
-                self.form_extra_fields[name] = QuerySelectField(
-                    label=name.capitalize(),
-                    query_factory=self._make_query_factory(rel, session),
-                    get_label=lambda obj: str(obj),
-                    allow_blank=True,
-                    blank_text="-- Keine --",
-                    widget=Select2Widget()
-                )
+                try:
+                    self.form_extra_fields[name] = QuerySelectField(
+                        label=name.capitalize(),
+                        query_factory=factory,
+                        get_label=lambda obj: str(obj),
+                        allow_blank=True,
+                        blank_text="-- Keine --",
+                        widget=Select2Widget()
+                    )
+                    print(f"[DEBUG] Created MANYTOONE QuerySelectField for {name}")
+                except Exception as e:
+                    print(f"[ERROR] Failed to create MANYTOONE field {name}: {e}")
             elif rel.direction.name == "MANYTOMANY":
                 if name not in self.form_columns:
                     self.form_columns.append(name)
-                self.form_extra_fields[name] = QuerySelectMultipleField(
-                    label=name.capitalize(),
-                    query_factory=self._make_query_factory(rel, session),
-                    get_label=lambda obj: str(obj),
-                    widget=Select2Widget(multiple=True)
-                )
+                try:
+                    self.form_extra_fields[name] = QuerySelectMultipleField(
+                        label=name.capitalize(),
+                        query_factory=factory,
+                        get_label=lambda obj: str(obj),
+                        widget=Select2Widget(multiple=True)
+                    )
+                    print(f"[DEBUG] Created MANYTOMANY QuerySelectMultipleField for {name}")
+                except Exception as e:
+                    print(f"[ERROR] Failed to create MANYTOMANY field {name}: {type(e).__name__}: {e}")
 
-        # Numerische Spalten
+
+        # -----------------------------
+        # Numerische Spalten debug
+        # -----------------------------
         for col in class_mapper(model).columns:
             try:
                 col_type = col.type.python_type
             except NotImplementedError:
-                continue  # manche Column-Typen haben kein python_type
+                print(f"[DEBUG] Column {col.key} has no python_type, skipping")
+                continue
 
             if col_type == int and col.key != "id":
+                print(f"[DEBUG] Adding IntegerField for {col.key}")
                 self.form_extra_fields[col.key] = IntegerField(
                     col.key.capitalize(),
                     validators=[OptionalValidator()]
                 )
             elif col_type == float:
+                print(f"[DEBUG] Adding FloatField for {col.key}")
                 self.form_extra_fields[col.key] = FloatField(
                     col.key.capitalize(),
                     validators=[OptionalValidator()]
@@ -111,7 +141,7 @@ class AutoModelView(ModelView):
             else:
                 self.column_list.append(col.key)
 
-        # Boolean-Felder als Checkbox
+        # Boolean-Felder
         for col in class_mapper(model).columns:
             try:
                 if col.type.python_type == bool:
@@ -128,7 +158,17 @@ class AutoModelView(ModelView):
 
     @staticmethod
     def _make_query_factory(rel, session):
-        return lambda rel=rel: session.query(rel.mapper.class_).all()
+        """Return a function for query_factory to avoid WTForms 'tuple' bug"""
+        def factory():
+            result = session.query(rel.mapper.class_).all()
+            print(f"[DEBUG] Query factory result for {rel.key}: {result}")
+            # Sicherheit: falls Tuple, in Liste umwandeln
+            if isinstance(result, tuple):
+                print(f"[WARN] result is tuple, converting to list")
+                result = list(result)
+            return result
+        return factory
+
 
 # -------------------------
 # Admin Setup

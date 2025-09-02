@@ -105,6 +105,12 @@ class Person(Base):
         UniqueConstraint("title", "vorname", "nachname", name="uq_person_name_title"),
     )
 
+    def __repr__(self):
+        return (
+            f"{self.title or ''} {self.vorname or ''} {self.nachname or ''}".strip() +
+            (f" – {self.kommentar}" if self.kommentar else "")
+        )
+
 class PersonContact(Base):
     __tablename__ = "person_contact"
     __versioned__: dict = {}
