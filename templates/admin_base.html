@@ -1,30 +1,9 @@
-{# templates/admin_base.html #}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Mein Admin Interface</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='admin/css/bootstrap4/admin.css') }}">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-</head>
-<body>
-    <header class="bg-primary text-white p-3">
-        <h1>Mein Adminbereich</h1>
-    </header>
-	<a href="/">Startseite</a>
-
-    <div class="container mt-4">
-        {% block body %}
-        <!-- Hier rendert Flask-Admin den Content -->
-        {% endblock %}
-    </div>
-
-    <footer class="bg-light text-center p-3 mt-4">
-        <p>Text unter den Admin-Seiten</p>
-    </footer>
+{% extends "layout.html" %}
+{% block title %}Startseite{% endblock %}
+{% block content %}
+    {% block body %}
+    <!-- Hier rendert Flask-Admin den Content -->
+    {% endblock %}
 
     <!-- JQuery + Bootstrap JS -->
     <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
@@ -51,5 +30,4 @@
             });
         });
     </script>
-</body>
-</html>
+{% endblock %}
