@@ -4645,4 +4645,6 @@ event.listen(Session, "before_flush", block_writes_if_data_version_cookie_set)
 if __name__ == "__main__":
     with app.app_context():
         db.init_app(app)
+        Base.metadata.create_all(db.engine)
+
     app.run(debug=args.debug, port=args.port)
