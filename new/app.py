@@ -9,6 +9,7 @@ from sqlalchemy.orm import class_mapper
 from wtforms import IntegerField, FloatField
 from wtforms_sqlalchemy.fields import QuerySelectField
 from flask_admin.form import Select2Widget
+from wtforms.validators import Optional as OptionalValidator
 
 # -------------------------
 # Flask Setup
@@ -63,11 +64,13 @@ class AutoModelView(ModelView):
         for col in class_mapper(model).columns:
             if col.type.python_type == int and col.key != "id":
                 self.form_extra_fields[col.key] = IntegerField(
-                    label=col.key.capitalize()
+                    col.key.capitalize(),
+                    validators=[OptionalValidator()]
                 )
             elif col.type.python_type == float:
                 self.form_extra_fields[col.key] = FloatField(
-                    label=col.key.capitalize()
+                    col.key.capitalize(),
+                    validators=[OptionalValidator()]
                 )
 
         # -----------------------------
