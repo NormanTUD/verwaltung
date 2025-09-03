@@ -4071,7 +4071,7 @@ def search():
     # Admin-Zeug
     if is_admin_user(session):
         tables = [
-            cls.__tablename__
+            cls.__name__.lower()
             for cls in Base.__subclasses__()
             if hasattr(cls, '__tablename__') and cls.__tablename__ not in ["role", "user"]
         ]
@@ -4083,7 +4083,7 @@ def search():
             if query in table.lower():
                 results.append({
                     'label': f'📋 {table.capitalize()}',
-                    'url': url_for('table_view', table_name=table)
+                    'url': f'/admin/{table}'
                 })
         if 'map-editor'.startswith(query):
             results.append({'label': '🗺️ Map-Editor', 'url': '/map-editor'})
