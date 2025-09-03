@@ -259,14 +259,14 @@ LABEL_OVERRIDES = {
     "ausgeber_id": "Ausgeber",
     "besitzer_id": "Besitzer",
     "abteilungsleiter_id": "Abteilungsleiter",
-    "kostenstelle_id": "Kostenstelle-ID",
-    "object_id": "Objekt-ID",
-    "raum_id": "Raum-ID",
-    "person_id": "Person-ID",
-    "abteilung_id": "Abteilung-ID",
-    "kategorie_id": "Kategorie-ID",
-    "professur_id": "Professur-ID",
-    "loan_id": "Leihgabe-ID",
+    "kostenstelle_id": "Kostenstelle",
+    "object_id": "Objekt",
+    "raum_id": "Raum",
+    "person_id": "Person",
+    "abteilung_id": "Abteilung",
+    "kategorie_id": "Kategorie",
+    "professur_id": "Professur",
+    "loan_id": "Leihgabe",
 }
 
 HIDDEN_FIELD_NAMES = {"version", "Versions", "_version", "guid"}
