@@ -15,3 +15,4 @@ inflect
 pandas
 flask_admin
 wtforms-sqlalchemy
+mypydie

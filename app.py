@@ -20,6 +20,7 @@ import json
 from collections import defaultdict
 from pathlib import Path
 from datetime import datetime
+from mypydie import dier
 
 parser = argparse.ArgumentParser(description="Starte die Flask-App mit konfigurierbaren Optionen.")
 parser.add_argument('--debug', action='store_true', help='Aktiviere den Debug-Modus')
@@ -31,16 +32,16 @@ args = parser.parse_args()
 db_engine_file = "/etc/db_engine"
 
 if os.path.isfile(db_engine_file):
-    print(f"[DEBUG] {db_engine_file} ist eine Datei", file=sys.stderr)
+    #print(f"[DEBUG] {db_engine_file} ist eine Datei", file=sys.stderr)
     if os.access(db_engine_file, os.R_OK):
-        print(f"[DEBUG] {db_engine_file} ist lesbar", file=sys.stderr)
+        #print(f"[DEBUG] {db_engine_file} ist lesbar", file=sys.stderr)
         try:
             with open(db_engine_file, "r", encoding="utf-8") as f:
                 file_content = f.read().strip()
-                print(f"[DEBUG] Gelesener Inhalt: '{file_content}'", file=sys.stderr)
+                #print(f"[DEBUG] Gelesener Inhalt: '{file_content}'", file=sys.stderr)
                 if file_content:
                     args.engine_db = file_content
-                    print(f"[DEBUG] args.engine_db auf '{args.engine_db}' gesetzt", file=sys.stderr)
+                    #print(f"[DEBUG] args.engine_db auf '{args.engine_db}' gesetzt", file=sys.stderr)
                 else:
                     print(f"[WARN] {db_engine_file} ist leer", file=sys.stderr)
         except Exception as e:
@@ -558,7 +559,7 @@ def load_timestamp_from_cookie():
             else:
                 g.issued_at = None
         except Exception as e:
-            print(f"[DEBUG] Fehler beim Laden der Version aus Cookie: {e}")
+            #print(f"[DEBUG] Fehler beim Laden der Version aus Cookie: {e}")
             g.issued_at = None
     else:
         g.issued_at = None
@@ -588,54 +589,54 @@ def block_writes_if_data_version_cookie_set(session, flush_context, instances):
 
 def add_version_filter(query):
     if not has_app_context():
-        print("[DEBUG] Kein Flask-App-Kontext aktiv – Versionierung wird übersprungen")
+        #print("[DEBUG] Kein Flask-App-Kontext aktiv – Versionierung wird übersprungen")
         return query
 
     if not hasattr(g, 'issued_at') or g.issued_at is None:
         return query
 
-    print(f"[DEBUG] g.issued_at gesetzt auf: {g.issued_at}")
+    #print(f"[DEBUG] g.issued_at gesetzt auf: {g.issued_at}")
 
     if not query.column_descriptions:
-        print("[DEBUG] Query hat keine column_descriptions – vermutlich leer oder Subquery")
+        #print("[DEBUG] Query hat keine column_descriptions – vermutlich leer oder Subquery")
         return query
 
     model_class = query.column_descriptions[0].get('entity', None)
     if model_class is None:
-        print("[DEBUG] Konnte Modellklasse nicht aus column_descriptions extrahieren")
+        #print("[DEBUG] Konnte Modellklasse nicht aus column_descriptions extrahieren")
         return query
 
     if model_class.__name__.endswith('Version'):
-        print("[DEBUG] Modell ist bereits eine Version-Klasse – Query bleibt unverändert")
+        #print("[DEBUG] Modell ist bereits eine Version-Klasse – Query bleibt unverändert")
         return query
 
     try:
         ModelVersion = versioning_manager.version_class_map.get(model_class)
         if ModelVersion is None:
             return query
-        print(f"[DEBUG] Zugehörige Version-Klasse: {ModelVersion.__name__}")
+        #print(f"[DEBUG] Zugehörige Version-Klasse: {ModelVersion.__name__}")
     except Exception as e:
-        print(f"[DEBUG] Fehler beim Abrufen der Version-Klasse: {e}")
+        #print(f"[DEBUG] Fehler beim Abrufen der Version-Klasse: {e}")
         return query
 
     TransactionClass = getattr(versioning_manager, 'transaction_cls', None)
     if TransactionClass is None:
-        print("[DEBUG] Transaction-Klasse konnte nicht gefunden werden")
+        #print("[DEBUG] Transaction-Klasse konnte nicht gefunden werden")
         return query
-    print(f"[DEBUG] Transaction-Klasse: {TransactionClass}")
+    #print(f"[DEBUG] Transaction-Klasse: {TransactionClass}")
 
     # Prüfe, ob Version-Klasse eine Beziehung zu transaction hat
     if not hasattr(ModelVersion, 'transaction'):
-        print("[DEBUG] Version-Klasse hat keine 'transaction'-Beziehung")
+        #print("[DEBUG] Version-Klasse hat keine 'transaction'-Beziehung")
         return query
 
     # Prüfe, ob Transaction-Klasse das Attribut issued_at besitzt
     if not hasattr(TransactionClass, 'issued_at'):
-        print("[DEBUG] Transaction-Klasse hat kein Attribut 'issued_at'")
+        #print("[DEBUG] Transaction-Klasse hat kein Attribut 'issued_at'")
         return query
 
     try:
-        print("[DEBUG] Baue neue Query mit Zeitfilter")
+        #print("[DEBUG] Baue neue Query mit Zeitfilter")
 
         TransactionAlias = aliased(TransactionClass)
 
@@ -646,11 +647,11 @@ def add_version_filter(query):
             .order_by(TransactionAlias.issued_at.desc())
         )
 
-        print("[DEBUG] Neue Query erfolgreich erstellt")
+        #print("[DEBUG] Neue Query erfolgreich erstellt")
         return filtered_query
 
     except Exception as e:
-        print(f"[DEBUG] Fehler beim Erstellen der gefilterten Query: {e}")
+        #print(f"[DEBUG] Fehler beim Erstellen der gefilterten Query: {e}")
         return query
 
 @listens_for(Query, "before_compile", retval=True)
@@ -1041,6 +1042,8 @@ def inject_sidebar_data():
         for cls in Base.__subclasses__()
         if hasattr(cls, '__tablename__') and cls.__tablename__ not in IGNORED_TABLES
     ]
+
+    dier(Base.__subclasses__())
 
     wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
     wizard_routes.append("/wizard/person")
@@ -1867,20 +1870,20 @@ def create_aggregate_view(view_id):
         session = Session()
 
         raw_options = config.get("options", [])
-        print(f"[DEBUG] Loaded raw options for view_id={view_id}: {raw_options}")
+        #print(f"[DEBUG] Loaded raw options for view_id={view_id}: {raw_options}")
 
         options = []
         for opt in raw_options:
             if is_option_on_versions(opt):
-                print("[DEBUG] Skipping eager load on 'versions' relationship due to SQLAlchemy-Continuum limitation")
+                #print("[DEBUG] Skipping eager load on 'versions' relationship due to SQLAlchemy-Continuum limitation")
                 continue
             options.append(opt)
 
-        print(f"[DEBUG] Final options applied (after filtering): {options}")
+        #print(f"[DEBUG] Final options applied (after filtering): {options}")
 
         try:
             query = session.query(config["model"]).options(*options)
-            print("[DEBUG] Query successfully created with options")
+            #print("[DEBUG] Query successfully created with options")
         except Exception as e:
             print(f"[ERROR] Exception during query creation with options: {e}")
             session.close()
@@ -1953,12 +1956,12 @@ def create_aggregate_view(view_id):
                         if model_attr is not None:
                             query = query.filter(model_attr.ilike(f"%{value}%"))
 
-        print(f"[DEBUG] Using filter_config from config or dynamic: {filter_config}")
-        print(f"[DEBUG] URL parameters (request.args): {dict(get_data)}")
+        #print(f"[DEBUG] Using filter_config from config or dynamic: {filter_config}")
+        #print(f"[DEBUG] URL parameters (request.args): {dict(get_data)}")
 
         try:
             data_list = query.all()
-            print(f"[DEBUG] Query executed after filter, {len(data_list)} rows fetched")
+            #print(f"[DEBUG] Query executed after filter, {len(data_list)} rows fetched")
         except sqlalchemy.exc.InvalidRequestError as e:
             if "versions" in str(e):
                 print("[ERROR] Query failed due to eager loading of 'versions' relationship. Please remove such options.")
@@ -1971,7 +1974,7 @@ def create_aggregate_view(view_id):
 
         try:
             rows = [config["map_func"](obj) for obj in data_list]
-            print("[DEBUG] map_func reapplied to filtered rows")
+            #print("[DEBUG] map_func reapplied to filtered rows")
         except Exception as e:
             print(f"[ERROR] Exception during map_func application: {e}")
             session.close()
@@ -1982,7 +1985,7 @@ def create_aggregate_view(view_id):
         if "add_columns" in config:
             column_labels += config["add_columns"]
 
-        print(f"[DEBUG] Column labels: {column_labels}")
+        #print(f"[DEBUG] Column labels: {column_labels}")
 
         row_data = []
         for obj, row in zip(data_list, rows):
@@ -2008,14 +2011,14 @@ def create_aggregate_view(view_id):
             try:
                 extra = config["extra_context_func"]()
                 ctx.update(extra)
-                print("[DEBUG] extra_context_func applied")
+                #print("[DEBUG] extra_context_func applied")
             except Exception as e:
                 print(f"[ERROR] Exception during extra_context_func: {e}")
                 session.close()
                 raise
 
         session.close()
-        print(f"[DEBUG] Rendering template with context keys: {list(ctx.keys())}")
+        #print(f"[DEBUG] Rendering template with context keys: {list(ctx.keys())}")
         return render_template("aggregate_view.html", **ctx)
 
     return view_func
@@ -4518,7 +4521,7 @@ class AutoModelView(ModelView):
     form_excluded_columns = ["id"]
 
     def __init__(self, model, session, **kwargs):
-        print(f"[DEBUG] Initializing AutoModelView for model: {model.__name__}")
+        #print(f"[DEBUG] Initializing AutoModelView for model: {model.__name__}")
 
         self.form_columns = [
             c.key for c in class_mapper(model).columns
@@ -4530,11 +4533,11 @@ class AutoModelView(ModelView):
         # Beziehungen debug
         # -----------------------------
         for rel in class_mapper(model).relationships:
-            print(f"[DEBUG] Processing relationship: {rel.key}, direction={rel.direction.name}")
+            #print(f"[DEBUG] Processing relationship: {rel.key}, direction={rel.direction.name}")
             name = rel.key
 
             factory = self._make_query_factory(rel, session)
-            print(f"[DEBUG] Query factory for {name}: {factory}")
+            #print(f"[DEBUG] Query factory for {name}: {factory}")
 
             if rel.direction.name == "MANYTOONE":
                 if name not in self.form_columns:
@@ -4548,7 +4551,7 @@ class AutoModelView(ModelView):
                         blank_text="-- Keine --",
                         widget=Select2Widget()
                     )
-                    print(f"[DEBUG] Created MANYTOONE QuerySelectField for {name}")
+                    #print(f"[DEBUG] Created MANYTOONE QuerySelectField for {name}")
                 except Exception as e:
                     print(f"[ERROR] Failed to create MANYTOONE field {name}: {e}")
             elif rel.direction.name == "MANYTOMANY":
@@ -4561,7 +4564,7 @@ class AutoModelView(ModelView):
                         get_label=lambda obj: str(obj),
                         widget=Select2Widget(multiple=True)
                     )
-                    print(f"[DEBUG] Created MANYTOMANY QuerySelectMultipleField for {name}")
+                    #print(f"[DEBUG] Created MANYTOMANY QuerySelectMultipleField for {name}")
                 except Exception as e:
                     print(f"[ERROR] Failed to create MANYTOMANY field {name}: {type(e).__name__}: {e}")
 
@@ -4573,17 +4576,17 @@ class AutoModelView(ModelView):
             try:
                 col_type = col.type.python_type
             except NotImplementedError:
-                print(f"[DEBUG] Column {col.key} has no python_type, skipping")
+                #print(f"[DEBUG] Column {col.key} has no python_type, skipping")
                 continue
 
             if col_type == int and col.key != "id":
-                print(f"[DEBUG] Adding IntegerField for {col.key}")
+                #print(f"[DEBUG] Adding IntegerField for {col.key}")
                 self.form_extra_fields[col.key] = IntegerField(
                     col.key.capitalize(),
                     validators=[OptionalValidator()]
                 )
             elif col_type == float:
-                print(f"[DEBUG] Adding FloatField for {col.key}")
+                #print(f"[DEBUG] Adding FloatField for {col.key}")
                 self.form_extra_fields[col.key] = FloatField(
                     col.key.capitalize(),
                     validators=[OptionalValidator()]
@@ -4624,7 +4627,7 @@ class AutoModelView(ModelView):
         """Return a function for query_factory to avoid WTForms 'tuple' bug"""
         def factory():
             result = session.query(rel.mapper.class_).all()
-            print(f"[DEBUG] Query factory result for {rel.key}: {result}")
+            #print(f"[DEBUG] Query factory result for {rel.key}: {result}")
             # Sicherheit: falls Tuple, in Liste umwandeln
             if isinstance(result, tuple):
                 print(f"[WARN] result is tuple, converting to list")
@@ -4636,6 +4639,7 @@ admin = Admin(app, name="DB Verwaltung", template_mode="bootstrap4", base_templa
 
 for mapper in db.Model.registry.mappers:
     model = mapper.class_
+    print(f"AutoModelView: {model}")
     admin.add_view(AutoModelView(model, db.session))
 
 
