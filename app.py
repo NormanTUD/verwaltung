@@ -4635,8 +4635,15 @@ class AutoModelView(ModelView):
 
 admin = Admin(app, name="DB Verwaltung", template_mode="bootstrap4", base_template="admin_base.html")
 
+
 for mapper in db.Model.registry.mappers:
     model = mapper.class_
+    # Skip Continuum classes
+    if model.__module__.startswith("sqlalchemy_continuum"):
+        continue
+    # Optional: nur eigene Models aus db_defs
+    if not model.__module__.startswith("db_defs"):
+        continue
     print(f"AutoModelView: {model}")
     admin.add_view(AutoModelView(model, db.session))
 
