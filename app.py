@@ -21,11 +21,22 @@ from collections import defaultdict
 from pathlib import Path
 from datetime import datetime
 
+def ensure_instance_directory():
+    directory = "instance"
+    try:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            print(f"Directory '{directory}' created successfully.")
+    except OSError as e:
+        print(f"Error while creating/accessing directory '{directory}': {e}")
+
+ensure_instance_directory()
+
 parser = argparse.ArgumentParser(description="Starte die Flask-App mit konfigurierbaren Optionen.")
 parser.add_argument('--debug', action='store_true', help='Aktiviere den Debug-Modus')
 parser.add_argument('--port', type=int, default=5000, help='Port für die App (Standard: 5000)')
 parser.add_argument('--secret', type=str, default='geheim', help='SECRET_KEY für Flask (Standard: "geheim")')
-parser.add_argument('--engine-db', type=str, default='sqlite:///database.db', help='URI für create_engine()')
+parser.add_argument('--engine-db', type=str, default='sqlite:///instance/database.db', help='URI für create_engine()')
 args = parser.parse_args()
 
 db_engine_file = "/etc/db_engine"
@@ -40,7 +51,7 @@ if os.path.isfile(db_engine_file):
                 #print(f"[DEBUG] Gelesener Inhalt: '{file_content}'", file=sys.stderr)
                 if file_content:
                     args.engine_db = file_content
-                    #print(f"[DEBUG] args.engine_db auf '{args.engine_db}' gesetzt", file=sys.stderr)
+                    print(f"[DEBUG] args.engine_db auf '{args.engine_db}' gesetzt", file=sys.stderr)
                 else:
                     print(f"[WARN] {db_engine_file} ist leer", file=sys.stderr)
         except Exception as e:
@@ -220,6 +231,10 @@ app.jinja_env.globals["entry_display"] = merge_entry_display
 
 app.config['SECRET_KEY'] = args.secret
 app.config['SQLALCHEMY_DATABASE_URI'] = args.engine_db
+
+print("!!!!!!!!!!!!!!!!!!")
+print(app.config['SQLALCHEMY_DATABASE_URI'])
+print("!!!!!!!!!!!!!!!!!!")
 
 login_manager = LoginManager()
 login_manager.init_app(app)
