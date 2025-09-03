@@ -258,7 +258,7 @@ INITIAL_DATA = {
 LABEL_OVERRIDES = {
     "ausgeber_id": "Ausgeber",
     "besitzer_id": "Besitzer",
-    "abteilungsleiter_id": "Abteilungsleiter (Person-ID)",
+    "abteilungsleiter_id": "Abteilungsleiter",
     "kostenstelle_id": "Kostenstelle-ID",
     "object_id": "Objekt-ID",
     "raum_id": "Raum-ID",
