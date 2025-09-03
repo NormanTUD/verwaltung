@@ -20,7 +20,6 @@ import json
 from collections import defaultdict
 from pathlib import Path
 from datetime import datetime
-from mypydie import dier
 
 parser = argparse.ArgumentParser(description="Starte die Flask-App mit konfigurierbaren Optionen.")
 parser.add_argument('--debug', action='store_true', help='Aktiviere den Debug-Modus')
@@ -169,6 +168,8 @@ try:
     from flask_admin.form import Select2Widget
     from wtforms.validators import Optional as OptionalValidator
     from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
+
+    from mypydie import dier
 except ModuleNotFoundError as e:
     if not VENV_PATH.exists():
         create_and_setup_venv()
