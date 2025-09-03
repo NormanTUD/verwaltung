@@ -1038,12 +1038,10 @@ def inject_sidebar_data():
     session = Session()
 
     tables = [
-        cls.__tablename__
+        cls.__name__.lower()
         for cls in Base.__subclasses__()
         if hasattr(cls, '__tablename__') and cls.__tablename__ not in IGNORED_TABLES
     ]
-
-    dier(Base.__subclasses__())
 
     wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
     wizard_routes.append("/wizard/person")
