@@ -4649,7 +4649,6 @@ for mapper in db.Model.registry.mappers:
     # Optional: nur eigene Models aus db_defs
     if not model.__module__.startswith("db_defs"):
         continue
-    print(f"AutoModelView: {model}")
     admin.add_view(AutoModelView(model, db.session))
 
 
