@@ -1420,45 +1420,6 @@ def load_static_file(path):
         app.logger.error(f"Fehler beim Laden der Datei {path}: {e}")
         return ""
 
-@app.route("/table/<table_name>")
-@login_required
-def table_view(table_name):
-    if table_name in IGNORED_TABLES:
-        abort(404, description="Tabelle darf nicht angezeigt werden")
-
-    session = Session()
-    cls = get_model_class_by_tablename(table_name)
-    if cls is None:
-        session.close()
-        abort(404, description="Tabelle nicht gefunden")
-
-    # Erweiterte Rückgabe mit missing_input_info
-    column_labels, row_html, new_entry_inputs, row_ids, table_has_missing_inputs, missing_input_info = prepare_table_data(session, cls, table_name)
-
-    javascript_code = load_static_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "table_scripts.js")).replace("{{ table_name }}", table_name)
-
-    row_data = list(zip(row_html, row_ids))
-
-    missing_data_messages = []
-    if table_has_missing_inputs and missing_input_info:
-        missing_data_messages.append('<div class="warning">⚠️ Fehlende Eingaben:</div><ul>')
-        for col_name, problem_ids in missing_input_info.items():
-            pretty_ids = ", ".join(str(i) for i in problem_ids)
-            missing_data_messages.append(f"<li><strong>{col_name}</strong>: fehlend in {pretty_ids}</li>")
-        missing_data_messages.append("</ul>")
-
-    session.close()
-
-    return render_template(
-        "table_view.html",
-        table_name=table_name,
-        column_labels=column_labels,
-        row_data=row_data,
-        new_entry_inputs=new_entry_inputs,
-        javascript_code=javascript_code,
-        missing_data_messages=missing_data_messages
-    )
-
 @app.route("/add/<table_name>", methods=["POST"])
 @login_required
 def add_entry(table_name):
@@ -4523,24 +4484,27 @@ class AutoModelView(ModelView):
     column_display_pk = True
     form_excluded_columns = ["id"]
 
-    def __init__(self, model, session, **kwargs):
-        #print(f"[DEBUG] Initializing AutoModelView for model: {model.__name__}")
+    def is_accessible(self):
+        """Nur zugänglich für angemeldete Nutzer"""
+        return current_user.is_authenticated
 
+    def inaccessible_callback(self, name, **kwargs):
+        """Wenn nicht zugänglich, weiterleiten auf Login-Seite"""
+        from flask import redirect, url_for
+        return redirect(url_for("login", next=request.url))
+
+    def __init__(self, model, session, **kwargs):
+        # hier bleibt dein bisheriger Code
         self.form_columns = [
             c.key for c in class_mapper(model).columns
             if c.key != "id" and not c.key.endswith("_id")
         ]
         self.form_extra_fields = {}
 
-        # -----------------------------
-        # Beziehungen debug
-        # -----------------------------
+        # Beziehungen
         for rel in class_mapper(model).relationships:
-            #print(f"[DEBUG] Processing relationship: {rel.key}, direction={rel.direction.name}")
             name = rel.key
-
             factory = self._make_query_factory(rel, session)
-            #print(f"[DEBUG] Query factory for {name}: {factory}")
 
             if rel.direction.name == "MANYTOONE":
                 if name not in self.form_columns:
@@ -4554,7 +4518,6 @@ class AutoModelView(ModelView):
                         blank_text="-- Keine --",
                         widget=Select2Widget()
                     )
-                    #print(f"[DEBUG] Created MANYTOONE QuerySelectField for {name}")
                 except Exception as e:
                     print(f"[ERROR] Failed to create MANYTOONE field {name}: {e}")
             elif rel.direction.name == "MANYTOMANY":
@@ -4567,37 +4530,28 @@ class AutoModelView(ModelView):
                         get_label=lambda obj: str(obj),
                         widget=Select2Widget(multiple=True)
                     )
-                    #print(f"[DEBUG] Created MANYTOMANY QuerySelectMultipleField for {name}")
                 except Exception as e:
                     print(f"[ERROR] Failed to create MANYTOMANY field {name}: {type(e).__name__}: {e}")
 
-
-        # -----------------------------
-        # Numerische Spalten debug
-        # -----------------------------
+        # numerische Spalten
         for col in class_mapper(model).columns:
             try:
                 col_type = col.type.python_type
             except NotImplementedError:
-                #print(f"[DEBUG] Column {col.key} has no python_type, skipping")
                 continue
 
             if col_type == int and col.key != "id":
-                #print(f"[DEBUG] Adding IntegerField for {col.key}")
                 self.form_extra_fields[col.key] = IntegerField(
                     col.key.capitalize(),
                     validators=[OptionalValidator()]
                 )
             elif col_type == float:
-                #print(f"[DEBUG] Adding FloatField for {col.key}")
                 self.form_extra_fields[col.key] = FloatField(
                     col.key.capitalize(),
                     validators=[OptionalValidator()]
                 )
 
-        # -----------------------------
         # LIST VIEW
-        # -----------------------------
         self.column_list = []
         self.column_formatters = {}
 
@@ -4610,7 +4564,6 @@ class AutoModelView(ModelView):
             else:
                 self.column_list.append(col.key)
 
-        # Boolean-Felder
         for col in class_mapper(model).columns:
             try:
                 if col.type.python_type == bool:
@@ -4630,27 +4583,19 @@ class AutoModelView(ModelView):
         """Return a function for query_factory to avoid WTForms 'tuple' bug"""
         def factory():
             result = session.query(rel.mapper.class_).all()
-            #print(f"[DEBUG] Query factory result for {rel.key}: {result}")
-            # Sicherheit: falls Tuple, in Liste umwandeln
             if isinstance(result, tuple):
-                print(f"[WARN] result is tuple, converting to list")
                 result = list(result)
             return result
         return factory
 
 admin = Admin(app, name="DB Verwaltung", template_mode="bootstrap4", base_template="admin_base.html")
-
-
 for mapper in db.Model.registry.mappers:
     model = mapper.class_
-    # Skip Continuum classes
     if model.__module__.startswith("sqlalchemy_continuum"):
         continue
-    # Optional: nur eigene Models aus db_defs
     if not model.__module__.startswith("db_defs"):
         continue
     admin.add_view(AutoModelView(model, db.session))
-
 
 event.listen(Session, "before_flush", block_writes_if_user_readonly)
 event.listen(Session, "before_flush", block_writes_if_data_version_cookie_set)
