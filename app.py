@@ -247,10 +247,6 @@ app.jinja_env.globals["entry_display"] = merge_entry_display
 app.config['SECRET_KEY'] = args.secret
 app.config['SQLALCHEMY_DATABASE_URI'] = args.engine_db
 
-print("!!!!!!!!!!!!!!!!!!")
-print(app.config['SQLALCHEMY_DATABASE_URI'])
-print("!!!!!!!!!!!!!!!!!!")
-
 login_manager = LoginManager()
 login_manager.init_app(app)
 
