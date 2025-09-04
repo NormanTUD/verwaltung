@@ -137,6 +137,8 @@ def restart_with_venv():
         sys.exit(1)
 
 try:
+    from importers import importers_bp
+
     from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context, Response
     from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 
@@ -182,7 +184,6 @@ try:
 
     from db_interface import *
 
-    from importers import importers_bp
     from auth import admin_required, is_admin_user
     from db import *
 
@@ -4499,6 +4500,92 @@ def merge_interface():
         entries=entries_data,
         columns=columns,  # Hier Spaltennamen hinzufügen
     )
+
+@app.route("/import/", methods=["GET", "POST"])
+@login_required
+@admin_required
+def import_upload():
+    if request.method == "POST":
+        file = request.files.get("file")
+        csvtext = request.form.get("csvtext")
+
+        df = None
+        filename = None
+
+        try:
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                ext = os.path.splitext(filename)[1].lower()
+                if ext == ".csv":
+                    df = pd.read_csv(file)
+                elif ext in [".xls", ".xlsx"]:
+                    df = pd.read_excel(file)
+                else:
+                    return "Nur CSV, XLS, XLSX-Dateien erlaubt.", 400
+            elif csvtext:
+                try:
+                    df = pd.read_csv(io.StringIO(csvtext), sep="\t")
+                except pd.errors.ParserError:
+                    df = pd.read_csv(io.StringIO(csvtext), sep=",")
+        except Exception as e:
+            return f"Fehler beim Einlesen der Datei: {str(e)}", 400
+
+        if df is None or df.empty:
+            return "Fehler beim Einlesen der Datei oder Datei leer", 400
+
+        column_map = {}
+        for col in df.columns:
+            column_map[col] = match_column(col)
+
+        return render_template(
+            "import_preview.html",
+            columns=df.columns,
+            rows=df.to_dict(orient="records"),
+            column_map=column_map,
+            possible_targets=list(ALIAS_MAPPING.keys()),
+            data_json=df.to_dict(orient="records")
+        )
+
+    return render_template("import_upload.html")
+
+
+
+@app.route("/import/commit", methods=["POST"])
+@login_required
+@admin_required
+def import_commit():
+    session = Session()
+    log = []
+    errors = []
+
+    try:
+        raw_json = request.form.get("data_json")
+        if not raw_json:
+            return __import_render_error("Fehler: Kein JSON übergeben!", log, errors)
+
+        try:
+            data = json.loads(raw_json)
+        except json.JSONDecodeError as e:
+            return __import_render_error(f"Fehler beim Parsen von JSON: {str(e)}", log, errors)
+
+        structured_map, area_code_map = __import_extract_mappings(request.form)
+
+        for row_index, row in enumerate(data):
+            __import_process_row(row_index, row, session, structured_map, area_code_map, log, errors)
+
+        if errors:
+            session.rollback()
+            return __import_render_error("Fehler beim Import", log, errors)
+
+        session.commit()
+        return render_template("import_result.html", success=True, message="Import erfolgreich", log=log, errors=errors)
+
+    except Exception as e:
+        session.rollback()
+        return __import_render_error(f"Unbekannter Fehler: {str(e)}", log, errors)
+
+    finally:
+        session.close()
 
 class AutoModelView(ModelView):
     """Automatisch alle Spalten + FK Dropdowns via QuerySelectField / QuerySelectMultipleField"""
