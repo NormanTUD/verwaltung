@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Neo4j CSV Manager</h1>
+<ul>
+  {% for text, link in links %}
+  <li><a href="{{ link }}">{{ text }}</a></li>
+  {% endfor %}
+</ul>
+<p>Use the Importer to paste CSV text or upload CSV files. Then create Views to view data, or use Merge to normalize properties.</p>
+{% endblock %}

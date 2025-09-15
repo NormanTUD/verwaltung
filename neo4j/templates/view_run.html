@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>View results</h2>
+<table border="1" id="results-table">
+  <thead>
+    <tr>
+      {% set all_keys = results[0].keys()|reject("equalto", "__node_id")|list if results else [] %}
+      {% for key in all_keys %}
+        <th>{{ key }}</th>
+      {% endfor %}
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for row in results %}
+      <tr>
+        {% for key in all_keys %}
+          <td data-key="{{ key }}"
+              {% if row.get('__node_id') is not none %}data-node-id="{{ row['__node_id'] }}"{% endif %}
+              contenteditable="true">
+            {{ row[key] }}
+          </td>
+        {% endfor %}
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+$(function(){
+  $("#results-table td[contenteditable=true]").on("blur", function(){
+    var td = $(this);
+    var nodeId = td.data("node-id");
+    var key = td.data("key");
+    var newVal = td.text();
+
+    if(!nodeId){
+      console.warn("No node ID, skipping update for", key);
+      return;
+    }
+
+    $.ajax({
+      url: "/api/node/" + nodeId,
+      method: "PATCH",
+      contentType: "application/json",
+      data: JSON.stringify({ [key]: newVal }),
+      success: function(res){
+        console.log("Updated", key, res);
+      },
+      error: function(xhr){
+        alert("Update failed: " + xhr.responseText);
+      }
+    });
+  });
+});
+</script>
+{% endblock %}

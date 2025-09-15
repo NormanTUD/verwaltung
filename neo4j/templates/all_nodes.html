@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Alle Nodes in der DB</h2>
+
+{% for label, nodes in all_nodes.items() %}
+  <h3>{{ label }} ({{ nodes|length }} Einträge)</h3>
+  {% if nodes %}
+    <table border="1">
+      <thead>
+        <tr>
+          {% set all_keys = nodes[0].keys() %}
+          {% for key in all_keys %}
+            <th>{{ key }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for node in nodes %}
+          <tr>
+            {% for key in all_keys %}
+              <td>{{ node[key] }}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>Keine Einträge</p>
+  {% endif %}
+{% endfor %}
+{% endblock %}

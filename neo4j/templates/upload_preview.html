@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>CSV Preview ({{rowcount}} rows)</h2>
+<form method="post" action="{{ url_for('importer.import_confirm') }}">
+  <input type="hidden" name="csv_text" value="{{ csv_text }}">
+
+  <h3>Assign Columns to Entities</h3>
+  {% for col in columns %}
+    <label>{{ col }} → Entity: 
+      <select name="column_entity_{{ col }}">
+        <option value="Entity" selected>Entity (default)</option>
+        <option value="Person">Person</option>
+        <option value="Adresse">Adresse</option>
+        <option value="Other">Other</option>
+      </select>
+      or new: <input type="text" name="new_entity_{{ col }}" placeholder="Enter new entity">
+    </label><br>
+  {% endfor %}
+
+  <button type="submit">Import into Neo4j</button>
+</form>
+
+<h3>Sample rows</h3>
+<table border="1">
+  <thead><tr>
+    {% for c in columns %}
+      <th>{{c}}</th>
+    {% endfor %}
+  </tr></thead>
+  <tbody>
+    {% for row in preview %}
+      <tr>
+      {% for c in columns %}
+        <td>{{ row[c] }}</td>
+      {% endfor %}
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

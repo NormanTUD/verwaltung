@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Neo4j CSV Manager</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+  <link rel="icon" type="image/png" href="/static/favicon.png"/>
+</head>
+<body>
+  <nav>
+    <a href="{{ url_for('main.index') }}">Home</a> |
+    <a href="{{ url_for('importer.upload') }}">Importer</a> |
+    <a href="{{ url_for('views.index') }}">Views</a> |
+    <a href="{{ url_for('merge.index') }}">Merge</a> |
+    <a href="{{ url_for('api.index') }}">API</a> |
+    <a href="{{ url_for('all_nodes') }}">All Nodes</a>
+  </nav>
+  <main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes">
+          {% for cat, msg in messages %}
+            <li class="{{cat}}">{{ msg }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

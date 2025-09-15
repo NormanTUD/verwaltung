@@ -1,0 +1,10 @@
+Flask
+neo4j
+pandas
+python-dotenv
+fastapi
+uvicorn
+Jinja2
+itsdangerous
+Werkzeug
+mypydie
