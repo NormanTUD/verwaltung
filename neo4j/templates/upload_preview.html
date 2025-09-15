@@ -1,23 +1,44 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>CSV Preview ({{rowcount}} rows)</h2>
+<h2>CSV Preview ({{ rowcount }} rows)</h2>
 <form method="post" action="{{ url_for('importer.import_confirm') }}">
   <input type="hidden" name="csv_text" value="{{ csv_text }}">
 
-  <h3>Assign Columns to Entities</h3>
+  <h3>Assign Columns to Entities and Map Fields</h3>
   {% for col in columns %}
     <label>{{ col }} → Entity: 
-      <select name="column_entity_{{ col }}">
+      <select class="entity-select" name="column_entity_{{ col }}" data-col="{{ col }}">
         <option value="Entity" selected>Entity (default)</option>
         <option value="Person">Person</option>
         <option value="Adresse">Adresse</option>
         <option value="Other">Other</option>
       </select>
-      or new: <input type="text" name="new_entity_{{ col }}" placeholder="Enter new entity">
-    </label><br>
+    </label>
+    <label>Map to field:
+      <select name="map_field_{{ col }}" id="map_field_{{ col }}">
+        <option value="{{ col }}" selected>{{ col }} (default)</option>
+        {% for label, nodes in all_nodes.items() %}
+          {% for node in nodes %}
+            {% for key in node.keys() %}
+              {% if key != '__node_id' %}
+                <option value="{{ key }}">{{ key }} ({{ label }})</option>
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+        {% endfor %}
+        <option value="">--New Field--</option>
+      </select>
+      <input type="text" name="new_field_{{ col }}" placeholder="Enter new field name">
+    </label>
+    <br>
   {% endfor %}
 
-  <button type="submit">Import into Neo4j</button>
+  <h3>Primary Keys (for MERGE)</h3>
+  {% for col in columns %}
+    <input type="checkbox" name="primary_keys" value="{{ col }}"> {{ col }}
+  {% endfor %}
+
+  <br><button type="submit">Import into Neo4j</button>
 </form>
 
 <h3>Sample rows</h3>
@@ -37,4 +58,38 @@
     {% endfor %}
   </tbody>
 </table>
+
+<script>
+document.querySelectorAll(".entity-select").forEach(function(sel){
+  sel.addEventListener("change", function(){
+    let col = sel.dataset.col;
+    let entity = sel.value;
+    let mapSelect = document.getElementById("map_field_" + col);
+
+    // Reset options
+    for(let i=mapSelect.options.length-1; i>=0; i--){
+      let val = mapSelect.options[i].value;
+      if(val.endsWith("(Person)") || val.endsWith("(Adresse)") || val.endsWith("(Other)")){
+        mapSelect.remove(i);
+      }
+    }
+
+    // Füge automatisch existierende Felder des Labels hinzu
+    {% for label, nodes in all_nodes.items() %}
+      if(entity === "{{ label }}"){
+        {% for node in nodes %}
+          {% for key in node.keys() %}
+            if(key !== "__node_id"){
+              let opt = document.createElement("option");
+              opt.value = "{{ key }}";
+              opt.text = "{{ key }} ({{ label }})";
+              mapSelect.add(opt);
+            }
+          {% endfor %}
+        {% endfor %}
+      }
+    {% endfor %}
+  });
+});
+</script>
 {% endblock %}

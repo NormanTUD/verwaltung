@@ -51,14 +51,89 @@ def upload():
     preview = df.head(20).to_dict(orient="records")
     columns = list(df.columns)
 
+    try:
+        labels = [row["label"] for row in neo.run_cypher("CALL db.labels() YIELD label RETURN label")]
+        all_nodes = {}
+        for label in labels:
+            cypher = f"MATCH (n:{label}) RETURN n, elementId(n) AS node_id LIMIT 100"
+            raw_results = neo.run_cypher(cypher)
+            nodes = []
+            for row in raw_results:
+                node = dict(row["n"]) if "n" in row else {}
+                node["__node_id"] = row.get("node_id")
+                nodes.append(node)
+            all_nodes[label] = nodes
+    except Exception as e:
+        all_nodes = {}
+
     return render_template(
         "upload_preview.html",
         preview=preview,
         columns=columns,
+        all_nodes=all_nodes,
         normalized=normalized,
         rowcount=len(df),
         csv_text=csv_raw  # Originaltext weitergeben
     )
+
+@bp.route("/import_preview", methods=["POST"])
+def import_preview():
+    """
+    Zeigt die CSV an, bevor sie importiert wird.
+    """
+    import io
+    import pandas as pd
+    from flask import request, render_template, current_app
+
+    csv_text = request.form.get("csv_text")
+    file = request.files.get("csv_file", None)
+
+    # CSV einlesen
+    try:
+        if file and file.filename:
+            data = file.stream.read().decode("utf-8", errors="replace")
+            df = pd.read_csv(io.StringIO(data), dtype=str).fillna("")
+        elif csv_text:
+            df = pd.read_csv(io.StringIO(csv_text), dtype=str).fillna("")
+        else:
+            return "No CSV supplied", 400
+    except Exception as e:
+        return f"CSV parse error: {e}", 400
+
+    # normalize columns
+    def normalize_colname(name: str) -> str:
+        return "".join(c.lower() if c.isalnum() else "_" for c in name.strip())
+    df.rename(columns={c: normalize_colname(c) for c in df.columns}, inplace=True)
+
+    neo = current_app.neo
+
+    # alle existierenden Nodes abrufen (wie in all_nodes)
+    try:
+        labels = [row["label"] for row in neo.run_cypher("CALL db.labels() YIELD label RETURN label")]
+        all_nodes = {}
+        for label in labels:
+            cypher = f"MATCH (n:{label}) RETURN n, elementId(n) AS node_id LIMIT 100"
+            raw_results = neo.run_cypher(cypher)
+            nodes = []
+            for row in raw_results:
+                node = dict(row["n"]) if "n" in row else {}
+                node["__node_id"] = row.get("node_id")
+                nodes.append(node)
+            all_nodes[label] = nodes
+    except Exception as e:
+        all_nodes = {}
+
+    # Preview vorbereiten (z.B. die ersten 5 Zeilen)
+    preview = df.head(5).to_dict(orient="records")
+    return render_template(
+        "import_confirm.html",
+        csv_text=csv_text,
+        columns=list(df.columns),
+        preview=preview,
+        rowcount=len(df),
+        all_nodes=all_nodes
+    )
+
 
 @bp.route("/import_confirm", methods=["POST"])
 def import_confirm():
@@ -98,13 +173,15 @@ def import_confirm():
     neo = current_app.neo
 
     # Build column -> entity mapping
-    column_entity_map = {}
     for col in df.columns:
         entity = request.form.get(f"column_entity_{col}", "Entity")
-        new_entity = request.form.get(f"new_entity_{col}", "").strip()
-        if new_entity:
-            entity = new_entity
+        map_field = request.form.get(f"map_field_{col}", col)
+        new_field = request.form.get(f"new_field_{col}", "").strip()
+        if new_field:
+            map_field = new_field
         column_entity_map[col] = entity
+        column_rename_map[col] = map_field
+
 
     created = 0
     updated = 0
