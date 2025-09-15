@@ -14,12 +14,10 @@ def upload():
     if request.method == "GET":
         return render_template("upload.html")
 
-    # POST: entweder Datei oder Textbereich
-    text = request.form.get("csv_text", None)
-    file = request.files.get("csv_file", None)
+    text = request.form.get("csv_text")
+    file = request.files.get("csv_file")
 
-    df = None
-    csv_raw = None
+    df, csv_raw = None, None
     try:
         if file and file.filename:
             data = file.stream.read().decode("utf-8", errors="replace")
@@ -28,10 +26,9 @@ def upload():
             data = text
             csv_raw = text
         else:
-            flash("Keine CSV/TSV Daten gefunden", "danger")
+            flash("No CSV/TSV data found", "danger")
             return redirect(url_for("importer.upload"))
 
-        # delimiter automatisch erkennen
         sniffer = csv.Sniffer()
         dialect = sniffer.sniff(data.splitlines()[0])
         delimiter = dialect.delimiter
@@ -39,41 +36,24 @@ def upload():
         df = pd.read_csv(io.StringIO(data), delimiter=delimiter, dtype=str).fillna("")
 
     except Exception as e:
-        flash(f"Fehler beim Einlesen der CSV/TSV: {e}", "danger")
+        flash(f"Error while parsing CSV/TSV: {e}", "danger")
         return redirect(url_for("importer.upload"))
 
-    # Spalten normalisieren
+    # original + normalized column names
     original_cols = list(df.columns)
-    normalized = {c: normalize_colname(c) for c in original_cols}
+    normalized = {c: c.strip().replace(" ", "_").lower() for c in original_cols}
     df.rename(columns=normalized, inplace=True)
 
-    # Vorschau anzeigen, User kann Label/Typ wählen
     preview = df.head(20).to_dict(orient="records")
     columns = list(df.columns)
-
-    try:
-        labels = [row["label"] for row in neo.run_cypher("CALL db.labels() YIELD label RETURN label")]
-        all_nodes = {}
-        for label in labels:
-            cypher = f"MATCH (n:{label}) RETURN n, elementId(n) AS node_id LIMIT 100"
-            raw_results = neo.run_cypher(cypher)
-            nodes = []
-            for row in raw_results:
-                node = dict(row["n"]) if "n" in row else {}
-                node["__node_id"] = row.get("node_id")
-                nodes.append(node)
-            all_nodes[label] = nodes
-    except Exception as e:
-        all_nodes = {}
 
     return render_template(
         "upload_preview.html",
         preview=preview,
         columns=columns,
-        all_nodes=all_nodes,
         normalized=normalized,
         rowcount=len(df),
-        csv_text=csv_raw  # Originaltext weitergeben
+        csv_text=csv_raw,
     )
 
 @bp.route("/import_preview", methods=["POST"])
