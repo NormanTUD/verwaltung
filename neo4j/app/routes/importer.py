@@ -2,6 +2,7 @@ import io
 import pandas as pd
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify
 from werkzeug.utils import secure_filename
+import csv
 
 bp = Blueprint("importer", __name__, template_folder="../../templates", static_folder="../../static")
 
@@ -13,7 +14,7 @@ def upload():
     if request.method == "GET":
         return render_template("upload.html")
 
-    # POST: either file upload or text area
+    # POST: entweder Datei oder Textbereich
     text = request.form.get("csv_text", None)
     file = request.files.get("csv_file", None)
 
@@ -22,24 +23,31 @@ def upload():
     try:
         if file and file.filename:
             data = file.stream.read().decode("utf-8", errors="replace")
-            df = pd.read_csv(io.StringIO(data), dtype=str).fillna("")
-            csv_raw = data  # Original-Inhalt merken
+            csv_raw = data
         elif text:
-            df = pd.read_csv(io.StringIO(text), dtype=str).fillna("")
-            csv_raw = text  # Original-Inhalt merken
+            data = text
+            csv_raw = text
         else:
-            flash("Keine CSV Daten gefunden", "danger")
+            flash("Keine CSV/TSV Daten gefunden", "danger")
             return redirect(url_for("importer.upload"))
+
+        # delimiter automatisch erkennen
+        sniffer = csv.Sniffer()
+        dialect = sniffer.sniff(data.splitlines()[0])
+        delimiter = dialect.delimiter
+
+        df = pd.read_csv(io.StringIO(data), delimiter=delimiter, dtype=str).fillna("")
+
     except Exception as e:
-        flash(f"Fehler beim Einlesen der CSV: {e}", "danger")
+        flash(f"Fehler beim Einlesen der CSV/TSV: {e}", "danger")
         return redirect(url_for("importer.upload"))
 
-    # normalize columns
+    # Spalten normalisieren
     original_cols = list(df.columns)
     normalized = {c: normalize_colname(c) for c in original_cols}
     df.rename(columns=normalized, inplace=True)
 
-    # show preview and let user choose a label/class for nodes (e.g., Person)
+    # Vorschau anzeigen, User kann Label/Typ wählen
     preview = df.head(20).to_dict(orient="records")
     columns = list(df.columns)
 
@@ -49,7 +57,7 @@ def upload():
         columns=columns,
         normalized=normalized,
         rowcount=len(df),
-        csv_text=csv_raw  # hier weiterreichen!
+        csv_text=csv_raw  # Originaltext weitergeben
     )
 
 @bp.route("/import_confirm", methods=["POST"])
