@@ -171,6 +171,9 @@ def import_confirm():
     df.rename(columns={c: normalize_colname(c) for c in df.columns}, inplace=True)
 
     neo = current_app.neo
+    
+    column_entity_map = {}
+    column_rename_map = {}
 
     # Build column -> entity mapping
     for col in df.columns:
