@@ -4,8 +4,6 @@ from neo4j import GraphDatabase
 import pandas as pd
 from dotenv import load_dotenv
 
-app = Flask(__name__)
-
 load_dotenv()
 
 app = Flask(__name__)
@@ -40,8 +38,8 @@ def get_data():
     if not start_labels:
         return jsonify({"error": "Mindestens ein Start-Label muss angegeben werden"}), 400
     
-    # Kombiniere die Labels in eine gültige Cypher-Syntax
-    label_string = "|".join([f":`{label}`" for label in start_labels])
+    # Korrekte Cypher-Syntax für Label-Kombination
+    label_string = ":`" + "`:`".join(start_labels) + "`"
     
     query = (
         f"MATCH (start_node{label_string}) OPTIONAL MATCH (start_node)-[r*1..3]->(end_node) "
@@ -72,6 +70,7 @@ def get_data():
     json_response = df.to_dict(orient="records")
     
     return jsonify(json_response)
+
 
 @app.route("/api/add", methods=["POST"])
 def add_data():
