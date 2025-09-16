@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Dynamic Data Admin</title>
+    <link href="/static/css/tailwind.css" rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+    <div class="container mx-auto mt-10 p-6 bg-white rounded-xl shadow-lg">
+        <h1 class="text-3xl font-bold mb-6 text-gray-800">Dynamische Datenverwaltung</h1>
+        
+        <div class="flex space-x-4 mb-6">
+            <select id="collection-select" class="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+            <button id="import-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">CSV/TSV Import</button>
+        </div>
+
+        <div id="import-form-container" class="hidden p-4 mb-6 bg-gray-200 rounded-lg">
+            <h2 class="text-xl font-semibold mb-4">Daten importieren</h2>
+            <form id="import-form" class="space-y-4">
+                <label class="block">
+                    <span class="text-gray-700">Wähle eine Collection für den Import:</span>
+                    <select id="import-collection-select" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm"></select>
+                </label>
+                <label class="block">
+                    <span class="text-gray-700">Wähle die Datei:</span>
+                    <input type="file" id="import-file" required class="mt-1 block w-full">
+                </label>
+                <label class="block">
+                    <span class="text-gray-700">Verknüpfung (optional, z.B. "gebaeude"):</span>
+                    <input type="text" id="link-to-field" placeholder="Name der Ziel-Collection" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm">
+                </label>
+                <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg transition duration-300">Importieren</button>
+            </form>
+        </div>
+        
+        <div id="data-table-container">
+            </div>
+
+        <div id="add-column-form" class="hidden mt-6 p-4 bg-gray-200 rounded-lg">
+            <h2 class="text-xl font-semibold mb-4">Neue Spalte hinzufügen</h2>
+            <form>
+                <label class="block mb-2">
+                    <span class="text-gray-700">Spaltenname:</span>
+                    <input type="text" id="new-column-name" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm">
+                </label>
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Hinzufügen</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "{{ api_url }}";
+        const collectionSelect = document.getElementById('collection-select');
+        const importCollectionSelect = document.getElementById('import-collection-select');
+
+        async function fetchCollections() {
+            const response = await fetch(`${API_URL}/collections`);
+            const data = await response.json();
+            
+            const collections = data.collections;
+            collectionSelect.innerHTML = '';
+            importCollectionSelect.innerHTML = '';
+
+            collections.forEach(col => {
+                const option = `<option value="${col}">${col}</option>`;
+                collectionSelect.innerHTML += option;
+                importCollectionSelect.innerHTML += option;
+            });
+            
+            if (collections.length > 0) {
+                fetchData(collections[0]);
+            }
+        }
+
+        async function fetchData(collectionName) {
+            const response = await fetch(`${API_URL}/data/${collectionName}`);
+            const data = await response.json();
+            renderTable(data.data, collectionName);
+        }
+
+        function renderTable(data, collectionName) {
+            const container = document.getElementById('data-table-container');
+            container.innerHTML = '';
+            
+            if (data.length === 0) {
+                container.innerHTML = "<p class='text-gray-600'>Keine Daten in dieser Collection.</p>";
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'w-full text-left bg-white rounded-lg overflow-hidden shadow';
+            
+            const thead = document.createElement('thead');
+            const tbody = document.createElement('tbody');
+            
+            let headers = new Set();
+            data.forEach(item => { Object.keys(item).forEach(key => headers.add(key)); });
+            headers = Array.from(headers);
+            
+            const headerRow = document.createElement('tr');
+            headerRow.className = 'bg-gray-50 uppercase text-xs leading-normal text-gray-600';
+            headers.forEach(header => {
+                const th = document.createElement('th');
+                th.className = 'py-3 px-6';
+                th.textContent = header;
+                headerRow.appendChild(th);
+            });
+            const thPlus = document.createElement('th');
+            thPlus.className = 'py-3 px-6 text-center';
+            thPlus.innerHTML = '<button class="text-xl text-green-600 hover:text-green-800 transition duration-300" onclick="showAddColumnForm(\'' + collectionName + '\')">+</button>';
+            headerRow.appendChild(thPlus);
+            thead.appendChild(headerRow);
+            
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-200 hover:bg-gray-100';
+                row.dataset.collection = collectionName;
+                row.dataset.id = item._id;
+
+                headers.forEach(header => {
+                    const td = document.createElement('td');
+                    td.className = 'py-3 px-6 editable';
+                    td.textContent = item[header] || '';
+                    td.dataset.field = header;
+                    row.appendChild(td);
+                });
+                
+                const tdPlus = document.createElement('td');
+                tdPlus.className = 'py-3 px-6 text-center';
+                tdPlus.innerHTML = '<span class="text-xl text-green-600">+</span>';
+                row.appendChild(tdPlus);
+
+                tbody.appendChild(row);
+            });
+
+            table.appendChild(thead);
+            table.appendChild(tbody);
+            container.appendChild(table);
+
+            document.querySelectorAll('.editable').forEach(cell => {
+                cell.addEventListener('click', () => {
+                    if (cell.querySelector('input')) return;
+                    const originalText = cell.textContent;
+                    cell.innerHTML = `<input type="text" value="${originalText}" class="w-full bg-transparent focus:outline-none">`;
+                    const input = cell.querySelector('input');
+                    input.focus();
+
+                    input.addEventListener('blur', async () => {
+                        const newText = input.value;
+                        if (newText !== originalText) {
+                            const collection = cell.closest('tr').dataset.collection;
+                            const id = cell.closest('tr').dataset.id;
+                            const field = cell.dataset.field;
+                            await updateData(collection, id, field, newText);
+                        }
+                        cell.textContent = newText;
+                    });
+                });
+            });
+        }
+
+        async function updateData(collection, id, field, value) {
+            const data = {};
+            data[field] = value;
+            await fetch(`${API_URL}/update_item`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ collection: collection, item_id: id, data: data })
+            });
+        }
+
+        function showAddColumnForm(collectionName) {
+            const form = document.getElementById('add-column-form');
+            form.classList.remove('hidden');
+            form.dataset.collection = collectionName;
+        }
+
+        document.getElementById('import-button').addEventListener('click', () => {
+            document.getElementById('import-form-container').classList.toggle('hidden');
+        });
+
+        document.getElementById('import-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = new FormData(e.target);
+            const collectionName = document.getElementById('import-collection-select').value;
+            const linkTo = document.getElementById('link-to-field').value;
+
+            const file = document.getElementById('import-file').files[0];
+            const data = new FormData();
+            data.append('file', file);
+            if (linkTo) {
+                data.append('link_to', linkTo);
+            }
+
+            const response = await fetch(`${API_URL}/import_csv/${collectionName}`, {
+                method: 'POST',
+                body: data
+            });
+
+            if (response.ok) {
+                alert('Import erfolgreich!');
+                document.getElementById('import-form-container').classList.add('hidden');
+                fetchData(collectionName);
+            } else {
+                alert('Fehler beim Import!');
+            }
+        });
+
+        document.getElementById('add-column-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const collectionName = e.target.dataset.collection;
+            const newColumnName = document.getElementById('new-column-name').value;
+            
+            const response = await fetch(`${API_URL}/add_column`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ collection_name: collectionName, column_name: newColumnName })
+            });
+
+            if (response.ok) {
+                document.getElementById('add-column-form').classList.add('hidden');
+                document.getElementById('new-column-name').value = '';
+                fetchData(collectionName);
+            }
+        });
+
+        collectionSelect.addEventListener('change', (e) => {
+            fetchData(e.target.value);
+        });
+
+        fetchCollections();
+    </script>
+</body>
+</html>
