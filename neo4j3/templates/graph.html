@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <title>Neo4j Graph Visualisierung</title>
     <style>
-        body { margin: 0; }
-        svg { background: #f0f0f0; }
-        .link { stroke: #999; stroke-opacity: 0.6; }
-        .node circle { stroke: #fff; stroke-width: 1.5px; }
-        .node text { font: 10px sans-serif; pointer-events: none; }
+        body { margin: 0; font-family: sans-serif; }
+        svg { background: #f0f0f0; border: 1px solid #ccc; }
+        .link { stroke: #999; stroke-width: 2px; }
+        .link-text { fill: #555; font-size: 10px; text-anchor: middle; }
+        .node circle { stroke: #fff; stroke-width: 1.5px; cursor: pointer; }
+        .node text { font-size: 12px; font-weight: bold; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff; }
     </style>
     <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
@@ -22,10 +23,36 @@
                 .attr("width", width)
                 .attr("height", height);
 
+            const container = svg.append("g");
+
+            // Define arrowheads for directed links
+            svg.append("defs").selectAll("marker")
+                .data(["end"])
+                .enter().append("marker")
+                .attr("id", d => d)
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 15)
+                .attr("refY", 0)
+                .attr("markerWidth", 6)
+                .attr("markerHeight", 6)
+                .attr("orient", "auto")
+                .append("path")
+                .attr("d", "M0,-5L10,0L0,5")
+                .attr("fill", "#999");
+
             const simulation = d3.forceSimulation()
-                .force("link", d3.forceLink().id(d => d.id))
-                .force("charge", d3.forceManyBody().strength(-400))
+                .force("link", d3.forceLink().id(d => d.id).distance(100))
+                .force("charge", d3.forceManyBody().strength(-300))
                 .force("center", d3.forceCenter(width / 2, height / 2));
+
+            // Add zoom functionality
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on("zoom", (event) => {
+                    container.attr("transform", event.transform);
+                });
+
+            svg.call(zoom);
 
             fetch('/api/graph-data')
                 .then(response => response.json())
@@ -38,24 +65,45 @@
                     const nodes = graph.nodes;
                     const links = graph.links;
 
-                    const link = svg.append("g")
-                        .attr("class", "links")
-                        .selectAll("line")
+                    // Group for links and their labels
+                    const linkGroup = container.append("g").attr("class", "links");
+
+                    const link = linkGroup.selectAll("line")
                         .data(links)
                         .enter().append("line")
-                        .attr("class", "link");
+                        .attr("class", "link")
+                        .attr("marker-end", "url(#end)");
 
-                    const node = svg.append("g")
-                        .attr("class", "nodes")
-                        .selectAll("circle")
+                    const linkLabel = linkGroup.selectAll("text")
+                        .data(links)
+                        .enter().append("text")
+                        .attr("class", "link-text")
+                        .text(d => d.type);
+
+                    // Group for nodes and their labels
+                    const nodeGroup = container.append("g").attr("class", "nodes");
+                    
+                    const node = nodeGroup.selectAll("g.node")
                         .data(nodes)
-                        .enter().append("circle")
-                        .attr("r", 5)
-                        .attr("fill", d => d.label === 'Movie' ? 'red' : 'blue') // Beispiel: Farbe basierend auf Node-Label
+                        .enter().append("g")
+                        .attr("class", "node")
                         .call(d3.drag()
                             .on("start", dragstarted)
                             .on("drag", dragged)
                             .on("end", dragended));
+
+                    node.append("circle")
+                        .attr("r", 10)
+                        .attr("fill", d => d.label === 'Movie' ? 'red' : 'blue');
+                    
+                    node.append("text")
+                        .attr("dy", "1.5em")
+                        .attr("text-anchor", "middle")
+                        .text(d => d.label)
+                        .append("tspan")
+                        .attr("x", 0)
+                        .attr("dy", "1.2em")
+                        .text(d => JSON.stringify(d.properties, null, 2));
 
                     node.append("title")
                         .text(d => JSON.stringify(d.properties, null, 2));
@@ -70,9 +118,11 @@
                             .attr("x2", d => d.target.x)
                             .attr("y2", d => d.target.y);
 
-                        node
-                            .attr("cx", d => d.x)
-                            .attr("cy", d => d.y);
+                        linkLabel
+                            .attr("x", d => (d.source.x + d.target.x) / 2)
+                            .attr("y", d => (d.source.y + d.target.y) / 2);
+
+                        node.attr("transform", d => `translate(${d.x},${d.y})`);
                     }
                 })
                 .catch(error => console.error('Error fetching graph data:', error));
