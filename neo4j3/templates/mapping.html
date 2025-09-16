@@ -4,65 +4,112 @@
 
 {% block content %}
     <h1>Daten zuordnen</h1>
-    <p>Ordne die Spalten den Node-Typen und Relationships zu. Jede Spalte kann nur einem Node-Typen zugeordnet werden.</p>
-    
-    <form id="mappingForm">
-        <div id="nodeMappings">
-            <h3>Node-Zuordnung</h3>
-            </div>
-        
-        <button type="button" onclick="addNodeMapping()">+ Neuer Node-Typ</button>
-        
-        <div id="relationshipMappings">
-            <h3>Relationships</h3>
+    <p>Ordne die Spalten den Node-Typen und Relationships zu. Jede Spalte muss einem Node-Typen zugeordnet werden, um Relationships zu erstellen.</p>
+
+    <div id="mappingContainer">
+        <div id="nodeMappings" class="mapping-section">
+            <h2 class="section-title">Node-Zuordnung</h2>
+            <div id="nodeList"></div>
+            <button type="button" onclick="addNodeMapping()">+ Neuer Node-Typ</button>
+        </div>
+
+        <div id="relationshipMappings" class="mapping-section">
+            <h2 class="section-title">Relationships</h2>
+            <div id="relationshipList"></div>
             <button type="button" onclick="addRelationship()">+ Relationship hinzufügen</button>
-            </div>
-        
-        <button type="button" onclick="saveMapping()">Speichern & Importieren</button>
-    </form>
+        </div>
+    </div>
     
+    <button type="button" onclick="saveMapping()" class="save-button">Speichern & Importieren</button>
+
+    <style>
+        body { font-family: sans-serif; }
+        .mapping-section { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 8px; }
+        .section-title { margin-top: 0; color: #333; }
+        .node-group, .relationship-group { border: 1px solid #eee; padding: 10px; margin-bottom: 10px; border-radius: 6px; background-color: #f9f9f9; }
+        .node-group h4 { color: #0056b3; margin-top: 0; }
+        .relationship-group h4 { color: #28a745; margin-top: 0; }
+        .node-group .node-label-input, .rel-type-input { font-weight: bold; }
+        .column-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+        .column-item { background-color: #e2e6ea; border: 1px solid #d3d9df; padding: 5px 10px; border-radius: 4px; cursor: pointer; user-select: none; }
+        .column-item.selected { background-color: #007bff; color: white; border-color: #007bff; }
+        .column-item.disabled { background-color: #f0f0f0; color: #999; border-color: #ddd; cursor: not-allowed; text-decoration: line-through; }
+        .save-button { padding: 10px 20px; font-size: 16px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .save-button:hover { background-color: #0056b3; }
+        .remove-button { margin-left: 10px; color: #dc3545; cursor: pointer; }
+    </style>
+
     <script>
         const headers = {{ headers|tojson }};
-        const nodeMappingsDiv = document.getElementById('nodeMappings');
-        const relationshipMappingsDiv = document.getElementById('relationshipMappings');
+        const nodeListDiv = document.getElementById('nodeList');
+        const relationshipListDiv = document.getElementById('relationshipList');
+        const assignedColumns = new Set();
+        let nodeCounter = 0;
 
-        function updateAvailableHeaders() {
-            const allSelectedHeaders = new Set();
-            document.querySelectorAll('.node-fields-select').forEach(select => {
-                [...select.options].forEach(option => {
-                    if (option.selected) {
-                        allSelectedHeaders.add(option.value);
-                    }
-                });
+        function updateColumnStates() {
+            // Rebuild the assignedColumns set
+            assignedColumns.clear();
+            document.querySelectorAll('.node-group').forEach(group => {
+                const selectedCols = group.querySelectorAll('.column-item.selected');
+                selectedCols.forEach(col => assignedColumns.add(col.dataset.column));
             });
 
-            document.querySelectorAll('.node-fields-select').forEach(select => {
-                [...select.options].forEach(option => {
-                    if (!option.selected && allSelectedHeaders.has(option.value)) {
-                        option.disabled = true;
-                    } else {
-                        option.disabled = false;
-                    }
-                });
+            // Update UI based on assignedColumns
+            document.querySelectorAll('.column-item').forEach(col => {
+                const column = col.dataset.column;
+                const isSelectedInAnyGroup = assignedColumns.has(column);
+                const isSelectedInThisGroup = col.classList.contains('selected');
+
+                if (isSelectedInAnyGroup && !isSelectedInThisGroup) {
+                    col.classList.add('disabled');
+                    col.classList.remove('selected'); // Just in case
+                } else {
+                    col.classList.remove('disabled');
+                }
             });
+            updateRelationshipSelects();
         }
 
         function addNodeMapping() {
+            nodeCounter++;
             const newNodeDiv = document.createElement('div');
             newNodeDiv.classList.add('node-group');
             newNodeDiv.innerHTML = `
-                <h4>Neuer Node-Typ</h4>
-                <label>Node-Label:</label>
-                <input type="text" class="node-label-input" placeholder="z.B. Person">
-                <br>
-                <label>Spalten:</label>
-                <select multiple class="node-fields-select">
-                    ${headers.map(h => `<option value="${h}">${h}</option>`).join('')}
-                </select>
-                <button type="button" onclick="this.parentNode.remove(); updateAvailableHeaders();">Entfernen</button>
+                <h4 contenteditable="true" class="node-label-input" placeholder="Node-Label" onblur="updateRelationshipSelects()">Node-Typ ${nodeCounter}</h4>
+                <div class="column-list">
+                    ${headers.map(h => `<div class="column-item" data-column="${h}">${h}</div>`).join('')}
+                </div>
+                <span class="remove-button" onclick="this.closest('.node-group').remove(); updateColumnStates();">Entfernen</span>
             `;
-            nodeMappingsDiv.appendChild(newNodeDiv);
-            newNodeDiv.querySelector('.node-fields-select').addEventListener('change', updateAvailableHeaders);
+            nodeListDiv.appendChild(newNodeDiv);
+            
+            newNodeDiv.querySelectorAll('.column-item').forEach(col => {
+                col.addEventListener('click', (event) => {
+                    const column = event.target.dataset.column;
+                    const isSelected = event.target.classList.contains('selected');
+                    
+                    if (!isSelected && assignedColumns.has(column)) {
+                        alert('Diese Spalte ist bereits einem anderen Node-Typen zugeordnet.');
+                        return;
+                    }
+                    
+                    event.target.classList.toggle('selected');
+                    updateColumnStates();
+                });
+            });
+            updateColumnStates();
+        }
+
+        function updateRelationshipSelects() {
+            const availableNodes = [...document.querySelectorAll('.node-label-input')]
+                                     .map(input => input.textContent.trim())
+                                     .filter(label => label.length > 0);
+            document.querySelectorAll('.node-select').forEach(select => {
+                const currentValue = select.value;
+                select.innerHTML = `<option value="">-- Wähle Node --</option>` +
+                                   availableNodes.map(label => `<option value="${label}">${label}</option>`).join('');
+                select.value = currentValue;
+            });
         }
 
         function addRelationship() {
@@ -70,52 +117,66 @@
             newRelDiv.classList.add('relationship-group');
             newRelDiv.innerHTML = `
                 <h4>Neue Relationship</h4>
-                <label>Von Node:</label>
-                <input type="text" class="from-node-input" placeholder="z.B. Person">
-                <br>
-                <label>Zu Node:</label>
-                <input type="text" class="to-node-input" placeholder="z.B. Gebäude">
-                <br>
+                <label>Von:</label>
+                <select class="from-node-select node-select"></select>
+                <label>Nach:</label>
+                <select class="to-node-select node-select"></select>
+                <br><br>
                 <label>Relationship-Typ:</label>
-                <input type="text" class="rel-type-input" placeholder="z.B. SITZT_IN">
-                <br>
-                <button type="button" onclick="this.parentNode.remove()">Entfernen</button>
+                <input type="text" class="rel-type-input" placeholder="z.B. HAT_ZUGEHÖRIGKEIT">
+                <span class="remove-button" onclick="this.closest('.relationship-group').remove()">Entfernen</span>
             `;
-            relationshipMappingsDiv.appendChild(newRelDiv);
+            relationshipListDiv.appendChild(newRelDiv);
+            updateRelationshipSelects();
         }
         
-        document.addEventListener('DOMContentLoaded', addNodeMapping);
-        
+        document.addEventListener('DOMContentLoaded', () => {
+             addNodeMapping();
+             addRelationship();
+        });
+
         function saveMapping() {
             const mapping = { nodes: {}, relationships: [] };
-            const allAssignedHeaders = new Set();
+            let hasError = false;
 
+            // Collect node mappings
             document.querySelectorAll('.node-group').forEach(group => {
-                const label = group.querySelector('.node-label-input').value.trim();
-                const fields = [...group.querySelector('.node-fields-select').options]
-                    .filter(option => option.selected)
-                    .map(option => option.value);
+                const label = group.querySelector('.node-label-input').textContent.trim();
+                const fields = [...group.querySelectorAll('.column-item.selected')]
+                               .map(item => item.dataset.column);
                 if (label && fields.length > 0) {
                     mapping.nodes[label] = fields;
-                    fields.forEach(f => allAssignedHeaders.add(f));
                 }
             });
 
-            const unassignedHeaders = headers.filter(h => !allAssignedHeaders.has(h));
-            if (unassignedHeaders.length > 0) {
-                if (!confirm(`Die folgenden Spalten wurden nicht zugeordnet: ${unassignedHeaders.join(', ')}. Möchtest du trotzdem fortfahren?`)) {
-                    return;
-                }
+            // Check if all headers are assigned
+            const assignedHeadersCount = Object.values(mapping.nodes).flat().length;
+            if (assignedHeadersCount !== headers.length) {
+                alert('Fehler: Alle Spalten müssen einem Node-Typen zugeordnet werden.');
+                hasError = true;
             }
 
+            // Collect relationship mappings
             document.querySelectorAll('.relationship-group').forEach(group => {
-                const from = group.querySelector('.from-node-input').value.trim();
-                const to = group.querySelector('.to-node-input').value.trim();
+                const from = group.querySelector('.from-node-select').value;
+                const to = group.querySelector('.to-node-select').value;
                 const type = group.querySelector('.rel-type-input').value.trim();
                 if (from && to && type) {
                     mapping.relationships.push({ from, to, type });
+                } else {
+                    hasError = true;
                 }
             });
+            
+            // Check if relationships are defined
+            if (mapping.relationships.length === 0) {
+                alert('Fehler: Es muss mindestens eine Relationship definiert werden.');
+                hasError = true;
+            }
+
+            if (hasError) {
+                return;
+            }
 
             fetch('/save_mapping', {
                 method: 'POST',
