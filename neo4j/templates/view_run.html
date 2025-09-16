@@ -1,35 +1,96 @@
 {% extends "base.html" %}
+
 {% block content %}
+<style>
+    .header-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .actions button {
+        background-color: #4CAF50; /* Green */
+        border: none;
+        color: white;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 50%; /* Makes it a circle */
+        width: 30px;
+        height: 30px;
+        line-height: 30px;
+        padding: 0;
+        font-weight: bold;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    th, td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }
+    
+    th {
+        background-color: #f2f2f2;
+        cursor: pointer;
+    }
+</style>
+
 <div class="header-container">
     <h2>View results</h2>
     <div class="actions">
-        <button id="add-column-btn">+</button>
-        <button id="add-row-btn">+</button>
+        <button id="add-column-btn" title="Add Column">+</button>
+        <button id="add-row-btn" title="Add Row">+</button>
     </div>
 </div>
-<table border="1" id="results-table">
-  <thead>
-    <tr>
-      {% set all_keys = results[0].keys()|reject("equalto", "__node_id")|list if results else [] %}
-      {% for key in all_keys %}
-        <th>{{ key }}</th>
-      {% endfor %}
-    </tr>
-  </thead>
-  
-  <tbody>
-    {% for row in results %}
-      <tr>
-        {% for key in all_keys %}
-          <td data-key="{{ key }}"
-              {% if row.get('__node_id') is not none %}data-node-id="{{ row['__node_id'] }}"{% endif %}
-              contenteditable="true">
-            {{ row[key] }}
-          </td>
+
+<table id="results-table">
+    <thead>
+        <tr>
+            {% set all_keys = [] %}
+            {% if results %}
+                {% set temp_keys = [] %}
+                {% for row in results %}
+                    {% for key in row.keys() %}
+                        {% if key not in temp_keys and key != '__node_id' %}
+                            {% set temp_keys = temp_keys + [key] %}
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+                {% set all_keys = temp_keys %}
+            {% endif %}
+            {% for key in all_keys %}
+                <th>{{ key }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    
+    <tbody>
+        {% for row in results %}
+            <tr>
+                {% for key in all_keys %}
+                    <td data-key="{{ key }}"
+                        {% if row.get('__node_id') is not none %}data-node-id="{{ row['__node_id'] }}"{% endif %}
+                        contenteditable="true">
+                        {{ row[key] | default('', true) }}
+                    </td>
+                {% endfor %}
+            </tr>
         {% endfor %}
-      </tr>
-    {% endfor %}
-  </tbody>
+    </tbody>
 </table>
   
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

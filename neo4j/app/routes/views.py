@@ -82,12 +82,10 @@ def create():
 
     return redirect(url_for("views.index"))
 
-
 @bp.route("/run/<vid>", methods=["GET"])
 def run_view(vid):
     neo = current_app.neo
     try:
-        # View abfragen
         rec = neo.run_cypher(
             "MATCH (v:View) WHERE elementId(v)=$vid RETURN v.cypher as cypher, v.name as name",
             {"vid": vid}
@@ -97,49 +95,42 @@ def run_view(vid):
             return "View not found", 404
 
         cypher = rec[0]["cypher"]
+        
+        if "RETURN" not in cypher:
+            return "Cypher-Query muss eine RETURN-Klausel enthalten.", 400
 
-        # Prüfen, ob 'elementId' schon drin ist
-        if "elementId(" not in cypher:
-            # automatisch elementId(n) als __node_id ergänzen
-            cypher = cypher.replace("RETURN n", "RETURN n, elementId(n) AS __node_id")
-
-        # Cypher-Query ausführen
         raw_results = neo.run_cypher(cypher)
-
+        
+        # Leere Liste für die aufbereiteten Ergebnisse
         results = []
+        
+        # Liste für die Spaltennamen
+        columns = []
+        
+        if raw_results:
+            # Spaltennamen aus den Keys der ersten Zeile extrahieren
+            # Wir nehmen die Keys aus dem Result-Set, die von Neo4j zurückgegeben wurden
+            columns = raw_results[0].keys()
 
-        for row in raw_results:
-            flat_row = {}
-            node_id = None
-            
-            for k, v in row.items():
-                if isinstance(v, Node):
-                    flat_row.update(v)
-                else:
-                    flat_row[k] = v
-
-            # __node_id direkt aus der row, falls elementId() zurückgegeben wurde
-            if "__node_id" in row:
-                node_id = row["__node_id"]
-
-            flat_row["__node_id"] = node_id
-            
-            # Alle Spalten auf None setzen, wenn der Wert nicht existiert
-            if results:
-                for key in results[0].keys():
-                    if key not in flat_row:
-                        flat_row[key] = None
-            
-            results.append(flat_row)
-            
-        # Wenn es keine Ergebnisse gibt, setze `results` auf eine leere Liste
-        if not results and raw_results:
-            results = [{k: v if not isinstance(v, Node) else v.get("__node_id") for k, v in raw_results[0].items()}]
-            
+            for row in raw_results:
+                flat_row = {}
+                for k in columns:
+                    v = row[k]
+                    
+                    if isinstance(v, Node):
+                        # Wenn der Wert ein Knoten ist, extrahieren wir seine Eigenschaften
+                        # und fügen die elementId als '__node_id' hinzu
+                        flat_row.update(dict(v))
+                        flat_row['__node_id'] = v.element_id
+                    else:
+                        flat_row[k] = v
+                
+                results.append(flat_row)
+        
     except Exception as e:
         return f"Fehler beim Ausführen der View: {e}", 400
 
-    return render_template("view_run.html", results=results, view_id=vid)
+    return render_template("view_run.html", results=results, columns=columns, view_id=vid)
 
 @bp.route("/add_column", methods=["POST"])
 def add_column():
