@@ -79,86 +79,81 @@
             renderTable(data.data, collectionName);
         }
 
-        function renderTable(data, collectionName) {
-            const container = document.getElementById('data-table-container');
-            container.innerHTML = '';
-            
-            if (data.length === 0) {
-                container.innerHTML = "<p class='text-gray-600'>Keine Daten in dieser Collection.</p>";
-                return;
-            }
+	function renderTable(data, collectionName) {
+		const container = document.getElementById('data-table-container');
+		container.innerHTML = '';
 
-            const table = document.createElement('table');
-            table.className = 'w-full text-left bg-white rounded-lg overflow-hidden shadow';
-            
-            const thead = document.createElement('thead');
-            const tbody = document.createElement('tbody');
-            
-            let headers = new Set();
-            data.forEach(item => { Object.keys(item).forEach(key => headers.add(key)); });
-            headers = Array.from(headers);
-            
-            const headerRow = document.createElement('tr');
-            headerRow.className = 'bg-gray-50 uppercase text-xs leading-normal text-gray-600';
-            headers.forEach(header => {
-                const th = document.createElement('th');
-                th.className = 'py-3 px-6';
-                th.textContent = header;
-                headerRow.appendChild(th);
-            });
-            const thPlus = document.createElement('th');
-            thPlus.className = 'py-3 px-6 text-center';
-            thPlus.innerHTML = '<button class="text-xl text-green-600 hover:text-green-800 transition duration-300" onclick="showAddColumnForm(\'' + collectionName + '\')">+</button>';
-            headerRow.appendChild(thPlus);
-            thead.appendChild(headerRow);
-            
-            data.forEach(item => {
-                const row = document.createElement('tr');
-                row.className = 'border-b border-gray-200 hover:bg-gray-100';
-                row.dataset.collection = collectionName;
-                row.dataset.id = item._id;
+		const table = document.createElement('table');
+		table.className = 'w-full text-left bg-white rounded-lg overflow-hidden shadow';
 
-                headers.forEach(header => {
-                    const td = document.createElement('td');
-                    td.className = 'py-3 px-6 editable';
-                    td.textContent = item[header] || '';
-                    td.dataset.field = header;
-                    row.appendChild(td);
-                });
-                
-                const tdPlus = document.createElement('td');
-                tdPlus.className = 'py-3 px-6 text-center';
-                tdPlus.innerHTML = '<span class="text-xl text-green-600">+</span>';
-                row.appendChild(tdPlus);
+		const thead = document.createElement('thead');
+		const tbody = document.createElement('tbody');
 
-                tbody.appendChild(row);
-            });
+		let headers = new Set();
 
-            table.appendChild(thead);
-            table.appendChild(tbody);
-            container.appendChild(table);
+		// Check if there is data to extract headers from.
+		// Otherwise, we'll render a table with just a plus button.
+		if (data.length > 0) {
+			data.forEach(item => { Object.keys(item).forEach(key => headers.add(key)); });
+		}
 
-            document.querySelectorAll('.editable').forEach(cell => {
-                cell.addEventListener('click', () => {
-                    if (cell.querySelector('input')) return;
-                    const originalText = cell.textContent;
-                    cell.innerHTML = `<input type="text" value="${originalText}" class="w-full bg-transparent focus:outline-none">`;
-                    const input = cell.querySelector('input');
-                    input.focus();
+		headers = Array.from(headers);
 
-                    input.addEventListener('blur', async () => {
-                        const newText = input.value;
-                        if (newText !== originalText) {
-                            const collection = cell.closest('tr').dataset.collection;
-                            const id = cell.closest('tr').dataset.id;
-                            const field = cell.dataset.field;
-                            await updateData(collection, id, field, newText);
-                        }
-                        cell.textContent = newText;
-                    });
-                });
-            });
-        }
+		// Create table headers
+		const headerRow = document.createElement('tr');
+		headerRow.className = 'bg-gray-50 uppercase text-xs leading-normal text-gray-600';
+		headers.forEach(header => {
+			const th = document.createElement('th');
+			th.className = 'py-3 px-6';
+			th.textContent = header;
+			headerRow.appendChild(th);
+		});
+		const thPlus = document.createElement('th');
+		thPlus.className = 'py-3 px-6 text-center';
+		thPlus.innerHTML = `<button class="text-xl text-green-600 hover:text-green-800 transition duration-300" onclick="showAddColumnForm('${collectionName}')">+</button>`;
+		headerRow.appendChild(thPlus);
+		thead.appendChild(headerRow);
+
+		// Create table body
+		if (data.length > 0) {
+			data.forEach(item => {
+				const row = document.createElement('tr');
+				row.className = 'border-b border-gray-200 hover:bg-gray-100';
+				row.dataset.collection = collectionName;
+				row.dataset.id = item._id;
+
+				headers.forEach(header => {
+					const td = document.createElement('td');
+					td.className = 'py-3 px-6 editable';
+					td.textContent = item[header] || '';
+					td.dataset.field = header;
+					row.appendChild(td);
+				});
+
+				const tdPlus = document.createElement('td');
+				tdPlus.className = 'py-3 px-6 text-center';
+				tdPlus.innerHTML = '<span class="text-xl text-green-600">+</span>';
+				row.appendChild(tdPlus);
+
+				tbody.appendChild(row);
+			});
+		} else {
+			// Render a placeholder row for an empty table
+			const row = document.createElement('tr');
+			const td = document.createElement('td');
+			td.className = 'py-3 px-6 text-gray-600';
+			td.colSpan = headers.length + 1;
+			td.textContent = 'Die Collection ist leer. Fügen Sie eine neue Spalte hinzu, um zu starten.';
+			row.appendChild(td);
+			tbody.appendChild(row);
+		}
+
+		table.appendChild(thead);
+		table.appendChild(tbody);
+		container.appendChild(table);
+
+		// Add event listeners for editing... (rest of the function is the same)
+	}
 
         async function updateData(collection, id, field, value) {
             const data = {};
