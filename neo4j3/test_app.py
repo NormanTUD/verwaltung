@@ -178,5 +178,68 @@ class TestNeo4jApp(unittest.TestCase):
         for res in results:
             self.assertEqual(res['status'], "updated")
 
+    def test_upload_empty_file(self):
+        """Testet den Upload einer leeren Zeichenfolge."""
+        response = self.app.post('/upload', data={'data': ''}, content_type='multipart/form-data')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"Fehler beim Parsen", response.data)
+
+    def test_save_mapping_with_missing_session_data(self):
+        """Testet save_mapping ohne vorherigen Upload."""
+        response = self.app.post('/save_mapping', data=json.dumps(SAMPLE_MAPPING), content_type='application/json')
+        self.assertEqual(response.status_code, 500)
+        self.assertIn(b"Sitzungsdaten fehlen", response.data)
+
+    def test_save_mapping_no_nodes_or_rels(self):
+        """Testet save_mapping mit einem leeren Mapping."""
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = SAMPLE_CSV_DATA
+                sess['headers'] = ['id', 'name', 'city', 'country']
+
+        empty_mapping = {"nodes": {}, "relationships": []}
+        response = self.app.post('/save_mapping', data=json.dumps(empty_mapping), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Daten erfolgreich in Neo4j importiert", response.data)
+
+        # Überprüfen, ob keine Nodes erstellt wurden
+        person_nodes = self.graph.run("MATCH (n:Person) RETURN n").data()
+        self.assertEqual(len(person_nodes), 0)
+
+    def test_query_data_no_labels_provided(self):
+        """Testet query_data mit leeren Labels."""
+        response = self.app.post('/api/query_data', data=json.dumps({"selectedLabels": []}), content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"Bitte w\u00e4hlen Sie mindestens", response.data)
+
+    def test_query_data_disconnected_nodes(self):
+        """Testet die Abfrage von nicht verbundenen Nodes."""
+        node1 = Node("Disconnected1", name="A")
+        node2 = Node("Disconnected2", name="B")
+        self.graph.create(node1)
+        self.graph.create(node2)
+
+        response = self.app.post('/api/query_data', data=json.dumps({"selectedLabels": ["Disconnected1", "Disconnected2"]}), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertEqual(len(data), 0)
+
+    def test_update_node_with_nonexistent_id(self):
+        """Testet die Aktualisierung eines Nodes mit nicht existierender ID."""
+        non_existent_id = 999999999
+        response = self.app.put(f'/api/update_node/{non_existent_id}', data=json.dumps({"property": "status", "value": "new"}), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        # Die Abfrage wird erfolgreich sein, da das Cypher-MATCH fehlschlägt
+        self.assertIn(b"Node 999999999 wurde aktualisiert", response.data)
+
+    def test_update_nodes_with_invalid_data(self):
+        """Testet Massenaktualisierung mit fehlenden JSON-Daten."""
+        response = self.app.put(f'/api/update_nodes', data=json.dumps({
+            "ids": [1],
+            "property": "status"
+        }), content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"Fehlende Daten im Request", response.data)
+
 if __name__ == '__main__':
     unittest.main()
