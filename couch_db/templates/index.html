@@ -6,6 +6,7 @@
     <button onclick="addRow()">Neue Zeile</button>
     <button onclick="addColumn()">Spalte erweitern</button>
 
+    {% if docs %}  <-- Add this check here!
     <table>
         <thead>
             <tr>
@@ -34,6 +35,9 @@
             {% endfor %}
         </tbody>
     </table>
+    {% else %}
+        <p>Keine Dokumente in der Datenbank gefunden. Füge eine neue Zeile hinzu, um zu starten.</p>
+    {% endif %}
 
     <script>
         function addRow() {
@@ -72,9 +76,54 @@
                 });
             }
         }
-        
-        // Logik für die dynamische Spalten- und Zellbearbeitung muss hier implementiert werden.
-        // Bei `contenteditable="true"` musst du einen Event-Listener hinzufügen, der die Änderungen erkennt und an das Backend sendet.
-        // Beispiel: addEventListener('input', ...), wenn der Fokus eine Zelle verlässt.
+
+	function addColumn() {
+		const colName = prompt("Name der neuen Spalte:");
+		if (!colName) {
+			return;
+		}
+
+		// Backend-Aufruf, um die Spalte zu den Dokumenten hinzuzufügen
+		fetch('/add_column', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ column_name: colName })
+		}).then(response => {
+			if (response.ok) {
+				// Bei Erfolg die Seite neu laden, um die aktualisierte Tabelle zu sehen
+				location.reload();
+			} else {
+				alert('Fehler beim Hinzufügen der Spalte.');
+			}
+		});
+	}
+
+	// Funktion zum Hinzufügen von Werten
+	function addRow() {
+		const data = {};
+		const keys = Array.from(document.querySelectorAll('thead th')).map(th => th.textContent.trim());
+
+		keys.forEach(key => {
+			if (key !== 'ID' && key !== 'Aktionen' && key) {
+				data[key] = prompt(`Wert für '${key}':`);
+			}
+		});
+
+		// Überprüfen, ob Daten eingegeben wurden, bevor eine Anfrage gesendet wird
+		const hasData = Object.values(data).some(value => value !== null && value !== "");
+		if (hasData) {
+			fetch('/create', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(data)
+			}).then(response => {
+				if (response.ok) {
+					location.reload();
+				} else {
+					alert('Fehler beim Erstellen.');
+				}
+			});
+		}
+	}
     </script>
 {% endblock %}
