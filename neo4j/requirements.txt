@@ -8,3 +8,4 @@ Jinja2
 itsdangerous
 Werkzeug
 mypydie
+py2neo

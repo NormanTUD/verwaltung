@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>View results</h2>
+<div class="header-container">
+    <h2>View results</h2>
+    <div class="actions">
+        <button id="add-column-btn">+</button>
+        <button id="add-row-btn">+</button>
+    </div>
+</div>
 <table border="1" id="results-table">
   <thead>
     <tr>
@@ -10,7 +16,7 @@
       {% endfor %}
     </tr>
   </thead>
-
+  
   <tbody>
     {% for row in results %}
       <tr>
@@ -25,33 +31,81 @@
     {% endfor %}
   </tbody>
 </table>
-
+  
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 $(function(){
-  $("#results-table td[contenteditable=true]").on("blur", function(){
-    var td = $(this);
-    var nodeId = td.data("node-id");
-    var key = td.data("key");
-    var newVal = td.text();
+    // Update logic for editable cells
+    $("#results-table td[contenteditable=true]").on("blur", function(){
+        var td = $(this);
+        var nodeId = td.data("node-id");
+        var key = td.data("key");
+        var newVal = td.text();
 
-    if(!nodeId){
-      console.warn("No node ID, skipping update for", key);
-      return;
-    }
+        if(!nodeId){
+            console.warn("No node ID, skipping update for", key);
+            return;
+        }
 
-    $.ajax({
-      url: "/api/node/" + nodeId,
-      method: "PATCH",
-      contentType: "application/json",
-      data: JSON.stringify({ [key]: newVal }),
-      success: function(res){
-        console.log("Updated", key, res);
-      },
-      error: function(xhr){
-        alert("Update failed: " + xhr.responseText);
-      }
+        $.ajax({
+            url: "/api/node/" + nodeId,
+            method: "PATCH",
+            contentType: "application/json",
+            data: JSON.stringify({ [key]: newVal }),
+            success: function(res){
+                console.log("Updated", key, res);
+            },
+            error: function(xhr){
+                alert("Update failed: " + xhr.responseText);
+            }
+        });
     });
-  });
+
+    // Add new column
+    $("#add-column-btn").on("click", function(){
+        var propertyName = prompt("Spaltenname (Eigenschaftsname) eingeben:");
+        if (propertyName) {
+            $.ajax({
+                url: "/add_column",
+                method: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({
+                    view_id: "{{ view_id }}",
+                    property_name: propertyName
+                }),
+                success: function(res){
+                    alert(res.message);
+                    window.location.reload(); // Reload to show the new column
+                },
+                error: function(xhr){
+                    alert("Spalte konnte nicht hinzugefügt werden: " + xhr.responseText);
+                }
+            });
+        }
+    });
+    
+    // Add new row
+    $("#add-row-btn").on("click", function(){
+        var nodeLabel = prompt("Entitätslabel für die neue Zeile eingeben:");
+        if (nodeLabel) {
+            $.ajax({
+                url: "/add_row",
+                method: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({
+                    label: nodeLabel,
+                    properties: {} // Start with empty properties
+                }),
+                success: function(res){
+                    alert("Neue Zeile erfolgreich hinzugefügt!");
+                    window.location.reload(); // Reload to show the new row
+                },
+                error: function(xhr){
+                    alert("Zeile konnte nicht hinzugefügt werden: " + xhr.responseText);
+                }
+            });
+        }
+    });
 });
 </script>
 {% endblock %}

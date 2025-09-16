@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, current_app, redirect, url_for, flash, jsonify
 from typing import List, Dict
+from py2neo import Node
 
 bp = Blueprint("views", __name__, template_folder="../../templates", static_folder="../../static")
 
@@ -81,89 +82,113 @@ def create():
 
     return redirect(url_for("views.index"))
 
+
 @bp.route("/run/<vid>", methods=["GET"])
 def run_view(vid):
     neo = current_app.neo
     try:
-        print("==================== DEBUG ====================")
-        print(f"Requested view id: {vid}")
-
         # View abfragen
         rec = neo.run_cypher(
             "MATCH (v:View) WHERE elementId(v)=$vid RETURN v.cypher as cypher, v.name as name",
             {"vid": vid}
         )
-        print("==================== DEBUG ====================")
-        print(f"Raw view query result: {rec}")
-
+        
         if not rec:
-            print("No view found!")
             return "View not found", 404
 
         cypher = rec[0]["cypher"]
 
-
         # Prüfen, ob 'elementId' schon drin ist
         if "elementId(" not in cypher:
-            # automatisch elementId(n) als node_id ergänzen
-            cypher = cypher.replace("RETURN n", "RETURN n, elementId(n) AS node_id")
-
-        print("==================== DEBUG ====================")
-        print(f"Cypher to execute:\n{cypher}")
+            # automatisch elementId(n) als __node_id ergänzen
+            cypher = cypher.replace("RETURN n", "RETURN n, elementId(n) AS __node_id")
 
         # Cypher-Query ausführen
         raw_results = neo.run_cypher(cypher)
-        print("==================== DEBUG ====================")
-        print(f"Raw results from view cypher ({len(raw_results)} rows):")
-        for idx, r in enumerate(raw_results):
-            print(f"Row {idx}: {r}")
 
         results = []
 
-        for row_idx, row in enumerate(raw_results):
-            print("==================== DEBUG ====================")
-            print(f"Processing row {row_idx}: {row}")
-
+        for row in raw_results:
             flat_row = {}
             node_id = None
-
+            
             for k, v in row.items():
-                if isinstance(v, dict):
+                if isinstance(v, Node):
                     flat_row.update(v)
                 else:
                     flat_row[k] = v
 
-            # node_id direkt aus der row
-            if "node_id" in row:
-                node_id = row["node_id"]
-
-
-            # Node-ID direkt aus row, falls elementId() zurückgegeben wurde
-            if "node_id" in row:
-                node_id = row["node_id"]
-                print(f"Row {row_idx}, found node_id in row: {node_id}")
-
-            # Falls alles fehlschlägt: node_id = None
-            if not node_id:
-                print(f"Row {row_idx} has no node_id, will be None in output")
+            # __node_id direkt aus der row, falls elementId() zurückgegeben wurde
+            if "__node_id" in row:
+                node_id = row["__node_id"]
 
             flat_row["__node_id"] = node_id
-            print(f"Final __node_id for row {row_idx}: {node_id}")
-            print(f"Flat row {row_idx} contents: {flat_row}")
-
+            
+            # Alle Spalten auf None setzen, wenn der Wert nicht existiert
+            if results:
+                for key in results[0].keys():
+                    if key not in flat_row:
+                        flat_row[key] = None
+            
             results.append(flat_row)
-
-        print("==================== DEBUG ====================")
-        print("Prepared results to render:")
-        for r in results:
-            print(r)
-
+            
+        # Wenn es keine Ergebnisse gibt, setze `results` auf eine leere Liste
+        if not results and raw_results:
+            results = [{k: v if not isinstance(v, Node) else v.get("__node_id") for k, v in raw_results[0].items()}]
+            
     except Exception as e:
-        print("==================== EXCEPTION ====================")
-        print(e)
         return f"Fehler beim Ausführen der View: {e}", 400
 
     return render_template("view_run.html", results=results, view_id=vid)
+
+@bp.route("/add_column", methods=["POST"])
+def add_column():
+    data = request.json
+    view_id = data.get("view_id")
+    property_name = data.get("property_name")
+    
+    neo = current_app.neo
+    try:
+        # Cypher-Query der View abrufen
+        rec = neo.run_cypher(
+            "MATCH (v:View) WHERE elementId(v)=$vid RETURN v.cypher as cypher",
+            {"vid": view_id}
+        )
+        if not rec:
+            return jsonify({"success": False, "message": "View not found"}), 404
+
+        cypher = rec[0]["cypher"]
+        
+        # Cypher-Query ausführen, um alle Knoten-IDs zu erhalten
+        result_nodes = neo.run_cypher(cypher.replace("RETURN n", "RETURN n, elementId(n) AS __node_id"))
+        
+        node_ids = [row["__node_id"] for row in result_nodes]
+
+        # Alle Knoten mit der neuen Eigenschaft aktualisieren
+        neo.run_cypher(
+            f"UNWIND $ids AS nodeId MATCH (n) WHERE elementId(n) = nodeId SET n.{property_name} = ''",
+            {"ids": node_ids}
+        )
+        return jsonify({"success": True, "message": f"Spalte '{property_name}' erfolgreich hinzugefügt."})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+
+@bp.route("/add_row", methods=["POST"])
+def add_row():
+    data = request.json
+    label = data.get("label")
+    properties = data.get("properties", {})
+    
+    neo = current_app.neo
+    try:
+        cypher = f"CREATE (n:{label} $props) RETURN elementId(n) as __node_id"
+        result = neo.run_cypher(cypher, {"props": properties})
+        
+        new_node_id = result[0]["__node_id"]
+        
+        return jsonify({"success": True, "node_id": new_node_id, "label": label, "properties": properties})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 400
 
 @bp.route("/metadata", methods=["GET"])
 def metadata():
