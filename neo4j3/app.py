@@ -3,7 +3,7 @@ import csv
 import io
 import json
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for
-from py2neo import Graph, Node, Relationship
+from py2neo import Graph, Relationship
 from dotenv import load_dotenv
 
 # Lade Umgebungsvariablen aus der .env-Datei
@@ -80,22 +80,29 @@ def save_mapping():
 
     tx = graph.begin()
     try:
-        # Hier findet die eigentliche, komplexe Logik statt
-        # Wir müssen jeden Datensatz durchgehen und die Nodes/Relationships erstellen
         for row in reader:
-            # Nodes erstellen und Properties hinzufügen
             nodes_to_create = {}
             for node_type, fields in mapping_data.get('nodes', {}).items():
-                props = {field: row.get(field) for field in fields if row.get(field)}
-                if props:
-                    # Identifier finden, um Nodes zu mergen (nicht duplizieren)
-                    identifier_fields = mapping_data['nodes'][node_type]
-                    identifier_props = {field: row.get(field) for field in identifier_fields}
-                    
-                    cypher_query = f"MERGE (n:{node_type} {json.dumps(identifier_props).replace('\"', '')}) ON CREATE SET n = $props RETURN n"
-                    result = graph.run(cypher_query, props=props).data()
-                    if result:
-                        nodes_to_create[node_type] = result[0]['n']
+                identifier_props = {field: row.get(field) for field in fields if row.get(field)}
+                
+                if not identifier_props:
+                    continue
+                
+                # Korrigierte Query-Generierung: Die Properties müssen explizit im String sein
+                identifier_str = ', '.join([f"{k}: '{v}'" for k, v in identifier_props.items()])
+                
+                cypher_query = f"""
+                MERGE (n:{node_type} {{{identifier_str}}})
+                ON CREATE SET n = $props
+                RETURN n
+                """
+                
+                # Die gesamten Properties für ON CREATE SET
+                all_props = {field: row.get(field) for field in fields if row.get(field)}
+                
+                result = graph.run(cypher_query, props=all_props).data()
+                if result:
+                    nodes_to_create[node_type] = result[0]['n']
             
             # Relationships erstellen
             for rel_data in mapping_data.get('relationships', []):

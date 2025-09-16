@@ -98,19 +98,17 @@
 
 	function deleteNode(event) {
 		const nodeId = event.target.getAttribute('data-id');
-		if (confirm(`Sicher, dass du den Eintrag mit ID ${nodeId} löschen möchtest? Alle verbundenen Beziehungen werden ebenfalls gelöscht.`)) {
-			fetch(`/api/delete_node/${nodeId}`, {
-				method: 'DELETE',
-			}).then(response => response.json())
-				.then(data => {
-					alert(data.message);
-					if (data.status === 'success') {
-						// Tabelle neu laden, um den gelöschten Eintrag zu entfernen
-						fetchData();
-					}
-				})
-				.catch(error => console.error('Fehler beim Löschen:', error));
-		}
+		fetch(`/api/delete_node/${nodeId}`, {
+			method: 'DELETE',
+		}).then(response => response.json())
+			.then(data => {
+				console.log(data.message);
+				if (data.status === 'success') {
+					// Tabelle neu laden, um den gelöschten Eintrag zu entfernen
+					fetchData();
+				}
+			})
+			.catch(error => console.error('Fehler beim Löschen:', error));
 	}
 
         function updateValue(element) {

@@ -4,12 +4,14 @@
 
 {% block content %}
     <h1>Daten zuordnen</h1>
-    <p>Ordne die Spalten den Node-Typen und Relationships zu.</p>
+    <p>Ordne die Spalten den Node-Typen und Relationships zu. Jede Spalte kann nur einem Node-Typen zugeordnet werden.</p>
     
     <form id="mappingForm">
         <div id="nodeMappings">
             <h3>Node-Zuordnung</h3>
             </div>
+        
+        <button type="button" onclick="addNodeMapping()">+ Neuer Node-Typ</button>
         
         <div id="relationshipMappings">
             <h3>Relationships</h3>
@@ -24,6 +26,27 @@
         const nodeMappingsDiv = document.getElementById('nodeMappings');
         const relationshipMappingsDiv = document.getElementById('relationshipMappings');
 
+        function updateAvailableHeaders() {
+            const allSelectedHeaders = new Set();
+            document.querySelectorAll('.node-fields-select').forEach(select => {
+                [...select.options].forEach(option => {
+                    if (option.selected) {
+                        allSelectedHeaders.add(option.value);
+                    }
+                });
+            });
+
+            document.querySelectorAll('.node-fields-select').forEach(select => {
+                [...select.options].forEach(option => {
+                    if (!option.selected && allSelectedHeaders.has(option.value)) {
+                        option.disabled = true;
+                    } else {
+                        option.disabled = false;
+                    }
+                });
+            });
+        }
+
         function addNodeMapping() {
             const newNodeDiv = document.createElement('div');
             newNodeDiv.classList.add('node-group');
@@ -32,13 +55,14 @@
                 <label>Node-Label:</label>
                 <input type="text" class="node-label-input" placeholder="z.B. Person">
                 <br>
-                <label>Felder:</label>
+                <label>Spalten:</label>
                 <select multiple class="node-fields-select">
                     ${headers.map(h => `<option value="${h}">${h}</option>`).join('')}
                 </select>
-                <button type="button" onclick="this.parentNode.remove()">Entfernen</button>
+                <button type="button" onclick="this.parentNode.remove(); updateAvailableHeaders();">Entfernen</button>
             `;
             nodeMappingsDiv.appendChild(newNodeDiv);
+            newNodeDiv.querySelector('.node-fields-select').addEventListener('change', updateAvailableHeaders);
         }
 
         function addRelationship() {
@@ -60,13 +84,12 @@
             relationshipMappingsDiv.appendChild(newRelDiv);
         }
         
-        // Füge standardmäßig einen Node-Zuordnungsblock hinzu
         document.addEventListener('DOMContentLoaded', addNodeMapping);
         
         function saveMapping() {
             const mapping = { nodes: {}, relationships: [] };
+            const allAssignedHeaders = new Set();
 
-            // Nodes sammeln
             document.querySelectorAll('.node-group').forEach(group => {
                 const label = group.querySelector('.node-label-input').value.trim();
                 const fields = [...group.querySelector('.node-fields-select').options]
@@ -74,10 +97,17 @@
                     .map(option => option.value);
                 if (label && fields.length > 0) {
                     mapping.nodes[label] = fields;
+                    fields.forEach(f => allAssignedHeaders.add(f));
                 }
             });
 
-            // Relationships sammeln
+            const unassignedHeaders = headers.filter(h => !allAssignedHeaders.has(h));
+            if (unassignedHeaders.length > 0) {
+                if (!confirm(`Die folgenden Spalten wurden nicht zugeordnet: ${unassignedHeaders.join(', ')}. Möchtest du trotzdem fortfahren?`)) {
+                    return;
+                }
+            }
+
             document.querySelectorAll('.relationship-group').forEach(group => {
                 const from = group.querySelector('.from-node-input').value.trim();
                 const to = group.querySelector('.to-node-input').value.trim();
@@ -86,8 +116,6 @@
                     mapping.relationships.push({ from, to, type });
                 }
             });
-
-            console.log(mapping);
 
             fetch('/save_mapping', {
                 method: 'POST',
