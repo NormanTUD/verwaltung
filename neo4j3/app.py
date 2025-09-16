@@ -138,24 +138,37 @@ def query_data():
     
     if not selected_labels:
         return jsonify({"status": "error", "message": "Keine Node-Labels ausgewählt."}), 400
+
+    # Generiere eine Abfrage, die alle Nodes zusammenfasst, die verbunden sind
+    match_clause = ", ".join([f"(n{i}:{label})" for i, label in enumerate(selected_labels)])
     
-    match_statements = []
-    return_variables = []
+    # Optional: Füge eine WHERE-Klausel hinzu, um sicherzustellen, dass sie verbunden sind
+    # Dies kann komplex werden, eine einfachere Variante ist die Rückgabe von Paaren
     
-    for label in selected_labels:
-        var = f"{label.lower()}"
-        match_statements.append(f"({var}:{label})")
-        return_variables.append(var)
+    # Bessere Methode: Verwende einen flexiblen MATCH-Pfad
+    first_label = selected_labels[0]
+    first_var = f"{first_label.lower()}"
     
-    match_clause = ", ".join(match_statements)
-    return_clause = ", ".join(return_variables)
-    
-    # Vereinfachte Query für die Aggregation
-    query = f"""
-    MATCH {match_clause}
-    RETURN {return_clause} LIMIT 100
-    """
-    
+    if len(selected_labels) > 1:
+        # Erstelle eine Kette von verbundenen Nodes
+        match_chain = f"({first_var}:{first_label})"
+        for i in range(1, len(selected_labels)):
+            current_label = selected_labels[i]
+            current_var = f"{current_label.lower()}"
+            # Verwende einen flexiblen Pfad, um alle Beziehungen zu matchen
+            match_chain += f"-[]-({current_var}:{current_label})"
+
+        query = f"""
+        MATCH {match_chain}
+        RETURN {', '.join([f'{label.lower()}' for label in selected_labels])} LIMIT 100
+        """
+    else:
+        # Fallback für nur ein Label
+        query = f"""
+        MATCH (n:{first_label})
+        RETURN n LIMIT 100
+        """
+
     try:
         results = graph.run(query).data()
         
@@ -166,6 +179,7 @@ def query_data():
             for key, node in record.items():
                 item[key] = {
                     'id': node.identity,
+                    'labels': list(node.labels),
                     'properties': dict(node)
                 }
             formatted_results.append(item)
