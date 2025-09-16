@@ -41,7 +41,7 @@
               });
         }
 
-        function renderTable(data) {
+	function renderTable(data) {
             resultsContainer.innerHTML = ''; // Lösche alte Tabelle
 
             if (data.length === 0) {
@@ -60,7 +60,7 @@
                     Object.keys(item[nodeKey].properties).forEach(prop => allProps.add(prop));
                 }
             });
-            const headers = ['ID', 'Node Type', ...Array.from(allProps)];
+            const headers = ['ID', 'Node Type', ...Array.from(allProps), 'Aktion']; // 'Aktion' Spalte hinzugefügt
             thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
 
             // Datenzeilen erstellen
@@ -68,15 +68,19 @@
                 for (const nodeKey in item) {
                     const node = item[nodeKey];
                     const row = document.createElement('tr');
-                    
+
                     let rowContent = `<td>${node.id}</td><td>${nodeKey}</td>`;
-                    headers.slice(2).forEach(header => {
+                    headers.slice(2, -1).forEach(header => {
                         const value = node.properties[header] || '';
-                        rowContent += `<td><input type="text" value="${value}" 
-                            data-id="${node.id}" 
+                        rowContent += `<td><input type="text" value="${value}"
+                            data-id="${node.id}"
                             data-property="${header}"
                             onblur="updateValue(this)"></td>`;
                     });
+
+                    // Löschen-Button hinzufügen
+                    rowContent += `<td><button class="delete-btn" data-id="${node.id}">Löschen</button></td>`;
+
                     row.innerHTML = rowContent;
                     tbody.appendChild(row);
                 }
@@ -85,7 +89,29 @@
             table.appendChild(thead);
             table.appendChild(tbody);
             resultsContainer.appendChild(table);
+
+            // Event-Listener für Löschen-Buttons hinzufügen
+            document.querySelectorAll('.delete-btn').forEach(button => {
+                button.addEventListener('click', deleteNode);
+            });
         }
+
+	function deleteNode(event) {
+		const nodeId = event.target.getAttribute('data-id');
+		if (confirm(`Sicher, dass du den Eintrag mit ID ${nodeId} löschen möchtest? Alle verbundenen Beziehungen werden ebenfalls gelöscht.`)) {
+			fetch(`/api/delete_node/${nodeId}`, {
+				method: 'DELETE',
+			}).then(response => response.json())
+				.then(data => {
+					alert(data.message);
+					if (data.status === 'success') {
+						// Tabelle neu laden, um den gelöschten Eintrag zu entfernen
+						fetchData();
+					}
+				})
+				.catch(error => console.error('Fehler beim Löschen:', error));
+		}
+	}
 
         function updateValue(element) {
             const nodeId = element.getAttribute('data-id');
