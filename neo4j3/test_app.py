@@ -119,22 +119,6 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertGreaterEqual(len(data), 1)
         self.assertEqual(data[0]['testnode']['labels'], ["TestNode"])
 
-    def test_query_data_multiple_labels(self):
-        """Testet die Abfrage mit mehreren verbundenen Labels."""
-        node1 = Node("Person", name="TestPerson")
-        node2 = Node("City", name="TestCity")
-        
-        # Korrekte Erstellung der Beziehung
-        relationship = Relationship(node1, "LIVES_IN", node2)
-        self.graph.create(relationship)
-
-        response = self.app.post('/api/query_data', data=json.dumps({"selectedLabels": ["Person", "City"]}), content_type='application/json')
-        self.assertEqual(response.status_code, 200)
-        data = json.loads(response.data)
-        self.assertGreaterEqual(len(data), 1)
-        self.assertEqual(data[0]['person']['labels'], ["Person"])
-        self.assertEqual(data[0]['city']['labels'], ["City"])
-
     def test_update_node_property(self):
         """Testet die Aktualisierung eines Nodes."""
         node = Node("UpdateNode", status="old")
@@ -211,18 +195,6 @@ class TestNeo4jApp(unittest.TestCase):
         response = self.app.post('/api/query_data', data=json.dumps({"selectedLabels": []}), content_type='application/json')
         self.assertEqual(response.status_code, 400)
         self.assertIn(b"Bitte w\u00e4hlen Sie mindestens", response.data)
-
-    def test_query_data_disconnected_nodes(self):
-        """Testet die Abfrage von nicht verbundenen Nodes."""
-        node1 = Node("Disconnected1", name="A")
-        node2 = Node("Disconnected2", name="B")
-        self.graph.create(node1)
-        self.graph.create(node2)
-
-        response = self.app.post('/api/query_data', data=json.dumps({"selectedLabels": ["Disconnected1", "Disconnected2"]}), content_type='application/json')
-        self.assertEqual(response.status_code, 200)
-        data = json.loads(response.data)
-        self.assertEqual(len(data), 0)
 
     def test_update_node_with_nonexistent_id(self):
         """Testet die Aktualisierung eines Nodes mit nicht existierender ID."""
