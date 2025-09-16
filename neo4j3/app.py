@@ -2,6 +2,7 @@ import os
 import csv
 import io
 import json
+import inspect
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for
 from py2neo import Graph, Relationship
 from dotenv import load_dotenv
@@ -36,9 +37,91 @@ def get_all_nodes_and_relationships():
         "types": [rel['relationshipType'] for rel in relationship_types]
     }
 
+def serialize_properties(props):
+    """
+    Ensures all property values are JSON-serializable.
+    Converts functions and other non-standard objects to strings.
+    """
+    clean_props = {}
+    for key, value in props.items():
+        # Check if the value is a function or method.
+        if inspect.isfunction(value) or inspect.ismethod(value):
+            clean_props[key] = f"FUNCTION_OBJECT: {value.__name__}"
+        # If it's a list or dict, recursively clean it.
+        elif isinstance(value, (list, dict)):
+            clean_props[key] = serialize_properties(value)
+        # Otherwise, if it's not a primitive type, convert it to a string.
+        elif not isinstance(value, (str, int, float, bool, type(None))):
+            clean_props[key] = str(value)
+        # If all checks pass, it's a safe value.
+        else:
+            clean_props[key] = value
+    return clean_props
+
+def serialize_value(value):
+    """Recursively serializes a value, handling functions and complex types."""
+    if inspect.isfunction(value) or inspect.ismethod(value):
+        return f"FUNCTION_OBJECT: {value.__name__}"
+    if isinstance(value, (str, int, float, bool, type(None))):
+        return value
+    if isinstance(value, list):
+        return [serialize_value(item) for item in value]
+    if isinstance(value, dict):
+        return {k: serialize_value(v) for k, v in value.items()}
+    # Catch any other complex objects and convert them to a string.
+    return str(value)
+
 @app.route('/')
 def index():
     return render_template('import.html')
+
+@app.route('/graph')
+def show_graph():
+    return render_template('graph.html')
+
+@app.route('/api/graph-data')
+def get_graph_data():
+    if graph is None:
+        return jsonify({"error": "Neo4j connection not available"}), 500
+
+    query = """
+    MATCH (n)-[r]->(m)
+    RETURN n, m, r, ID(n) AS n_id, ID(m) AS m_id
+    LIMIT 100
+    """
+    result = graph.run(query)
+
+    nodes = {}
+    links = []
+
+    for record in result:
+        n = record['n']
+        m = record['m']
+        r = record['r']
+        n_id = record['n_id']
+        m_id = record['m_id']
+
+        if n_id not in nodes:
+            nodes[n_id] = {
+                'id': n_id,
+                'label': serialize_value(list(n.labels)[0]),
+                'properties': serialize_value(dict(n))
+            }
+        if m_id not in nodes:
+            nodes[m_id] = {
+                'id': m_id,
+                'label': serialize_value(list(m.labels)[0]),
+                'properties': serialize_value(dict(m))
+            }
+
+        links.append({
+            'source': n_id,
+            'target': m_id,
+            'type': serialize_value(r.type),
+            'properties': serialize_value(dict(r))
+        })
+
+    return jsonify({'nodes': list(nodes.values()), 'links': links})
 
 @app.route('/upload', methods=['POST'])
 def upload_data():
