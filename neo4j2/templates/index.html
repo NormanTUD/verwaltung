@@ -10,7 +10,7 @@
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
         .controls { margin-bottom: 20px; }
-        input[type="text"] { padding: 5px; }
+        select, input[type="text"] { padding: 5px; }
         button { padding: 8px 12px; cursor: pointer; }
     </style>
 </head>
@@ -18,8 +18,8 @@
     <h1>Neo4j Path Explorer</h1>
 
     <div class="controls">
-        <label for="node-type">Start-Node-Typ:</label>
-        <input type="text" id="node-type" value="Person">
+        <label for="start-labels">Start-Node-Typ(en):</label>
+        <select id="start-labels" multiple size="5"></select>
         <button onclick="fetchData()">Daten laden</button>
     </div>
 
@@ -42,14 +42,48 @@
     </table>
 
     <script>
-        document.addEventListener("DOMContentLoaded", fetchData);
+        document.addEventListener("DOMContentLoaded", init);
+
+        async function init() {
+            await fetchLabels();
+            fetchData();
+        }
+        
+        async function fetchLabels() {
+            try {
+                const response = await fetch("/api/labels");
+                if (!response.ok) {
+                    throw new Error(`HTTP-Fehler! Status: ${response.status}`);
+                }
+                const labels = await response.json();
+                const selectElement = document.getElementById("start-labels");
+
+                selectElement.innerHTML = ""; // Vorherige Optionen löschen
+                labels.forEach(label => {
+                    const option = document.createElement("option");
+                    option.value = label;
+                    option.textContent = label;
+                    selectElement.appendChild(option);
+                });
+            } catch (error) {
+                console.error("Fehler beim Abrufen der Labels:", error);
+                document.getElementById("error").textContent = `Fehler: ${error.message}`;
+            }
+        }
 
         async function fetchData() {
-            const nodeType = document.getElementById("node-type").value;
+            const selectElement = document.getElementById("start-labels");
+            const selectedLabels = Array.from(selectElement.selectedOptions).map(option => option.value);
+
             const loading = document.getElementById("loading");
             const tableBody = document.querySelector("#data-table tbody");
             const tableHead = document.querySelector("#data-table thead tr");
             const errorDiv = document.getElementById("error");
+
+            if (selectedLabels.length === 0) {
+                errorDiv.textContent = "Bitte mindestens einen Node-Typ auswählen.";
+                return;
+            }
 
             loading.style.display = "block";
             errorDiv.textContent = "";
@@ -57,14 +91,16 @@
             tableHead.innerHTML = "";
 
             try {
-                const response = await fetch(`/api/data?start_label=${nodeType}`);
+                const queryParams = new URLSearchParams();
+                selectedLabels.forEach(label => queryParams.append("start_label", label));
+                
+                const response = await fetch(`/api/data?${queryParams.toString()}`);
                 if (!response.ok) {
                     throw new Error(`HTTP-Fehler! Status: ${response.status}`);
                 }
                 const data = await response.json();
 
                 if (data.length > 0) {
-                    // Spaltenüberschriften erstellen
                     const headers = Object.keys(data[0]);
                     headers.forEach(header => {
                         const th = document.createElement("th");
@@ -72,7 +108,6 @@
                         tableHead.appendChild(th);
                     });
 
-                    // Zeilen und Zellen füllen
                     data.forEach(row => {
                         const tr = document.createElement("tr");
                         headers.forEach(header => {
@@ -83,7 +118,7 @@
                         tableBody.appendChild(tr);
                     });
                 } else {
-                    errorDiv.textContent = "Keine Daten gefunden für diesen Node-Typ.";
+                    errorDiv.textContent = "Keine Daten gefunden für die ausgewählten Node-Typen.";
                 }
 
             } catch (error) {
@@ -105,12 +140,11 @@
                 return;
             }
 
-            // Eigenschaften-String in ein Objekt umwandeln
             const properties = {};
             propsString.split(",").forEach(part => {
                 const [key, value] = part.split(":").map(s => s.trim());
                 if (key && value) {
-                    properties[key] = value.replace(/^['"]|['"]$/g, ''); // Entferne Anführungszeichen
+                    properties[key] = value.replace(/^['"]|['"]$/g, '');
                 }
             });
 
@@ -128,7 +162,7 @@
                     throw new Error(result.error || "Unbekannter Fehler");
                 }
                 alert(result.message);
-                fetchData(); // Tabelle nach dem Hinzufügen aktualisieren
+                fetchData();
             } catch (error) {
                 console.error("Fehler beim Hinzufügen des Knotens:", error);
                 errorDiv.textContent = `Fehler: ${error.message}`;
