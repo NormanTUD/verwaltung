@@ -244,6 +244,39 @@ def update_nodes():
         return jsonify({"status": "success", "message": f"{len(node_ids)} Nodes wurden aktualisiert."})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/delete_nodes', methods=['DELETE'])
+def delete_nodes():
+    """Löscht mehrere Nodes und ihre Beziehungen aus der Datenbank."""
+    if not graph:
+        return jsonify({"status": "error", "message": "Datenbank nicht verbunden."}), 500
     
+    # Check if 'ids' is in the URL query string
+    ids_param = request.args.get('ids')
+    
+    if not ids_param:
+        return jsonify({"status": "error", "message": "Fehlende 'ids' im URL-Parameter."}), 400
+    
+    try:
+        # Split the string by comma and convert each part to an integer
+        node_ids = [int(id_str.strip()) for id_str in ids_param.split(',')]
+    except ValueError:
+        return jsonify({"status": "error", "message": "Ungültiges Format für 'ids'. Erwarte eine durch Kommas getrennte Liste von Zahlen."}), 400
+        
+    if not node_ids:
+        return jsonify({"status": "success", "message": "Keine Nodes zum Löschen angegeben."})
+        
+    query = """
+        UNWIND $ids AS id
+        MATCH (n) WHERE ID(n) = id
+        DETACH DELETE n
+    """
+    try:
+        graph.run(query, ids=node_ids)
+        return jsonify({"status": "success", "message": f"{len(node_ids)} Nodes und alle Beziehungen wurden gelöscht."})
+    except Exception as e:
+        print(f"Fehler beim Löschen der Nodes: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True)
