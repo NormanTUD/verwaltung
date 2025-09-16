@@ -63,11 +63,12 @@ def upload_data():
     except csv.Error as e:
         return f"Fehler beim Parsen der Daten: {e}", 400
 
+
 @app.route('/save_mapping', methods=['POST'])
 def save_mapping():
     """Speichert die zugeordneten Daten in der Neo4j-Datenbank."""
     mapping_data = request.get_json()
-    
+
     if 'raw_data' not in session or not graph:
         return jsonify({"status": "error", "message": "Sitzungsdaten fehlen oder Datenbank nicht verbunden."}), 500
 
@@ -83,35 +84,47 @@ def save_mapping():
         for row in reader:
             nodes_to_create = {}
             for node_type, fields in mapping_data.get('nodes', {}).items():
-                identifier_props = {field: row.get(field) for field in fields if row.get(field)}
+                # Extract all properties from the row that are mapped to this node type
+                all_props = {field: row.get(field) for field in fields if row.get(field)}
                 
-                if not identifier_props:
+                if not all_props:
                     continue
                 
-                identifier_str = ', '.join([f"{k}: '{v}'" for k, v in identifier_props.items()])
+                # The first property is used as the identifier for the MERGE pattern.
+                # In a real-world scenario, you might want a more robust way to
+                # determine the unique identifier, but this works for a simple example.
+                identifier_key, identifier_value = next(iter(all_props.items()))
                 
+                # Use a specific parameter for the identifier in the MERGE clause.
+                # Use a map parameter for the rest of the properties in ON CREATE.
                 cypher_query = f"""
-                MERGE (n:{node_type} {{{identifier_str}}})
-                ON CREATE SET n = $props
+                MERGE (n:{node_type} {{{identifier_key}: $identifier_value}})
+                ON CREATE SET n = $all_props
                 RETURN n
                 """
                 
-                all_props = {field: row.get(field) for field in fields if row.get(field)}
+                # Pass the parameters as a dictionary to the `run` method.
+                params = {
+                    "identifier_value": identifier_value,
+                    "all_props": all_props
+                }
                 
-                result = graph.run(cypher_query, props=all_props).data()
+                result = graph.run(cypher_query, **params).data()
                 if result:
+                    # Py2neo result objects are different from the ones in the neo4j driver,
+                    # so we need to access the node data directly.
                     nodes_to_create[node_type] = result[0]['n']
+        
+        for rel_data in mapping_data.get('relationships', []):
+            from_node_type = rel_data['from']
+            to_node_type = rel_data['to']
+            rel_type = rel_data['type']
             
-            for rel_data in mapping_data.get('relationships', []):
-                from_node_type = rel_data['from']
-                to_node_type = rel_data['to']
-                rel_type = rel_data['type']
-                
-                if from_node_type in nodes_to_create and to_node_type in nodes_to_create:
-                    from_node = nodes_to_create[from_node_type]
-                    to_node = nodes_to_create[to_node_type]
-                    rel = Relationship(from_node, rel_type, to_node)
-                    tx.create(rel)
+            if from_node_type in nodes_to_create and to_node_type in nodes_to_create:
+                from_node = nodes_to_create[from_node_type]
+                to_node = nodes_to_create[to_node_type]
+                rel = Relationship(from_node, rel_type, to_node)
+                tx.create(rel)
 
         tx.commit()
         return jsonify({"status": "success", "message": "Daten erfolgreich in Neo4j importiert."})
