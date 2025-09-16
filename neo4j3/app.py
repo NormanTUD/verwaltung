@@ -79,49 +79,81 @@ def index():
 def show_graph():
     return render_template('graph.html')
 
+def serialize_entity(entity):
+    """
+    Serializes a Neo4j Node or Relationship object to a dictionary.
+    """
+    data = {'id': entity.id, 'properties': dict(entity)}
+    if isinstance(entity, Node):
+        data['label'] = next(iter(entity.labels), None)
+    elif isinstance(entity, Relationship):
+        data['type'] = entity.type
+        data['source'] = entity.start_node.id
+        data['target'] = entity.end_node.id
+    return data
+
+
+
 @app.route('/api/graph-data')
 def get_graph_data():
     if graph is None:
         return jsonify({"error": "Neo4j connection not available"}), 500
 
     query = """
-    MATCH (n)-[r]->(m)
-    RETURN n, m, r, ID(n) AS n_id, ID(m) AS m_id
-    LIMIT 100
+    MATCH (n)
+    OPTIONAL MATCH (n)-[r]->(m)
+    RETURN n, m, r, ID(n) AS n_id, ID(m) AS m_id, ID(r) AS r_id
     """
-    result = graph.run(query)
 
-    nodes = {}
-    links = []
+    try:
+        result = graph.run(query)
 
-    for record in result:
-        n = record['n']
-        m = record['m']
-        r = record['r']
-        n_id = record['n_id']
-        m_id = record['m_id']
+        nodes = {}
+        links = []
+        seen_links = set()
 
-        if n_id not in nodes:
-            nodes[n_id] = {
-                'id': n_id,
-                'label': serialize_value(list(n.labels)[0]),
-                'properties': serialize_value(dict(n))
-            }
-        if m_id not in nodes:
-            nodes[m_id] = {
-                'id': m_id,
-                'label': serialize_value(list(m.labels)[0]),
-                'properties': serialize_value(dict(m))
-            }
+        for record in result:
+            n = record['n']
+            r = record['r']
+            m = record['m']
+            n_id = record['n_id']
 
-        links.append({
-            'source': n_id,
-            'target': m_id,
-            'type': serialize_value(r.type),
-            'properties': serialize_value(dict(r))
-        })
+            if n_id not in nodes:
+                nodes[n_id] = {
+                    'id': n_id,
+                    'label': next(iter(n.labels), None),
+                    'properties': dict(n)
+                }
 
-    return jsonify({'nodes': list(nodes.values()), 'links': links})
+            if r is not None and m is not None:
+                m_id = record['m_id']
+                r_id = record['r_id']
+
+                if m_id not in nodes:
+                    nodes[m_id] = {
+                        'id': m_id,
+                        'label': next(iter(m.labels), None),
+                        'properties': dict(m)
+                    }
+
+                if r_id not in seen_links:
+                    rel_type = r.type
+                    # Safely get the type string, even if it's a function object
+                    if callable(rel_type):
+                        rel_type = rel_type.__name__
+                        
+                    links.append({
+                        'source': n_id,
+                        'target': m_id,
+                        'type': rel_type,
+                        'properties': dict(r)
+                    })
+                    seen_links.add(r_id)
+
+        return jsonify({'nodes': list(nodes.values()), 'links': links})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/upload', methods=['POST'])
 def upload_data():
