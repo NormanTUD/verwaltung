@@ -30,7 +30,8 @@ services:
     depends_on:
       - api
     environment:
-      - API_URL=http://api:8000
+      # Ändere die URL hier, damit sie vom Browser aus erreichbar ist
+      - API_URL=http://localhost:8000
 
 volumes:
   mongo_data:
