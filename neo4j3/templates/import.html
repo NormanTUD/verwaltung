@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}Daten-Import{% endblock %}
+
+{% block content %}
+    <h1>Daten importieren</h1>
+    <form action="/upload" method="post">
+        <label for="data">Füge deine CSV/TSV-Daten hier ein:</label><br>
+        <textarea id="data" name="data" rows="10" cols="80" placeholder="z.B.: vorname,nachname,gebäude,abkürzung"></textarea><br>
+        <button type="submit">Upload & Zuordnen</button>
+    </form>
+{% endblock %}

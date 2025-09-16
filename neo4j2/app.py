@@ -9,7 +9,6 @@ load_dotenv()
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret")
 
-# Initialisiere den Neo4j-Treiber
 uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 user = os.getenv("NEO4J_USER", "neo4j")
 password = os.getenv("NEO4J_PASS", "test1234")
@@ -17,28 +16,32 @@ driver = GraphDatabase.driver(uri, auth=(user, password))
 
 @app.route("/")
 def index():
-    """Rendert die Haupt-HTML-Seite."""
     return render_template("index.html")
 
 @app.route("/api/labels", methods=["GET"])
 def get_labels():
-    """Holt alle verfügbaren Node-Labels aus der Datenbank."""
-    query = "CALL db.labels()"
-    labels = []
+    labels_query = "CALL db.labels()"
+    rel_types_query = "CALL db.relationshipTypes()"
+    
     with driver.session() as session:
-        result = session.run(query)
-        labels = [record["label"] for record in result]
-    return jsonify(labels)
+        labels_result = session.run(labels_query)
+        labels = [record["label"] for record in labels_result]
+
+        rel_types_result = session.run(rel_types_query)
+        rel_types = [record["relationshipType"] for record in rel_types_result]
+        
+    return jsonify({
+        "labels": labels,
+        "relationshipTypes": rel_types
+    })
 
 @app.route("/api/data", methods=["GET"])
 def get_data():
-    """Holt Daten aus der Datenbank basierend auf einem oder mehreren Start-Labels."""
     start_labels = request.args.getlist("start_label")
     
     if not start_labels:
         return jsonify({"error": "Mindestens ein Start-Label muss angegeben werden"}), 400
     
-    # Korrekte Cypher-Syntax für Label-Kombination
     label_string = ":`" + "`:`".join(start_labels) + "`"
     
     query = (
@@ -52,15 +55,19 @@ def get_data():
         result = session.run(query)
         for record in result:
             row = {}
-            
             start_node_data = record["start_node"]
             start_node_label = list(start_node_data.labels)[0]
+            
+            # Use the node's internal ID for direct linking
+            row[f"{start_node_label}_id"] = start_node_data.id
             for key, value in start_node_data.items():
                 row[f"{start_node_label}_{key}"] = value
 
             for node in record["connected_nodes"]:
                 if node.labels:
                     node_label = list(node.labels)[0]
+                    # Use the connected node's ID
+                    row[f"{node_label}_id"] = node.id
                     for key, value in node.items():
                         row[f"{node_label}_{key}"] = value
             
@@ -71,10 +78,8 @@ def get_data():
     
     return jsonify(json_response)
 
-
 @app.route("/api/add", methods=["POST"])
 def add_data():
-    """Fügt einen neuen Knoten mit Eigenschaften hinzu."""
     data = request.json
     node_label = data.get("node_label")
     properties = data.get("properties")
@@ -89,6 +94,31 @@ def add_data():
         try:
             session.run(query)
             return jsonify({"message": f"Knoten des Typs '{node_label}' erfolgreich hinzugefügt."}), 201
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+@app.route("/api/relate", methods=["POST"])
+def relate_nodes():
+    data = request.json
+    source_id = data.get("source_id")
+    target_label = data.get("target_label")
+    target_prop = data.get("target_prop")
+    target_val = data.get("target_val")
+    rel_type = data.get("rel_type")
+
+    if not all([source_id, target_label, target_prop, target_val, rel_type]):
+        return jsonify({"error": "Alle Felder müssen ausgefüllt werden."}), 400
+
+    query = (
+        f"MATCH (a), (b:`{target_label}`) "
+        "WHERE ID(a) = $source_id AND b.`{target_prop}` = $target_val "
+        f"MERGE (a)-[:`{rel_type}`]->(b)"
+    )
+
+    with driver.session() as session:
+        try:
+            session.run(query, source_id=source_id, target_prop=target_prop, target_val=target_val)
+            return jsonify({"message": f"Beziehung erfolgreich erstellt: Node {source_id} -> '{rel_type}' -> '{target_label}' mit {target_prop}:'{target_val}'"}), 201
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 

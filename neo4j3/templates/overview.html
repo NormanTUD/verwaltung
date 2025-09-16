@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Übersicht{% endblock %}
+
+{% block content %}
+    <h1>Daten-Übersicht</h1>
+    
+    <h3>Abfrage</h3>
+    <p>Wähle die Node-Typen aus, die du anzeigen möchtest:</p>
+    <div id="querySelection">
+        {% for label in db_info.labels %}
+            <label>
+                <input type="checkbox" name="label" value="{{ label }}"> {{ label }}
+            </label>
+        {% endfor %}
+    </div>
+    <button onclick="fetchData()">Daten abfragen</button>
+    
+    <div id="resultsContainer">
+        </div>
+    
+    <script>
+        const querySelection = document.getElementById('querySelection');
+        const resultsContainer = document.getElementById('resultsContainer');
+
+        function fetchData() {
+            const selectedLabels = [...querySelection.querySelectorAll('input:checked')]
+                .map(input => input.value);
+            
+            fetch('/api/query_data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ selectedLabels })
+            }).then(response => response.json())
+              .then(data => {
+                  if (data.status === 'error') {
+                      alert(data.message);
+                      return;
+                  }
+                  renderTable(data);
+              });
+        }
+
+        function renderTable(data) {
+            resultsContainer.innerHTML = ''; // Lösche alte Tabelle
+
+            if (data.length === 0) {
+                resultsContainer.innerHTML = '<p>Keine Ergebnisse gefunden.</p>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            const thead = document.createElement('thead');
+            const tbody = document.createElement('tbody');
+
+            // Header-Zeile erstellen
+            const allProps = new Set();
+            data.forEach(item => {
+                for (const nodeKey in item) {
+                    Object.keys(item[nodeKey].properties).forEach(prop => allProps.add(prop));
+                }
+            });
+            const headers = ['ID', 'Node Type', ...Array.from(allProps)];
+            thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+
+            // Datenzeilen erstellen
+            data.forEach(item => {
+                for (const nodeKey in item) {
+                    const node = item[nodeKey];
+                    const row = document.createElement('tr');
+                    
+                    let rowContent = `<td>${node.id}</td><td>${nodeKey}</td>`;
+                    headers.slice(2).forEach(header => {
+                        const value = node.properties[header] || '';
+                        rowContent += `<td><input type="text" value="${value}" 
+                            data-id="${node.id}" 
+                            data-property="${header}"
+                            onblur="updateValue(this)"></td>`;
+                    });
+                    row.innerHTML = rowContent;
+                    tbody.appendChild(row);
+                }
+            });
+
+            table.appendChild(thead);
+            table.appendChild(tbody);
+            resultsContainer.appendChild(table);
+        }
+
+        function updateValue(element) {
+            const nodeId = element.getAttribute('data-id');
+            const propertyName = element.getAttribute('data-property');
+            const newValue = element.value;
+
+            if (element.originalValue === newValue) return;
+            element.originalValue = newValue;
+
+            fetch(`/api/update_node/${nodeId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    property: propertyName,
+                    value: newValue
+                })
+            }).then(response => response.json())
+              .then(data => {
+                  console.log(data.message);
+              });
+        }
+    </script>
+{% endblock %}

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Neo4j Importer{% endblock %}</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; }
+        nav { margin-bottom: 2em; }
+        nav a { margin-right: 1em; }
+        .container { max-width: 900px; margin: 0 auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1em; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background-color: #f4f4f4; }
+        input[type="text"] { width: 100%; border: none; background: none; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/">Importieren</a>
+        <a href="/overview">Übersicht</a>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Daten zuordnen{% endblock %}
+
+{% block content %}
+    <h1>Daten zuordnen</h1>
+    <p>Ordne die Spalten den Node-Typen und Relationships zu.</p>
+    
+    <form id="mappingForm">
+        <div id="nodeMappings">
+            <h3>Node-Zuordnung</h3>
+            </div>
+        
+        <div id="relationshipMappings">
+            <h3>Relationships</h3>
+            <button type="button" onclick="addRelationship()">+ Relationship hinzufügen</button>
+            </div>
+        
+        <button type="button" onclick="saveMapping()">Speichern & Importieren</button>
+    </form>
+    
+    <script>
+        const headers = {{ headers|tojson }};
+        const nodeMappingsDiv = document.getElementById('nodeMappings');
+        const relationshipMappingsDiv = document.getElementById('relationshipMappings');
+
+        function addNodeMapping() {
+            const newNodeDiv = document.createElement('div');
+            newNodeDiv.classList.add('node-group');
+            newNodeDiv.innerHTML = `
+                <h4>Neuer Node-Typ</h4>
+                <label>Node-Label:</label>
+                <input type="text" class="node-label-input" placeholder="z.B. Person">
+                <br>
+                <label>Felder:</label>
+                <select multiple class="node-fields-select">
+                    ${headers.map(h => `<option value="${h}">${h}</option>`).join('')}
+                </select>
+                <button type="button" onclick="this.parentNode.remove()">Entfernen</button>
+            `;
+            nodeMappingsDiv.appendChild(newNodeDiv);
+        }
+
+        function addRelationship() {
+            const newRelDiv = document.createElement('div');
+            newRelDiv.classList.add('relationship-group');
+            newRelDiv.innerHTML = `
+                <h4>Neue Relationship</h4>
+                <label>Von Node:</label>
+                <input type="text" class="from-node-input" placeholder="z.B. Person">
+                <br>
+                <label>Zu Node:</label>
+                <input type="text" class="to-node-input" placeholder="z.B. Gebäude">
+                <br>
+                <label>Relationship-Typ:</label>
+                <input type="text" class="rel-type-input" placeholder="z.B. SITZT_IN">
+                <br>
+                <button type="button" onclick="this.parentNode.remove()">Entfernen</button>
+            `;
+            relationshipMappingsDiv.appendChild(newRelDiv);
+        }
+        
+        // Füge standardmäßig einen Node-Zuordnungsblock hinzu
+        document.addEventListener('DOMContentLoaded', addNodeMapping);
+        
+        function saveMapping() {
+            const mapping = { nodes: {}, relationships: [] };
+
+            // Nodes sammeln
+            document.querySelectorAll('.node-group').forEach(group => {
+                const label = group.querySelector('.node-label-input').value.trim();
+                const fields = [...group.querySelector('.node-fields-select').options]
+                    .filter(option => option.selected)
+                    .map(option => option.value);
+                if (label && fields.length > 0) {
+                    mapping.nodes[label] = fields;
+                }
+            });
+
+            // Relationships sammeln
+            document.querySelectorAll('.relationship-group').forEach(group => {
+                const from = group.querySelector('.from-node-input').value.trim();
+                const to = group.querySelector('.to-node-input').value.trim();
+                const type = group.querySelector('.rel-type-input').value.trim();
+                if (from && to && type) {
+                    mapping.relationships.push({ from, to, type });
+                }
+            });
+
+            console.log(mapping);
+
+            fetch('/save_mapping', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(mapping)
+            }).then(response => response.json())
+              .then(data => {
+                  alert(data.message);
+                  if (data.status === 'success') {
+                      window.location.href = '/overview';
+                  }
+              });
+        }
+    </script>
+{% endblock %}

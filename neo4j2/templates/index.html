@@ -9,9 +9,38 @@
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
-        .controls { margin-bottom: 20px; }
+        .controls, .add-controls, .relate-controls { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
         select, input[type="text"] { padding: 5px; }
         button { padding: 8px 12px; cursor: pointer; }
+        .flex-container { display: flex; gap: 10px; align-items: flex-end; }
+        .flex-item { display: flex; flex-direction: column; }
+        #rel-type-select, #rel-type-input { display: none; }
+        .relate-modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0,0,0);
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -23,7 +52,7 @@
         <button onclick="fetchData()">Daten laden</button>
     </div>
 
-    <div class="controls">
+    <div class="add-controls">
         <h3>Neuen Knoten hinzufügen</h3>
         <input type="text" id="add-node-label" placeholder="Node Typ (z.B. Raum)">
         <input type="text" id="add-node-props" placeholder="Eigenschaften (z.B. name: 'Raum 101')">
@@ -41,36 +70,106 @@
         </tbody>
     </table>
 
+    <div id="relate-modal" class="relate-modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeModal()">&times;</span>
+            <h3>Neue Verknüpfung erstellen</h3>
+            <p>Verknüpfen Sie Node <strong id="source-node-info"></strong> mit:</p>
+            <div class="flex-container">
+                <div class="flex-item">
+                    <label for="target-label">Ziel-Node-Typ</label>
+                    <select id="target-label"></select>
+                    <input type="text" id="target-prop" placeholder="Eigenschaft (z.B. name)">
+                    <input type="text" id="target-val" placeholder="Wert (z.B. 'Raum 101')">
+                </div>
+                <div class="flex-item">
+                    <label for="rel-type-control">Beziehungstyp</label>
+                    <select id="rel-type-select" onchange="toggleRelTypeInput()"></select>
+                    <input type="text" id="rel-type-input" placeholder="Neuen Typ eingeben">
+                </div>
+            </div>
+            <button onclick="relateNodes()" style="margin-top: 10px;">Verknüpfen</button>
+            <p id="modal-error" style="color: red;"></p>
+        </div>
+    </div>
+
     <script>
+        let selectedSourceNodeId;
+        let selectedSourceNodeLabel;
+
         document.addEventListener("DOMContentLoaded", init);
 
         async function init() {
-            await fetchLabels();
+            await fetchLabelsAndRelationships();
             fetchData();
         }
-        
-        async function fetchLabels() {
+
+        function toggleRelTypeInput() {
+            const relTypeSelect = document.getElementById("rel-type-select");
+            const relTypeInput = document.getElementById("rel-type-input");
+            if (relTypeSelect.value === "new") {
+                relTypeInput.style.display = "block";
+                relTypeInput.value = "";
+            } else {
+                relTypeInput.style.display = "none";
+            }
+        }
+
+        async function fetchLabelsAndRelationships() {
             try {
                 const response = await fetch("/api/labels");
                 if (!response.ok) {
                     throw new Error(`HTTP-Fehler! Status: ${response.status}`);
                 }
-                const labels = await response.json();
-                const selectElement = document.getElementById("start-labels");
-
-                selectElement.innerHTML = ""; // Vorherige Optionen löschen
-                labels.forEach(label => {
-                    const option = document.createElement("option");
-                    option.value = label;
-                    option.textContent = label;
-                    selectElement.appendChild(option);
+                const data = await response.json();
+                
+                const labelSelects = ["start-labels", "target-label"];
+                labelSelects.forEach(selectId => {
+                    const selectElement = document.getElementById(selectId);
+                    selectElement.innerHTML = "";
+                    data.labels.forEach(label => {
+                        const option = document.createElement("option");
+                        option.value = label;
+                        option.textContent = label;
+                        selectElement.appendChild(option);
+                    });
                 });
+
+                const relTypeSelect = document.getElementById("rel-type-select");
+                const relTypeInput = document.getElementById("rel-type-input");
+
+                relTypeSelect.innerHTML = "";
+                if (data.relationshipTypes.length > 0) {
+                    relTypeInput.style.display = "none";
+                    relTypeSelect.style.display = "block";
+                    const defaultOption = document.createElement("option");
+                    defaultOption.value = "";
+                    defaultOption.textContent = "-- Typ auswählen --";
+                    relTypeSelect.appendChild(defaultOption);
+
+                    data.relationshipTypes.forEach(rel => {
+                        const option = document.createElement("option");
+                        option.value = rel;
+                        option.textContent = rel;
+                        relTypeSelect.appendChild(option);
+                    });
+                    const newOption = document.createElement("option");
+                    newOption.value = "new";
+                    newOption.textContent = "-- Neuer Typ --";
+                    relTypeSelect.appendChild(newOption);
+
+                } else {
+                    relTypeSelect.style.display = "none";
+                    relTypeInput.style.display = "block";
+                    relTypeInput.placeholder = "Neuen Beziehungstyp eingeben";
+                }
+
             } catch (error) {
-                console.error("Fehler beim Abrufen der Labels:", error);
+                console.error("Fehler beim Abrufen der Labels und Beziehungstypen:", error);
                 document.getElementById("error").textContent = `Fehler: ${error.message}`;
             }
         }
-
+        
         async function fetchData() {
             const selectElement = document.getElementById("start-labels");
             const selectedLabels = Array.from(selectElement.selectedOptions).map(option => option.value);
@@ -102,6 +201,8 @@
 
                 if (data.length > 0) {
                     const headers = Object.keys(data[0]);
+                    headers.push("Aktionen");
+                    
                     headers.forEach(header => {
                         const th = document.createElement("th");
                         th.textContent = header;
@@ -112,7 +213,26 @@
                         const tr = document.createElement("tr");
                         headers.forEach(header => {
                             const td = document.createElement("td");
-                            td.textContent = row[header];
+                            if (header === "Aktionen") {
+                                const button = document.createElement("button");
+                                button.textContent = "Verknüpfen";
+                                
+                                // Finde die Node-ID und den Label
+                                let sourceNodeId;
+                                let sourceNodeLabel;
+                                for (const key in row) {
+                                    if (key.endsWith("_id")) {
+                                        sourceNodeId = row[key];
+                                        sourceNodeLabel = key.replace('_id', '');
+                                        break; // Stop after finding the first ID
+                                    }
+                                }
+                                
+                                button.onclick = () => openRelateModal(sourceNodeId, sourceNodeLabel);
+                                td.appendChild(button);
+                            } else {
+                                td.textContent = row[header];
+                            }
                             tr.appendChild(td);
                         });
                         tableBody.appendChild(tr);
@@ -141,12 +261,26 @@
             }
 
             const properties = {};
-            propsString.split(",").forEach(part => {
-                const [key, value] = part.split(":").map(s => s.trim());
-                if (key && value) {
-                    properties[key] = value.replace(/^['"]|['"]$/g, '');
-                }
-            });
+            try {
+                // Parse properties string (e.g., "name: 'Raum 101', nummer: 123")
+                propsString.split(",").forEach(part => {
+                    const [key, value] = part.split(":").map(s => s.trim());
+                    if (key && value) {
+                        // Check if the value is a number or boolean
+                        if (!isNaN(value) && !isNaN(parseFloat(value))) {
+                            properties[key] = parseFloat(value);
+                        } else if (value.toLowerCase() === "true" || value.toLowerCase() === "false") {
+                            properties[key] = value.toLowerCase() === "true";
+                        } else {
+                            // Remove quotes and handle as string
+                            properties[key] = value.replace(/^['"]|['"]$/g, '');
+                        }
+                    }
+                });
+            } catch (e) {
+                errorDiv.textContent = "Fehler beim Parsen der Eigenschaften. Bitte verwenden Sie das Format 'key: 'value'' oder 'key: 123'";
+                return;
+            }
 
             try {
                 const response = await fetch("/api/add", {
@@ -162,9 +296,73 @@
                     throw new Error(result.error || "Unbekannter Fehler");
                 }
                 alert(result.message);
-                fetchData();
+                init();
             } catch (error) {
                 console.error("Fehler beim Hinzufügen des Knotens:", error);
+                errorDiv.textContent = `Fehler: ${error.message}`;
+            }
+        }
+        
+        function openRelateModal(nodeId, nodeLabel) {
+            selectedSourceNodeId = nodeId;
+            selectedSourceNodeLabel = nodeLabel;
+            document.getElementById("source-node-info").textContent = `${selectedSourceNodeLabel} (ID: ${selectedSourceNodeId})`;
+            document.getElementById("relate-modal").style.display = "block";
+            document.getElementById("modal-error").textContent = "";
+        }
+
+        function closeModal() {
+            document.getElementById("relate-modal").style.display = "none";
+        }
+        
+        async function relateNodes() {
+            const targetLabel = document.getElementById("target-label").value;
+            const targetProp = document.getElementById("target-prop").value;
+            const targetVal = document.getElementById("target-val").value;
+            const errorDiv = document.getElementById("modal-error");
+            errorDiv.textContent = "";
+            
+            let relType;
+            const relTypeSelect = document.getElementById("rel-type-select");
+            const relTypeInput = document.getElementById("rel-type-input");
+
+            if (relTypeSelect.style.display !== "none") {
+                relType = relTypeSelect.value;
+            } else {
+                relType = relTypeInput.value;
+            }
+
+            if (!selectedSourceNodeId || !targetLabel || !targetProp || !targetVal || !relType) {
+                errorDiv.textContent = "Bitte alle Felder ausfüllen.";
+                return;
+            }
+
+            const body = {
+                source_id: selectedSourceNodeId,
+                target_label: targetLabel,
+                target_prop: targetProp,
+                target_val: targetVal,
+                rel_type: relType
+            };
+            
+            try {
+                const response = await fetch("/api/relate", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.error || "Unbekannter Fehler");
+                }
+                alert(result.message);
+                closeModal();
+                fetchData();
+            } catch (error) {
+                console.error("Fehler beim Verknüpfen der Nodes:", error);
                 errorDiv.textContent = `Fehler: ${error.message}`;
             }
         }

@@ -1,0 +1,3 @@
+Flask
+py2neo
+python-dotenv
