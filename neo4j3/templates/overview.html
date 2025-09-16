@@ -41,69 +41,77 @@
               });
         }
 
-        function renderTable(data) {
-            resultsContainer.innerHTML = ''; // Lösche alte Tabelle
+function renderTable(data) {
+    resultsContainer.innerHTML = ''; // Lösche alte Tabelle
 
-            if (data.length === 0) {
-                resultsContainer.innerHTML = '<p>Keine Ergebnisse gefunden.</p>';
-                return;
+    if (data.length === 0) {
+        resultsContainer.innerHTML = '<p>Keine Ergebnisse gefunden.</p>';
+        return;
+    }
+
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const tbody = document.createElement('tbody');
+
+    // Header-Zeile erstellen
+    const allProps = new Set();
+    data.forEach(item => {
+        for (const nodeKey in item) {
+            // Hinzugefügte Prüfung: Überspringe, wenn das Element null ist
+            const node = item[nodeKey];
+            if (node && node.properties) {
+                Object.keys(node.properties).forEach(prop => allProps.add(prop));
             }
-
-            const table = document.createElement('table');
-            const thead = document.createElement('thead');
-            const tbody = document.createElement('tbody');
-
-            // Header-Zeile erstellen
-            const allProps = new Set();
-            data.forEach(item => {
-                for (const nodeKey in item) {
-                    Object.keys(item[nodeKey].properties).forEach(prop => allProps.add(prop));
-                }
-            });
-            const headers = [...Array.from(allProps), 'Aktion']; 
-            thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
-
-            // Datenzeilen erstellen, die verknüpfte Nodes kombinieren
-            data.forEach(item => {
-                const row = document.createElement('tr');
-                let rowContent = '';
-                let nodeIDs = [];
-
-                // Sammle alle Properties und IDs aus dem einzelnen Datensatz
-                const combinedProperties = {};
-                for (const nodeKey in item) {
-                    const node = item[nodeKey];
-                    // Füge die IDs für die Löschfunktion hinzu
-                    nodeIDs.push(node.id);
-                    // Füge alle Properties zum kombinierten Objekt hinzu
-                    Object.assign(combinedProperties, node.properties);
-                }
-
-                // Erstelle die Zellen basierend auf den gesammelten Headern
-                headers.slice(0, -1).forEach(header => {
-                    const value = combinedProperties[header] || '';
-                    rowContent += `<td><input type="text" value="${value}" 
-                        data-id="${nodeIDs.join(',')}" 
-                        data-property="${header}"
-                        onblur="updateValue(this)"></td>`;
-                });
-                
-                // Löschen-Button hinzufügen
-                rowContent += `<td><button class="delete-btn" data-id="${nodeIDs.join(',')}">Löschen</button></td>`;
-                
-                row.innerHTML = rowContent;
-                tbody.appendChild(row);
-            });
-
-            table.appendChild(thead);
-            table.appendChild(tbody);
-            resultsContainer.appendChild(table);
-
-            // Event-Listener für Löschen-Buttons hinzufügen
-            document.querySelectorAll('.delete-btn').forEach(button => {
-                button.addEventListener('click', deleteNode);
-            });
         }
+    });
+    const headers = [...Array.from(allProps), 'Aktion'];
+    thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+
+    // Datenzeilen erstellen, die verknüpfte Nodes kombinieren
+    data.forEach(item => {
+        const row = document.createElement('tr');
+        let rowContent = '';
+        let nodeIDs = [];
+
+        // Sammle alle Properties und IDs aus dem einzelnen Datensatz
+        const combinedProperties = {};
+        for (const nodeKey in item) {
+            const node = item[nodeKey];
+            // Hinzugefügte Prüfung: Überspringe, wenn das Element null ist
+            if (node) {
+                // Füge die IDs für die Löschfunktion hinzu
+                nodeIDs.push(node.id);
+                // Füge alle Properties zum kombinierten Objekt hinzu
+                Object.assign(combinedProperties, node.properties);
+            }
+        }
+
+        // Erstelle die Zellen basierend auf den gesammelten Headern
+        headers.slice(0, -1).forEach(header => {
+            // Setze den Wert auf einen leeren String, falls er null ist
+            const value = combinedProperties[header] || '';
+            rowContent += `<td><input type="text" value="${value}" 
+                data-id="${nodeIDs.join(',')}" 
+                data-property="${header}"
+                onblur="updateValue(this)"></td>`;
+        });
+        
+        // Löschen-Button hinzufügen
+        rowContent += `<td><button class="delete-btn" data-id="${nodeIDs.join(',')}">Löschen</button></td>`;
+        
+        row.innerHTML = rowContent;
+        tbody.appendChild(row);
+    });
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    resultsContainer.appendChild(table);
+
+    // Event-Listener für Löschen-Buttons hinzufügen
+    document.querySelectorAll('.delete-btn').forEach(button => {
+        button.addEventListener('click', deleteNode);
+    });
+}
         
 function deleteNode(event) {
     // Löschen von mehreren Nodes, falls verknüpft

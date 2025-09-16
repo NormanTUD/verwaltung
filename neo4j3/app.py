@@ -128,48 +128,80 @@ def overview():
     db_info = get_all_nodes_and_relationships()
     return render_template('overview.html', db_info=db_info)
 
+
+import itertools
+
+import itertools
+
 @app.route('/api/query_data', methods=['POST'])
 def query_data():
-    """Führt eine dynamische Abfrage basierend auf den vom Benutzer ausgewählten Node-Typen aus."""
+    """
+    Führt eine dynamische Abfrage basierend auf den vom Benutzer ausgewählten
+    Node-Typen aus, die alle ausgewählten Nodes und ihre Beziehungen anzeigt.
+    """
     selected_labels = request.get_json().get('selectedLabels', [])
     
     if not selected_labels:
         return jsonify({"status": "error", "message": "Bitte wählen Sie mindestens einen Node-Typ aus."}), 400
 
-    match_vars = [f"{label.lower()}" for label in selected_labels]
-    return_clause = ", ".join(match_vars)
+    # Sortiere die Labels, um eine konsistente Reihenfolge für die RETURN-Klausel zu gewährleisten
+    selected_labels.sort()
     
-    # Korrigierte Logik: Überprüfe, ob nur ein Label ausgewählt wurde
-    if len(selected_labels) == 1:
-        query = f"""
-        MATCH ({match_vars[0]}:{selected_labels[0]})
-        RETURN {return_clause} LIMIT 100
-        """
-    else:
-        # Erstelle eine Kette von verbundenen Nodes
-        match_chain = f"({match_vars[0]}:{selected_labels[0]})"
-        for i in range(1, len(selected_labels)):
-            match_chain += f"-[]-({match_vars[i]}:{selected_labels[i]})"
+    return_vars = [f"{label.lower()} AS {label.lower()}" for label in selected_labels]
+    
+    query_parts = []
+    
+    # 1. Base-Query: Finde alle Nodes, die einem der ausgewählten Typen entsprechen
+    for label in selected_labels:
+        query = f"MATCH ({label.lower()}:{label}) RETURN {label.lower()} AS {label.lower()}"
         
-        query = f"""
-        MATCH {match_chain}
-        RETURN {return_clause} LIMIT 100
-        """
+        # Füge null-Werte für alle anderen Spalten hinzu
+        for other_label in selected_labels:
+            if other_label != label:
+                query += f", null AS {other_label.lower()}"
+        query_parts.append(query)
+
+    # 2. Relationship-Queries: Finde alle Beziehungen zwischen den Paaren der ausgewählten Typen
+    # Verwende itertools, um alle eindeutigen Paare zu erstellen (z.B. Person-Ort, Person-Buch)
+    for label1, label2 in itertools.combinations(selected_labels, 2):
+        # Erstelle Variablen
+        var1 = label1.lower()
+        var2 = label2.lower()
+
+        # Erstelle eine MATCH-Klausel für die Beziehung
+        match_clause = f"MATCH ({var1}:{label1})-[]-({var2}:{label2})"
+        
+        # Erstelle eine RETURN-Klausel mit den passenden Variablen und null-Werten
+        return_clause = []
+        for label in selected_labels:
+            var = label.lower()
+            if var == var1 or var == var2:
+                return_clause.append(f"{var} AS {var}")
+            else:
+                return_clause.append(f"null AS {var}")
+        
+        query_parts.append(f"{match_clause} RETURN {', '.join(return_clause)}")
+
+    # Kombiniere alle Teile mit UNION
+    cypher_query = " UNION ALL ".join(query_parts) + " LIMIT 100"
 
     try:
-        results = graph.run(query).data()
+        results = graph.run(cypher_query).data()
         
         formatted_results = []
         for record in results:
             item = {}
             for key, node in record.items():
-                item[key] = {
-                    'id': node.identity,
-                    'labels': list(node.labels),
-                    'properties': dict(node)
-                }
+                if node:
+                    item[key] = {
+                        'id': node.identity,
+                        'labels': list(node.labels),
+                        'properties': dict(node)
+                    }
+                else:
+                    item[key] = None
             formatted_results.append(item)
-            
+        
         return jsonify(formatted_results)
     except Exception as e:
         print(f"Fehler bei der Abfrage: {e}")
