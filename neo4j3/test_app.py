@@ -241,5 +241,33 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn(b"Fehlende Daten im Request", response.data)
 
+    def test_delete_nodes_success(self):
+        """Testet das Löschen mehrerer Nodes über URL-Parameter."""
+        # 1. Erstellen von Test-Nodes
+        node1 = Node("DeleteTestNode", name="Node1")
+        node2 = Node("DeleteTestNode", name="Node2")
+        self.graph.create(node1)
+        self.graph.create(node2)
+        node_ids = [node1.identity, node2.identity]
+
+        # 2. Senden der DELETE-Anfrage mit IDs im URL-Parameter
+        # Die Methode muss als DELETE gesendet werden, auch wenn die Daten als URL-Parameter übergeben werden
+        response = self.app.delete(f'/api/delete_nodes?ids={node_ids[0]},{node_ids[1]}')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Nodes und alle Beziehungen wurden gel\u00f6scht.", response.data)
+
+        # 3. Überprüfen, ob die Nodes nicht mehr existieren
+        results = self.graph.run(f"MATCH (n) WHERE ID(n) IN {node_ids} RETURN n").data()
+        self.assertEqual(len(results), 0)
+
+    def test_delete_nodes_with_invalid_id(self):
+        """Testet die Fehlerbehandlung beim Löschen von Nodes mit ungültiger ID."""
+        # 1. Senden der DELETE-Anfrage mit einem ungültigen ID-Parameter
+        response = self.app.delete('/api/delete_nodes?ids=1,abc,3')
+        
+        # 2. Überprüfen auf den korrekten Statuscode und die Fehlermeldung
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"Ung\u00fcltiges Format f\u00fcr 'ids'.", response.data)
+
 if __name__ == '__main__':
     unittest.main()
