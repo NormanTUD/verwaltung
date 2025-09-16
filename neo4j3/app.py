@@ -131,8 +131,6 @@ def overview():
 
 import itertools
 
-import itertools
-
 @app.route('/api/query_data', methods=['POST'])
 def query_data():
     """
