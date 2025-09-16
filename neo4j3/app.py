@@ -88,7 +88,6 @@ def save_mapping():
                 if not identifier_props:
                     continue
                 
-                # Korrigierte Query-Generierung: Die Properties müssen explizit im String sein
                 identifier_str = ', '.join([f"{k}: '{v}'" for k, v in identifier_props.items()])
                 
                 cypher_query = f"""
@@ -97,14 +96,12 @@ def save_mapping():
                 RETURN n
                 """
                 
-                # Die gesamten Properties für ON CREATE SET
                 all_props = {field: row.get(field) for field in fields if row.get(field)}
                 
                 result = graph.run(cypher_query, props=all_props).data()
                 if result:
                     nodes_to_create[node_type] = result[0]['n']
             
-            # Relationships erstellen
             for rel_data in mapping_data.get('relationships', []):
                 from_node_type = rel_data['from']
                 to_node_type = rel_data['to']
@@ -137,42 +134,31 @@ def query_data():
     selected_labels = request.get_json().get('selectedLabels', [])
     
     if not selected_labels:
-        return jsonify({"status": "error", "message": "Keine Node-Labels ausgewählt."}), 400
+        return jsonify({"status": "error", "message": "Bitte wählen Sie mindestens einen Node-Typ aus."}), 400
 
-    # Generiere eine Abfrage, die alle Nodes zusammenfasst, die verbunden sind
-    match_clause = ", ".join([f"(n{i}:{label})" for i, label in enumerate(selected_labels)])
+    match_vars = [f"{label.lower()}" for label in selected_labels]
+    return_clause = ", ".join(match_vars)
     
-    # Optional: Füge eine WHERE-Klausel hinzu, um sicherzustellen, dass sie verbunden sind
-    # Dies kann komplex werden, eine einfachere Variante ist die Rückgabe von Paaren
-    
-    # Bessere Methode: Verwende einen flexiblen MATCH-Pfad
-    first_label = selected_labels[0]
-    first_var = f"{first_label.lower()}"
-    
-    if len(selected_labels) > 1:
-        # Erstelle eine Kette von verbundenen Nodes
-        match_chain = f"({first_var}:{first_label})"
-        for i in range(1, len(selected_labels)):
-            current_label = selected_labels[i]
-            current_var = f"{current_label.lower()}"
-            # Verwende einen flexiblen Pfad, um alle Beziehungen zu matchen
-            match_chain += f"-[]-({current_var}:{current_label})"
-
+    # Korrigierte Logik: Überprüfe, ob nur ein Label ausgewählt wurde
+    if len(selected_labels) == 1:
         query = f"""
-        MATCH {match_chain}
-        RETURN {', '.join([f'{label.lower()}' for label in selected_labels])} LIMIT 100
+        MATCH ({match_vars[0]}:{selected_labels[0]})
+        RETURN {return_clause} LIMIT 100
         """
     else:
-        # Fallback für nur ein Label
+        # Erstelle eine Kette von verbundenen Nodes
+        match_chain = f"({match_vars[0]}:{selected_labels[0]})"
+        for i in range(1, len(selected_labels)):
+            match_chain += f"-[]-({match_vars[i]}:{selected_labels[i]})"
+        
         query = f"""
-        MATCH (n:{first_label})
-        RETURN n LIMIT 100
+        MATCH {match_chain}
+        RETURN {return_clause} LIMIT 100
         """
 
     try:
         results = graph.run(query).data()
         
-        # Daten für das Frontend vorbereiten
         formatted_results = []
         for record in results:
             item = {}
@@ -191,7 +177,6 @@ def query_data():
 
 @app.route('/api/update_node/<int:node_id>', methods=['PUT'])
 def update_node(node_id):
-    """Aktualisiert einen Node in der Datenbank anhand seiner ID."""
     data = request.get_json()
     property_name = data.get('property')
     new_value = data.get('value')
@@ -199,6 +184,7 @@ def update_node(node_id):
     if not graph:
         return jsonify({"status": "error", "message": "Datenbank nicht verbunden."}), 500
 
+    # Abfrage, um den Node zu finden und das Property zu aktualisieren
     query = f"""
         MATCH (n) WHERE ID(n) = {node_id}
         SET n.{property_name} = $new_value
@@ -206,9 +192,8 @@ def update_node(node_id):
     """
     try:
         graph.run(query, new_value=new_value)
-        return jsonify({"status": "success", "message": "Wert aktualisiert."})
+        return jsonify({"status": "success", "message": f"Node {node_id} wurde aktualisiert."})
     except Exception as e:
-        print(f"Fehler beim Aktualisieren des Nodes: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/delete_node/<int:node_id>', methods=['DELETE'])
@@ -228,5 +213,37 @@ def delete_node(node_id):
         print(f"Fehler beim Löschen des Nodes: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/update_nodes', methods=['PUT'])
+def update_nodes():
+    data = request.get_json(silent=True)
+
+    if not data:
+        return jsonify({"status": "error", "message": "Request-Body ist leer oder hat ein ungültiges Format."}), 400
+
+    node_ids = data.get('ids', [])
+    property_name = data.get('property')
+    new_value = data.get('value')
+    
+    if not all([node_ids, property_name is not None, new_value is not None]):
+        return jsonify({"status": "error", "message": "Fehlende Daten im Request."}), 400
+
+    if not graph:
+        return jsonify({"status": "error", "message": "Datenbank nicht verbunden."}), 500
+
+    try:
+        # Dynamische Erstellung der Cypher-Abfrage
+        query = f"""
+            UNWIND $ids AS id
+            MATCH (n) WHERE ID(n) = id
+            SET n.{property_name} = $value
+        """
+        
+        # Führe die Abfrage aus
+        graph.run(query, ids=node_ids, value=new_value)
+        
+        return jsonify({"status": "success", "message": f"{len(node_ids)} Nodes wurden aktualisiert."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
 if __name__ == '__main__':
     app.run(debug=True)

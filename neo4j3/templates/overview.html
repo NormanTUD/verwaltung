@@ -41,7 +41,7 @@
               });
         }
 
-	function renderTable(data) {
+        function renderTable(data) {
             resultsContainer.innerHTML = ''; // Lösche alte Tabelle
 
             if (data.length === 0) {
@@ -60,30 +60,39 @@
                     Object.keys(item[nodeKey].properties).forEach(prop => allProps.add(prop));
                 }
             });
-            const headers = ['ID', 'Node Type', ...Array.from(allProps), 'Aktion']; // 'Aktion' Spalte hinzugefügt
+            const headers = [...Array.from(allProps), 'Aktion']; 
             thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
 
-            // Datenzeilen erstellen
+            // Datenzeilen erstellen, die verknüpfte Nodes kombinieren
             data.forEach(item => {
+                const row = document.createElement('tr');
+                let rowContent = '';
+                let nodeIDs = [];
+
+                // Sammle alle Properties und IDs aus dem einzelnen Datensatz
+                const combinedProperties = {};
                 for (const nodeKey in item) {
                     const node = item[nodeKey];
-                    const row = document.createElement('tr');
-
-                    let rowContent = `<td>${node.id}</td><td>${nodeKey}</td>`;
-                    headers.slice(2, -1).forEach(header => {
-                        const value = node.properties[header] || '';
-                        rowContent += `<td><input type="text" value="${value}"
-                            data-id="${node.id}"
-                            data-property="${header}"
-                            onblur="updateValue(this)"></td>`;
-                    });
-
-                    // Löschen-Button hinzufügen
-                    rowContent += `<td><button class="delete-btn" data-id="${node.id}">Löschen</button></td>`;
-
-                    row.innerHTML = rowContent;
-                    tbody.appendChild(row);
+                    // Füge die IDs für die Löschfunktion hinzu
+                    nodeIDs.push(node.id);
+                    // Füge alle Properties zum kombinierten Objekt hinzu
+                    Object.assign(combinedProperties, node.properties);
                 }
+
+                // Erstelle die Zellen basierend auf den gesammelten Headern
+                headers.slice(0, -1).forEach(header => {
+                    const value = combinedProperties[header] || '';
+                    rowContent += `<td><input type="text" value="${value}" 
+                        data-id="${nodeIDs.join(',')}" 
+                        data-property="${header}"
+                        onblur="updateValue(this)"></td>`;
+                });
+                
+                // Löschen-Button hinzufügen
+                rowContent += `<td><button class="delete-btn" data-id="${nodeIDs.join(',')}">Löschen</button></td>`;
+                
+                row.innerHTML = rowContent;
+                tbody.appendChild(row);
             });
 
             table.appendChild(thead);
@@ -95,41 +104,69 @@
                 button.addEventListener('click', deleteNode);
             });
         }
+        
+function deleteNode(event) {
+    // Löschen von mehreren Nodes, falls verknüpft
+    const nodeIds = event.target.getAttribute('data-id').split(',');
+    if (confirm(`Sicher, dass du die verknüpften Einträge (${nodeIds.join(', ')}) löschen möchtest?`)) {
+        fetch(`/api/delete_nodes?ids=${nodeIds.join(',')}`, {
+            method: 'DELETE',
+        }).then(response => {
+            // Überprüfe, ob die Antwort erfolgreich ist und parse sie
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log(data.message);
+            if (data.status === 'success') {
+                // Tabelle neu laden, um den gelöschten Eintrag zu entfernen
+                fetchData();
+            }
+        })
+        .catch(error => console.error('Fehler beim Löschen:', error));
+    }
+}
 
-	function deleteNode(event) {
-		const nodeId = event.target.getAttribute('data-id');
-		fetch(`/api/delete_node/${nodeId}`, {
-			method: 'DELETE',
-		}).then(response => response.json())
-			.then(data => {
-				console.log(data.message);
-				if (data.status === 'success') {
-					// Tabelle neu laden, um den gelöschten Eintrag zu entfernen
-					fetchData();
-				}
-			})
-			.catch(error => console.error('Fehler beim Löschen:', error));
-	}
+function updateValue(element) {
+    // Holen der IDs als Zeichenkette und Umwandeln in ein Array von Zahlen.
+    const combinedIds = element.getAttribute('data-id').split(',').map(Number);
+    const propertyName = element.getAttribute('data-property');
+    const newValue = element.value;
 
-        function updateValue(element) {
-            const nodeId = element.getAttribute('data-id');
-            const propertyName = element.getAttribute('data-property');
-            const newValue = element.value;
+    // Beende die Funktion, wenn sich der Wert nicht geändert hat, um unnötige Requests zu vermeiden.
+    if (element.originalValue === newValue) {
+        return;
+    }
+    // Setze den originalen Wert, um nachfolgende, redundante Änderungen zu erkennen.
+    element.originalValue = newValue;
 
-            if (element.originalValue === newValue) return;
-            element.originalValue = newValue;
-
-            fetch(`/api/update_node/${nodeId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    property: propertyName,
-                    value: newValue
-                })
-            }).then(response => response.json())
-              .then(data => {
-                  console.log(data.message);
-              });
+    // Führe den Fetch-Request zur neuen Route /api/update_nodes aus.
+    // Die IDs werden nun korrekt im Body als JSON-Payload übergeben.
+    fetch('/api/update_nodes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            ids: combinedIds,
+            property: propertyName,
+            value: newValue
+        })
+    }).then(response => {
+        // Überprüfe, ob der HTTP-Status erfolgreich ist.
+        if (!response.ok) {
+            return response.json().then(errorData => {
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            });
         }
+        return response.json();
+    }).then(data => {
+        // Logge die Erfolgsmeldung vom Server.
+        console.log(data.message);
+    }).catch(error => {
+        // Logge den Fehler, falls die Aktualisierung fehlschlägt.
+        console.error('Fehler beim Aktualisieren:', error);
+    });
+}
     </script>
 {% endblock %}
