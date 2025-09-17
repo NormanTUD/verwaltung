@@ -314,60 +314,42 @@ def query_data():
     """
     Führt eine dynamische Abfrage aus, die alle ausgewählten Knoten und ihre
     optionalen Beziehungen zueinander anzeigt, indem sie die Ergebnisse pro
-    zentralem Hauptknoten aggregiert oder disjunkte Sets mit UNION ALL kombiniert.
+    zentralem Hauptknoten aggregiert.
     """
     selected_labels = request.get_json().get('selectedLabels', [])
     
     if not selected_labels:
         return jsonify({"status": "error", "message": "Bitte wählen Sie mindestens einen Node-Typ aus."}), 400
 
-    selected_labels.sort()
+    # Bestimme den zentralen Ankerknoten
+    # Wir nehmen "person" als Anker, da es der einzige Knoten ist, der sich mit allen
+    # anderen ausgewählten Knoten verbinden kann.
+    main_label = 'person'
+    main_var = 'person'
+
+    # Prüfen, ob der zentrale Knoten überhaupt ausgewählt wurde.
+    if main_label not in selected_labels:
+        # Fallback: Wenn 'person' nicht ausgewählt ist, dann ist das Datenmodell anders.
+        # Hier können wir auf den vorherigen, generischen Ansatz zurückfallen.
+        selected_labels.sort()
+        main_label = selected_labels[0]
+        main_var = main_label.lower()
     
-    # Bestimme, ob es sich um den speziellen Fall von disjunkten Knoten handelt
-    is_disjoint_case = len(selected_labels) == 2 and 'person' not in selected_labels
-    
-    if is_disjoint_case:
-        # Fall 1: Disjunkte Knoten (z.B. ort und buch)
-        # Erzeuge eine UNION ALL Abfrage, um beide Datensätze separat abzurufen.
-        
-        query_parts = []
-        return_vars = [label.lower() for label in selected_labels]
+    # Basis-MATCH-Klausel für den Haupt-Label
+    cypher_query = f"MATCH ({main_var}:{main_label})"
 
-        for i, current_label in enumerate(selected_labels):
-            query = f"MATCH ({current_label.lower()}:{current_label})"
-            
-            return_clause = []
-            for j, label in enumerate(selected_labels):
-                if i == j:
-                    return_clause.append(f"{label.lower()} AS {label.lower()}")
-                else:
-                    return_clause.append(f"null AS {label.lower()}")
-            
-            query_parts.append(f"{query} RETURN {', '.join(return_clause)}")
-            
-        cypher_query = " UNION ALL ".join(query_parts) + " LIMIT 100"
+    # OPTIONAL MATCH für alle anderen ausgewählten Labels
+    other_labels = [label for label in selected_labels if label != main_label]
+    for other_label in other_labels:
+        other_var = other_label.lower()
+        cypher_query += f" OPTIONAL MATCH ({main_var})-[]-({other_var}:{other_label})"
 
-    else:
-        # Fall 2: Normale Abfrage mit Ankerknoten (person ist ausgewählt)
-        main_label = 'person'
-        main_var = 'person'
+    # RETURN-Klausel: Sammle alle verbundenen Knoten in Listen
+    return_clause = [f"{main_var}"]
+    for other_label in other_labels:
+        return_clause.append(f"collect(DISTINCT {other_label.lower()}) AS {other_label.lower()}_list")
         
-        if main_label not in selected_labels:
-            main_label = selected_labels[0]
-            main_var = main_label.lower()
-
-        other_labels = [label for label in selected_labels if label != main_label]
-        
-        cypher_query = f"MATCH ({main_var}:{main_label})"
-        for other_label in other_labels:
-            other_var = other_label.lower()
-            cypher_query += f" OPTIONAL MATCH ({main_var})-[]-({other_var}:{other_label})"
-        
-        return_clause = [f"{main_var}"]
-        for other_label in other_labels:
-            return_clause.append(f"collect(DISTINCT {other_label.lower()}) AS {other_label.lower()}_list")
-        
-        cypher_query += f" RETURN {', '.join(return_clause)} LIMIT 100"
+    cypher_query += f" RETURN {', '.join(return_clause)} LIMIT 100"
 
     print("Generierte Cypher-Abfrage:")
     print(cypher_query)
@@ -379,49 +361,32 @@ def query_data():
         if not results:
             return jsonify([])
 
-        if is_disjoint_case:
-            # Bei UNION ALL einfach die Ergebnisse direkt formatieren
-            for record in results:
-                item = {}
-                for key in return_vars:
-                    node = record.get(key)
-                    if node:
-                        item[key] = {
-                            'id': node.identity,
-                            'labels': list(node.labels),
-                            'properties': dict(node)
-                        }
-                    else:
-                        item[key] = None
-                formatted_results.append(item)
-        else:
-            # Bei Aggregierter Abfrage die Listen verarbeiten
-            for record in results:
-                item = {}
-                main_node = record.get(main_var)
-                if main_node:
-                    item[main_var] = {
-                        'id': main_node.identity,
-                        'labels': list(main_node.labels),
-                        'properties': dict(main_node)
-                    }
+        for record in results:
+            item = {}
+            main_node = record.get(main_var)
+            if main_node:
+                item[main_var] = {
+                    'id': main_node.identity,
+                    'labels': list(main_node.labels),
+                    'properties': dict(main_node)
+                }
 
-                for other_label in other_labels:
-                    list_name = f"{other_label.lower()}_list"
-                    node_list = record.get(list_name, [])
-                    
-                    if node_list:
-                        related_node = node_list[0]
-                        item[other_label.lower()] = {
-                            'id': related_node.identity,
-                            'labels': list(related_node.labels),
-                            'properties': dict(related_node)
-                        }
-                    else:
-                        item[other_label.lower()] = None
+            for other_label in other_labels:
+                list_name = f"{other_label.lower()}_list"
+                node_list = record.get(list_name, [])
                 
-                if any(item.values()):
-                    formatted_results.append(item)
+                if node_list:
+                    related_node = node_list[0]
+                    item[other_label.lower()] = {
+                        'id': related_node.identity,
+                        'labels': list(related_node.labels),
+                        'properties': dict(related_node)
+                    }
+                else:
+                    item[other_label.lower()] = None
+            
+            if any(item.values()):
+                formatted_results.append(item)
             
         return jsonify(formatted_results)
     except Exception as e:
