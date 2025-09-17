@@ -63,7 +63,7 @@
 
         function renderTable(data) {
             const resultsContainer = document.getElementById('resultsContainer');
-            resultsContainer.innerHTML = ''; // Clear old table
+            resultsContainer.innerHTML = ''; // Alte Tabelle löschen
 
             if (data.length === 0) {
                 resultsContainer.innerHTML = '<p>Keine Ergebnisse gefunden.</p>';
@@ -74,64 +74,72 @@
             const thead = document.createElement('thead');
             const tbody = document.createElement('tbody');
 
-            // 🕵️‍♂️ Check data format: is it a flat list or a nested object list?
+            // 🕵️‍♂️ Prüfen, ob flache Liste oder verschachtelte Objekte
             const isFlatList = data[0].hasOwnProperty('properties');
 
-            // 📊 Create header row
+            // 📊 Alle Properties sammeln
             const allProps = new Set();
-            if (isFlatList) {
-                // Flat list format
-                data.forEach(item => {
-                    if (item.properties) {
-                        Object.keys(item.properties).forEach(prop => allProps.add(prop));
+            data.forEach(item => {
+                for (const key in item) {
+                    if (item[key] && item[key].properties) {
+                        Object.keys(item[key].properties).forEach(prop => allProps.add(prop));
                     }
-                });
-            } else {
-                // Nested object list format
-                data.forEach(item => {
-                    for (const nodeKey in item) {
-                        const node = item[nodeKey];
-                        if (node && node.properties) {
-                            Object.keys(node.properties).forEach(prop => allProps.add(prop));
-                        }
-                    }
-                });
-            }
-            const headers = [...Array.from(allProps), 'Aktion'];
+                }
+            });
+
+            const headers = [...Array.from(allProps), 'Beziehungen', 'Aktion'];
             thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
 
-            // ✍️ Create data rows, combining properties from linked nodes
+            // ✍️ Datenzeilen erzeugen
             data.forEach(item => {
                 const row = document.createElement('tr');
                 let rowContent = '';
                 let nodeIDs = [];
 
                 const combinedProperties = {};
-                if (isFlatList) {
-                    // Flat list format
-                    nodeIDs.push(item.id);
-                    Object.assign(combinedProperties, item.properties);
-                } else {
-                    // Nested object list format
-                    for (const nodeKey in item) {
-                        const node = item[nodeKey];
-                        if (node) {
-                            nodeIDs.push(node.id);
-                            Object.assign(combinedProperties, node.properties);
-                        }
+                for (const key in item) {
+                    const node = item[key];
+                    if (node) {
+                        nodeIDs.push(node.id);
+                        Object.assign(combinedProperties, node.properties);
                     }
                 }
 
-                headers.slice(0, -1).forEach(header => {
+                // Property-Zellen
+                headers.slice(0, -2).forEach(header => {
                     const value = combinedProperties[header] || '';
                     rowContent += `<td><input type="text" value="${value}" 
                         data-id="${nodeIDs.join(',')}" 
                         data-property="${header}"
                         onblur="updateValue(this)"></td>`;
                 });
-                
+
+                // 🧩 Beziehungen-Zelle
+                const rels = Array.isArray(item.relationships) ? item.relationships : [];
+                let relText = rels.map(r => {
+                    // fromNode und toNode finden, robust gegen null/undefined
+                    const fromNode = Object.values(item).find(n => n && n.id === r.from);
+                    const toNode = Object.values(item).find(n => n && n.id === r.to);
+
+                    // Fallback für Namen: falls properties fehlen, ID anzeigen
+                    const fromName = fromNode && fromNode.properties 
+                        ? Object.values(fromNode.properties).filter(v => v != null).join(' ') || r.from 
+                        : r.from;
+                    const toName = toNode && toNode.properties
+                        ? Object.values(toNode.properties).filter(v => v != null).join(' ') || r.to 
+                        : r.to;
+
+                    // Relationship-Typ sicher verwenden, fallback auf 'UNK'
+                    const type = r.type || 'UNK';
+
+                    return `${type}: ${fromName} → ${toName}`;
+                }).join('<br>');
+
+                rowContent += `<td>${relText}</td>`;
+
+                // Aktion-Zelle
                 rowContent += `<td><button class="delete-btn" data-id="${nodeIDs.join(',')}">Löschen</button></td>`;
-                
+
                 row.innerHTML = rowContent;
                 tbody.appendChild(row);
             });
@@ -144,8 +152,8 @@
                 button.addEventListener('click', deleteNode);
             });
         }
-                
-        function deleteNode(event) {
+
+                function deleteNode(event) {
             const nodeIds = event.target.getAttribute('data-id').split(',');
             if (confirm(`Sicher, dass du die verknüpften Einträge (${nodeIds.join(', ')}) löschen möchtest?`)) {
                 fetch(`/api/delete_nodes?ids=${nodeIds.join(',')}`, {
