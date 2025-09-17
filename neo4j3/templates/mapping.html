@@ -121,7 +121,7 @@
             }
             
             const columnItemsHtml = headers.map(h => {
-                const hClean = h.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const hClean = h.toLowerCase().replace(/[^a-zA-Zäöüß0-9]/g, '');
                 const isPreselected = selectedHeaders.includes(h);
                 const isAlreadyAssigned = assignedColumns.has(h);
                 const disabledClass = isAlreadyAssigned && !isPreselected ? 'disabled' : '';
