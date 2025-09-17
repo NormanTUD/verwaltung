@@ -304,54 +304,48 @@ def overview():
 
 
 import itertools
+
 @app.route('/api/query_data', methods=['POST'])
 def query_data():
     """
-    Führt eine dynamische Abfrage basierend auf den vom Benutzer ausgewählten
-    Node-Typen aus, die alle ausgewählten Nodes und ihre Beziehungen anzeigt,
-    indem sie die Daten in einem einzigen Datensatz pro verbundenem Pfad zurückgibt.
+    Führt eine dynamische Abfrage aus, die alle ausgewählten Knoten und ihre
+    optionalen Beziehungen zueinander anzeigt, indem sie die Ergebnisse pro
+    zentralem Hauptknoten aggregiert.
     """
     selected_labels = request.get_json().get('selectedLabels', [])
     
     if not selected_labels:
         return jsonify({"status": "error", "message": "Bitte wählen Sie mindestens einen Node-Typ aus."}), 400
 
-    # Sortiere die Labels für konsistente Abfragen
-    selected_labels.sort()
+    # Bestimme den zentralen Ankerknoten
+    # Wir nehmen "person" als Anker, da es der einzige Knoten ist, der sich mit allen
+    # anderen ausgewählten Knoten verbinden kann.
+    main_label = 'person'
+    main_var = 'person'
+
+    # Prüfen, ob der zentrale Knoten überhaupt ausgewählt wurde.
+    if main_label not in selected_labels:
+        # Fallback: Wenn 'person' nicht ausgewählt ist, dann ist das Datenmodell anders.
+        # Hier können wir auf den vorherigen, generischen Ansatz zurückfallen.
+        selected_labels.sort()
+        main_label = selected_labels[0]
+        main_var = main_label.lower()
     
-    # Baue die MATCH-Klausel für alle Paare von ausgewählten Labels
-    match_parts = []
-    return_vars = []
-    
-    # 1. Füge alle Knoten-Labels zur RETURN-Klausel hinzu
-    for label in selected_labels:
-        var = label.lower()
-        return_vars.append(var)
+    # Basis-MATCH-Klausel für den Haupt-Label
+    cypher_query = f"MATCH ({main_var}:{main_label})"
+
+    # OPTIONAL MATCH für alle anderen ausgewählten Labels
+    other_labels = [label for label in selected_labels if label != main_label]
+    for other_label in other_labels:
+        other_var = other_label.lower()
+        cypher_query += f" OPTIONAL MATCH ({main_var})-[]-({other_var}:{other_label})"
+
+    # RETURN-Klausel: Sammle alle verbundenen Knoten in Listen
+    return_clause = [f"{main_var}"]
+    for other_label in other_labels:
+        return_clause.append(f"collect(DISTINCT {other_label.lower()}) AS {other_label.lower()}_list")
         
-    # 2. Baue die MATCH-Klausel für Beziehungen
-    if len(selected_labels) > 1:
-        # Erstelle eine Kette von MATCH-Klauseln für alle Labels
-        # Beispiel: MATCH (person:Person)-[]-(ort:Ort)
-        # itertools.combinations ist hier nicht mehr ideal, da wir einen zusammenhängenden Pfad wollen.
-        # Stattdessen bauen wir eine Kette von Matches.
-        
-        # Starte mit dem ersten Knoten
-        first_label = selected_labels[0]
-        cypher_query = f"MATCH ({first_label.lower()}:{first_label})"
-        
-        # MATCH für die anderen Knoten über Beziehungen
-        for i in range(1, len(selected_labels)):
-            current_label = selected_labels[i]
-            prev_label = selected_labels[i-1]
-            cypher_query += f", ({prev_label.lower()})-[]-({current_label.lower()}:{current_label})"
-    else:
-        # Fall, wenn nur ein Label ausgewählt ist (keine Beziehungen)
-        first_label = selected_labels[0]
-        cypher_query = f"MATCH ({first_label.lower()}:{first_label})"
-    
-    # 3. Ergänze die RETURN-Klausel und das LIMIT
-    return_clause = ", ".join(return_vars)
-    cypher_query += f" RETURN {return_clause} LIMIT 100"
+    cypher_query += f" RETURN {', '.join(return_clause)} LIMIT 100"
 
     print("Generierte Cypher-Abfrage:")
     print(cypher_query)
@@ -360,18 +354,35 @@ def query_data():
         results = graph.run(cypher_query).data()
         
         formatted_results = []
+        if not results:
+            return jsonify([])
+
         for record in results:
             item = {}
-            for key, node in record.items():
-                if node:
-                    item[key] = {
-                        'id': node.identity,
-                        'labels': list(node.labels),
-                        'properties': dict(node)
+            main_node = record.get(main_var)
+            if main_node:
+                item[main_var] = {
+                    'id': main_node.identity,
+                    'labels': list(main_node.labels),
+                    'properties': dict(main_node)
+                }
+
+            for other_label in other_labels:
+                list_name = f"{other_label.lower()}_list"
+                node_list = record.get(list_name, [])
+                
+                if node_list:
+                    related_node = node_list[0]
+                    item[other_label.lower()] = {
+                        'id': related_node.identity,
+                        'labels': list(related_node.labels),
+                        'properties': dict(related_node)
                     }
                 else:
-                    item[key] = None
-            formatted_results.append(item)
+                    item[other_label.lower()] = None
+            
+            if any(item.values()):
+                formatted_results.append(item)
             
         return jsonify(formatted_results)
     except Exception as e:
