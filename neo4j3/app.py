@@ -304,59 +304,58 @@ def overview():
 
 
 import itertools
-
 @app.route('/api/query_data', methods=['POST'])
 def query_data():
     """
     Führt eine dynamische Abfrage basierend auf den vom Benutzer ausgewählten
-    Node-Typen aus, die alle ausgewählten Nodes und ihre Beziehungen anzeigt.
+    Node-Typen aus, die alle ausgewählten Nodes und ihre Beziehungen anzeigt,
+    indem sie die Daten in einem einzigen Datensatz pro verbundenem Pfad zurückgibt.
     """
     selected_labels = request.get_json().get('selectedLabels', [])
     
     if not selected_labels:
         return jsonify({"status": "error", "message": "Bitte wählen Sie mindestens einen Node-Typ aus."}), 400
 
-    # Sortiere die Labels, um eine konsistente Reihenfolge für die RETURN-Klausel zu gewährleisten
+    # Sortiere die Labels für konsistente Abfragen
     selected_labels.sort()
     
-    return_vars = [f"{label.lower()} AS {label.lower()}" for label in selected_labels]
+    # Baue die MATCH-Klausel für alle Paare von ausgewählten Labels
+    match_parts = []
+    return_vars = []
     
-    query_parts = []
-    
-    # 1. Base-Query: Finde alle Nodes, die einem der ausgewählten Typen entsprechen
+    # 1. Füge alle Knoten-Labels zur RETURN-Klausel hinzu
     for label in selected_labels:
-        query = f"MATCH ({label.lower()}:{label}) RETURN {label.lower()} AS {label.lower()}"
+        var = label.lower()
+        return_vars.append(var)
         
-        # Füge null-Werte für alle anderen Spalten hinzu
-        for other_label in selected_labels:
-            if other_label != label:
-                query += f", null AS {other_label.lower()}"
-        query_parts.append(query)
-
-    # 2. Relationship-Queries: Finde alle Beziehungen zwischen den Paaren der ausgewählten Typen
-    # Verwende itertools, um alle eindeutigen Paare zu erstellen (z.B. Person-Ort, Person-Buch)
-    for label1, label2 in itertools.combinations(selected_labels, 2):
-        # Erstelle Variablen
-        var1 = label1.lower()
-        var2 = label2.lower()
-
-        # Erstelle eine MATCH-Klausel für die Beziehung
-        match_clause = f"MATCH ({var1}:{label1})-[]-({var2}:{label2})"
+    # 2. Baue die MATCH-Klausel für Beziehungen
+    if len(selected_labels) > 1:
+        # Erstelle eine Kette von MATCH-Klauseln für alle Labels
+        # Beispiel: MATCH (person:Person)-[]-(ort:Ort)
+        # itertools.combinations ist hier nicht mehr ideal, da wir einen zusammenhängenden Pfad wollen.
+        # Stattdessen bauen wir eine Kette von Matches.
         
-        # Erstelle eine RETURN-Klausel mit den passenden Variablen und null-Werten
-        return_clause = []
-        for label in selected_labels:
-            var = label.lower()
-            if var == var1 or var == var2:
-                return_clause.append(f"{var} AS {var}")
-            else:
-                return_clause.append(f"null AS {var}")
+        # Starte mit dem ersten Knoten
+        first_label = selected_labels[0]
+        cypher_query = f"MATCH ({first_label.lower()}:{first_label})"
         
-        query_parts.append(f"{match_clause} RETURN {', '.join(return_clause)}")
+        # MATCH für die anderen Knoten über Beziehungen
+        for i in range(1, len(selected_labels)):
+            current_label = selected_labels[i]
+            prev_label = selected_labels[i-1]
+            cypher_query += f", ({prev_label.lower()})-[]-({current_label.lower()}:{current_label})"
+    else:
+        # Fall, wenn nur ein Label ausgewählt ist (keine Beziehungen)
+        first_label = selected_labels[0]
+        cypher_query = f"MATCH ({first_label.lower()}:{first_label})"
+    
+    # 3. Ergänze die RETURN-Klausel und das LIMIT
+    return_clause = ", ".join(return_vars)
+    cypher_query += f" RETURN {return_clause} LIMIT 100"
 
-    # Kombiniere alle Teile mit UNION
-    cypher_query = " UNION ALL ".join(query_parts) + " LIMIT 100"
-
+    print("Generierte Cypher-Abfrage:")
+    print(cypher_query)
+    
     try:
         results = graph.run(cypher_query).data()
         
@@ -373,7 +372,7 @@ def query_data():
                 else:
                     item[key] = None
             formatted_results.append(item)
-        
+            
         return jsonify(formatted_results)
     except Exception as e:
         print(f"Fehler bei der Abfrage: {e}")
