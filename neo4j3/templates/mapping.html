@@ -22,8 +22,6 @@
     
     <button type="button" onclick="saveMapping()" class="save-button">Speichern & Importieren</button>
     
-    <datalist id="relSuggestions"></datalist>
-
     <style>
         body { font-family: sans-serif; }
         .mapping-section { border: 1px solid #ccc; padding: 15px; margin-bottom: 20px; border-radius: 8px; }
@@ -52,6 +50,7 @@
             width: 80px;
         }
         .column-item.selected .property-input { display: inline-block; }
+        .rel-type-input { display: none; margin-left: 10px; }
     </style>
 
     <script>
@@ -62,7 +61,6 @@
         let nodeCounter = 0;
         let existingRelTypes = [];
 
-        // Updated mapping for smarter suggestions
         const nodeSuggestions = {
             'Person': ['vorname', 'nachname', 'name', 'person', 'first_name', 'last_name'],
             'Ort': ['stadt', 'ort', 'land', 'adresse', 'plz', 'strasse', 'city', 'country', 'zip'],
@@ -74,8 +72,6 @@
                 const response = await fetch('/get_rel_types');
                 if (response.ok) {
                     existingRelTypes = await response.json();
-                    const datalist = document.getElementById('relSuggestions');
-                    datalist.innerHTML = existingRelTypes.map(rel => `<option value="${rel}">`).join('');
                 }
             } catch (e) {
                 console.error("Konnte existierende Relationship-Typen nicht laden:", e);
@@ -112,7 +108,6 @@
             let nodeLabel = suggestedType || `Node-Typ ${nodeCounter}`;
             let selectedHeaders = [];
 
-            // Auto-selection based on suggestions
             if (suggestedType) {
                 const keywords = nodeSuggestions[suggestedType] || [];
                 selectedHeaders = headers.filter(h => 
@@ -170,6 +165,11 @@
         function addRelationship() {
             const newRelDiv = document.createElement('div');
             newRelDiv.classList.add('relationship-group');
+            
+            // Relationship Typ Select erstellen
+            let optionsHtml = existingRelTypes.map(rel => `<option value="${rel}">${rel}</option>`).join('');
+            optionsHtml += `<option value="__new__">+ Neuer Typ...</option>`;
+
             newRelDiv.innerHTML = `
                 <h4>Neue Relationship</h4>
                 <label>Von:</label>
@@ -178,11 +178,31 @@
                 <select class="to-node-select node-select"></select>
                 <br><br>
                 <label>Relationship-Typ:</label>
-                <input type="text" class="rel-type-input" placeholder="z.B. HAT_ZUGEHÖRIGKEIT" list="relSuggestions">
+                <select class="rel-type-select">${optionsHtml}</select>
+                <input type="text" class="rel-type-input" placeholder="z.B. HAT_ZUGEHÖRIGKEIT">
                 <span class="remove-button" onclick="this.closest('.relationship-group').remove()">Entfernen</span>
             `;
             relationshipListDiv.appendChild(newRelDiv);
             updateRelationshipSelects();
+
+            const selectEl = newRelDiv.querySelector('.rel-type-select');
+            const inputEl = newRelDiv.querySelector('.rel-type-input');
+
+            selectEl.addEventListener('change', () => {
+                if (selectEl.value === '__new__') {
+                    inputEl.style.display = 'inline-block';
+                    inputEl.value = '';
+                    inputEl.focus();
+                } else {
+                    inputEl.style.display = 'none';
+                    inputEl.value = selectEl.value;
+                }
+            });
+
+            // Standard: falls direkt ausgewählt
+            if (selectEl.value) {
+                inputEl.value = selectEl.value;
+            }
         }
 
         function autoSuggestNodes() {
@@ -197,7 +217,6 @@
                 }
             });
 
-            // Remove default node and add suggestions
             document.getElementById('nodeList').innerHTML = '';
             suggestedTypes.forEach(type => addNodeMapping(type));
             if (suggestedTypes.size === 0) {
@@ -205,8 +224,8 @@
             }
         }
         
-        document.addEventListener('DOMContentLoaded', () => {
-             fetchExistingRelTypes();
+        document.addEventListener('DOMContentLoaded', async () => {
+             await fetchExistingRelTypes();
              autoSuggestNodes();
              addRelationship();
         });
@@ -236,10 +255,10 @@
             document.querySelectorAll('.relationship-group').forEach(group => {
                 const from = group.querySelector('.from-node-select').value;
                 const to = group.querySelector('.to-node-select').value;
-                const type = group.querySelector('.rel-type-input').value.trim();
-                if (from && to && type) {
-                    mapping.relationships.push({ from, to, type });
-                } else if (from || to || type) {
+                const typeInput = group.querySelector('.rel-type-input').value.trim();
+                if (from && to && typeInput) {
+                    mapping.relationships.push({ from, to, type: typeInput });
+                } else if (from || to || typeInput) {
                     alert('Fehler: Unvollständige Relationship-Definition gefunden. Bitte fülle alle Felder aus oder entferne sie.');
                     hasError = true;
                 }
