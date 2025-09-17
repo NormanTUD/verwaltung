@@ -14,12 +14,21 @@
         th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
         th { background-color: #f4f4f4; }
         input[type="text"] { width: 100%; border: none; background: none; }
+        
+        body { margin: 0; font-family: sans-serif; }
+        svg { background: #f0f0f0; border: 1px solid #ccc; }
+        .link { stroke: #999; stroke-width: 2px; }
+        .link-text { fill: #555; font-size: 10px; text-anchor: middle; }
+        .node circle { stroke: #fff; stroke-width: 1.5px; cursor: pointer; }
+        .node text { font-size: 12px; font-weight: bold; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff; }
     </style>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
     <nav>
         <a href="/">Importieren</a>
         <a href="/overview">Übersicht</a>
+        <a href="/graph">Graph</a>
     </nav>
     <div class="container">
         {% block content %}{% endblock %}
