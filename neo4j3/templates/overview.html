@@ -62,7 +62,8 @@
         }
 
         function renderTable(data) {
-            resultsContainer.innerHTML = ''; // Lösche alte Tabelle
+            const resultsContainer = document.getElementById('resultsContainer');
+            resultsContainer.innerHTML = ''; // Clear old table
 
             if (data.length === 0) {
                 resultsContainer.innerHTML = '<p>Keine Ergebnisse gefunden.</p>';
@@ -73,31 +74,51 @@
             const thead = document.createElement('thead');
             const tbody = document.createElement('tbody');
 
-            // Header-Zeile erstellen
+            // 🕵️‍♂️ Check data format: is it a flat list or a nested object list?
+            const isFlatList = data[0].hasOwnProperty('properties');
+
+            // 📊 Create header row
             const allProps = new Set();
-            data.forEach(item => {
-                for (const nodeKey in item) {
-                    const node = item[nodeKey];
-                    if (node && node.properties) {
-                        Object.keys(node.properties).forEach(prop => allProps.add(prop));
+            if (isFlatList) {
+                // Flat list format
+                data.forEach(item => {
+                    if (item.properties) {
+                        Object.keys(item.properties).forEach(prop => allProps.add(prop));
                     }
-                }
-            });
+                });
+            } else {
+                // Nested object list format
+                data.forEach(item => {
+                    for (const nodeKey in item) {
+                        const node = item[nodeKey];
+                        if (node && node.properties) {
+                            Object.keys(node.properties).forEach(prop => allProps.add(prop));
+                        }
+                    }
+                });
+            }
             const headers = [...Array.from(allProps), 'Aktion'];
             thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
 
-            // Datenzeilen erstellen, die verknüpfte Nodes kombinieren
+            // ✍️ Create data rows, combining properties from linked nodes
             data.forEach(item => {
                 const row = document.createElement('tr');
                 let rowContent = '';
                 let nodeIDs = [];
 
                 const combinedProperties = {};
-                for (const nodeKey in item) {
-                    const node = item[nodeKey];
-                    if (node) {
-                        nodeIDs.push(node.id);
-                        Object.assign(combinedProperties, node.properties);
+                if (isFlatList) {
+                    // Flat list format
+                    nodeIDs.push(item.id);
+                    Object.assign(combinedProperties, item.properties);
+                } else {
+                    // Nested object list format
+                    for (const nodeKey in item) {
+                        const node = item[nodeKey];
+                        if (node) {
+                            nodeIDs.push(node.id);
+                            Object.assign(combinedProperties, node.properties);
+                        }
                     }
                 }
 
@@ -123,7 +144,7 @@
                 button.addEventListener('click', deleteNode);
             });
         }
-        
+                
         function deleteNode(event) {
             const nodeIds = event.target.getAttribute('data-id').split(',');
             if (confirm(`Sicher, dass du die verknüpften Einträge (${nodeIds.join(', ')}) löschen möchtest?`)) {

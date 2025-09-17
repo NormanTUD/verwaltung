@@ -5,6 +5,7 @@ import json
 import inspect
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for
 from py2neo import Graph, Relationship
+import time
 from dotenv import load_dotenv
 import itertools
 
@@ -355,116 +356,117 @@ def overview():
     db_info = get_all_nodes_and_relationships()
     return render_template('overview.html', db_info=db_info, error=None)
 
-
 @app.route('/api/query_data', methods=['POST'])
 def query_data():
     """
-    Führt eine dynamische Abfrage aus, die alle ausgewählten Knoten und ihre
-    optionalen Beziehungen zueinander anzeigt. Wählt den Hauptknoten
-    automatisch basierend auf der Anzahl der Verbindungen, falls nicht explizit
-    im Request angegeben.
+    Führt eine dynamische Abfrage aus, die alle ausgewählten Knoten anzeigt,
+    unabhängig davon, ob sie miteinander verbunden sind.
     """
+    start_time = time.time()
+    print("🚀 API-Anfrage erhalten: /api/query_data")
+
     try:
         data = request.get_json()
         if not data:
+            print("🚨 Fehler: Ungültiges JSON-Format oder leerer Body")
             return jsonify({"status": "error", "message": "Ungültiges JSON-Format oder leerer Body"}), 400
 
-        main_label = data.get('mainLabel')
         selected_labels = data.get('selectedLabels', [])
-        
     except Exception as e:
+        print(f"🚨 Fehler beim Laden der JSON-Daten: {e}")
         return jsonify({"status": "error", "message": "Ungültiges JSON-Format"}), 400
 
+    print(f"🏷️ Empfangene Labels: {selected_labels}")
+
     if not selected_labels:
+        print("🚨 Fehler: Keine Node-Typen ausgewählt")
         return jsonify({"status": "error", "message": "Bitte wählen Sie mindestens einen Node-Typ aus."}), 400
 
-    # 1. Hauptknoten dynamisch bestimmen, falls nicht explizit angegeben
-    if not main_label:
-        connection_counts = {}
-        # Zähle für jedes Label in selected_labels die Anzahl der Knoten mit mindestens einer Beziehung
-        for label in selected_labels:
-            # Cypher-Abfrage zur Zählung von Knoten mit Beziehungen
-            # MATCH (n:Person)--() Zählt nur Personen, die mit etwas verbunden sind.
-            count_query = f"MATCH (n:{label})--() RETURN count(n) AS count_with_connections"
-            try:
-                count_result = graph.run(count_query).data()
-                if count_result:
-                    connection_counts[label] = count_result[0]['count_with_connections']
-            except Exception as e:
-                print(f"Fehler bei der Zählung für Label '{label}': {e}")
-                connection_counts[label] = 0
-
-        # Finde das Label mit den meisten Verbindungen
-        if not connection_counts or all(count == 0 for count in connection_counts.values()):
-             # Fallback: Wähle einfach das erste Label in der Liste
-            main_label = selected_labels[0]
-            print(f"Keine Verbindungen gefunden. Hauptknoten auf '{main_label}' gesetzt.")
-        else:
-            main_label = max(connection_counts, key=connection_counts.get)
-            print(f"Automatisch gewählter Hauptknoten: '{main_label}' mit {connection_counts[main_label]} verbundenen Knoten.")
-
-    # 2. Restliche Logik wie in der vorherigen Version
-    if main_label not in selected_labels:
-        return jsonify({"status": "error", "message": f"Der automatisch bestimmte 'mainLabel'-Typ '{main_label}' ist nicht in 'selectedLabels' enthalten."}), 400
-
-    main_var = main_label.lower()
-    other_labels = [label for label in selected_labels if label != main_label]
-    
-    cypher_query = f"MATCH ({main_var}:{main_label})"
-
-    for other_label in other_labels:
-        other_var = other_label.lower()
-        cypher_query += f" OPTIONAL MATCH ({main_var})-[]-({other_var}:{other_label})"
-
-    return_clause = [f"{main_var}"]
-    for other_label in other_labels:
-        list_name = f"{other_label.lower()}_list"
-        return_clause.append(f"collect(DISTINCT {other_label.lower()}) AS {list_name}")
+    # ⭐ NEUE LOGIK: Sonderfall für nur ein ausgewähltes Label
+    if len(selected_labels) == 1:
+        single_label = selected_labels[0]
+        cypher_query = f"MATCH (n:{single_label}) RETURN n LIMIT 100"
+        print("📊 Generierte Cypher-Abfrage (Einzelfall):")
+        print(cypher_query)
         
-    cypher_query += f" RETURN {', '.join(return_clause)} LIMIT 100"
-
-    print("Generierte Cypher-Abfrage:")
+        try:
+            results = graph.run(cypher_query).data()
+            formatted_results = []
+            for record in results:
+                node = record.get('n')
+                if node:
+                    formatted_results.append({
+                        'id': node.identity,
+                        'labels': list(node.labels),
+                        'properties': dict(node)
+                    })
+            end_time = time.time()
+            duration = end_time - start_time
+            print(f"✅ Abfrage erfolgreich. {len(formatted_results)} Knoten gefunden in {duration:.2f} Sekunden.")
+            return jsonify(formatted_results)
+        except Exception as e:
+            print(f"🚨 Fehler bei der Einzelfall-Abfrage: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 500
+    
+    # ⭐ NEUE LOGIK: Fortsetzung der UNION-Logik für mehr als ein Label
+    union_queries = []
+    for main_label in selected_labels:
+        main_var = main_label.lower()
+        
+        optional_matches = ""
+        for other_label in selected_labels:
+            if other_label != main_label:
+                other_var = other_label.lower()
+                optional_matches += f" OPTIONAL MATCH ({main_var})-[]-({other_var}:{other_label})"
+        
+        return_parts = []
+        for label in selected_labels:
+            var = label.lower()
+            return_parts.append(f"collect(DISTINCT {var}) AS {var}_list")
+        
+        sub_query = f"MATCH ({main_var}:{main_label})"
+        sub_query += optional_matches
+        sub_query += f" RETURN {', '.join(return_parts)}"
+        
+        union_queries.append(sub_query)
+    
+    cypher_query = " UNION ALL ".join(union_queries)
+    cypher_query += " LIMIT 100"
+    
+    print("📊 Generierte Cypher-Abfrage (UNION):")
     print(cypher_query)
     
     try:
         results = graph.run(cypher_query).data()
-        
-        formatted_results = []
-        if not results:
-            return jsonify([])
-
-        for record in results:
-            item = {}
-            main_node = record.get(main_var)
-            
-            if main_node:
-                item[main_var] = {
-                    'id': main_node.identity,
-                    'labels': list(main_node.labels),
-                    'properties': dict(main_node)
-                }
-            
-            for other_label in other_labels:
-                list_name = f"{other_label.lower()}_list"
-                node_list = record.get(list_name, [])
-                
-                if node_list:
-                    related_node = node_list[0]
-                    item[other_label.lower()] = {
-                        'id': related_node.identity,
-                        'labels': list(related_node.labels),
-                        'properties': dict(related_node)
-                    }
-                else:
-                    item[other_label.lower()] = None
-            
-            if main_var in item and item[main_var] is not None:
-                formatted_results.append(item)
-        
-        return jsonify(formatted_results)
     except Exception as e:
-        print(f"Fehler bei der Abfrage: {e}")
+        print(f"🚨 Fehler bei der UNION-Abfrage: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+    formatted_results = []
+    if not results:
+        print("🤷‍♂️ Keine Ergebnisse gefunden.")
+        return jsonify([])
+
+    for record in results:
+        item = {}
+        for key, value in record.items():
+            if value and isinstance(value, list) and value:
+                label_name = key.replace('_list', '')
+                item[label_name] = {
+                    'id': value[0].identity,
+                    'labels': list(value[0].labels),
+                    'properties': dict(value[0])
+                }
+            else:
+                label_name = key.replace('_list', '')
+                item[label_name] = None
+        
+        formatted_results.append(item)
+
+    end_time = time.time()
+    duration = end_time - start_time
+    print(f"✅ Abfrage erfolgreich. {len(formatted_results)} Knoten gefunden in {duration:.2f} Sekunden.")
+    return jsonify(formatted_results)
 
 @app.route('/api/update_node/<int:node_id>', methods=['PUT'])
 def update_node(node_id):
