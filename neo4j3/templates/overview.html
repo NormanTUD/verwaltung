@@ -61,97 +61,104 @@
               });
         }
 
-        function renderTable(data) {
-            const resultsContainer = document.getElementById('resultsContainer');
-            resultsContainer.innerHTML = ''; // Alte Tabelle löschen
+function renderTable(data) {
+    const resultsContainer = document.getElementById('resultsContainer');
+    resultsContainer.innerHTML = ''; // Alte Tabelle löschen
 
-            if (data.length === 0) {
-                resultsContainer.innerHTML = '<p>Keine Ergebnisse gefunden.</p>';
-                return;
+    if (!Array.isArray(data) || data.length === 0) {
+        resultsContainer.innerHTML = '<p>Keine Ergebnisse gefunden.</p>';
+        return;
+    }
+
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const tbody = document.createElement('tbody');
+
+    // 🕵️‍♂️ Prüfen, ob flache Liste (Knoten selbst hat properties)
+    const isFlatList = data[0].hasOwnProperty('properties');
+
+    // 📊 Alle Properties sammeln
+    const allProps = new Set();
+    data.forEach(item => {
+        if (isFlatList) {
+            Object.keys(item.properties || {}).forEach(prop => allProps.add(prop));
+        } else {
+            for (const key in item) {
+                if (item[key] && item[key].properties) {
+                    Object.keys(item[key].properties).forEach(prop => allProps.add(prop));
+                }
             }
-
-            const table = document.createElement('table');
-            const thead = document.createElement('thead');
-            const tbody = document.createElement('tbody');
-
-            // 🕵️‍♂️ Prüfen, ob flache Liste oder verschachtelte Objekte
-            const isFlatList = data[0].hasOwnProperty('properties');
-
-            // 📊 Alle Properties sammeln
-            const allProps = new Set();
-            data.forEach(item => {
-                for (const key in item) {
-                    if (item[key] && item[key].properties) {
-                        Object.keys(item[key].properties).forEach(prop => allProps.add(prop));
-                    }
-                }
-            });
-
-            const headers = [...Array.from(allProps), 'Beziehungen', 'Aktion'];
-            thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
-
-            // ✍️ Datenzeilen erzeugen
-            data.forEach(item => {
-                const row = document.createElement('tr');
-                let rowContent = '';
-                let nodeIDs = [];
-
-                const combinedProperties = {};
-                for (const key in item) {
-                    const node = item[key];
-                    if (node) {
-                        nodeIDs.push(node.id);
-                        Object.assign(combinedProperties, node.properties);
-                    }
-                }
-
-                // Property-Zellen
-                headers.slice(0, -2).forEach(header => {
-                    const value = combinedProperties[header] || '';
-                    rowContent += `<td><input type="text" value="${value}" 
-                        data-id="${nodeIDs.join(',')}" 
-                        data-property="${header}"
-                        onblur="updateValue(this)"></td>`;
-                });
-
-                // 🧩 Beziehungen-Zelle
-                const rels = Array.isArray(item.relationships) ? item.relationships : [];
-                let relText = rels.map(r => {
-                    // fromNode und toNode finden, robust gegen null/undefined
-                    const fromNode = Object.values(item).find(n => n && n.id === r.from);
-                    const toNode = Object.values(item).find(n => n && n.id === r.to);
-
-                    // Fallback für Namen: falls properties fehlen, ID anzeigen
-                    const fromName = fromNode && fromNode.properties 
-                        ? Object.values(fromNode.properties).filter(v => v != null).join(' ') || r.from 
-                        : r.from;
-                    const toName = toNode && toNode.properties
-                        ? Object.values(toNode.properties).filter(v => v != null).join(' ') || r.to 
-                        : r.to;
-
-                    // Relationship-Typ sicher verwenden, fallback auf 'UNK'
-                    const type = r.type || 'UNK';
-
-                    return `${type}: ${fromName} → ${toName}`;
-                }).join('<br>');
-
-                rowContent += `<td>${relText}</td>`;
-
-                // Aktion-Zelle
-                rowContent += `<td><button class="delete-btn" data-id="${nodeIDs.join(',')}">Löschen</button></td>`;
-
-                row.innerHTML = rowContent;
-                tbody.appendChild(row);
-            });
-
-            table.appendChild(thead);
-            table.appendChild(tbody);
-            resultsContainer.appendChild(table);
-
-            document.querySelectorAll('.delete-btn').forEach(button => {
-                button.addEventListener('click', deleteNode);
-            });
         }
+    });
+
+    const headers = [...Array.from(allProps), 'Beziehungen', 'Aktion'];
+    thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+
+    // ✍️ Datenzeilen erzeugen
+    data.forEach(item => {
+        const row = document.createElement('tr');
+        let rowContent = '';
+        let nodeIDs = [];
+        let combinedProperties = {};
+
+        if (isFlatList) {
+            nodeIDs.push(item.id);
+            combinedProperties = item.properties || {};
+        } else {
+            for (const key in item) {
+                const node = item[key];
+                if (node && node.properties) {
+                    nodeIDs.push(node.id);
+                    Object.assign(combinedProperties, node.properties);
+                }
+            }
+        }
+
+        // Property-Zellen
+        headers.slice(0, -2).forEach(header => {
+            const value = combinedProperties[header] || '';
+            rowContent += `<td><input type="text" value="${value}" 
+                data-id="${nodeIDs.join(',')}" 
+                data-property="${header}"
+                onblur="updateValue(this)"></td>`;
+        });
+
+        // 🧩 Beziehungen-Zelle (nur sinnvoll bei verschachtelten Strukturen)
+        let relText = '';
+        if (!isFlatList) {
+            const rels = Array.isArray(item.relationships) ? item.relationships : [];
+            relText = rels.map(r => {
+                const fromNode = Object.values(item).find(n => n && n.id === r.from);
+                const toNode = Object.values(item).find(n => n && n.id === r.to);
+
+                const fromName = fromNode && fromNode.properties
+                    ? Object.values(fromNode.properties).filter(v => v != null).join(' ') || r.from
+                    : r.from;
+                const toName = toNode && toNode.properties
+                    ? Object.values(toNode.properties).filter(v => v != null).join(' ') || r.to
+                    : r.to;
+
+                const type = r.type || 'UNK';
+                return `${type}: ${fromName} → ${toName}`;
+            }).join('<br>');
+        }
+        rowContent += `<td>${relText}</td>`;
+
+        // Aktion-Zelle
+        rowContent += `<td><button class="delete-btn" data-id="${nodeIDs.join(',')}">Löschen</button></td>`;
+
+        row.innerHTML = rowContent;
+        tbody.appendChild(row);
+    });
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    resultsContainer.appendChild(table);
+
+    document.querySelectorAll('.delete-btn').forEach(button => {
+        button.addEventListener('click', deleteNode);
+    });
+}
 
                 function deleteNode(event) {
             const nodeIds = event.target.getAttribute('data-id').split(',');
