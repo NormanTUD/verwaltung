@@ -143,7 +143,7 @@
             document.querySelectorAll('.node-group').forEach(group => {
                 const label = group.querySelector('.node-label-input').textContent.trim();
                 const fields = [...group.querySelectorAll('.column-item.selected')]
-                               .map(item => item.dataset.column);
+                                    .map(item => item.dataset.column);
                 if (label && fields.length > 0) {
                     mapping.nodes[label] = fields;
                 }
@@ -163,14 +163,16 @@
                 const type = group.querySelector('.rel-type-input').value.trim();
                 if (from && to && type) {
                     mapping.relationships.push({ from, to, type });
-                } else {
+                } else if (from || to || type) { // Check for partially filled forms
+                    alert('Fehler: Unvollständige Relationship-Definition gefunden. Bitte fülle alle Felder aus oder entferne sie.');
                     hasError = true;
                 }
             });
-            
-            // Check if relationships are defined
-            if (mapping.relationships.length === 0) {
-                alert('Fehler: Es muss mindestens eine Relationship definiert werden.');
+
+            // The key change: Only require a relationship if there is more than one node type.
+            const numNodeTypes = Object.keys(mapping.nodes).length;
+            if (numNodeTypes > 1 && mapping.relationships.length === 0) {
+                alert('Fehler: Bei mehreren Node-Typen muss mindestens eine Relationship definiert werden.');
                 hasError = true;
             }
 
@@ -183,12 +185,12 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(mapping)
             }).then(response => response.json())
-              .then(data => {
-                  alert(data.message);
-                  if (data.status === 'success') {
-                      window.location.href = '/overview';
-                  }
-              });
+            .then(data => {
+                alert(data.message);
+                if (data.status === 'success') {
+                    window.location.href = '/overview';
+                }
+            });
         }
     </script>
 {% endblock %}
