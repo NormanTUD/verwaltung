@@ -166,8 +166,7 @@
         function addRelationship() {
             const newRelDiv = document.createElement('div');
             newRelDiv.classList.add('relationship-group');
-            
-            // Relationship Typ Select erstellen
+
             let optionsHtml = existingRelTypes.map(rel => `<option value="${rel}">${rel}</option>`).join('');
             optionsHtml += `<option value="__new__">+ Neuer Typ...</option>`;
 
@@ -189,6 +188,7 @@
             const selectEl = newRelDiv.querySelector('.rel-type-select');
             const inputEl = newRelDiv.querySelector('.rel-type-input');
 
+            // Event wenn man zwischen vorhandenen Typen und "+ Neuer Typ..." wechselt
             selectEl.addEventListener('change', () => {
                 if (selectEl.value === '__new__') {
                     inputEl.style.display = 'inline-block';
@@ -200,9 +200,11 @@
                 }
             });
 
-            // Standard: falls direkt ausgewählt
-            if (selectEl.value) {
-                inputEl.value = selectEl.value;
+            // FALLS initial nur "+ Neuer Typ..." vorhanden ist, Input direkt anzeigen
+            if (existingRelTypes.length === 0) {
+                selectEl.value = '__new__';
+                inputEl.style.display = 'inline-block';
+                inputEl.focus();
             }
         }
 
