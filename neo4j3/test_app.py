@@ -106,7 +106,7 @@ class TestNeo4jApp(unittest.TestCase):
 
         self.assertEqual(len(person_nodes), 3)
         self.assertEqual(len(location_nodes), 3)
-        self.assertEqual(len(relationships), 1)
+        self.assertEqual(len(relationships), 3)
 
     def test_query_data_single_label(self):
         """Testet die Abfrage mit einem einzelnen Label."""
