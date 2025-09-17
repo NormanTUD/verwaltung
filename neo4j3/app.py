@@ -309,6 +309,7 @@ def overview():
     db_info = get_all_nodes_and_relationships()
     return render_template('overview.html', db_info=db_info, error=None)
 
+
 @app.route('/api/query_data', methods=['POST'])
 def query_data():
     """
@@ -316,35 +317,30 @@ def query_data():
     optionalen Beziehungen zueinander anzeigt, indem sie die Ergebnisse pro
     zentralem Hauptknoten aggregiert.
     """
-    selected_labels = request.get_json().get('selectedLabels', [])
-    
+    try:
+        selected_labels = request.get_json().get('selectedLabels', [])
+    except Exception as e:
+        print(f"Fehler beim Laden der JSON-Daten: {e}")
+        return jsonify({"status": "error", "message": "Ungültiges JSON-Format"}), 400
+
+    print(f"Empfangene 'selectedLabels': {selected_labels}")
+
     if not selected_labels:
         return jsonify({"status": "error", "message": "Bitte wählen Sie mindestens einen Node-Typ aus."}), 400
 
-    # Bestimme den zentralen Ankerknoten
-    # Wir nehmen "person" als Anker, da es der einzige Knoten ist, der sich mit allen
-    # anderen ausgewählten Knoten verbinden kann.
-    main_label = 'person'
+    main_label = 'Person'
     main_var = 'person'
-
-    # Prüfen, ob der zentrale Knoten überhaupt ausgewählt wurde.
-    if main_label not in selected_labels:
-        # Fallback: Wenn 'person' nicht ausgewählt ist, dann ist das Datenmodell anders.
-        # Hier können wir auf den vorherigen, generischen Ansatz zurückfallen.
-        selected_labels.sort()
-        main_label = selected_labels[0]
-        main_var = main_label.lower()
     
-    # Basis-MATCH-Klausel für den Haupt-Label
+    # Bestimme alle Labels, die als separate Knoten existieren, außer dem Hauptknoten
+    other_labels = [label for label in selected_labels if label != main_label]
+    
     cypher_query = f"MATCH ({main_var}:{main_label})"
 
-    # OPTIONAL MATCH für alle anderen ausgewählten Labels
-    other_labels = [label for label in selected_labels if label != main_label]
     for other_label in other_labels:
         other_var = other_label.lower()
+        # Dies ist der entscheidende Schritt: OPTIONAL MATCH für alle ausgewählten Labels
         cypher_query += f" OPTIONAL MATCH ({main_var})-[]-({other_var}:{other_label})"
 
-    # RETURN-Klausel: Sammle alle verbundenen Knoten in Listen
     return_clause = [f"{main_var}"]
     for other_label in other_labels:
         return_clause.append(f"collect(DISTINCT {other_label.lower()}) AS {other_label.lower()}_list")
@@ -364,17 +360,19 @@ def query_data():
         for record in results:
             item = {}
             main_node = record.get(main_var)
+            
             if main_node:
                 item[main_var] = {
                     'id': main_node.identity,
                     'labels': list(main_node.labels),
                     'properties': dict(main_node)
                 }
-
+            
             for other_label in other_labels:
                 list_name = f"{other_label.lower()}_list"
                 node_list = record.get(list_name, [])
                 
+                # Verarbeite die Listen der verbundenen Knoten, einschließlich Ort
                 if node_list:
                     related_node = node_list[0]
                     item[other_label.lower()] = {
@@ -387,7 +385,7 @@ def query_data():
             
             if any(item.values()):
                 formatted_results.append(item)
-            
+        
         return jsonify(formatted_results)
     except Exception as e:
         print(f"Fehler bei der Abfrage: {e}")
