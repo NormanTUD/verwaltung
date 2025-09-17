@@ -61,15 +61,16 @@
         let nodeCounter = 0;
         let existingRelTypes = [];
 
-        const nodeSuggestions = {
-            'Person': ['titel', 'telefon', 'vorname', 'nachname', 'name', 'person', 'first_name', 'last_name', 'kontaktdaten'],
-            'Ort': ['stadt', 'ort', 'land', 'adresse', 'plz', 'strasse', 'straße', 'city', 'country', 'zip'],
-	    'Struktureinheit': ['struktureinheit'],
-            'Firma': ['firma', 'unternehmen', 'company'],
-            'Buch': ['buch_titel', 'erscheinungsjahr'],
-	    'Raum': ['raum'],
-            'Abteilung': ['abteilung']
-        };
+	const nodeSuggestions = {
+		'Person': ['titel', 'telefon', 'vorname', 'nachname', 'name', 'person', 'first_name', 'last_name', 'kontaktdaten'],
+		'ZIH-Login': ['ZIH-Login', 'Ablauf'],
+		'Ort': ['stadt', 'ort', 'land', 'adresse', 'plz', 'strasse', 'straße', 'city', 'country', 'zip'],
+		'Struktureinheit': ['struktureinheit'],
+		'Firma': ['firma', 'unternehmen', 'company'],
+		'Buch': ['buch_titel', 'erscheinungsjahr'],
+		'Raum': ['raum'],
+		'Abteilung': ['abteilung']
+	};
 
         async function fetchExistingRelTypes() {
             try {
