@@ -21,6 +21,8 @@
     </div>
     
     <button type="button" onclick="saveMapping()" class="save-button">Speichern & Importieren</button>
+    
+    <datalist id="relSuggestions"></datalist>
 
     <style>
         body { font-family: sans-serif; }
@@ -31,12 +33,25 @@
         .relationship-group h4 { color: #28a745; margin-top: 0; }
         .node-group .node-label-input, .rel-type-input { font-weight: bold; }
         .column-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
-        .column-item { background-color: #e2e6ea; border: 1px solid #d3d9df; padding: 5px 10px; border-radius: 4px; cursor: pointer; user-select: none; }
+        .column-item { 
+            background-color: #e2e6ea; border: 1px solid #d3d9df; padding: 5px 10px; border-radius: 4px; cursor: pointer; user-select: none;
+            display: flex; align-items: center;
+        }
         .column-item.selected { background-color: #007bff; color: white; border-color: #007bff; }
         .column-item.disabled { background-color: #f0f0f0; color: #999; border-color: #ddd; cursor: not-allowed; text-decoration: line-through; }
         .save-button { padding: 10px 20px; font-size: 16px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
         .save-button:hover { background-color: #0056b3; }
         .remove-button { margin-left: 10px; color: #dc3545; cursor: pointer; }
+        .property-input { 
+            font-size: 12px; padding: 2px; margin-left: 5px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 3px;
+            color: white;
+            display: none;
+            width: 80px;
+        }
+        .column-item.selected .property-input { display: inline-block; }
     </style>
 
     <script>
@@ -45,16 +60,35 @@
         const relationshipListDiv = document.getElementById('relationshipList');
         const assignedColumns = new Set();
         let nodeCounter = 0;
+        let existingRelTypes = [];
+
+        // Updated mapping for smarter suggestions
+        const nodeSuggestions = {
+            'Person': ['vorname', 'nachname', 'name', 'person', 'first_name', 'last_name'],
+            'Ort': ['stadt', 'ort', 'land', 'adresse', 'plz', 'strasse', 'city', 'country', 'zip'],
+            'Firma': ['firma', 'unternehmen', 'company']
+        };
+
+        async function fetchExistingRelTypes() {
+            try {
+                const response = await fetch('/get_rel_types');
+                if (response.ok) {
+                    existingRelTypes = await response.json();
+                    const datalist = document.getElementById('relSuggestions');
+                    datalist.innerHTML = existingRelTypes.map(rel => `<option value="${rel}">`).join('');
+                }
+            } catch (e) {
+                console.error("Konnte existierende Relationship-Typen nicht laden:", e);
+            }
+        }
 
         function updateColumnStates() {
-            // Rebuild the assignedColumns set
             assignedColumns.clear();
             document.querySelectorAll('.node-group').forEach(group => {
                 const selectedCols = group.querySelectorAll('.column-item.selected');
                 selectedCols.forEach(col => assignedColumns.add(col.dataset.column));
             });
 
-            // Update UI based on assignedColumns
             document.querySelectorAll('.column-item').forEach(col => {
                 const column = col.dataset.column;
                 const isSelectedInAnyGroup = assignedColumns.has(column);
@@ -62,7 +96,7 @@
 
                 if (isSelectedInAnyGroup && !isSelectedInThisGroup) {
                     col.classList.add('disabled');
-                    col.classList.remove('selected'); // Just in case
+                    col.classList.remove('selected');
                 } else {
                     col.classList.remove('disabled');
                 }
@@ -70,14 +104,39 @@
             updateRelationshipSelects();
         }
 
-        function addNodeMapping() {
+        function addNodeMapping(suggestedType = '') {
             nodeCounter++;
             const newNodeDiv = document.createElement('div');
             newNodeDiv.classList.add('node-group');
+            
+            let nodeLabel = suggestedType || `Node-Typ ${nodeCounter}`;
+            let selectedHeaders = [];
+
+            // Auto-selection based on suggestions
+            if (suggestedType) {
+                const keywords = nodeSuggestions[suggestedType] || [];
+                selectedHeaders = headers.filter(h => 
+                    !assignedColumns.has(h) && keywords.some(keyword => h.toLowerCase().includes(keyword))
+                );
+            }
+            
+            const columnItemsHtml = headers.map(h => {
+                const hClean = h.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const isPreselected = selectedHeaders.includes(h);
+                const isAlreadyAssigned = assignedColumns.has(h);
+                const disabledClass = isAlreadyAssigned && !isPreselected ? 'disabled' : '';
+                const selectedClass = isPreselected ? 'selected' : '';
+                const propName = hClean;
+                return `<div class="column-item ${selectedClass} ${disabledClass}" data-column="${h}">
+                            <span>${h}</span>
+                            <input type="text" class="property-input" placeholder="${propName}" value="${propName}" onclick="event.stopPropagation()">
+                        </div>`;
+            }).join('');
+
             newNodeDiv.innerHTML = `
-                <h4 contenteditable="true" class="node-label-input" placeholder="Node-Label" onblur="updateRelationshipSelects()">Node-Typ ${nodeCounter}</h4>
+                <h4 contenteditable="true" class="node-label-input" placeholder="Node-Label" onblur="updateRelationshipSelects()">${nodeLabel}</h4>
                 <div class="column-list">
-                    ${headers.map(h => `<div class="column-item" data-column="${h}">${h}</div>`).join('')}
+                    ${columnItemsHtml}
                 </div>
                 <span class="remove-button" onclick="this.closest('.node-group').remove(); updateColumnStates();">Entfernen</span>
             `;
@@ -85,15 +144,11 @@
             
             newNodeDiv.querySelectorAll('.column-item').forEach(col => {
                 col.addEventListener('click', (event) => {
-                    const column = event.target.dataset.column;
-                    const isSelected = event.target.classList.contains('selected');
-                    
-                    if (!isSelected && assignedColumns.has(column)) {
+                    if (col.classList.contains('disabled')) {
                         alert('Diese Spalte ist bereits einem anderen Node-Typen zugeordnet.');
                         return;
                     }
-                    
-                    event.target.classList.toggle('selected');
+                    col.classList.toggle('selected');
                     updateColumnStates();
                 });
             });
@@ -102,8 +157,8 @@
 
         function updateRelationshipSelects() {
             const availableNodes = [...document.querySelectorAll('.node-label-input')]
-                                     .map(input => input.textContent.trim())
-                                     .filter(label => label.length > 0);
+                                            .map(input => input.textContent.trim())
+                                            .filter(label => label.length > 0);
             document.querySelectorAll('.node-select').forEach(select => {
                 const currentValue = select.value;
                 select.innerHTML = `<option value="">-- Wähle Node --</option>` +
@@ -123,15 +178,36 @@
                 <select class="to-node-select node-select"></select>
                 <br><br>
                 <label>Relationship-Typ:</label>
-                <input type="text" class="rel-type-input" placeholder="z.B. HAT_ZUGEHÖRIGKEIT">
+                <input type="text" class="rel-type-input" placeholder="z.B. HAT_ZUGEHÖRIGKEIT" list="relSuggestions">
                 <span class="remove-button" onclick="this.closest('.relationship-group').remove()">Entfernen</span>
             `;
             relationshipListDiv.appendChild(newRelDiv);
             updateRelationshipSelects();
         }
+
+        function autoSuggestNodes() {
+            const suggestedTypes = new Set();
+            headers.forEach(h => {
+                const hClean = h.toLowerCase().replace(/[^a-z0-9]/g, '');
+                for (const type in nodeSuggestions) {
+                    const keywords = nodeSuggestions[type];
+                    if (keywords.some(keyword => hClean.includes(keyword))) {
+                        suggestedTypes.add(type);
+                    }
+                }
+            });
+
+            // Remove default node and add suggestions
+            document.getElementById('nodeList').innerHTML = '';
+            suggestedTypes.forEach(type => addNodeMapping(type));
+            if (suggestedTypes.size === 0) {
+                addNodeMapping();
+            }
+        }
         
         document.addEventListener('DOMContentLoaded', () => {
-             addNodeMapping();
+             fetchExistingRelTypes();
+             autoSuggestNodes();
              addRelationship();
         });
 
@@ -139,37 +215,36 @@
             const mapping = { nodes: {}, relationships: [] };
             let hasError = false;
 
-            // Collect node mappings
             document.querySelectorAll('.node-group').forEach(group => {
                 const label = group.querySelector('.node-label-input').textContent.trim();
-                const fields = [...group.querySelectorAll('.column-item.selected')]
-                                    .map(item => item.dataset.column);
+                const fields = [...group.querySelectorAll('.column-item.selected')].map(item => {
+                    const original = item.dataset.column;
+                    const renamed = item.querySelector('.property-input').value.trim();
+                    return { original, renamed: renamed || original };
+                });
                 if (label && fields.length > 0) {
                     mapping.nodes[label] = fields;
                 }
             });
 
-            // Check if all headers are assigned
             const assignedHeadersCount = Object.values(mapping.nodes).flat().length;
             if (assignedHeadersCount !== headers.length) {
                 alert('Fehler: Alle Spalten müssen einem Node-Typen zugeordnet werden.');
                 hasError = true;
             }
 
-            // Collect relationship mappings
             document.querySelectorAll('.relationship-group').forEach(group => {
                 const from = group.querySelector('.from-node-select').value;
                 const to = group.querySelector('.to-node-select').value;
                 const type = group.querySelector('.rel-type-input').value.trim();
                 if (from && to && type) {
                     mapping.relationships.push({ from, to, type });
-                } else if (from || to || type) { // Check for partially filled forms
+                } else if (from || to || type) {
                     alert('Fehler: Unvollständige Relationship-Definition gefunden. Bitte fülle alle Felder aus oder entferne sie.');
                     hasError = true;
                 }
             });
 
-            // The key change: Only require a relationship if there is more than one node type.
             const numNodeTypes = Object.keys(mapping.nodes).length;
             if (numNodeTypes > 1 && mapping.relationships.length === 0) {
                 alert('Fehler: Bei mehreren Node-Typen muss mindestens eine Relationship definiert werden.');
@@ -185,12 +260,12 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(mapping)
             }).then(response => response.json())
-            .then(data => {
-                alert(data.message);
-                if (data.status === 'success') {
-                    window.location.href = '/overview';
-                }
-            });
+              .then(data => {
+                  alert(data.message);
+                  if (data.status === 'success') {
+                      window.location.href = '/overview';
+                  }
+              });
         }
     </script>
 {% endblock %}

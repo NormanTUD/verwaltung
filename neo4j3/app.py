@@ -178,6 +178,19 @@ def upload_data():
     except csv.Error as e:
         return f"Fehler beim Parsen der Daten: {e}", 400
 
+@app.route('/get_rel_types', methods=['GET'])
+def get_rel_types():
+    """Gibt eine Liste aller existierenden Relationship-Typen in der DB zurück."""
+    try:
+        # Führe eine Cypher-Abfrage aus, um alle eindeutigen Relationship-Typen zu finden
+        query = "MATCH ()-[r]->() RETURN DISTINCT type(r) AS type"
+        result = graph.run(query).data()
+        types = [d['type'] for d in result]
+        return jsonify(types)
+    except Exception as e:
+        print(f"Fehler beim Abrufen der Relationship-Typen: {e}")
+        return jsonify([]), 500
+
 @app.route('/save_mapping', methods=['POST'])
 def save_mapping():
     """Speichert die zugeordneten Daten in der Neo4j-Datenbank."""
@@ -191,7 +204,6 @@ def save_mapping():
     
     f = io.StringIO(raw_data)
     try:
-        # csv.Sniffer() muss ausreichend Daten zum Analysieren haben
         dialect = csv.Sniffer().sniff(f.read(1024))
         f.seek(0)
         reader = csv.DictReader(f, dialect=dialect)
@@ -207,23 +219,33 @@ def save_mapping():
             
             # MERGE-Vorgänge für Knoten
             for node_type, fields in mapping_data.get('nodes', {}).items():
-                all_props = {field: row.get(field) for field in fields if row.get(field)}
-                
+                # Erstelle das all_props-Dictionary mit den neuen Namen
+                all_props = {}
+                for field_map in fields:
+                    original_name = field_map['original']
+                    renamed_name = field_map['renamed']
+                    value = row.get(original_name)
+                    if value:
+                        all_props[renamed_name] = value
+
                 if not all_props:
                     print(f"  ❌ Keine Daten für den Knoten-Typ '{node_type}' in dieser Zeile. Überspringe.")
                     continue
                 
                 # Der erste Property wird als eindeutiger Identifikator verwendet.
+                # Wir müssen hier den neu benannten Schlüssel verwenden.
                 identifier_key, identifier_value = next(iter(all_props.items()))
                 
                 print(f"  ➡️ Versuche, einen Knoten vom Typ '{node_type}' zu mergen.")
                 print(f"     Identifikator: '{identifier_key}' = '{identifier_value}'")
                 print(f"     Alle Properties: {all_props}")
 
-                # Cypher-Query für MERGE.
-                # Wir mergen auf den Identifikator und setzen alle Properties ON CREATE.
+                # Cypher-Query für MERGE. Wir mergen auf den Identifikator und setzen alle Properties ON CREATE.
+                # Wir verwenden hier string-formatierung für den Label und den Schlüssel, da sie dynamisch sind.
+                # Vorsicht bei der Benennung von Variablen und Properties, um SQL-Injection-ähnliche Angriffe zu verhindern.
+                # Cypher verwendet Backticks für reservierte Namen, daher formatieren wir {`...`}.
                 cypher_query = f"""
-                MERGE (n:{node_type} {{{identifier_key}: $identifier_value}})
+                MERGE (n:`{node_type}` {{`{identifier_key}`: $identifier_value}})
                 ON CREATE SET n = $all_props
                 RETURN n
                 """
@@ -236,8 +258,6 @@ def save_mapping():
                 result = graph.run(cypher_query, **params).data()
                 
                 if result:
-                    # Der py2neo-Treiber gibt das Node-Objekt direkt zurück,
-                    # also speichern wir es, um es für Relationen zu nutzen.
                     nodes_to_create[node_type] = result[0]['n']
                     print(f"  ✅ Knoten '{node_type}' wurde erfolgreich gemerged (entweder erstellt oder gefunden).")
                 else:
@@ -249,40 +269,24 @@ def save_mapping():
                 to_node_type = rel_data['to']
                 rel_type = rel_data['type']
                 
+                # Clean the relationship type to make it Cypher-compatible
+                clean_rel_type = rel_type.replace(' ', '_').upper()
+
                 print(f"  ➡️ Versuche, eine Beziehung '{rel_type}' zu erstellen.")
 
                 if from_node_type in nodes_to_create and to_node_type in nodes_to_create:
                     from_node = nodes_to_create[from_node_type]
                     to_node = nodes_to_create[to_node_type]
                     
-                    # Überprüfe, ob die Beziehung bereits existiert, um Duplikate zu vermeiden
-                    match_rel_query = f"""
-                    MATCH (a:{from_node_type} {{`{from_node_type}`.id: $from_id}})
-                    MATCH (b:{to_node_type} {{`{to_node_type}`.id: $to_id}})
-                    MERGE (a)-[r:{rel_type}]->(b)
+                    # Cypher-Query, um die Relationship zu mergen
+                    rel_query = f"""
+                    MATCH (from_n:`{from_node_type}`) WHERE id(from_n) = {from_node.identity}
+                    MATCH (to_n:`{to_node_type}`) WHERE id(to_n) = {to_node.identity}
+                    MERGE (from_n)-[rel:`{clean_rel_type}`]->(to_n)
                     """
                     
-                    # Hier brauchst du die IDs der Knoten, um die Beziehung korrekt zu mergen
-                    from_id = from_node.identity
-                    to_id = to_node.identity
-                    
-                    # In diesem Beispiel verwenden wir die internen IDs, um die Knoten zu finden.
-                    # Dies ist aber nicht die beste Praxis. Besser wäre es,
-                    # die Identifikatoren aus der CSV zu verwenden.
-                    # Aber dein Code mergt die Knoten ja bereits anhand der Identifier,
-                    # also ist es einfacher, das mit den Nodes zu machen,
-                    # die wir uns gerade gemerkt haben
-                    
-                    rel_exists_query = f"""
-                    MATCH (from_n:{from_node_type})
-                    WHERE id(from_n) = {from_node.identity}
-                    MATCH (to_n:{to_node_type})
-                    WHERE id(to_n) = {to_node.identity}
-                    MERGE (from_n)-[rel:{rel_type}]->(to_n)
-                    """
-                    
-                    graph.run(rel_exists_query)
-                    print(f"  ✅ Beziehung '{rel_type}' zwischen '{from_node_type}' und '{to_node_type}' erstellt.")
+                    graph.run(rel_query)
+                    print(f"  ✅ Beziehung '{clean_rel_type}' zwischen '{from_node_type}' und '{to_node_type}' erstellt.")
                 else:
                     print(f"  ❌ Konnte die Beziehung nicht erstellen, da einer oder beide Knoten fehlen: '{from_node_type}' (vorhanden: {from_node_type in nodes_to_create}), '{to_node_type}' (vorhanden: {to_node_type in nodes_to_create}).")
 
