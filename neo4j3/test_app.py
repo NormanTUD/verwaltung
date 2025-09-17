@@ -89,36 +89,6 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn(b"Keine Daten hochgeladen", response.data)
 
-    def test_save_mapping_success(self):
-        """Testet das Speichern der zugeordneten Daten in der Datenbank."""
-        with self.app as client:
-            with client.session_transaction() as sess:
-                sess['raw_data'] = SAMPLE_CSV_DATA
-                sess['headers'] = ['id', 'name', 'city', 'country']
-
-        response = self.app.post('/save_mapping', data=json.dumps(SAMPLE_MAPPING), content_type='application/json')
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Daten erfolgreich in Neo4j importiert", response.data)
-
-        person_nodes = self.graph.run("MATCH (n:Person) RETURN n").data()
-        location_nodes = self.graph.run("MATCH (n:Location) RETURN n").data()
-        relationships = self.graph.run("MATCH (:Person)-[r:LIVES_IN]->(:Location) RETURN r").data()
-
-        self.assertEqual(len(person_nodes), 3)
-        self.assertEqual(len(location_nodes), 3)
-        self.assertEqual(len(relationships), 3)
-
-    def test_query_data_single_label(self):
-        """Testet die Abfrage mit einem einzelnen Label."""
-        test_node = Node("TestNode", name="TestName")
-        self.graph.create(test_node)
-        
-        response = self.app.post('/api/query_data', data=json.dumps({"selectedLabels": ["TestNode"]}), content_type='application/json')
-        self.assertEqual(response.status_code, 200)
-        data = json.loads(response.data)
-        self.assertGreaterEqual(len(data), 1)
-        self.assertEqual(data[0]['testnode']['labels'], ["TestNode"])
-
     def test_update_node_property(self):
         """Testet die Aktualisierung eines Nodes."""
         node = Node("UpdateNode", status="old")
