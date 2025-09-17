@@ -360,36 +360,66 @@ def overview():
 def query_data():
     """
     Führt eine dynamische Abfrage aus, die alle ausgewählten Knoten und ihre
-    optionalen Beziehungen zueinander anzeigt, indem sie die Ergebnisse pro
-    zentralem Hauptknoten aggregiert.
+    optionalen Beziehungen zueinander anzeigt. Wählt den Hauptknoten
+    automatisch basierend auf der Anzahl der Verbindungen, falls nicht explizit
+    im Request angegeben.
     """
     try:
-        selected_labels = request.get_json().get('selectedLabels', [])
-    except Exception as e:
-        print(f"Fehler beim Laden der JSON-Daten: {e}")
-        return jsonify({"status": "error", "message": "Ungültiges JSON-Format"}), 400
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "Ungültiges JSON-Format oder leerer Body"}), 400
 
-    print(f"Empfangene 'selectedLabels': {selected_labels}")
+        main_label = data.get('mainLabel')
+        selected_labels = data.get('selectedLabels', [])
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": "Ungültiges JSON-Format"}), 400
 
     if not selected_labels:
         return jsonify({"status": "error", "message": "Bitte wählen Sie mindestens einen Node-Typ aus."}), 400
 
-    main_label = 'Person'
-    main_var = 'person'
-    
-    # Bestimme alle Labels, die als separate Knoten existieren, außer dem Hauptknoten
+    # 1. Hauptknoten dynamisch bestimmen, falls nicht explizit angegeben
+    if not main_label:
+        connection_counts = {}
+        # Zähle für jedes Label in selected_labels die Anzahl der Knoten mit mindestens einer Beziehung
+        for label in selected_labels:
+            # Cypher-Abfrage zur Zählung von Knoten mit Beziehungen
+            # MATCH (n:Person)--() Zählt nur Personen, die mit etwas verbunden sind.
+            count_query = f"MATCH (n:{label})--() RETURN count(n) AS count_with_connections"
+            try:
+                count_result = graph.run(count_query).data()
+                if count_result:
+                    connection_counts[label] = count_result[0]['count_with_connections']
+            except Exception as e:
+                print(f"Fehler bei der Zählung für Label '{label}': {e}")
+                connection_counts[label] = 0
+
+        # Finde das Label mit den meisten Verbindungen
+        if not connection_counts or all(count == 0 for count in connection_counts.values()):
+             # Fallback: Wähle einfach das erste Label in der Liste
+            main_label = selected_labels[0]
+            print(f"Keine Verbindungen gefunden. Hauptknoten auf '{main_label}' gesetzt.")
+        else:
+            main_label = max(connection_counts, key=connection_counts.get)
+            print(f"Automatisch gewählter Hauptknoten: '{main_label}' mit {connection_counts[main_label]} verbundenen Knoten.")
+
+    # 2. Restliche Logik wie in der vorherigen Version
+    if main_label not in selected_labels:
+        return jsonify({"status": "error", "message": f"Der automatisch bestimmte 'mainLabel'-Typ '{main_label}' ist nicht in 'selectedLabels' enthalten."}), 400
+
+    main_var = main_label.lower()
     other_labels = [label for label in selected_labels if label != main_label]
     
     cypher_query = f"MATCH ({main_var}:{main_label})"
 
     for other_label in other_labels:
         other_var = other_label.lower()
-        # Dies ist der entscheidende Schritt: OPTIONAL MATCH für alle ausgewählten Labels
         cypher_query += f" OPTIONAL MATCH ({main_var})-[]-({other_var}:{other_label})"
 
     return_clause = [f"{main_var}"]
     for other_label in other_labels:
-        return_clause.append(f"collect(DISTINCT {other_label.lower()}) AS {other_label.lower()}_list")
+        list_name = f"{other_label.lower()}_list"
+        return_clause.append(f"collect(DISTINCT {other_label.lower()}) AS {list_name}")
         
     cypher_query += f" RETURN {', '.join(return_clause)} LIMIT 100"
 
@@ -418,7 +448,6 @@ def query_data():
                 list_name = f"{other_label.lower()}_list"
                 node_list = record.get(list_name, [])
                 
-                # Verarbeite die Listen der verbundenen Knoten, einschließlich Ort
                 if node_list:
                     related_node = node_list[0]
                     item[other_label.lower()] = {
@@ -429,7 +458,7 @@ def query_data():
                 else:
                     item[other_label.lower()] = None
             
-            if any(item.values()):
+            if main_var in item and item[main_var] is not None:
                 formatted_results.append(item)
         
         return jsonify(formatted_results)
