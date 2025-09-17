@@ -423,12 +423,12 @@ def overview():
     db_info = get_all_nodes_and_relationships()
     return render_template('overview.html', db_info=db_info, error=None)
 
-
 @app.route('/api/query_data', methods=['POST'])
 def query_data():
     """
     Führt eine dynamische Abfrage aus, die die ausgewählten Knoten kombiniert,
     sodass Properties in einer Zeile erscheinen (über Relationen).
+    Außerdem werden die Relationen zwischen den Knoten im Output angegeben.
     """
     start_time = time.time()
     print("🚀 API-Anfrage erhalten: /api/query_data")
@@ -476,26 +476,32 @@ def query_data():
             print(f"🚨 Fehler bei der Einzelfall-Abfrage: {e}")
             return jsonify({"status": "error", "message": str(e)}), 500
 
-    # ⭐ Mehrere Labels → kombinierte Abfrage
-    main_label = selected_labels[0]  # wir nehmen das erste Label als Startpunkt
+    # ⭐ Mehrere Labels → kombinierte Abfrage mit Relationen
+    main_label = selected_labels[0]
     main_var = main_label.lower()
 
     cypher_parts = [f"MATCH ({main_var}:{main_label})"]
-
     return_parts = [f"{main_var} AS {main_var}"]
+
+    # Liste aller Relationen
+    rel_vars = []
 
     for other_label in selected_labels[1:]:
         other_var = other_label.lower()
-        cypher_parts.append(f"OPTIONAL MATCH ({main_var})-[]-({other_var}:{other_label})")
+        rel_var = f"rel_{main_var}_{other_var}"
+        cypher_parts.append(f"OPTIONAL MATCH ({main_var})-[{rel_var}]-({other_var}:{other_label})")
         return_parts.append(f"{other_var} AS {other_var}")
+        return_parts.append(f"{rel_var} AS {rel_var}")
+        rel_vars.append(rel_var)
 
     cypher_query = " ".join(cypher_parts) + " RETURN " + ", ".join(return_parts) + " LIMIT 100"
 
-    print("📊 Generierte Cypher-Abfrage (Mehrfachfall):")
+    print("📊 Generierte Cypher-Abfrage (Mehrfachfall inkl. Relationen):")
     print(cypher_query)
 
     try:
         results = graph.run(cypher_query).data()
+        print(f"📥 Rohdaten aus Neo4j (erste 2 Zeilen): {results[:2]} ...")
     except Exception as e:
         print(f"🚨 Fehler bei der Abfrage: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -507,6 +513,9 @@ def query_data():
     formatted_results = []
     for record in results:
         row = {}
+        relationships = []
+
+        # Knoten
         for label in selected_labels:
             var = label.lower()
             node = record.get(var)
@@ -518,12 +527,29 @@ def query_data():
                 }
             else:
                 row[label] = None
+
+        # Relationen
+        for rel_var in rel_vars:
+            rel = record.get(rel_var)
+            if rel is not None:  # Relation existiert
+                try:
+                    relationships.append({
+                        'from': rel.start_node.identity,
+                        'to': rel.end_node.identity,
+                        'type': type(rel).__name__,  # Relationstyp
+                        'properties': dict(rel)
+                    })
+                except Exception as e:
+                    print(f"⚠️ Fehler beim Auslesen von Relation {rel_var}: {e}")
+
+        row['relationships'] = relationships
         formatted_results.append(row)
 
     end_time = time.time()
     duration = end_time - start_time
     print(f"✅ Abfrage erfolgreich. {len(formatted_results)} Zeilen gefunden in {duration:.2f} Sekunden.")
     return jsonify(formatted_results)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
