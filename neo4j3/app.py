@@ -317,6 +317,7 @@ def get_rel_types():
         print(f"Fehler beim Abrufen der Relationship-Typen: {e}")
         return jsonify([]), 500
 
+
 @app.route('/save_mapping', methods=['POST'])
 def save_mapping():
     """Speichert die zugeordneten Daten in der Neo4j-Datenbank."""
@@ -345,7 +346,9 @@ def save_mapping():
             
             # MERGE-Vorgänge für Knoten
             for node_type, fields in mapping_data.get('nodes', {}).items():
-                # Erstelle das all_props-Dictionary mit den neuen Namen
+                node_var = safe_var_name(node_type)      # safe für Cypher-Variablen
+                node_label = f"`{node_type}`"            # Label immer escapen
+
                 all_props = {}
                 for field_map in fields:
                     original_name = field_map['original']
@@ -358,22 +361,16 @@ def save_mapping():
                     print(f"  ❌ Keine Daten für den Knoten-Typ '{node_type}' in dieser Zeile. Überspringe.")
                     continue
                 
-                # Der erste Property wird als eindeutiger Identifikator verwendet.
-                # Wir müssen hier den neu benannten Schlüssel verwenden.
                 identifier_key, identifier_value = next(iter(all_props.items()))
                 
                 print(f"  ➡️ Versuche, einen Knoten vom Typ '{node_type}' zu mergen.")
                 print(f"     Identifikator: '{identifier_key}' = '{identifier_value}'")
                 print(f"     Alle Properties: {all_props}")
 
-                # Cypher-Query für MERGE. Wir mergen auf den Identifikator und setzen alle Properties ON CREATE.
-                # Wir verwenden hier string-formatierung für den Label und den Schlüssel, da sie dynamisch sind.
-                # Vorsicht bei der Benennung von Variablen und Properties, um SQL-Injection-ähnliche Angriffe zu verhindern.
-                # Cypher verwendet Backticks für reservierte Namen, daher formatieren wir {`...`}.
                 cypher_query = f"""
-                MERGE (n:`{node_type}` {{`{identifier_key}`: $identifier_value}})
-                ON CREATE SET n = $all_props
-                RETURN n
+                MERGE ({node_var}:{node_label} {{`{identifier_key}`: $identifier_value}})
+                ON CREATE SET {node_var} = $all_props
+                RETURN {node_var}
                 """
                 
                 params = {
@@ -384,7 +381,7 @@ def save_mapping():
                 result = graph.run(cypher_query, **params).data()
                 
                 if result:
-                    nodes_to_create[node_type] = result[0]['n']
+                    nodes_to_create[node_type] = result[0][node_var]
                     print(f"  ✅ Knoten '{node_type}' wurde erfolgreich gemerged (entweder erstellt oder gefunden).")
                 else:
                     print(f"  ⚠️ Warnung: Der MERGE-Vorgang für '{node_type}' hat nichts zurückgegeben.")
@@ -395,8 +392,13 @@ def save_mapping():
                 to_node_type = rel_data['to']
                 rel_type = rel_data['type']
                 
-                # Clean the relationship type to make it Cypher-compatible
                 clean_rel_type = rel_type.replace(' ', '_').upper()
+                rel_label = f"`{clean_rel_type}`"
+
+                from_label = f"`{from_node_type}`"
+                to_label = f"`{to_node_type}`"
+                from_var = safe_var_name(from_node_type)
+                to_var = safe_var_name(to_node_type)
 
                 print(f"  ➡️ Versuche, eine Beziehung '{rel_type}' zu erstellen.")
 
@@ -404,11 +406,10 @@ def save_mapping():
                     from_node = nodes_to_create[from_node_type]
                     to_node = nodes_to_create[to_node_type]
                     
-                    # Cypher-Query, um die Relationship zu mergen
                     rel_query = f"""
-                    MATCH (from_n:`{from_node_type}`) WHERE id(from_n) = {from_node.identity}
-                    MATCH (to_n:`{to_node_type}`) WHERE id(to_n) = {to_node.identity}
-                    MERGE (from_n)-[rel:`{clean_rel_type}`]->(to_n)
+                    MATCH ({from_var}:{from_label}) WHERE id({from_var}) = {from_node.identity}
+                    MATCH ({to_var}:{to_label}) WHERE id({to_var}) = {to_node.identity}
+                    MERGE ({from_var})-[rel:{rel_label}]->({to_var})
                     """
                     
                     graph.run(rel_query)
@@ -434,13 +435,13 @@ def overview():
     db_info = get_all_nodes_and_relationships()
     return render_template('overview.html', db_info=db_info, error=None)
 
+def safe_var_name(label):
+    # Ersetzt alle nicht-alphanumerischen Zeichen durch "_"
+    return "".join(ch if ch.isalnum() else "_" for ch in label.lower())
+
+
 @app.route('/api/query_data', methods=['POST'])
 def query_data():
-    """
-    Führt eine dynamische Abfrage aus, die die ausgewählten Knoten kombiniert,
-    sodass Properties in einer Zeile erscheinen (über Relationen).
-    Außerdem werden die Relationen zwischen den Knoten im Output angegeben.
-    """
     start_time = time.time()
     print("🚀 API-Anfrage erhalten: /api/query_data")
 
@@ -464,7 +465,8 @@ def query_data():
     # ⭐ Sonderfall: nur ein Label
     if len(selected_labels) == 1:
         single_label = selected_labels[0]
-        cypher_query = f"MATCH (n:{single_label}) RETURN n LIMIT 100"
+        single_label_escaped = f"`{single_label}`"  # Label escapen
+        cypher_query = f"MATCH (n:{single_label_escaped}) RETURN n LIMIT 100"
         print("📊 Generierte Cypher-Abfrage (Einzelfall):")
         print(cypher_query)
 
@@ -489,18 +491,20 @@ def query_data():
 
     # ⭐ Mehrere Labels → kombinierte Abfrage mit Relationen
     main_label = selected_labels[0]
-    main_var = main_label.lower()
+    main_label_escaped = f"`{main_label}`"
+    main_var = safe_var_name(main_label)
 
-    cypher_parts = [f"MATCH ({main_var}:{main_label})"]
+    cypher_parts = [f"MATCH ({main_var}:{main_label_escaped})"]
     return_parts = [f"{main_var} AS {main_var}"]
 
     # Liste aller Relationen
     rel_vars = []
 
     for other_label in selected_labels[1:]:
-        other_var = other_label.lower()
+        other_label_escaped = f"`{other_label}`"
+        other_var = safe_var_name(other_label)
         rel_var = f"rel_{main_var}_{other_var}"
-        cypher_parts.append(f"OPTIONAL MATCH ({main_var})-[{rel_var}]-({other_var}:{other_label})")
+        cypher_parts.append(f"OPTIONAL MATCH ({main_var})-[{rel_var}]-({other_var}:{other_label_escaped})")
         return_parts.append(f"{other_var} AS {other_var}")
         return_parts.append(f"{rel_var} AS {rel_var}")
         rel_vars.append(rel_var)
@@ -528,7 +532,7 @@ def query_data():
 
         # Knoten
         for label in selected_labels:
-            var = label.lower()
+            var = safe_var_name(label)
             node = record.get(var)
             if node:
                 row[label] = {
@@ -542,12 +546,12 @@ def query_data():
         # Relationen
         for rel_var in rel_vars:
             rel = record.get(rel_var)
-            if rel is not None:  # Relation existiert
+            if rel is not None:
                 try:
                     relationships.append({
                         'from': rel.start_node.identity,
                         'to': rel.end_node.identity,
-                        'type': type(rel).__name__,  # Relationstyp
+                        'type': rel.__class__.__name__,
                         'properties': dict(rel)
                     })
                 except Exception as e:
@@ -560,7 +564,6 @@ def query_data():
     duration = end_time - start_time
     print(f"✅ Abfrage erfolgreich. {len(formatted_results)} Zeilen gefunden in {duration:.2f} Sekunden.")
     return jsonify(formatted_results)
-
 
 if __name__ == '__main__':
     app.run(debug=True)

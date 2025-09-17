@@ -62,10 +62,13 @@
         let existingRelTypes = [];
 
         const nodeSuggestions = {
-            'Person': ['vorname', 'nachname', 'name', 'person', 'first_name', 'last_name'],
+            'Person': ['titel', 'telefon', 'vorname', 'nachname', 'name', 'person', 'first_name', 'last_name', 'kontaktdaten'],
             'Ort': ['stadt', 'ort', 'land', 'adresse', 'plz', 'strasse', 'straße', 'city', 'country', 'zip'],
+	    'Struktureinheit': ['struktureinheit'],
             'Firma': ['firma', 'unternehmen', 'company'],
-            'Buch': ['buch_titel', 'erscheinungsjahr']
+            'Buch': ['buch_titel', 'erscheinungsjahr'],
+	    'Raum': ['raum'],
+            'Abteilung': ['abteilung']
         };
 
         async function fetchExistingRelTypes() {
@@ -236,6 +239,7 @@
         function saveMapping() {
             const mapping = { nodes: {}, relationships: [] };
             let hasError = false;
+            let relationshipErrors = [];
 
             document.querySelectorAll('.node-group').forEach(group => {
                 const label = group.querySelector('.node-label-input').textContent.trim();
@@ -255,15 +259,27 @@
                 hasError = true;
             }
 
-            document.querySelectorAll('.relationship-group').forEach(group => {
+            document.querySelectorAll('.relationship-group').forEach((group, idx) => {
                 const from = group.querySelector('.from-node-select').value;
                 const to = group.querySelector('.to-node-select').value;
                 const typeInput = group.querySelector('.rel-type-input').value.trim();
+
+                // Vorher evtl. rote Markierungen zurücksetzen
+                group.style.borderColor = '#eee';
+
                 if (from && to && typeInput) {
                     mapping.relationships.push({ from, to, type: typeInput });
                 } else if (from || to || typeInput) {
-                    alert('Fehler: Unvollständige Relationship-Definition gefunden. Bitte fülle alle Felder aus oder entferne sie.');
                     hasError = true;
+                    let missing = [];
+                    if (!from) missing.push("Von-Node");
+                    if (!to) missing.push("Nach-Node");
+                    if (!typeInput) missing.push("Relationship-Typ");
+
+                    relationshipErrors.push(`Relationship ${idx + 1}: fehlt ${missing.join(', ')}`);
+
+                    // visuelles Feedback
+                    group.style.borderColor = 'red';
                 }
             });
 
@@ -271,6 +287,10 @@
             if (numNodeTypes > 1 && mapping.relationships.length === 0) {
                 alert('Fehler: Bei mehreren Node-Typen muss mindestens eine Relationship definiert werden.');
                 hasError = true;
+            }
+
+            if (relationshipErrors.length > 0) {
+                alert("Fehlerhafte Relationships:\n" + relationshipErrors.join("\n"));
             }
 
             if (hasError) {
@@ -282,12 +302,12 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(mapping)
             }).then(response => response.json())
-              .then(data => {
-                  alert(data.message);
-                  if (data.status === 'success') {
-                      window.location.href = '/overview';
-                  }
-              });
+            .then(data => {
+                alert(data.message);
+                if (data.status === 'success') {
+                    window.location.href = '/overview';
+                }
+            });
         }
     </script>
 {% endblock %}
