@@ -40,6 +40,72 @@ def save_queries_to_file(queries):
     with open(SAVED_QUERIES_FILE, 'w') as f:
         json.dump(queries, f, indent=4)
 
+@app.route('/api/update_nodes', methods=['PUT'])
+def update_nodes():
+    data = request.get_json(silent=True)
+
+    if not data:
+        return jsonify({"status": "error", "message": "Request-Body ist leer oder hat ein ungültiges Format."}), 400
+
+    node_ids = data.get('ids', [])
+    property_name = data.get('property')
+    new_value = data.get('value')
+    
+    if not all([node_ids, property_name is not None, new_value is not None]):
+        return jsonify({"status": "error", "message": "Fehlende Daten im Request."}), 400
+
+    if not graph:
+        return jsonify({"status": "error", "message": "Datenbank nicht verbunden."}), 500
+
+    try:
+        # Dynamische Erstellung der Cypher-Abfrage
+        query = f"""
+            UNWIND $ids AS id
+            MATCH (n) WHERE ID(n) = id
+            SET n.{property_name} = $value
+        """
+        
+        # Führe die Abfrage aus
+        graph.run(query, ids=node_ids, value=new_value)
+        
+        return jsonify({"status": "success", "message": f"{len(node_ids)} Nodes wurden aktualisiert."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/delete_nodes', methods=['DELETE'])
+def delete_nodes():
+    """Löscht mehrere Nodes und ihre Beziehungen aus der Datenbank."""
+    if not graph:
+        return jsonify({"status": "error", "message": "Datenbank nicht verbunden."}), 500
+    
+    # Check if 'ids' is in the URL query string
+    ids_param = request.args.get('ids')
+    
+    if not ids_param:
+        return jsonify({"status": "error", "message": "Fehlende 'ids' im URL-Parameter."}), 400
+    
+    try:
+        # Split the string by comma and convert each part to an integer
+        node_ids = [int(id_str.strip()) for id_str in ids_param.split(',')]
+    except ValueError:
+        return jsonify({"status": "error", "message": "Ungültiges Format für 'ids'. Erwarte eine durch Kommas getrennte Liste von Zahlen."}), 400
+        
+    if not node_ids:
+        return jsonify({"status": "success", "message": "Keine Nodes zum Löschen angegeben."})
+        
+    query = """
+        UNWIND $ids AS id
+        MATCH (n) WHERE ID(n) = id
+        DETACH DELETE n
+    """
+    try:
+        graph.run(query, ids=node_ids)
+        return jsonify({"status": "success", "message": f"{len(node_ids)} Nodes und alle Beziehungen wurden gelöscht."})
+    except Exception as e:
+        print(f"Fehler beim Löschen der Nodes: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route('/api/save_query', methods=['POST'])
 def save_query():
     """Speichert eine Abfrage mit einem Namen."""
@@ -122,6 +188,7 @@ def serialize_value(value):
 @app.route('/')
 def index():
     return render_template('import.html')
+
 
 @app.route('/graph')
 def show_graph():
@@ -356,6 +423,7 @@ def overview():
     db_info = get_all_nodes_and_relationships()
     return render_template('overview.html', db_info=db_info, error=None)
 
+
 @app.route('/api/query_data', methods=['POST'])
 def query_data():
     """
@@ -457,7 +525,6 @@ def query_data():
     print(f"✅ Abfrage erfolgreich. {len(formatted_results)} Zeilen gefunden in {duration:.2f} Sekunden.")
     return jsonify(formatted_results)
 
-
 if __name__ == '__main__':
     app.run(debug=True)
 
@@ -497,71 +564,6 @@ def delete_node(node_id):
         return jsonify({"status": "success", "message": f"Node mit ID {node_id} und alle Beziehungen wurden gelöscht."})
     except Exception as e:
         print(f"Fehler beim Löschen des Nodes: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/update_nodes', methods=['PUT'])
-def update_nodes():
-    data = request.get_json(silent=True)
-
-    if not data:
-        return jsonify({"status": "error", "message": "Request-Body ist leer oder hat ein ungültiges Format."}), 400
-
-    node_ids = data.get('ids', [])
-    property_name = data.get('property')
-    new_value = data.get('value')
-    
-    if not all([node_ids, property_name is not None, new_value is not None]):
-        return jsonify({"status": "error", "message": "Fehlende Daten im Request."}), 400
-
-    if not graph:
-        return jsonify({"status": "error", "message": "Datenbank nicht verbunden."}), 500
-
-    try:
-        # Dynamische Erstellung der Cypher-Abfrage
-        query = f"""
-            UNWIND $ids AS id
-            MATCH (n) WHERE ID(n) = id
-            SET n.{property_name} = $value
-        """
-        
-        # Führe die Abfrage aus
-        graph.run(query, ids=node_ids, value=new_value)
-        
-        return jsonify({"status": "success", "message": f"{len(node_ids)} Nodes wurden aktualisiert."})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/delete_nodes', methods=['DELETE'])
-def delete_nodes():
-    """Löscht mehrere Nodes und ihre Beziehungen aus der Datenbank."""
-    if not graph:
-        return jsonify({"status": "error", "message": "Datenbank nicht verbunden."}), 500
-    
-    # Check if 'ids' is in the URL query string
-    ids_param = request.args.get('ids')
-    
-    if not ids_param:
-        return jsonify({"status": "error", "message": "Fehlende 'ids' im URL-Parameter."}), 400
-    
-    try:
-        # Split the string by comma and convert each part to an integer
-        node_ids = [int(id_str.strip()) for id_str in ids_param.split(',')]
-    except ValueError:
-        return jsonify({"status": "error", "message": "Ungültiges Format für 'ids'. Erwarte eine durch Kommas getrennte Liste von Zahlen."}), 400
-        
-    if not node_ids:
-        return jsonify({"status": "success", "message": "Keine Nodes zum Löschen angegeben."})
-        
-    query = """
-        UNWIND $ids AS id
-        MATCH (n) WHERE ID(n) = id
-        DETACH DELETE n
-    """
-    try:
-        graph.run(query, ids=node_ids)
-        return jsonify({"status": "success", "message": f"{len(node_ids)} Nodes und alle Beziehungen wurden gelöscht."})
-    except Exception as e:
-        print(f"Fehler beim Löschen der Nodes: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
