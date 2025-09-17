@@ -24,6 +24,52 @@ except Exception as e:
     print(f"Fehler bei der Verbindung zu Neo4j: {e}")
     graph = None
 
+# Definiere den Dateipfad
+SAVED_QUERIES_FILE = 'saved_queries.json'
+
+def load_saved_queries():
+    """Läd die gespeicherten Abfragen aus der Datei."""
+    if not os.path.exists(SAVED_QUERIES_FILE):
+        return []
+    with open(SAVED_QUERIES_FILE, 'r') as f:
+        return json.load(f)
+
+def save_queries_to_file(queries):
+    """Speichert die Abfragen in der Datei."""
+    with open(SAVED_QUERIES_FILE, 'w') as f:
+        json.dump(queries, f, indent=4)
+
+@app.route('/api/save_query', methods=['POST'])
+def save_query():
+    """Speichert eine Abfrage mit einem Namen."""
+    try:
+        data = request.json
+        name = data.get('name')
+        labels = data.get('selectedLabels')
+        if not name or not labels:
+            return jsonify({'status': 'error', 'message': 'Name und Labels sind erforderlich.'}), 400
+
+        queries = load_saved_queries()
+        
+        # Prüfe, ob die Abfrage bereits existiert
+        if any(q['name'] == name for q in queries):
+            return jsonify({'status': 'error', 'message': f'Abfrage mit dem Namen "{name}" existiert bereits.'}), 409
+            
+        queries.append({'name': name, 'labels': labels})
+        save_queries_to_file(queries)
+        return jsonify({'status': 'success', 'message': 'Abfrage erfolgreich gespeichert.'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/get_saved_queries')
+def get_saved_queries():
+    """Gibt alle gespeicherten Abfragen zurück."""
+    try:
+        queries = load_saved_queries()
+        return jsonify(queries)
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 def get_node_by_id(node_id):
     """Hilfsfunktion, um einen Node anhand seiner ID zu finden."""
     query = f"MATCH (n) WHERE ID(n) = {node_id} RETURN n"

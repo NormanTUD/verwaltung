@@ -21,6 +21,20 @@
         </div>
         <button onclick="fetchData()">Daten abfragen</button>
         
+        <hr>
+        <h3>Abfrage speichern</h3>
+        <p>Gib einen Namen für die aktuelle Auswahl ein und speichere sie:</p>
+        <input type="text" id="queryNameInput" placeholder="Name der Abfrage">
+        <button onclick="saveQuery()">Speichern</button>
+
+        <hr>
+        <h3>Gespeicherte Abfragen laden</h3>
+        <select id="savedQueriesSelect">
+            <option value="">-- Wähle eine gespeicherte Abfrage --</option>
+        </select>
+        <button onclick="loadSavedQuery()">Laden</button>
+
+        <hr>
         <div id="resultsContainer">
         </div>
     {% endif %}
@@ -47,140 +61,193 @@
               });
         }
 
-function renderTable(data) {
-    resultsContainer.innerHTML = ''; // Lösche alte Tabelle
+        function renderTable(data) {
+            resultsContainer.innerHTML = ''; // Lösche alte Tabelle
 
-    if (data.length === 0) {
-        resultsContainer.innerHTML = '<p>Keine Ergebnisse gefunden.</p>';
-        return;
-    }
-
-    const table = document.createElement('table');
-    const thead = document.createElement('thead');
-    const tbody = document.createElement('tbody');
-
-    // Header-Zeile erstellen
-    const allProps = new Set();
-    data.forEach(item => {
-        for (const nodeKey in item) {
-            // Hinzugefügte Prüfung: Überspringe, wenn das Element null ist
-            const node = item[nodeKey];
-            if (node && node.properties) {
-                Object.keys(node.properties).forEach(prop => allProps.add(prop));
+            if (data.length === 0) {
+                resultsContainer.innerHTML = '<p>Keine Ergebnisse gefunden.</p>';
+                return;
             }
-        }
-    });
-    const headers = [...Array.from(allProps), 'Aktion'];
-    thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
 
-    // Datenzeilen erstellen, die verknüpfte Nodes kombinieren
-    data.forEach(item => {
-        const row = document.createElement('tr');
-        let rowContent = '';
-        let nodeIDs = [];
+            const table = document.createElement('table');
+            const thead = document.createElement('thead');
+            const tbody = document.createElement('tbody');
 
-        // Sammle alle Properties und IDs aus dem einzelnen Datensatz
-        const combinedProperties = {};
-        for (const nodeKey in item) {
-            const node = item[nodeKey];
-            // Hinzugefügte Prüfung: Überspringe, wenn das Element null ist
-            if (node) {
-                // Füge die IDs für die Löschfunktion hinzu
-                nodeIDs.push(node.id);
-                // Füge alle Properties zum kombinierten Objekt hinzu
-                Object.assign(combinedProperties, node.properties);
-            }
-        }
+            // Header-Zeile erstellen
+            const allProps = new Set();
+            data.forEach(item => {
+                for (const nodeKey in item) {
+                    const node = item[nodeKey];
+                    if (node && node.properties) {
+                        Object.keys(node.properties).forEach(prop => allProps.add(prop));
+                    }
+                }
+            });
+            const headers = [...Array.from(allProps), 'Aktion'];
+            thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
 
-        // Erstelle die Zellen basierend auf den gesammelten Headern
-        headers.slice(0, -1).forEach(header => {
-            // Setze den Wert auf einen leeren String, falls er null ist
-            const value = combinedProperties[header] || '';
-            rowContent += `<td><input type="text" value="${value}" 
-                data-id="${nodeIDs.join(',')}" 
-                data-property="${header}"
-                onblur="updateValue(this)"></td>`;
-        });
-        
-        // Löschen-Button hinzufügen
-        rowContent += `<td><button class="delete-btn" data-id="${nodeIDs.join(',')}">Löschen</button></td>`;
-        
-        row.innerHTML = rowContent;
-        tbody.appendChild(row);
-    });
+            // Datenzeilen erstellen, die verknüpfte Nodes kombinieren
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                let rowContent = '';
+                let nodeIDs = [];
 
-    table.appendChild(thead);
-    table.appendChild(tbody);
-    resultsContainer.appendChild(table);
+                const combinedProperties = {};
+                for (const nodeKey in item) {
+                    const node = item[nodeKey];
+                    if (node) {
+                        nodeIDs.push(node.id);
+                        Object.assign(combinedProperties, node.properties);
+                    }
+                }
 
-    // Event-Listener für Löschen-Buttons hinzufügen
-    document.querySelectorAll('.delete-btn').forEach(button => {
-        button.addEventListener('click', deleteNode);
-    });
-}
-        
-function deleteNode(event) {
-    // Löschen von mehreren Nodes, falls verknüpft
-    const nodeIds = event.target.getAttribute('data-id').split(',');
-    if (confirm(`Sicher, dass du die verknüpften Einträge (${nodeIds.join(', ')}) löschen möchtest?`)) {
-        fetch(`/api/delete_nodes?ids=${nodeIds.join(',')}`, {
-            method: 'DELETE',
-        }).then(response => {
-            // Überprüfe, ob die Antwort erfolgreich ist und parse sie
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log(data.message);
-            if (data.status === 'success') {
-                // Tabelle neu laden, um den gelöschten Eintrag zu entfernen
-                fetchData();
-            }
-        })
-        .catch(error => console.error('Fehler beim Löschen:', error));
-    }
-}
+                headers.slice(0, -1).forEach(header => {
+                    const value = combinedProperties[header] || '';
+                    rowContent += `<td><input type="text" value="${value}" 
+                        data-id="${nodeIDs.join(',')}" 
+                        data-property="${header}"
+                        onblur="updateValue(this)"></td>`;
+                });
+                
+                rowContent += `<td><button class="delete-btn" data-id="${nodeIDs.join(',')}">Löschen</button></td>`;
+                
+                row.innerHTML = rowContent;
+                tbody.appendChild(row);
+            });
 
-function updateValue(element) {
-    // Holen der IDs als Zeichenkette und Umwandeln in ein Array von Zahlen.
-    const combinedIds = element.getAttribute('data-id').split(',').map(Number);
-    const propertyName = element.getAttribute('data-property');
-    const newValue = element.value;
+            table.appendChild(thead);
+            table.appendChild(tbody);
+            resultsContainer.appendChild(table);
 
-    // Beende die Funktion, wenn sich der Wert nicht geändert hat, um unnötige Requests zu vermeiden.
-    if (element.originalValue === newValue) {
-        return;
-    }
-    // Setze den originalen Wert, um nachfolgende, redundante Änderungen zu erkennen.
-    element.originalValue = newValue;
-
-    // Führe den Fetch-Request zur neuen Route /api/update_nodes aus.
-    // Die IDs werden nun korrekt im Body als JSON-Payload übergeben.
-    fetch('/api/update_nodes', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            ids: combinedIds,
-            property: propertyName,
-            value: newValue
-        })
-    }).then(response => {
-        // Überprüfe, ob der HTTP-Status erfolgreich ist.
-        if (!response.ok) {
-            return response.json().then(errorData => {
-                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            document.querySelectorAll('.delete-btn').forEach(button => {
+                button.addEventListener('click', deleteNode);
             });
         }
-        return response.json();
-    }).then(data => {
-        // Logge die Erfolgsmeldung vom Server.
-        console.log(data.message);
-    }).catch(error => {
-        // Logge den Fehler, falls die Aktualisierung fehlschlägt.
-        console.error('Fehler beim Aktualisieren:', error);
-    });
-}
+        
+        function deleteNode(event) {
+            const nodeIds = event.target.getAttribute('data-id').split(',');
+            if (confirm(`Sicher, dass du die verknüpften Einträge (${nodeIds.join(', ')}) löschen möchtest?`)) {
+                fetch(`/api/delete_nodes?ids=${nodeIds.join(',')}`, {
+                    method: 'DELETE',
+                }).then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(data.message);
+                    if (data.status === 'success') {
+                        fetchData();
+                    }
+                })
+                .catch(error => console.error('Fehler beim Löschen:', error));
+            }
+        }
+
+        function updateValue(element) {
+            const combinedIds = element.getAttribute('data-id').split(',').map(Number);
+            const propertyName = element.getAttribute('data-property');
+            const newValue = element.value;
+
+            if (element.originalValue === newValue) {
+                return;
+            }
+            element.originalValue = newValue;
+
+            fetch('/api/update_nodes', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ids: combinedIds,
+                    property: propertyName,
+                    value: newValue
+                })
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(errorData => {
+                        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                    });
+                }
+                return response.json();
+            }).then(data => {
+                console.log(data.message);
+            }).catch(error => {
+                console.error('Fehler beim Aktualisieren:', error);
+            });
+        }
+
+        // Neue Funktionen für das Speichern und Laden von Abfragen
+        function loadSavedQueriesFromAPI() {
+            fetch('/api/get_saved_queries')
+                .then(response => response.json())
+                .then(data => {
+                    const selectElement = document.getElementById('savedQueriesSelect');
+                    selectElement.innerHTML = '<option value="">-- Wähle eine gespeicherte Abfrage --</option>';
+                    if (data && data.length > 0) {
+                        data.forEach(query => {
+                            const option = document.createElement('option');
+                            option.value = JSON.stringify(query.labels);
+                            option.textContent = query.name;
+                            selectElement.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => console.error('Fehler beim Laden gespeicherter Abfragen:', error));
+        }
+
+        function saveQuery() {
+            const name = document.getElementById('queryNameInput').value;
+            const selectedLabels = [...querySelection.querySelectorAll('input:checked')]
+                .map(input => input.value);
+            
+            if (!name || selectedLabels.length === 0) {
+                alert('Bitte gib einen Namen ein und wähle mindestens ein Label aus.');
+                return;
+            }
+
+            fetch('/api/save_query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, selectedLabels })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                if (data.status === 'success') {
+                    document.getElementById('queryNameInput').value = '';
+                    loadSavedQueriesFromAPI();
+                }
+            })
+            .catch(error => console.error('Fehler beim Speichern der Abfrage:', error));
+        }
+
+        function loadSavedQuery() {
+            const selectElement = document.getElementById('savedQueriesSelect');
+            const selectedLabelsJson = selectElement.value;
+            
+            if (!selectedLabelsJson) {
+                return;
+            }
+
+            querySelection.querySelectorAll('input[type="checkbox"]').forEach(input => {
+                input.checked = false;
+            });
+
+            const labelsToSelect = JSON.parse(selectedLabelsJson);
+            labelsToSelect.forEach(label => {
+                const checkbox = querySelection.querySelector(`input[value="${label}"]`);
+                if (checkbox) {
+                    checkbox.checked = true;
+                }
+            });
+
+            fetchData();
+        }
+
+        // Initial beim Laden der Seite
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSavedQueriesFromAPI();
+        });
     </script>
 {% endblock %}
