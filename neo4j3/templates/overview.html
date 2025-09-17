@@ -4,21 +4,27 @@
 
 {% block content %}
     <h1>Daten-Übersicht</h1>
-    
-    <h3>Abfrage</h3>
-    <p>Wähle die Node-Typen aus, die du anzeigen möchtest:</p>
-    <div id="querySelection">
-        {% for label in db_info.labels %}
-            <label>
-                <input type="checkbox" name="label" value="{{ label }}"> {{ label }}
-            </label>
-        {% endfor %}
-    </div>
-    <button onclick="fetchData()">Daten abfragen</button>
-    
-    <div id="resultsContainer">
+        {% if error %}
+        <div class="error" style="color: red; font-weight: bold;">
+            {{ error }}
         </div>
+    {% else %}
     
+        <h3>Abfrage</h3>
+        <p>Wähle die Node-Typen aus, die du anzeigen möchtest:</p>
+        <div id="querySelection">
+            {% for label in db_info.labels %}
+                <label>
+                    <input type="checkbox" name="label" value="{{ label }}"> {{ label }}
+                </label>
+            {% endfor %}
+        </div>
+        <button onclick="fetchData()">Daten abfragen</button>
+        
+        <div id="resultsContainer">
+        </div>
+    {% endif %}
+
     <script>
         const querySelection = document.getElementById('querySelection');
         const resultsContainer = document.getElementById('resultsContainer');

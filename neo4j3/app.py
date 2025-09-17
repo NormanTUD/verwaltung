@@ -6,6 +6,7 @@ import inspect
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for
 from py2neo import Graph, Relationship
 from dotenv import load_dotenv
+import itertools
 
 # Lade Umgebungsvariablen aus der .env-Datei
 load_dotenv()
@@ -302,12 +303,11 @@ def save_mapping():
 def overview():
     """Zeigt die Übersichtsseite mit allen Node-Typen an."""
     if not graph:
-        return "Datenbank nicht verbunden.", 500
+        # Fehler-Meldung ins Template geben
+        return render_template('overview.html', db_info=None, error="Datenbank nicht verbunden."), 500
+    
     db_info = get_all_nodes_and_relationships()
-    return render_template('overview.html', db_info=db_info)
-
-
-import itertools
+    return render_template('overview.html', db_info=db_info, error=None)
 
 @app.route('/api/query_data', methods=['POST'])
 def query_data():
