@@ -610,7 +610,6 @@ def safe_var_name(label):
     # Ersetzt alle nicht-alphanumerischen Zeichen durch "_"
     return "".join(ch if ch.isalnum() else "_" for ch in label.lower())
 
-
 @app.route('/api/query_data', methods=['POST'])
 @test_if_deleted_db
 def query_data():
@@ -620,138 +619,118 @@ def query_data():
     try:
         data = request.get_json()
         if not data:
-            print("🚨 Fehler: Ungültiges JSON-Format oder leerer Body")
             return jsonify({"status": "error", "message": "Ungültiges JSON-Format oder leerer Body"}), 400
-
         selected_labels = data.get('selectedLabels', [])
     except Exception as e:
-        print(f"🚨 Fehler beim Laden der JSON-Daten: {e}")
-        return jsonify({"status": "error", "message": "Ungültiges JSON-Format"}), 400
-
-    print(f"🏷️ Empfangene Labels: {selected_labels}")
+        return jsonify({"status": "error", "message": str(e)}), 400
 
     if not selected_labels:
-        print("🚨 Fehler: Keine Node-Typen ausgewählt")
         return jsonify({"status": "error", "message": "Bitte wählen Sie mindestens einen Node-Typ aus."}), 400
 
-    # Mapping: Welche Relationen gibt es zwischen Labels? (Anpassen nach deinem DB-Schema)
-    relation_map = {
-        ("Person", "Ort"): "HAT_WOHNSITZ",
-        ("Ort", "Stadt"): "LIEGT_IN"
-    }
+    print(f"🏷️ Ausgewählte Labels: {selected_labels}")
 
-    # ⭐ Sonderfall: nur ein Label
-    if len(selected_labels) == 1:
-        single_label = selected_labels[0]
-        single_label_escaped = f"`{single_label}`"
-        cypher_query = f"MATCH (n:{single_label_escaped}) RETURN n"
-        print("📊 Generierte Cypher-Abfrage (Einzelfall):")
-        print(cypher_query)
-
+    # -------------------------------
+    # Debug: Teste Knoten
+    # -------------------------------
+    for label in selected_labels:
+        query_nodes = f"MATCH (n:{label}) RETURN n LIMIT 5"
         try:
-            results = graph.run(cypher_query).data()
-            formatted_results = []
-            for record in results:
-                node = record.get('n')
-                if node:
-                    formatted_results.append({
-                        'id': node.identity,
-                        'labels': list(node.labels),
-                        'properties': dict(node)
-                    })
-            duration = time.time() - start_time
-            print(f"✅ Abfrage erfolgreich. {len(formatted_results)} Knoten gefunden in {duration:.2f} Sekunden.")
-            return jsonify(formatted_results)
+            test_results = graph.run(query_nodes).data()
+            print(f"Label '{label}': {len(test_results)} Knoten")
+            for tr in test_results:
+                n = tr['n']
+                print(f"  id={n.identity}, labels={list(n.labels)}, properties={dict(n)}")
         except Exception as e:
-            print(f"🚨 Fehler bei der Einzelfall-Abfrage: {e}")
-            return jsonify({"status": "error", "message": str(e)}), 500
+            print(f"Fehler Label '{label}': {e}")
 
-    # ⭐ Mehrere Labels → kombinierte Abfrage mit bekannten Relationen
-    cypher_parts = []
-    return_parts = []
-    rel_vars = []
+    # -------------------------------
+    # Debug: Teste Relationen
+    # -------------------------------
+    for i, src in enumerate(selected_labels):
+        for j, tgt in enumerate(selected_labels):
+            if i == j:
+                continue
+            query_rel = f"MATCH (a:{src})-[r]->(b:{tgt}) RETURN a,r,b LIMIT 5"
+            try:
+                rel_results = graph.run(query_rel).data()
+                print(f"Relation '{src}'->{tgt}: {len(rel_results)} gefunden")
+                for rr in rel_results:
+                    a, r, b = rr['a'], rr['r'], rr['b']
+                    print(f"  {a.identity}-[{type(r).__name__}]->{b.identity}")
+            except Exception as e:
+                print(f"Fehler Relation '{src}->{tgt}': {e}")
 
-    # Knoten-Variablen
-    var_map = {label: safe_var_name(label) for label in selected_labels}
-
-    # Erste Match für das erste Label
-    main_label = selected_labels[0]
-    main_var = var_map[main_label]
-    main_label_escaped = f"`{main_label}`"
-    cypher_parts.append(f"MATCH ({main_var}:{main_label_escaped})")
-    return_parts.append(f"{main_var} AS {main_var}")
-
-    # Traversiere Labels in Reihenfolge und baue OPTIONAL MATCHs
-    for i in range(1, len(selected_labels)):
-        prev_label = selected_labels[i-1]
-        curr_label = selected_labels[i]
-        prev_var = var_map[prev_label]
-        curr_var = var_map[curr_label]
-        rel_type = relation_map.get((prev_label, curr_label), "")
-
-        rel_var = f"rel_{prev_var}_{curr_var}"
-        if rel_type:
-            cypher_parts.append(f"OPTIONAL MATCH ({prev_var})-[{rel_var}:{rel_type}]->({curr_var})")
-        else:
-            cypher_parts.append(f"OPTIONAL MATCH ({prev_var})-[{rel_var}]-({curr_var})")
-        return_parts.append(f"{curr_var} AS {curr_var}")
-        return_parts.append(f"{rel_var} AS {rel_var}")
-        rel_vars.append(rel_var)
-
-    cypher_query = " ".join(cypher_parts) + " RETURN " + ", ".join(return_parts)
-    print("📊 Generierte Cypher-Abfrage (Mehrfachfall inkl. Relationen):")
+    # -------------------------------
+    # Dynamische Pfad-Abfrage
+    # -------------------------------
+    labels_param = list(selected_labels)
+    cypher_query = """
+    MATCH p=(person:Person)-[*..3]->(related)
+    WHERE ANY(l IN labels(related) WHERE l IN $labels)
+    RETURN p LIMIT 100
+    """
+    print("📊 Generierte Pfad-Abfrage:")
     print(cypher_query)
+    print(f"Labels: {labels_param}")
 
     try:
-        results = graph.run(cypher_query).data()
-        print(f"📥 Rohdaten aus Neo4j (erste 2 Zeilen): {results[:2]} ...")
+        path_results = graph.run(cypher_query, labels=labels_param).data()
+        print(f"Gefundene Pfade: {len(path_results)}")
     except Exception as e:
-        print(f"🚨 Fehler bei der Abfrage: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-    if not results:
-        print("🤷‍♂️ Keine Ergebnisse gefunden.")
-        return jsonify([])
+    # -------------------------------
+    # Ergebnis pro Person aufbauen
+    # -------------------------------
+    person_map = {}
 
-    # Ergebnis formatieren
-    formatted_results = []
-    for record in results:
-        row = {}
-        relationships = []
+    for r in path_results:
+        path = r['p']
+        nodes = path.nodes
+        rels = path.relationships
 
-        # Knoten
-        for label in selected_labels:
-            var = var_map[label]
-            node = record.get(var)
-            if node:
-                row[label] = {
-                    'id': node.identity,
-                    'labels': list(node.labels),
-                    'properties': dict(node)
-                }
-            else:
-                row[label] = None
+        # Person = Startknoten
+        person_node = nodes[0]
+        person_id = person_node.identity
 
-        # Relationen
-        for rel_var in rel_vars:
-            rel = record.get(rel_var)
-            if rel is not None:
-                try:
-                    relationships.append({
-                        'from': rel.start_node.identity,
-                        'to': rel.end_node.identity,
-                        'type': rel.__class__.__name__,
-                        'properties': dict(rel)
-                    })
-                except Exception as e:
-                    print(f"⚠️ Fehler beim Auslesen von Relation {rel_var}: {e}")
+        if person_id not in person_map:
+            person_map[person_id] = {label: None for label in selected_labels}
+            person_map[person_id]['relationships'] = []
+            # Person selbst
+            person_map[person_id]['Person'] = {
+                'id': person_node.identity,
+                'labels': list(person_node.labels),
+                'properties': dict(person_node)
+            }
 
-        row['relationships'] = relationships
-        formatted_results.append(row)
+        row = person_map[person_id]
 
+        # andere Nodes zuordnen
+        for n in nodes[1:]:
+            for label in n.labels:
+                if label in selected_labels:
+                    row[label] = {
+                        'id': n.identity,
+                        'labels': list(n.labels),
+                        'properties': dict(n)
+                    }
+
+        # Beziehungen hinzufügen
+        for rel in rels:
+            row['relationships'].append({
+                'from': rel.start_node.identity,
+                'to': rel.end_node.identity,
+                'type': type(rel).__name__,
+                'properties': dict(rel)
+            })
+
+    formatted_results = list(person_map.values())
     duration = time.time() - start_time
-    print(f"✅ Abfrage erfolgreich. {len(formatted_results)} Zeilen gefunden in {duration:.2f} Sekunden.")
+    print(f"✅ Abfrage fertig: {len(formatted_results)} Personen in {duration:.2f}s")
+
     return jsonify(formatted_results)
+
+
 
 @app.route('/api/update_node/<int:node_id>', methods=['PUT'])
 @test_if_deleted_db
