@@ -705,8 +705,6 @@ def query_data():
 
     return jsonify(table_results)
 
-
-
 @app.route('/api/update_node/<int:node_id>', methods=['PUT'])
 @test_if_deleted_db
 def update_node(node_id):
