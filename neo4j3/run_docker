@@ -21,6 +21,7 @@ case "$ACTION" in
         ;;
     run_tests)
         echo "Führe Tests im Python-Container aus..."
+        APP_PORT=$APP_PORT docker-compose up --build python-app
         docker-compose run --rm python-app pytest
         ;;
     *)

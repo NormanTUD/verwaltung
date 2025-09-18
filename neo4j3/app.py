@@ -1,3 +1,4 @@
+import time
 import sys
 import os
 import csv
@@ -6,7 +7,6 @@ import json
 import inspect
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for
 from py2neo import Graph, Relationship
-import time
 from dotenv import load_dotenv
 import itertools
 import functools
@@ -67,13 +67,19 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
 
 # Neo4j-Verbindung
-try:
-    graph = Graph(os.getenv('NEO4J_URI'), auth=(os.getenv('NEO4J_USER'), os.getenv('NEO4J_PASS')))
-    graph.run("MATCH (n) RETURN n LIMIT 1")
-    print("Verbindung zu Neo4j erfolgreich hergestellt!")
-except Exception as e:
-    print(f"Fehler bei der Verbindung zu Neo4j: {e}")
-    graph = None
+graph = None
+for attempt in range(15):  # max 15 Versuche
+    try:
+        graph = Graph(os.getenv("NEO4J_URI"), auth=(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASS")))
+        graph.run("RETURN 1")  # Testabfrage
+        print("Neo4j ist bereit!")
+        break
+    except Exception as e:
+        print(f"[{attempt+1}/15] Neo4j nicht bereit, warte 2 Sekunden... ({e})")
+        time.sleep(2)
+
+if graph is None:
+    raise RuntimeError("Neo4j konnte nicht erreicht werden!")
 
 # Definiere den Dateipfad
 SAVED_QUERIES_FILE = 'saved_queries.json'
