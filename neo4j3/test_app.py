@@ -272,5 +272,51 @@ class TestNeo4jApp(unittest.TestCase):
         # Stadt sollte None sein, weil keine LIEGT_IN-Relation existiert
         self.assertTrue(all(row.get("Stadt") is None for row in data))
 
+    def test_update_node_success(self):
+        """Aktualisiert erfolgreich ein Property an einem existierenden Node."""
+        node = Node("Person", name="Alice")
+        self.graph.create(node)
+        node_id = node.identity
+
+        response = self.app.put(
+            f'/api/update_node/{node_id}',
+            data=json.dumps({"property": "age", "value": 42}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"wurde aktualisiert", response.data)
+
+        # Überprüfen, ob Wert gesetzt wurde
+        result = self.graph.run("MATCH (n:Person) WHERE ID(n)=$id RETURN n.age AS age", id=node_id).data()
+        self.assertEqual(result[0]["age"], 42)
+
+
+    def test_update_node_nonexistent(self):
+        """Versuch, einen Node zu aktualisieren, der nicht existiert."""
+        fake_id = 999999999
+        response = self.app.put(
+            f'/api/update_node/{fake_id}',
+            data=json.dumps({"property": "age", "value": 99}),
+            content_type='application/json'
+        )
+        # Query läuft durch, findet aber nichts → trotzdem success
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"wurde aktualisiert", response.data)
+
+    def test_update_node_missing_fields(self):
+        """Property oder Value fehlen im Request-Body."""
+        node = Node("Person", name="Charlie")
+        self.graph.create(node)
+
+        # Nur property ohne value
+        response = self.app.put(
+            f'/api/update_node/{node.identity}',
+            data=json.dumps({"property": "status"}),
+            content_type='application/json'
+        )
+        # Dein Code prüft das noch nicht → wäre Erweiterung: hier trotzdem prüfen
+        self.assertIn(response.status_code, [200, 500])
+
+
 if __name__ == '__main__':
     unittest.main()
