@@ -819,5 +819,161 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(response.status_code, 500)
         self.assertIn(b"DB offline", response.data)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    def test_new_query_table_missing_nodes_param(self):
+        """GET /api/new_query_table without nodes -> 400"""
+        with self.app as client:
+            resp = client.get('/api/new_query_table')
+            self.assertEqual(resp.status_code, 400)
+            # error message contains 'nodes'
+            self.assertIn(b"nodes", resp.data)
+
+    def test_new_query_table_invalid_maxdepth_param(self):
+        """Non-integer maxDepth should error (server returns 500 in current impl)"""
+        with self.app as client:
+            resp = client.get('/api/new_query_table', query_string={'nodes': 'Person', 'maxDepth': 'notanint'})
+            # current implementation casts int() and will raise -> caught -> 500
+            self.assertEqual(resp.status_code, 500)
+            self.assertIn(b"invalid literal", resp.data)
+
+    def test_new_query_table_empty_db_returns_empty(self):
+        """If DB has no relevant nodes, route returns empty columns/rows."""
+        # ensure DB clean
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        with self.app as client:
+            resp = client.get('/api/new_query_table', query_string={'nodes': 'Person,Ort,Stadt'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertIsInstance(data, dict)
+            self.assertIn('columns', data)
+            self.assertIn('rows', data)
+            self.assertEqual(data['columns'], [])
+            self.assertEqual(data['rows'], [])
+
+    def test_new_query_table_basic_positive_single_person(self):
+        """Create Person->Ort->Stadt and verify single row with merged cells."""
+        # cleanup and create sample data
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        r = self.graph.run(
+            "CREATE (p:Person {vorname:'Maria', nachname:'Muller'}) "
+            "CREATE (o:Ort {strasse:'Hauptstrasse 1', plz:'10115'}) "
+            "CREATE (s:Stadt {stadt:'Berlin'}) "
+            "CREATE (p)-[:WOHNT_IN]->(o) "
+            "CREATE (o)-[:LIEGT_IN]->(s) "
+            "RETURN id(p) AS pid, id(o) AS oid, id(s) AS sid"
+        ).data()[0]
+        pid, oid, sid = r['pid'], r['oid'], r['sid']
+
+        with self.app as client:
+            resp = client.get('/api/new_query_table', query_string={'nodes': 'Person,Ort,Stadt', 'maxDepth': '3'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            # columns should include the expected (label, property) combos
+            expected_cols = {('Ort', 'plz'), ('Ort', 'strasse'), ('Person', 'nachname'), ('Person', 'vorname'), ('Stadt', 'stadt')}
+            cols = {(c['nodeType'], c['property']) for c in data['columns']}
+            self.assertTrue(expected_cols.issubset(cols))
+
+            # exactly one main row (one person)
+            self.assertEqual(len(data['rows']), 1)
+            row = data['rows'][0]
+            self.assertIn('cells', row)
+            # We expect 5 columns (ordered by sorted columns), check their values by mapping prop->value
+            # Build map from columns -> cell values for readability
+            col_list = data['columns']
+            cell_values = { (col_list[i]['nodeType'], col_list[i]['property']) : row['cells'][i]['value']
+                            for i in range(len(col_list)) }
+            self.assertEqual(cell_values.get(('Person','vorname')), 'Maria')
+            self.assertEqual(cell_values.get(('Person','nachname')), 'Muller')
+            self.assertEqual(cell_values.get(('Ort','strasse')), 'Hauptstrasse 1')
+            self.assertEqual(cell_values.get(('Ort','plz')), '10115')
+            self.assertEqual(cell_values.get(('Stadt','stadt')), 'Berlin')
+
+        # cleanup
+        self.graph.run("MATCH (n) DETACH DELETE n")
+
+    def test_new_query_table_multiple_persons_and_limit(self):
+        """Create two persons and verify limit parameter restricts rows."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        # create two persons each with an Ort+Stadt
+        self.graph.run(
+            "CREATE (p1:Person {vorname:'A', nachname:'One'}) "
+            "CREATE (o1:Ort {strasse:'S1', plz:'11111'}) "
+            "CREATE (s1:Stadt {stadt:'City1'}) "
+            "CREATE (p1)-[:WOHNT_IN]->(o1), (o1)-[:LIEGT_IN]->(s1);"
+            "CREATE (p2:Person {vorname:'B', nachname:'Two'}) "
+            "CREATE (o2:Ort {strasse:'S2', plz:'22222'}) "
+            "CREATE (s2:Stadt {stadt:'City2'}) "
+            "CREATE (p2)-[:WOHNT_IN]->(o2), (o2)-[:LIEGT_IN]->(s2);"
+        )
+        with self.app as client:
+            resp_no_limit = client.get('/api/new_query_table', query_string={'nodes': 'Person,Ort,Stadt'})
+            self.assertEqual(resp_no_limit.status_code, 200)
+            data_all = resp_no_limit.get_json()
+            # Expect at least 2 rows
+            self.assertGreaterEqual(len(data_all['rows']), 2)
+
+            resp_limit1 = client.get('/api/new_query_table', query_string={'nodes': 'Person,Ort,Stadt', 'limit': '1'})
+            self.assertEqual(resp_limit1.status_code, 200)
+            data_l = resp_limit1.get_json()
+            # limit=1 should return at most 1 row
+            self.assertLessEqual(len(data_l['rows']), 1)
+
+        self.graph.run("MATCH (n) DETACH DELETE n")
+
+    def test_new_query_table_filter_labels_behavior(self):
+        """Create mixed labels and assert filterLabels restricts columns/rows accordingly."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run(
+            "CREATE (p:Person {vorname:'C', nachname:'Three'}) "
+            "CREATE (o:Ort {strasse:'S3', plz:'33333'}) "
+            "CREATE (s:Stadt {stadt:'City3'}) "
+            "CREATE (p)-[:WOHNT_IN]->(o), (o)-[:LIEGT_IN]->(s)"
+        )
+
+        with self.app as client:
+            # filter to only Person -> expect only Person columns present
+            resp_person_only = client.get('/api/new_query_table', query_string={'nodes': 'Person,Ort,Stadt', 'filterLabels': 'Person'})
+            self.assertEqual(resp_person_only.status_code, 200)
+            data_person = resp_person_only.get_json()
+            # all columns nodeType should be 'Person'
+            self.assertTrue(all(c['nodeType'] == 'Person' for c in data_person['columns']))
+
+            # filter to only Ort -> expect Ort columns (and rows may exist based on pivoting)
+            resp_ort_only = client.get('/api/new_query_table', query_string={'nodes': 'Person,Ort,Stadt', 'filterLabels': 'Ort'})
+            self.assertEqual(resp_ort_only.status_code, 200)
+            data_ort = resp_ort_only.get_json()
+            self.assertTrue(all(c['nodeType'] == 'Ort' for c in data_ort['columns']))
+
+        self.graph.run("MATCH (n) DETACH DELETE n")
+
+    def test_new_query_table_invalid_limit_param(self):
+        """Non-integer limit should return 500 (current impl casts int and fails)."""
+        with self.app as client:
+            resp = client.get('/api/new_query_table', query_string={'nodes': 'Person,Ort', 'limit': 'nope'})
+            self.assertEqual(resp.status_code, 500)
+            self.assertIn(b"invalid literal", resp.data)
+
+
+
+
+
+
 if __name__ == '__main__':
     unittest.main()
