@@ -443,6 +443,16 @@ class TestNeo4jApp(unittest.TestCase):
         rels = self.graph.run("MATCH (p:Person)-[r:WOHNT_IN]->(o:Ort) RETURN r").data()
         self.assertEqual(len(rels), 2)
 
+    def test_save_mapping_missing_session(self):
+        """Fehler, wenn keine raw_data in der Session ist."""
+        response = self.app.post(
+            '/save_mapping',
+            data=json.dumps({"nodes": {}, "relationships": []}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 500)
+        self.assertIn(b"Sitzungsdaten fehlen", response.data)
+
 
 if __name__ == '__main__':
     unittest.main()
