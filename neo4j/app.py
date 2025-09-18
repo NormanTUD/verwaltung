@@ -805,25 +805,26 @@ def delete_node(node_id):
 from flask import request, jsonify
 
 @app.route('/api/new_query_table', methods=['GET'])
-def query_table():
+def new_query_table():
     try:
         # ------------------------
-        # Parameter auslesen
+        # GET-Parameter
         # ------------------------
         node_csv = request.args.get('nodes')
         if not node_csv:
             return jsonify({"status": "error", "message": "Parameter 'nodes' erforderlich"}), 400
         selected_labels = [n.strip() for n in node_csv.split(',') if n.strip()]
+
         max_depth = int(request.args.get('maxDepth', 3))
         limit = request.args.get('limit')
         limit = int(limit) if limit else None
+
         filter_labels_csv = request.args.get('filterLabels')
         filter_labels = [l.strip() for l in filter_labels_csv.split(',')] if filter_labels_csv else None
 
         # ------------------------
-        # Cypher-Abfrage bauen
+        # Cypher-Abfrage
         # ------------------------
-        # Dynamischer Pfad über alle ausgewählten Labels
         cypher_query = f"""
         MATCH p=(start)-[*..{max_depth}]->(end)
         WHERE ANY(n IN nodes(p) WHERE ANY(l IN labels(n) WHERE l IN $labels))
@@ -832,9 +833,6 @@ def query_table():
         if limit:
             cypher_query += f" LIMIT {limit}"
 
-        # ------------------------
-        # Abfrage ausführen
-        # ------------------------
         results = graph.run(cypher_query, labels=selected_labels).data()
 
         # ------------------------
@@ -850,57 +848,45 @@ def query_table():
         all_labels = list(all_labels)
 
         # ------------------------
-        # Tabelle aufbauen
+        # Tabelle bauen
         # ------------------------
         table_results = []
+        columns_set = set()  # um Columns eindeutig zu sammeln
+
         for r in results:
             path = r['p']
-            row = {label: [] for label in all_labels}
-            row['relations'] = []
+            row_cells = []
+            relations = []
 
+            # Nodes einfügen
             for n in path.nodes:
-                labels = [l for l in n.labels if l in selected_labels]
+                node_labels = [l for l in n.labels if l in selected_labels]
                 if filter_labels:
-                    labels = [l for l in labels if l in filter_labels]
-                for label in labels:
-                    row[label].append({'id': n.identity, 'properties': dict(n)})
+                    node_labels = [l for l in node_labels if l in filter_labels]
 
+                for label in node_labels:
+                    for prop, value in dict(n).items():
+                        row_cells.append({"value": value, "nodeId": n.identity})
+                        columns_set.add((label, prop))
+
+            # Beziehungen einfügen (nur zwischen ausgewählten Node-Typen)
             for rel in path.relationships:
-                # nur Relationen zwischen den gewählten Nodes
-                if rel.start_node.labels.intersection(selected_labels) and rel.end_node.labels.intersection(selected_labels):
-                    row['relations'].append({
-                        'fromId': rel.start_node.identity,
-                        'toId': rel.end_node.identity,
-                        'relation': type(rel).__name__
+                if (rel.start_node.labels & set(selected_labels)) and (rel.end_node.labels & set(selected_labels)):
+                    relations.append({
+                        "fromId": rel.start_node.identity,
+                        "toId": rel.end_node.identity,
+                        "relation": type(rel).__name__
                     })
 
-            # Listen mit nur einem Node vereinfachen
-            for label in all_labels:
-                if len(row[label]) == 1:
-                    row[label] = row[label][0]
-                elif len(row[label]) == 0:
-                    row[label] = None
+            table_results.append({"cells": row_cells, "relations": relations})
 
-            table_results.append(row)
+        # Columns als Liste von dicts im gewünschten Format
+        columns = [{"nodeType": lbl, "property": prop} for lbl, prop in columns_set]
 
-        return jsonify({
-            "columns": [{"nodeType": lbl, "property": key} for lbl in all_labels for key in row[lbl]["properties"].keys()] if table_results else [],
-            "rows": [
-                {
-                    "cells": [
-                        {"value": node['properties'][prop], "nodeId": node['id']}
-                        for lbl in all_labels
-                        for prop, node in (row[lbl]["properties"].items(), row[lbl]) if node
-                    ],
-                    "relations": row['relations']
-                } for row in table_results
-            ]
-        })
+        return jsonify({"columns": columns, "rows": table_results})
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
-
 if __name__ == '__main__':
     try:
         app.run(debug=True)
