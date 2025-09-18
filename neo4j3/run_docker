@@ -3,8 +3,9 @@ set -e
 
 # Optional: Benutzer kann Port setzen, default = 1123
 APP_PORT=${1:-1123}
+ACTION=${2:-up}  # default: up, kann auch run_tests sein
 
-echo "Starte Docker-Compose mit APP_PORT=$APP_PORT ..."
+echo "Aktion: $ACTION, APP_PORT=$APP_PORT"
 
 # Prüfen, ob neo4j-db Container existiert
 if [ "$(docker ps -a -q -f name=neo4j-db)" ]; then
@@ -12,5 +13,19 @@ if [ "$(docker ps -a -q -f name=neo4j-db)" ]; then
     docker start neo4j-db || true
 fi
 
-# Docker-Compose Build & Up für Python-App
-APP_PORT=$APP_PORT docker-compose up --build python-app
+# Aktion auswählen
+case "$ACTION" in
+    up)
+        echo "Starte Docker-Compose für Python-App..."
+        APP_PORT=$APP_PORT docker-compose up --build python-app
+        ;;
+    run_tests)
+        echo "Führe Tests im Python-Container aus..."
+        docker-compose run --rm python-app pytest
+        ;;
+    *)
+        echo "Unbekannte Aktion: $ACTION"
+        echo "Verfügbare Aktionen: up, run_tests"
+        exit 1
+        ;;
+esac

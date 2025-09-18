@@ -8,6 +8,9 @@ WORKDIR /usr/src/app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+# pytest für Tests installieren
+RUN pip install --no-cache-dir pytest
+
 # Quellcode kopieren
 COPY . .
 
