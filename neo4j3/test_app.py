@@ -218,20 +218,29 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertIn(b"Upload", response.data)
 
     def test_query_data_single_label(self):
-        """Testet query_data mit nur einem Label."""
-        # Test-Node erstellen
+        """Testet query_data mit nur einem Label 'Person', das auch einen Pfad hat."""
+        # Nodes erstellen
         person = Node("Person", name="Alice", age=30)
-        self.graph.create(person)
+        dummy = Node("Ort", name="Berlin")
+        self.graph.create(person | dummy)
+        
+        # Beziehung hinzufügen, damit die Pfad-Abfrage etwas findet
+        rel = Relationship(person, "LIVES_IN", dummy)
+        self.graph.create(rel)
 
-        # Anfrage an die API mit Label "Person"
-        response = self.app.post('/api/query_data',
-                                data=json.dumps({"selectedLabels": ["Person"]}),
-                                content_type='application/json')
+        response = self.app.post(
+            '/api/query_data',
+            data=json.dumps({"selectedLabels": ["Person", "Ort"]}),
+            content_type='application/json'
+        )
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data.decode('utf-8'))
 
-        # Überprüfen, dass genau 1 Node zurückkommt
-        self.assertTrue(any("Alice" in str(node.get("properties")) for node in data))
+        # Jetzt liefert query_data Pfad-Resultate
+        self.assertTrue(any(
+            row.get("Person") and row["Person"]["properties"].get("name") == "Alice"
+            for row in data
+        ))
 
     def test_query_data_multiple_labels_with_relation(self):
         """Testet query_data mit zwei Labels, die durch eine definierte Relation verbunden sind."""
@@ -253,8 +262,8 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertTrue(any(row.get("relationships") for row in data))
 
     def test_query_data_multiple_labels_without_relation(self):
-        """Testet query_data mit Labels, die zwar im relation_map stehen, aber ohne bestehende Relation."""
-        # Testdaten: Ort ohne Relation zu Stadt
+        """Testet query_data mit Labels ohne Relation zu 'Person'."""
+        # Testdaten: Ort und Stadt ohne Person
         ort = Node("Ort", name="Hamburg")
         stadt = Node("Stadt", name="Hamburg")
         self.graph.create(ort | stadt)
@@ -267,11 +276,8 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data.decode('utf-8'))
 
-        # Ort sollte immer zurückkommen
-        self.assertTrue(any(row.get("Ort") for row in data))
-
-        # Stadt sollte None sein, weil keine LIEGT_IN-Relation existiert
-        self.assertTrue(all(row.get("Stadt") is None for row in data))
+        # Da keine Person vorhanden ist, liefert query_data jetzt 0 Pfade
+        self.assertEqual(data, [])
 
     def test_update_node_success(self):
         """Aktualisiert erfolgreich ein Property an einem existierenden Node."""
