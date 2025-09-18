@@ -251,5 +251,26 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn(b"JSON-Format", response.data)
 
+    def test_query_data_multiple_labels_without_relation(self):
+        """Testet query_data mit Labels, die zwar im relation_map stehen, aber ohne bestehende Relation."""
+        # Testdaten: Ort ohne Relation zu Stadt
+        ort = Node("Ort", name="Hamburg")
+        stadt = Node("Stadt", name="Hamburg")
+        self.graph.create(ort | stadt)
+
+        response = self.app.post(
+            '/api/query_data',
+            data=json.dumps({"selectedLabels": ["Ort", "Stadt"]}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data.decode('utf-8'))
+
+        # Ort sollte immer zurückkommen
+        self.assertTrue(any(row.get("Ort") for row in data))
+
+        # Stadt sollte None sein, weil keine LIEGT_IN-Relation existiert
+        self.assertTrue(all(row.get("Stadt") is None for row in data))
+
 if __name__ == '__main__':
     unittest.main()
