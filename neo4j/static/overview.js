@@ -2,125 +2,198 @@ const querySelection = document.getElementById('querySelection');
 const resultsContainer = document.getElementById('resultsContainer');
 
 function fetchData() {
-	const selectedLabels = [...querySelection.querySelectorAll('input:checked')]
-		.map(input => input.value);
+  var sel = document.getElementById('querySelection');
+  if (!sel) return alert('Kein #querySelection im DOM');
 
-	fetch('/api/query_data', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ selectedLabels })
-	}).then(response => response.json())
-		.then(data => {
-			if (data.status === 'error') {
-				alert(data.message);
-				return;
-			}
-			renderTable(data);
-		});
+  var labels = [].slice.call(sel.querySelectorAll('input:checked')).map(function(i){ return i.value; });
+  if (!labels.length) { alert('Bitte mindestens ein Label auswählen'); return; }
+
+  var qs = 'nodes=' + encodeURIComponent(labels.join(','));
+  var url = '/api/new_query_table?' + qs;
+
+  fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } })
+    .then(function(res){
+      if (!res.ok) throw new Error('Server antwortete mit ' + res.status);
+      return res.json();
+    })
+    .then(function(data){
+      if (data && data.status === 'error') {
+        alert(data.message || 'Fehler vom Server');
+        return;
+      }
+      renderTable(data);
+    })
+    .catch(function(err){
+      console.error('fetchData error', err);
+      alert('Fehler beim Laden: ' + (err.message || err));
+    });
 }
-
 function renderTable(data) {
-	const resultsContainer = document.getElementById('resultsContainer');
-	resultsContainer.innerHTML = ''; // Alte Tabelle löschen
+  var container = document.getElementById('resultsContainer');
+  if (!container) return console.error('renderTable: kein #resultsContainer');
 
-	if (!Array.isArray(data) || data.length === 0) {
-		resultsContainer.innerHTML = '<p>Keine Ergebnisse gefunden.</p>';
-		return;
-	}
+  container.innerHTML = '';
 
-	const table = document.createElement('table');
-	const thead = document.createElement('thead');
-	const tbody = document.createElement('tbody');
+  var cols = data.columns || [];
+  var rows = data.rows || [];
 
-	// 🕵️‍♂️ Prüfen, ob flache Liste (Knoten selbst hat properties)
-	const isFlatList = data[0].hasOwnProperty('properties');
+  var table = document.createElement('table');
+  table.className = 'query-results-table';
 
-	// 📊 Alle Properties sammeln
-	const allProps = new Set();
-	data.forEach(item => {
-		if (isFlatList) {
-			Object.keys(item.properties || {}).forEach(prop => allProps.add(prop));
-		} else {
-			for (const key in item) {
-				if (item[key] && item[key].properties) {
-					Object.keys(item[key].properties).forEach(prop => allProps.add(prop));
-				}
-			}
-		}
-	});
+  table.appendChild(make_thead_from_columns(cols));
+  var tbody = document.createElement('tbody');
 
-	// Neue Spalte "+" vor Aktion einfügen
-	const headers = [...Array.from(allProps), 'Beziehungen', '+', 'Aktion'];
-	thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+  rows.forEach(function(row) {
+    // build node map from columns + cells (index-aligned)
+    var node_map = build_node_map_from_row(cols, row.cells || []);
 
-	// ✍️ Datenzeilen erzeugen
-	data.forEach(item => {
-		const row = document.createElement('tr');
-		let rowContent = '';
-		let nodeIDs = [];
-		let combinedProperties = {};
+    // single visual row per row: each column cell -> input
+    var tr = document.createElement('tr');
 
-		if (isFlatList) {
-			nodeIDs.push(item.id);
-			combinedProperties = item.properties || {};
-		} else {
-			for (const key in item) {
-				const node = item[key];
-				if (node && node.properties) {
-					nodeIDs.push(node.id);
-					Object.assign(combinedProperties, node.properties);
-				}
-			}
-		}
+    for (var i = 0; i < cols.length; ++i) {
+      var col = cols[i];
+      var cell = (row.cells && row.cells[i]) ? row.cells[i] : null;
+      tr.appendChild(make_input_td(cell, col));
+    }
 
-		// Property-Zellen
-		headers.slice(0, -3).forEach(header => {
-			const value = combinedProperties[header] || '';
-			rowContent += `<td><input type="text" value="${value}" 
-		data-id="${nodeIDs.join(',')}" 
-		data-property="${header}"
-		onblur="updateValue(this)"></td>`;
-		});
+    // relations column
+    var td_rel = document.createElement('td');
+    td_rel.innerHTML = format_relations_html(row.relations || [], node_map);
+    tr.appendChild(td_rel);
 
-		// 🧩 Beziehungen-Zelle (nur sinnvoll bei verschachtelten Strukturen)
-		let relText = '';
-		if (!isFlatList) {
-			const rels = Array.isArray(item.relationships) ? item.relationships : [];
-			relText = rels.map(r => {
-				const fromNode = Object.values(item).find(n => n && n.id === r.from);
-				const toNode = Object.values(item).find(n => n && n.id === r.to);
+    // plus button
+    var td_plus = document.createElement('td');
+    var btn_plus = document.createElement('button');
+    btn_plus.type = 'button';
+    btn_plus.setAttribute('onclick', 'addColumnToNode(event)');
+    btn_plus.textContent = '+';
+    td_plus.appendChild(btn_plus);
+    tr.appendChild(td_plus);
 
-				const fromName = fromNode && fromNode.properties
-					? Object.values(fromNode.properties).filter(v => v != null).join(' ') || r.from
-					: r.from;
-				const toName = toNode && toNode.properties
-					? Object.values(toNode.properties).filter(v => v != null).join(' ') || r.to
-					: r.to;
+    // action (delete) button
+    var td_act = document.createElement('td');
+    var btn_del = document.createElement('button');
+    btn_del.type = 'button';
+    btn_del.className = 'delete-btn';
+    btn_del.setAttribute('data-id', first_node_id_from_row(row));
+    btn_del.textContent = 'Löschen';
+    btn_del.addEventListener('click', function (ev) {
+      var id = ev.currentTarget.getAttribute('data-id');
+      handle_delete_node_by_id(id, ev.currentTarget);
+    });
+    td_act.appendChild(btn_del);
+    tr.appendChild(td_act);
 
-				const type = r.type || 'UNK';
-				return `${type}: ${fromName} → ${toName}`;
-			}).join('<br>');
-		}
-		rowContent += `<td>${relText}</td>`;
+    tbody.appendChild(tr);
+  });
 
-		// Neue leere Spalte mit "+"
-		rowContent += `<td><button onclick="addColumnToNode(event)">+</button></td>`;
-
-		// Aktion-Zelle
-		rowContent += `<td><button class="delete-btn" data-id="${nodeIDs.join(',')}">Löschen</button></td>`;
-
-		row.innerHTML = rowContent;
-		tbody.appendChild(row);
-	});
-
-	table.appendChild(thead);
-	table.appendChild(tbody);
-	resultsContainer.appendChild(table);
-
-	document.querySelectorAll('.delete-btn').forEach(button => {
-		button.addEventListener('click', deleteNode);
-	});
+  table.appendChild(tbody);
+  container.appendChild(table);
 }
+
+function make_thead_from_columns(cols) {
+  var thead = document.createElement('thead');
+  var tr = document.createElement('tr');
+
+  // decide if we need to prefix nodeType (when >1 distinct nodeType present)
+  var types = {};
+  for (var i = 0; i < cols.length; ++i) types[cols[i].nodeType] = true;
+  var multi_types = Object.keys(types).length > 1;
+
+  for (var i = 0; i < cols.length; ++i) {
+    var c = cols[i];
+    var th = document.createElement('th');
+    th.textContent = multi_types ? (c.nodeType + ':' + c.property) : c.property;
+    tr.appendChild(th);
+  }
+
+  var thR = document.createElement('th'); thR.textContent = 'Beziehungen'; tr.appendChild(thR);
+  var thPlus = document.createElement('th'); thPlus.textContent = '+'; tr.appendChild(thPlus);
+  var thAct = document.createElement('th'); thAct.textContent = 'Aktion'; tr.appendChild(thAct);
+  thead.appendChild(tr);
+  return thead;
+}
+
+function make_input_td(cell, col) {
+  var td = document.createElement('td');
+  var input = document.createElement('input');
+  input.type = 'text';
+  input.value = cell ? (cell.value == null ? '' : cell.value) : '';
+  if (cell && cell.nodeId != null) input.setAttribute('data-id', cell.nodeId);
+  input.setAttribute('data-property', col.property || '');
+  input.setAttribute('onblur', 'updateValue(this)');
+  td.appendChild(input);
+  return td;
+}
+
+function build_node_map_from_row(cols, cells) {
+  var map = {};
+  for (var i = 0; i < cols.length; ++i) {
+    var c = cols[i];
+    var cell = cells[i];
+    if (!cell) continue;
+    var id = String(cell.nodeId);
+    if (!map[id]) map[id] = { props: {}, order: [] };
+    var prop = c.property || ('col' + i);
+    if (map[id].order.indexOf(prop) === -1) map[id].order.push(prop);
+    map[id].props[prop] = cell.value;
+  }
+  return map;
+}
+
+function format_relations_html(rels, node_map) {
+  if (!rels || !rels.length) return '';
+  var parts = [];
+  for (var i = 0; i < rels.length; ++i) {
+    var r = rels[i];
+    var from_label = node_label(String(r.fromId), node_map);
+    var to_label = node_label(String(r.toId), node_map);
+    parts.push(escape_html(r.relation) + ': ' + escape_html(from_label || r.fromId) + ' → ' + escape_html(to_label || r.toId));
+  }
+  return parts.join('<br>');
+}
+
+function node_label(id, node_map) {
+  var n = node_map && node_map[id];
+  if (!n) return '';
+  var prefer = ['nachname','vorname','plz','straße','strasse','stadt'];
+  var out = [];
+  for (var i = 0; i < prefer.length; ++i) {
+    if (n.props[prefer[i]]) out.push(n.props[prefer[i]]);
+  }
+  if (out.length) return out.join(' ');
+  // fallback: all props in order
+  var all = [];
+  for (var j = 0; j < n.order.length; ++j) {
+    var p = n.order[j];
+    if (n.props[p]) all.push(n.props[p]);
+  }
+  return all.join(' ');
+}
+
+function first_node_id_from_row(row) {
+  if (row.cells && row.cells.length) return row.cells[0].nodeId;
+  return '';
+}
+
+function handle_delete_node_by_id(id, btnEl) {
+  if (!id) return;
+  if (typeof window.deleteNode === 'function') {
+    try { window.deleteNode(id); } catch (e) { console.error(e); }
+  } else {
+    var ev = new CustomEvent('delete-node', { detail: { id: id } });
+    document.dispatchEvent(ev);
+  }
+  // remove row from DOM for instant feedback
+  var tr = btnEl && btnEl.closest && btnEl.closest('tr');
+  if (tr) tr.remove();
+}
+
+function escape_html(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); });
+}
+
 
 function deleteNode(event) {
 	const nodeIds = event.target.getAttribute('data-id').split(',');
@@ -409,4 +482,6 @@ function loadSavedQuery() {
 // Initial beim Laden der Seite
 document.addEventListener('DOMContentLoaded', () => {
 	loadSavedQueriesFromAPI();
+
+	document.getElementById('querySelection').addEventListener('change', fetchData);
 });
