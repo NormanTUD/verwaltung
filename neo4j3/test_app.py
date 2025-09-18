@@ -523,6 +523,24 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn(b"ltiger Spaltenname", response.data)
 
+    def test_add_column_missing_data(self):
+        """Fehler, wenn 'column' oder 'label' fehlen."""
+        response = self.app.post(
+            '/api/add_column',
+            data=json.dumps({"column": "status"}),  # label fehlt
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"Fehlende Daten", response.data)
+
+        response2 = self.app.post(
+            '/api/add_column',
+            data=json.dumps({"label": "Person"}),  # column fehlt
+            content_type='application/json'
+        )
+        self.assertEqual(response2.status_code, 400)
+        self.assertIn(b"Fehlende Daten", response2.data)
+
 
 if __name__ == '__main__':
     unittest.main()
