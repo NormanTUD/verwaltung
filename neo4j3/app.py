@@ -613,6 +613,7 @@ def safe_var_name(label):
 from flask import request, jsonify
 import time
 
+
 @app.route('/api/query_data', methods=['POST'])
 @test_if_deleted_db
 def query_data():
@@ -661,7 +662,9 @@ def query_data():
     all_labels = set()
     for r in path_results:
         for n in r['p'].nodes:
-            all_labels.update(n.labels)
+            # nur ausgewählte Labels sammeln
+            filtered_labels = [l for l in n.labels if l in selected_labels]
+            all_labels.update(filtered_labels)
     all_labels = list(all_labels)
 
     # -------------------------------
@@ -674,15 +677,16 @@ def query_data():
         row = {label: [] for label in all_labels}
         row['relationships'] = []
 
-        # Nodes einfügen
+        # Nodes einfügen, nur ausgewählte Labels
         for n in path.nodes:
-            for label in n.labels:
+            filtered_labels = [l for l in n.labels if l in selected_labels]
+            for label in filtered_labels:
                 row[label].append({
                     'id': n.identity,
                     'properties': dict(n)
                 })
 
-        # Beziehungen einfügen
+        # Beziehungen einfügen (alle beibehalten)
         for rel in path.relationships:
             row['relationships'].append({
                 'from': rel.start_node.identity,
