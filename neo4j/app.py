@@ -6,7 +6,7 @@ import io
 import json
 import inspect
 from flask import Flask, request, jsonify, render_template, session
-from py2neo import Graph, Relationship
+from py2neo import Graph
 from dotenv import load_dotenv
 import functools
 
@@ -367,19 +367,6 @@ def index():
 def show_graph():
     return render_template('graph.html')
 
-def serialize_entity(entity):
-    """
-    Serializes a Neo4j Node or Relationship object to a dictionary.
-    """
-    data = {'id': entity.id, 'properties': dict(entity)}
-    if isinstance(entity, Node):
-        data['label'] = next(iter(entity.labels), None)
-    elif isinstance(entity, Relationship):
-        data['type'] = entity.type
-        data['source'] = entity.start_node.id
-        data['target'] = entity.end_node.id
-    return data
-
 @app.route('/api/graph-data')
 @test_if_deleted_db
 def get_graph_data():
@@ -655,7 +642,7 @@ def collect_labels(path_results, selected_labels):
     for idx, r in enumerate(path_results):
         print(f"  🛣️ Pfad {idx+1}: {len(r['p'].nodes)} Nodes")
         for n in r['p'].nodes:
-            filtered_labels = [l for l in n.labels if l in selected_labels]
+            filtered_labels = [_l for _l in n.labels if _l in selected_labels]
             if filtered_labels:
                 print(f"    Node {n.identity} Labels gefiltert: {filtered_labels}")
             all_labels.update(filtered_labels)
@@ -676,7 +663,7 @@ def build_table_results(path_results, selected_labels, all_labels):
 
         # Nodes einfügen
         for n in path.nodes:
-            filtered_labels = [l for l in n.labels if l in selected_labels]
+            filtered_labels = [_l for _l in n.labels if _l in selected_labels]
             for label in filtered_labels:
                 node_info = {'id': n.identity, 'properties': dict(n)}
                 print(f"    Node hinzufügen: Label={label}, ID={n.identity}, Properties={node_info['properties']}")
@@ -768,7 +755,7 @@ def get_data_as_table():
         print("Max depth:", max_depth, "Limit:", limit)
 
         filter_labels_csv = request.args.get('filterLabels')
-        filter_labels = [l.strip() for l in filter_labels_csv.split(',')] if filter_labels_csv else None
+        filter_labels = [_l.strip() for _l in filter_labels_csv.split(',')] if filter_labels_csv else None
         print("Filter labels:", filter_labels)
 
         # ------------------------
@@ -829,9 +816,9 @@ def get_data_as_table():
                 # collect nodes with min distance metric
                 for idx, n in enumerate(node_list):
                     node_id = n.identity
-                    node_labels = [l for l in n.labels if l in selected_labels]
+                    node_labels = [_l for _l in n.labels if _l in selected_labels]
                     if filter_labels:
-                        node_labels = [l for l in node_labels if l in filter_labels]
+                        node_labels = [_l for _l in node_labels if _l in filter_labels]
                     if not node_labels:
                         continue
 
