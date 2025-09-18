@@ -777,5 +777,49 @@ class TestNeo4jApp(unittest.TestCase):
         with self.app.session_transaction() as sess:
             self.assertEqual(len(sess['raw_data'].splitlines()), 20001)  # inkl. Header
 
+
+    def test_upload_csv_with_missing_and_extra_columns(self):
+        """CSV enthält fehlende Werte und zusätzliche Spalten."""
+        csv_data = "id,name,extra\n1,Alice,\n2,,ExtraValue"
+        response = self.app.post('/upload', data={'data': csv_data}, content_type='multipart/form-data')
+        self.assertEqual(response.status_code, 200)
+        with self.app.session_transaction() as sess:
+            self.assertIn('headers', sess)
+            self.assertEqual(sess['headers'], ['id', 'name', 'extra'])
+        
+    def test_save_mapping_with_expired_session(self):
+        """Session enthält keine raw_data, save_mapping schlägt fehl."""
+        with self.app.session_transaction() as sess:
+            sess.clear()
+        response = self.app.post('/save_mapping', data=json.dumps({"nodes": {}, "relationships": []}), content_type='application/json')
+        self.assertEqual(response.status_code, 500)
+        self.assertIn(b"Sitzungsdaten fehlen", response.data)
+
+    def test_graph_data_with_cyclic_relationship(self):
+        """Zyklische Relation wird korrekt zurückgegeben."""
+        n1 = Node("Person", name="Alice")
+        n2 = Node("Person", name="Bob")
+        rel1 = Relationship(n1, "KNOWS", n2)
+        rel2 = Relationship(n2, "KNOWS", n1)
+        self.graph.create(n1 | n2 | rel1 | rel2)
+
+        response = self.app.get('/api/graph-data')
+        data = json.loads(response.data)
+        self.assertEqual(len(data['links']), 2)
+        self.assertTrue(any(link['source'] == n1.identity and link['target'] == n2.identity for link in data['links']))
+        self.assertTrue(any(link['source'] == n2.identity and link['target'] == n1.identity for link in data['links']))
+
+    @patch("app.graph.run", side_effect=Exception("DB offline"))
+    def test_update_node_db_offline(self, mock_run):
+        """DB-Verbindungsfehler bei Node-Update wird korrekt behandelt."""
+        node = Node("Person", name="Alice")
+        self.graph.create(node)
+        node_id = node.identity
+        response = self.app.put(f'/api/update_node/{node_id}',
+                                data=json.dumps({"property": "age", "value": 42}),
+                                content_type='application/json')
+        self.assertEqual(response.status_code, 500)
+        self.assertIn(b"DB offline", response.data)
+
 if __name__ == '__main__':
     unittest.main()
