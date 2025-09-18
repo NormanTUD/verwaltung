@@ -749,10 +749,6 @@ def query_data():
     print(f"✅ Abfrage erfolgreich. {len(formatted_results)} Zeilen gefunden in {duration:.2f} Sekunden.")
     return jsonify(formatted_results)
 
-
-if __name__ == '__main__':
-    app.run(debug=True)
-
 @app.route('/api/update_node/<int:node_id>', methods=['PUT'])
 @test_if_deleted_db
 def update_node(node_id):
