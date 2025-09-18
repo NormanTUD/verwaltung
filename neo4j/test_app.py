@@ -211,7 +211,6 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Upload", response.data)
 
-
     def test_update_node_success(self):
         """Aktualisiert erfolgreich ein Property an einem existierenden Node."""
         node = Node("Person", name="Alice")
@@ -229,7 +228,6 @@ class TestNeo4jApp(unittest.TestCase):
         # Überprüfen, ob Wert gesetzt wurde
         result = self.graph.run("MATCH (n:Person) WHERE ID(n)=$id RETURN n.age AS age", id=node_id).data()
         self.assertEqual(result[0]["age"], 42)
-
 
     def test_update_node_nonexistent(self):
         """Versuch, einen Node zu aktualisieren, der nicht existiert."""
@@ -257,7 +255,6 @@ class TestNeo4jApp(unittest.TestCase):
         # Dein Code prüft das noch nicht → wäre Erweiterung: hier trotzdem prüfen
         self.assertIn(response.status_code, [200, 500])
 
-
     def test_delete_node_success(self):
         """Löscht erfolgreich einen Node samt Relationen."""
         person = Node("Person", name="DeleteMe")
@@ -274,7 +271,6 @@ class TestNeo4jApp(unittest.TestCase):
         result = self.graph.run("MATCH (n) WHERE ID(n)=$id RETURN n", id=person_id).data()
         self.assertEqual(len(result), 0)
 
-
     def test_delete_node_nonexistent(self):
         """Versuch, einen Node zu löschen, der nicht existiert."""
         fake_id = 123456789
@@ -283,13 +279,11 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"und alle Beziehungen wurden", response.data)
 
-
     def test_delete_node_invalid_id(self):
         """Ungültige Node-ID (kein Integer)."""
         response = self.app.delete('/api/delete_node/abc')
         # Flask selbst wird hier 404 zurückgeben, weil <int:node_id> nicht matcht
         self.assertEqual(response.status_code, 404)
-
 
     def test_delete_node_with_multiple_nodes(self):
         """Erstellt mehrere Nodes, löscht einen und prüft, dass die anderen bestehen bleiben."""
@@ -430,7 +424,6 @@ class TestNeo4jApp(unittest.TestCase):
             content_type='application/json'
         )
         self.assertEqual(response.status_code, 200)  # Sniffer akzeptiert die CSV
-
 
     def test_add_column_success(self):
         """Fügt erfolgreich eine neue Property zu allen Nodes eines Labels hinzu."""
@@ -708,7 +701,6 @@ class TestNeo4jApp(unittest.TestCase):
         with self.app.session_transaction() as sess:
             self.assertEqual(len(sess['raw_data'].splitlines()), 20001)  # inkl. Header
 
-
     def test_upload_csv_with_missing_and_extra_columns(self):
         """CSV enthält fehlende Werte und zusätzliche Spalten."""
         csv_data = "id,name,extra\n1,Alice,\n2,,ExtraValue"
@@ -751,24 +743,6 @@ class TestNeo4jApp(unittest.TestCase):
                                 content_type='application/json')
         self.assertEqual(response.status_code, 500)
         self.assertIn(b"DB offline", response.data)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     def test_get_data_as_table_missing_nodes_param(self):
         """GET /api/get_data_as_table without nodes -> 400"""
@@ -907,11 +881,6 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort', 'limit': 'nope'})
             self.assertEqual(resp.status_code, 500)
             self.assertIn(b"invalid literal", resp.data)
-
-
-
-
-
 
 if __name__ == '__main__':
     unittest.main()

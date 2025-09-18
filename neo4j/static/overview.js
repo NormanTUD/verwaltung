@@ -194,7 +194,6 @@ function escape_html(s) {
   return String(s).replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); });
 }
 
-
 function deleteNode(event) {
 	const nodeIds = event.target.getAttribute('data-id').split(',');
 	//if (confirm(`Sicher, dass du die verknüpften Einträge (${nodeIds.join(', ')}) löschen möchtest?`)) {
@@ -376,7 +375,6 @@ function addColumnToNode(event) {
 	});
 }
 
-
 function addPropertyIfNotEmpty(inputElem) {
 	const value = inputElem.value.trim();
 	const ids = inputElem.getAttribute('data-id');
@@ -409,7 +407,6 @@ function addPropertyIfNotEmpty(inputElem) {
 		console.error('Fehler beim Hinzufügen der Property:', error);
 	});
 }
-
 
 // Neue Funktionen für das Speichern und Laden von Abfragen
 function loadSavedQueriesFromAPI() {

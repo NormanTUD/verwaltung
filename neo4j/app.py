@@ -100,7 +100,6 @@ def save_queries_to_file(queries):
     with open(SAVED_QUERIES_FILE, 'w') as f:
         json.dump(queries, f, indent=4)
 
-
 # TODO!!! DELETE AGAIN!!!
 @app.route('/api/delete_all')
 @test_if_deleted_db
@@ -208,7 +207,6 @@ def add_row():
     except Exception as e:
         print(f"Fehler beim Hinzufügen des Nodes: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 @app.route('/api/update_nodes', methods=['PUT'])
 @test_if_deleted_db
@@ -365,7 +363,6 @@ def serialize_value(value):
 def index():
     return render_template('import.html')
 
-
 @app.route('/graph')
 @test_if_deleted_db
 def show_graph():
@@ -383,8 +380,6 @@ def serialize_entity(entity):
         data['source'] = entity.start_node.id
         data['target'] = entity.end_node.id
     return data
-
-
 
 @app.route('/api/graph-data')
 @test_if_deleted_db
@@ -485,7 +480,6 @@ def get_rel_types():
     except Exception as e:
         print(f"Fehler beim Abrufen der Relationship-Typen: {e}")
         return jsonify([]), 500
-
 
 @app.route('/save_mapping', methods=['POST'])
 @test_if_deleted_db
@@ -613,9 +607,6 @@ def safe_var_name(label):
 from flask import request, jsonify
 import time
 
-
-
-
 # -------------------------------
 # Helper Functions
 # -------------------------------
@@ -638,7 +629,6 @@ def parse_request_json(req_json):
 
     return selected_labels, max_depth, limit
 
-
 def generate_cypher_query(max_depth):
     """Dynamische Pfad-Abfrage für Neo4j generieren"""
     print("🔍 generate_cypher_query: Start")
@@ -649,7 +639,6 @@ def generate_cypher_query(max_depth):
     """
     print(f"📄 Generierte Cypher-Abfrage:\n{query}")
     return query
-
 
 def run_query(graph, query, labels, limit):
     """Neo4j-Abfrage ausführen und Ergebnis zurückgeben"""
@@ -662,7 +651,6 @@ def run_query(graph, query, labels, limit):
         raise RuntimeError(f"Fehler bei der Neo4j-Abfrage: {e}")
     print(f"✅ Abfrage erfolgreich, {len(results)} Ergebnisse erhalten")
     return results
-
 
 def collect_labels(path_results, selected_labels):
     """Alle Labels aus den Pfaden sammeln, die ausgewählt wurden"""
@@ -678,7 +666,6 @@ def collect_labels(path_results, selected_labels):
     all_labels_list = list(all_labels)
     print(f"✅ Alle gesammelten Labels: {all_labels_list}")
     return all_labels_list
-
 
 def build_table_results(path_results, selected_labels, all_labels):
     """Tabellarische Ergebnisse aus Pfaden aufbereiten"""
@@ -724,7 +711,6 @@ def build_table_results(path_results, selected_labels, all_labels):
 
     print(f"✅ build_table_results: Fertig, {len(table_results)} Zeilen erstellt")
     return table_results
-
 
 @app.route('/api/update_node/<int:node_id>', methods=['PUT'])
 @test_if_deleted_db
@@ -953,7 +939,6 @@ def get_data_as_table():
     except Exception as e:
         print("Fehler (Exception):", e)
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 if __name__ == '__main__':
     try:
