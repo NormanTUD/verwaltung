@@ -1,0 +1,36 @@
+name: Run Neo4j Tests
+
+# Läuft bei jedem Push auf jedem Branch
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout des Repos
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Docker installieren
+      - name: Install Docker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker.io
+          docker --version
+
+      # Docker Compose installieren
+      - name: Install Docker Compose
+        run: |
+          sudo apt-get install -y docker-compose
+          docker-compose --version
+
+      # In Verzeichnis wechseln und bash-Script ausführen
+      - name: Run Neo4j tests
+        working-directory: neo4j3
+        run: |
+          chmod +x run_docker
+          ./run_docker 1123 run_tests
