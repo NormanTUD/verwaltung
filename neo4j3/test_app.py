@@ -366,6 +366,23 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(len(kept), 1)
         self.assertEqual(len(removed), 0)
 
+    def test_save_mapping_no_nodes_or_rels(self):
+        """Speichert ein leeres Mapping → keine Nodes/Beziehungen."""
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = "id,name\n1,Alice\n2,Bob"
+
+        empty_mapping = {"nodes": {}, "relationships": []}
+        response = self.app.post(
+            '/save_mapping',
+            data=json.dumps(empty_mapping),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Daten erfolgreich in Neo4j importiert", response.data)
+
+        result = self.graph.run("MATCH (n) RETURN n").data()
+        self.assertEqual(len(result), 0)
 
 
 if __name__ == '__main__':
