@@ -28,6 +28,8 @@ run_app() {
 }
 
 run_tests() {
+	mypy app.py
+	pylint app.py
 	log "Führe Tests im Python-Container aus..."
 	APP_PORT=$APP_PORT docker-compose up --build -d python-app
 	docker-compose run --rm python-app pytest || error "Tests fehlgeschlagen!"
