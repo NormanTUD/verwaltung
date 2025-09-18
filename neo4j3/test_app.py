@@ -513,6 +513,16 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(len(result), 2)
         self.assertTrue(all("status" in row and row["status"] == "" for row in result))
 
+    def test_add_column_invalid_name(self):
+        """Fehler, wenn der Spaltenname kein gültiger Python-Identifier ist."""
+        response = self.app.post(
+            '/api/add_column',
+            data=json.dumps({"column": "123invalid", "label": "Person"}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"ltiger Spaltenname", response.data)
+
 
 if __name__ == '__main__':
     unittest.main()
