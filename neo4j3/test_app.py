@@ -678,5 +678,57 @@ class TestNeo4jApp(unittest.TestCase):
         obj = Custom()
         self.assertEqual(serialize_value(obj), str(obj))
 
+    def test_graph_data_empty_db(self):
+        """Leere DB liefert leere Nodes und Links."""
+        response = self.app.get('/api/graph-data')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertIn('nodes', data)
+        self.assertIn('links', data)
+        self.assertEqual(len(data['nodes']), 0)
+        self.assertEqual(len(data['links']), 0)
+
+    def test_graph_data_single_node(self):
+        """Einzelner Node, keine Beziehungen."""
+        node = Node("Person", name="Alice")
+        self.graph.create(node)
+
+        response = self.app.get('/api/graph-data')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertEqual(len(data['nodes']), 1)
+        self.assertEqual(len(data['links']), 0)
+        self.assertEqual(data['nodes'][0]['label'], "Person")
+        self.assertEqual(data['nodes'][0]['properties']['name'], "Alice")
+
+    def test_graph_data_relationship_without_properties(self):
+        """Relationship ohne Properties."""
+        n1 = Node("Person", name="Bob")
+        n2 = Node("Ort", name="Hamburg")
+        rel = Relationship(n1, "LIVES_IN", n2)
+        self.graph.create(n1 | n2 | rel)
+
+        response = self.app.get('/api/graph-data')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+
+        self.assertEqual(len(data['links']), 1)
+        link = data['links'][0]
+        self.assertEqual(link['properties'], {})  # leer
+
+    def test_graph_data_multiple_relationships_same_nodes(self):
+        """Mehrere Relationen zwischen denselben Nodes werden nicht doppelt gezählt."""
+        n1 = Node("Person", name="Alice")
+        n2 = Node("Ort", name="Berlin")
+        rel1 = Relationship(n1, "HAT_WOHNSITZ", n2)
+        rel2 = Relationship(n1, "LIVES_IN", n2)
+        self.graph.create(n1 | n2 | rel1 | rel2)
+
+        response = self.app.get('/api/graph-data')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertEqual(len(data['nodes']), 2)
+        self.assertEqual(len(data['links']), 2)
+
 if __name__ == '__main__':
     unittest.main()
