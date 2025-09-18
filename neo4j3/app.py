@@ -623,10 +623,16 @@ def query_data():
         print("🚨 Fehler: Keine Node-Typen ausgewählt")
         return jsonify({"status": "error", "message": "Bitte wählen Sie mindestens einen Node-Typ aus."}), 400
 
+    # Mapping: Welche Relationen gibt es zwischen Labels? (Anpassen nach deinem DB-Schema)
+    relation_map = {
+        ("Person", "Ort"): "HAT_WOHNSITZ",
+        ("Ort", "Stadt"): "LIEGT_IN"
+    }
+
     # ⭐ Sonderfall: nur ein Label
     if len(selected_labels) == 1:
         single_label = selected_labels[0]
-        single_label_escaped = f"`{single_label}`"  # Label escapen
+        single_label_escaped = f"`{single_label}`"
         cypher_query = f"MATCH (n:{single_label_escaped}) RETURN n LIMIT 100"
         print("📊 Generierte Cypher-Abfrage (Einzelfall):")
         print(cypher_query)
@@ -642,36 +648,46 @@ def query_data():
                         'labels': list(node.labels),
                         'properties': dict(node)
                     })
-            end_time = time.time()
-            duration = end_time - start_time
+            duration = time.time() - start_time
             print(f"✅ Abfrage erfolgreich. {len(formatted_results)} Knoten gefunden in {duration:.2f} Sekunden.")
             return jsonify(formatted_results)
         except Exception as e:
             print(f"🚨 Fehler bei der Einzelfall-Abfrage: {e}")
             return jsonify({"status": "error", "message": str(e)}), 500
 
-    # ⭐ Mehrere Labels → kombinierte Abfrage mit Relationen
-    main_label = selected_labels[0]
-    main_label_escaped = f"`{main_label}`"
-    main_var = safe_var_name(main_label)
-
-    cypher_parts = [f"MATCH ({main_var}:{main_label_escaped})"]
-    return_parts = [f"{main_var} AS {main_var}"]
-
-    # Liste aller Relationen
+    # ⭐ Mehrere Labels → kombinierte Abfrage mit bekannten Relationen
+    cypher_parts = []
+    return_parts = []
     rel_vars = []
 
-    for other_label in selected_labels[1:]:
-        other_label_escaped = f"`{other_label}`"
-        other_var = safe_var_name(other_label)
-        rel_var = f"rel_{main_var}_{other_var}"
-        cypher_parts.append(f"OPTIONAL MATCH ({main_var})-[{rel_var}]-({other_var}:{other_label_escaped})")
-        return_parts.append(f"{other_var} AS {other_var}")
+    # Knoten-Variablen
+    var_map = {label: safe_var_name(label) for label in selected_labels}
+
+    # Erste Match für das erste Label
+    main_label = selected_labels[0]
+    main_var = var_map[main_label]
+    main_label_escaped = f"`{main_label}`"
+    cypher_parts.append(f"MATCH ({main_var}:{main_label_escaped})")
+    return_parts.append(f"{main_var} AS {main_var}")
+
+    # Traversiere Labels in Reihenfolge und baue OPTIONAL MATCHs
+    for i in range(1, len(selected_labels)):
+        prev_label = selected_labels[i-1]
+        curr_label = selected_labels[i]
+        prev_var = var_map[prev_label]
+        curr_var = var_map[curr_label]
+        rel_type = relation_map.get((prev_label, curr_label), "")
+
+        rel_var = f"rel_{prev_var}_{curr_var}"
+        if rel_type:
+            cypher_parts.append(f"OPTIONAL MATCH ({prev_var})-[{rel_var}:{rel_type}]->({curr_var})")
+        else:
+            cypher_parts.append(f"OPTIONAL MATCH ({prev_var})-[{rel_var}]-({curr_var})")
+        return_parts.append(f"{curr_var} AS {curr_var}")
         return_parts.append(f"{rel_var} AS {rel_var}")
         rel_vars.append(rel_var)
 
     cypher_query = " ".join(cypher_parts) + " RETURN " + ", ".join(return_parts) + " LIMIT 100"
-
     print("📊 Generierte Cypher-Abfrage (Mehrfachfall inkl. Relationen):")
     print(cypher_query)
 
@@ -686,6 +702,7 @@ def query_data():
         print("🤷‍♂️ Keine Ergebnisse gefunden.")
         return jsonify([])
 
+    # Ergebnis formatieren
     formatted_results = []
     for record in results:
         row = {}
@@ -693,7 +710,7 @@ def query_data():
 
         # Knoten
         for label in selected_labels:
-            var = safe_var_name(label)
+            var = var_map[label]
             node = record.get(var)
             if node:
                 row[label] = {
@@ -721,10 +738,10 @@ def query_data():
         row['relationships'] = relationships
         formatted_results.append(row)
 
-    end_time = time.time()
-    duration = end_time - start_time
+    duration = time.time() - start_time
     print(f"✅ Abfrage erfolgreich. {len(formatted_results)} Zeilen gefunden in {duration:.2f} Sekunden.")
     return jsonify(formatted_results)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
