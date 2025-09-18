@@ -412,6 +412,37 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(len(nodes), 2)
         self.assertEqual(nodes[0]["n"]["name"], "Alice")
 
+    def test_save_mapping_with_relationship(self):
+        """Speichert Daten mit Node- und Relationship-Mapping."""
+        csv_data = "id,name,city\n1,Alice,Berlin\n2,Bob,Hamburg"
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+
+        mapping = {
+            "nodes": {
+                "Person": [
+                    {"original": "name", "renamed": "name"}
+                ],
+                "Ort": [
+                    {"original": "city", "renamed": "name"}
+                ]
+            },
+            "relationships": [
+                {"from": "Person", "to": "Ort", "type": "WOHNT_IN"}
+            ]
+        }
+
+        response = self.app.post(
+            '/save_mapping',
+            data=json.dumps(mapping),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+
+        rels = self.graph.run("MATCH (p:Person)-[r:WOHNT_IN]->(o:Ort) RETURN r").data()
+        self.assertEqual(len(rels), 2)
+
 
 if __name__ == '__main__':
     unittest.main()
