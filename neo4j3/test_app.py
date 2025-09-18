@@ -493,6 +493,25 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(response.status_code, 200)  # Sniffer akzeptiert die CSV
 
 
+    def test_add_column_success(self):
+        """Fügt erfolgreich eine neue Property zu allen Nodes eines Labels hinzu."""
+        # Testdaten erstellen
+        node1 = Node("Person", name="Alice")
+        node2 = Node("Person", name="Bob", age=30)
+        self.graph.create(node1 | node2)
+
+        response = self.app.post(
+            '/api/add_column',
+            data=json.dumps({"column": "status", "label": "Person"}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Neue Spalte 'status'", response.data)
+
+        # Prüfen, ob die Property bei allen Nodes existiert
+        result = self.graph.run("MATCH (n:Person) RETURN n.status AS status, n.name AS name").data()
+        self.assertEqual(len(result), 2)
+        self.assertTrue(all("status" in row and row["status"] == "" for row in result))
 
 
 if __name__ == '__main__':
