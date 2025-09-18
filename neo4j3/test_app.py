@@ -769,5 +769,13 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertIn("HAT_WOHNSITZ", data)
         self.assertIn("LIVES_IN", data)
 
+    def test_upload_large_csv(self):
+        """Testet Upload einer sehr großen CSV (z.B. 20.000 Zeilen)."""
+        large_csv = "id,name\n" + "\n".join(f"{i},Name{i}" for i in range(1, 20001))
+        response = self.app.post('/upload', data={'data': large_csv}, content_type='multipart/form-data')
+        self.assertEqual(response.status_code, 200)
+        with self.app.session_transaction() as sess:
+            self.assertEqual(len(sess['raw_data'].splitlines()), 20001)  # inkl. Header
+
 if __name__ == '__main__':
     unittest.main()
