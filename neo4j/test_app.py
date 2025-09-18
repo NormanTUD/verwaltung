@@ -912,16 +912,21 @@ class TestNeo4jApp(unittest.TestCase):
         """Create two persons and verify limit parameter restricts rows."""
         self.graph.run("MATCH (n) DETACH DELETE n")
         # create two persons each with an Ort+Stadt
+
         self.graph.run(
             "CREATE (p1:Person {vorname:'A', nachname:'One'}) "
             "CREATE (o1:Ort {strasse:'S1', plz:'11111'}) "
             "CREATE (s1:Stadt {stadt:'City1'}) "
-            "CREATE (p1)-[:WOHNT_IN]->(o1), (o1)-[:LIEGT_IN]->(s1);"
+            "CREATE (p1)-[:WOHNT_IN]->(o1), (o1)-[:LIEGT_IN]->(s1)"
+        )
+
+        self.graph.run(
             "CREATE (p2:Person {vorname:'B', nachname:'Two'}) "
             "CREATE (o2:Ort {strasse:'S2', plz:'22222'}) "
             "CREATE (s2:Stadt {stadt:'City2'}) "
-            "CREATE (p2)-[:WOHNT_IN]->(o2), (o2)-[:LIEGT_IN]->(s2);"
+            "CREATE (p2)-[:WOHNT_IN]->(o2), (o2)-[:LIEGT_IN]->(s2)"
         )
+
         with self.app as client:
             resp_no_limit = client.get('/api/new_query_table', query_string={'nodes': 'Person,Ort,Stadt'})
             self.assertEqual(resp_no_limit.status_code, 200)
