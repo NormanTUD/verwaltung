@@ -29,6 +29,13 @@ run_app() {
 }
 
 run_tests() {
+	if [[ ! -d ~/.verwaltungs_test ]]; then
+		python3 -mvenv ~/.verwaltungs_test
+	fi
+	source ~/.verwaltungs_test/bin/activate
+
+	pip install mypy pylint
+
 	mypy app.py
 	pylint app.py
 	log "Führe Tests im Python-Container aus..."
