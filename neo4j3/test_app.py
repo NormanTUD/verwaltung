@@ -541,6 +541,24 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(response2.status_code, 400)
         self.assertIn(b"Fehlende Daten", response2.data)
 
+    def test_add_column_empty_json(self):
+        """Fehler, wenn der Request-Body leer oder ungültig ist."""
+        response = self.app.post(
+            '/api/add_column',
+            data="",
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"Request-Body ist leer", response.data)
+
+        response2 = self.app.post(
+            '/api/add_column',
+            data="INVALID_JSON",
+            content_type='application/json'
+        )
+        self.assertEqual(response2.status_code, 400)
+        self.assertIn(b"Request-Body ist leer", response2.data)
+
 
 if __name__ == '__main__':
     unittest.main()
