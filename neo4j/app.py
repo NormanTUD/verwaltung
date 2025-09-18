@@ -802,28 +802,31 @@ def delete_node(node_id):
         print(f"Fehler beim Löschen des Nodes: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-from flask import request, jsonify
-
 @app.route('/api/new_query_table', methods=['GET'])
 def new_query_table():
     try:
+        print("=== API new_query_table gestartet ===")
         # ------------------------
         # GET-Parameter
         # ------------------------
         node_csv = request.args.get('nodes')
         if not node_csv:
+            print("Fehler: nodes-Parameter fehlt")
             return jsonify({"status": "error", "message": "Parameter 'nodes' erforderlich"}), 400
         selected_labels = [n.strip() for n in node_csv.split(',') if n.strip()]
+        print("Selected labels:", selected_labels)
 
         max_depth = int(request.args.get('maxDepth', 3))
         limit = request.args.get('limit')
         limit = int(limit) if limit else None
+        print("Max depth:", max_depth, "Limit:", limit)
 
         filter_labels_csv = request.args.get('filterLabels')
         filter_labels = [l.strip() for l in filter_labels_csv.split(',')] if filter_labels_csv else None
+        print("Filter labels:", filter_labels)
 
         # ------------------------
-        # Cypher-Abfrage
+        # Cypher-Abfrage: wir wollen Pfade, um alle erreichbaren Nodes vom Start zu sammeln
         # ------------------------
         cypher_query = f"""
         MATCH p=(start)-[*..{max_depth}]->(end)
@@ -832,61 +835,162 @@ def new_query_table():
         """
         if limit:
             cypher_query += f" LIMIT {limit}"
+        print("Cypher Query:", cypher_query.strip())
 
         results = graph.run(cypher_query, labels=selected_labels).data()
+        print(f"Ergebnisse erhalten: {len(results)} Pfade")
 
         # ------------------------
-        # Alle Labels sammeln
+        # Struktur: main_nodes[main_id] = {
+        #     "nodes": { label: { node_id: {"props": {...}, "min_dist": int} } },
+        #     "adjacent": set(node_id, ...),
+        #     "relations": [ {fromId,toId,relation}, ... ]
+        # }
         # ------------------------
-        all_labels = set()
-        for r in results:
-            for n in r['p'].nodes:
-                labels = [l for l in n.labels if l in selected_labels]
-                if filter_labels:
-                    labels = [l for l in labels if l in filter_labels]
-                all_labels.update(labels)
-        all_labels = list(all_labels)
+        if not selected_labels:
+            print("Keine selected_labels nach Parsen - Abbruch")
+            return jsonify({"status": "error", "message": "No labels parsed"}), 400
 
-        # ------------------------
-        # Tabelle bauen
-        # ------------------------
-        table_results = []
-        columns_set = set()  # um Columns eindeutig zu sammeln
+        main_label = selected_labels[0]
+        print("main_label (pivot):", main_label)
 
-        for r in results:
+        main_nodes = {}  # keyed by main_id
+        columns_set = set()
+
+        # process each path to collect data
+        for path_idx, r in enumerate(results):
             path = r['p']
-            row_cells = []
-            relations = []
+            print(f"\n--- Verarbeitung Pfad {path_idx+1}/{len(results)} ---")
+            node_list = list(path.nodes)
+            print("Pfad-Nodes (id: labels):", [(n.identity, list(n.labels)) for n in node_list])
 
-            # Nodes einfügen
-            for n in path.nodes:
-                node_labels = [l for l in n.labels if l in selected_labels]
-                if filter_labels:
-                    node_labels = [l for l in node_labels if l in filter_labels]
+            # find main nodes in this path (could be multiple if path contains multiple mains)
+            main_positions = [(i, n) for i, n in enumerate(node_list) if main_label in n.labels]
+            if not main_positions:
+                print("  Kein main_label in diesem Pfad gefunden -> überspringe")
+                continue
+            print("  Main positions in path:", [(i, n.identity) for i, n in main_positions])
 
-                for label in node_labels:
-                    for prop, value in dict(n).items():
-                        row_cells.append({"value": value, "nodeId": n.identity})
+            # for each main occurrence, aggregate the whole path into that main's bucket
+            for main_index, main_node in main_positions:
+                main_id = main_node.identity
+                if main_id not in main_nodes:
+                    main_nodes[main_id] = {"nodes": {}, "adjacent": set(), "relations": []}
+                    print(f"  Neuer main_node bucket: {main_id}")
+
+                bucket = main_nodes[main_id]
+
+                # collect nodes with min distance metric
+                for idx, n in enumerate(node_list):
+                    node_id = n.identity
+                    node_labels = [l for l in n.labels if l in selected_labels]
+                    if filter_labels:
+                        node_labels = [l for l in node_labels if l in filter_labels]
+                    if not node_labels:
+                        continue
+
+                    dist = abs(idx - main_index)
+                    print(f"    Node {node_id} labels {node_labels} at idx {idx} (dist {dist})")
+
+                    for label in node_labels:
+                        label_map = bucket["nodes"].setdefault(label, {})
+                        existing = label_map.get(node_id)
+                        props = dict(n)
+
+                        if existing is None:
+                            label_map[node_id] = {"props": props, "min_dist": dist}
+                            print(f"      -> store node {node_id} for label {label}, dist {dist}, props keys {list(props.keys())}")
+                        else:
+                            if dist < existing["min_dist"]:
+                                existing["min_dist"] = dist
+                                existing["props"] = props
+                                print(f"      -> update node {node_id} dist -> {dist}")
+
+                # collect relations and mark adjacency
+                for rel in path.relationships:
+                    from_id = rel.start_node.identity
+                    to_id = rel.end_node.identity
+                    rel_dict = {"fromId": from_id, "toId": to_id, "relation": type(rel).__name__}
+                    if rel_dict not in bucket["relations"]:
+                        bucket["relations"].append(rel_dict)
+                        print(f"    Relation hinzugefügt zu main {main_id}: {rel_dict}")
+
+                    # if relation is between main and some node, mark adjacency for that node
+                    if from_id == main_id:
+                        bucket["adjacent"].add(to_id)
+                        print(f"    Markiere {to_id} als adjacent zu main {main_id} (from main)")
+                    if to_id == main_id:
+                        bucket["adjacent"].add(from_id)
+                        print(f"    Markiere {from_id} als adjacent zu main {main_id} (to main)")
+
+        print("\n=== Sammlung abgeschlossen ===")
+        print("Haupt-Buckets gefunden:", list(main_nodes.keys()))
+
+        # ------------------------
+        # Columns: sammle alle (label, prop) über alle main_rows
+        # ------------------------
+        for main_id, bucket in main_nodes.items():
+            for label, nodes_map in bucket["nodes"].items():
+                for node_id, info in nodes_map.items():
+                    for prop in info["props"].keys():
                         columns_set.add((label, prop))
+        # stable sort columns
+        columns = [{"nodeType": lbl, "property": prop} for lbl, prop in sorted(columns_set, key=lambda x: (x[0], x[1]))]
+        print("Columns (sorted):", columns)
 
-            # Beziehungen einfügen (nur zwischen ausgewählten Node-Typen)
-            for rel in path.relationships:
-                if (rel.start_node.labels & set(selected_labels)) and (rel.end_node.labels & set(selected_labels)):
-                    relations.append({
-                        "fromId": rel.start_node.identity,
-                        "toId": rel.end_node.identity,
-                        "relation": type(rel).__name__
-                    })
+        # ------------------------
+        # Rows: für jede main_row, pro Column genau EINEN Wert wählen
+        # Auswahl-Policy:
+        # 1) Bevorzuge adjacent nodes (direkt mit main verbunden) mit kleinster min_dist
+        # 2) Falls keine adjacent: wähle node mit kleinster min_dist
+        # 3) Falls prop fehlt beim gewählten node -> value None
+        # ------------------------
+        rows = []
+        for main_id, bucket in main_nodes.items():
+            print(f"\n--- Build row für main {main_id} ---")
+            cells = []
+            for col in columns:
+                label = col["nodeType"]
+                prop = col["property"]
+                nodes_map = bucket["nodes"].get(label, {})
+                chosen_node_id = None
+                chosen_info = None
 
-            table_results.append({"cells": row_cells, "relations": relations})
+                if nodes_map:
+                    # first collect adjacent candidates
+                    adjacent_candidates = {nid: info for nid, info in nodes_map.items() if nid in bucket["adjacent"]}
+                    if adjacent_candidates:
+                        # choose adjacent with smallest min_dist
+                        chosen_node_id = min(adjacent_candidates.items(), key=lambda x: x[1]["min_dist"])[0]
+                        chosen_info = adjacent_candidates[chosen_node_id]
+                        print(f"  Column {label}.{prop}: chosen adjacent node {chosen_node_id} (dist {chosen_info['min_dist']})")
+                    else:
+                        # choose node with smallest min_dist overall
+                        chosen_node_id, chosen_info = min(nodes_map.items(), key=lambda x: x[1]["min_dist"])
+                        print(f"  Column {label}.{prop}: chosen nearest node {chosen_node_id} (dist {chosen_info['min_dist']})")
+                else:
+                    print(f"  Column {label}.{prop}: no nodes for label in this row -> None")
 
-        # Columns als Liste von dicts im gewünschten Format
-        columns = [{"nodeType": lbl, "property": prop} for lbl, prop in columns_set]
+                if chosen_info:
+                    val = chosen_info["props"].get(prop)
+                    print(f"    -> value from node {chosen_node_id} prop '{prop}' = {val!r}")
+                    cells.append({"value": val if val is not None else None, "nodeId": chosen_node_id})
+                else:
+                    cells.append({"value": None, "nodeId": None})
 
-        return jsonify({"columns": columns, "rows": table_results})
+            rows.append({"cells": cells, "relations": bucket["relations"]})
+            print(f"  Row built for main {main_id}: {rows[-1]}")
+
+        print("\n=== Fertige Tabelle ===")
+        print("Columns:", columns)
+        print("Anzahl Rows:", len(rows))
+        return jsonify({"columns": columns, "rows": rows})
 
     except Exception as e:
+        print("Fehler (Exception):", e)
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
 if __name__ == '__main__':
     try:
         app.run(debug=True)
