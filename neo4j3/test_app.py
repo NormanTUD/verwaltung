@@ -10,6 +10,7 @@ from app import (
     get_node_by_id,
     get_all_nodes_and_relationships,
     serialize_properties,
+    serialize_entity,
     serialize_value
 )
 
