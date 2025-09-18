@@ -1,0 +1,13 @@
+#!/bin/bash
+
+venv_dir="$HOME/.neo4jtest/"
+
+if [[ ! -d $venv_dir ]]; then
+	python3 -mvenv $venv_dir
+fi
+
+source "$venv_dir/bin/activate"
+
+pip install -r requirements.txt
+
+python3 test_app.py

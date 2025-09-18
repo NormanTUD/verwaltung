@@ -1,3 +1,4 @@
+import sys
 import os
 import csv
 import io
@@ -787,4 +788,8 @@ def delete_node(node_id):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    try:
+        app.run(debug=True)
+    except (KeyboardInterrupt, OSError):
+        print("You pressed CTRL-C")
+        sys.exit(0)
