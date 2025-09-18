@@ -1,0 +1,412 @@
+const querySelection = document.getElementById('querySelection');
+const resultsContainer = document.getElementById('resultsContainer');
+
+function fetchData() {
+	const selectedLabels = [...querySelection.querySelectorAll('input:checked')]
+		.map(input => input.value);
+
+	fetch('/api/query_data', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ selectedLabels })
+	}).then(response => response.json())
+		.then(data => {
+			if (data.status === 'error') {
+				alert(data.message);
+				return;
+			}
+			renderTable(data);
+		});
+}
+
+function renderTable(data) {
+	const resultsContainer = document.getElementById('resultsContainer');
+	resultsContainer.innerHTML = ''; // Alte Tabelle löschen
+
+	if (!Array.isArray(data) || data.length === 0) {
+		resultsContainer.innerHTML = '<p>Keine Ergebnisse gefunden.</p>';
+		return;
+	}
+
+	const table = document.createElement('table');
+	const thead = document.createElement('thead');
+	const tbody = document.createElement('tbody');
+
+	// 🕵️‍♂️ Prüfen, ob flache Liste (Knoten selbst hat properties)
+	const isFlatList = data[0].hasOwnProperty('properties');
+
+	// 📊 Alle Properties sammeln
+	const allProps = new Set();
+	data.forEach(item => {
+		if (isFlatList) {
+			Object.keys(item.properties || {}).forEach(prop => allProps.add(prop));
+		} else {
+			for (const key in item) {
+				if (item[key] && item[key].properties) {
+					Object.keys(item[key].properties).forEach(prop => allProps.add(prop));
+				}
+			}
+		}
+	});
+
+	// Neue Spalte "+" vor Aktion einfügen
+	const headers = [...Array.from(allProps), 'Beziehungen', '+', 'Aktion'];
+	thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+
+	// ✍️ Datenzeilen erzeugen
+	data.forEach(item => {
+		const row = document.createElement('tr');
+		let rowContent = '';
+		let nodeIDs = [];
+		let combinedProperties = {};
+
+		if (isFlatList) {
+			nodeIDs.push(item.id);
+			combinedProperties = item.properties || {};
+		} else {
+			for (const key in item) {
+				const node = item[key];
+				if (node && node.properties) {
+					nodeIDs.push(node.id);
+					Object.assign(combinedProperties, node.properties);
+				}
+			}
+		}
+
+		// Property-Zellen
+		headers.slice(0, -3).forEach(header => {
+			const value = combinedProperties[header] || '';
+			rowContent += `<td><input type="text" value="${value}" 
+		data-id="${nodeIDs.join(',')}" 
+		data-property="${header}"
+		onblur="updateValue(this)"></td>`;
+		});
+
+		// 🧩 Beziehungen-Zelle (nur sinnvoll bei verschachtelten Strukturen)
+		let relText = '';
+		if (!isFlatList) {
+			const rels = Array.isArray(item.relationships) ? item.relationships : [];
+			relText = rels.map(r => {
+				const fromNode = Object.values(item).find(n => n && n.id === r.from);
+				const toNode = Object.values(item).find(n => n && n.id === r.to);
+
+				const fromName = fromNode && fromNode.properties
+					? Object.values(fromNode.properties).filter(v => v != null).join(' ') || r.from
+					: r.from;
+				const toName = toNode && toNode.properties
+					? Object.values(toNode.properties).filter(v => v != null).join(' ') || r.to
+					: r.to;
+
+				const type = r.type || 'UNK';
+				return `${type}: ${fromName} → ${toName}`;
+			}).join('<br>');
+		}
+		rowContent += `<td>${relText}</td>`;
+
+		// Neue leere Spalte mit "+"
+		rowContent += `<td><button onclick="addColumnToNode(event)">+</button></td>`;
+
+		// Aktion-Zelle
+		rowContent += `<td><button class="delete-btn" data-id="${nodeIDs.join(',')}">Löschen</button></td>`;
+
+		row.innerHTML = rowContent;
+		tbody.appendChild(row);
+	});
+
+	table.appendChild(thead);
+	table.appendChild(tbody);
+	resultsContainer.appendChild(table);
+
+	document.querySelectorAll('.delete-btn').forEach(button => {
+		button.addEventListener('click', deleteNode);
+	});
+}
+
+function deleteNode(event) {
+	const nodeIds = event.target.getAttribute('data-id').split(',');
+	//if (confirm(`Sicher, dass du die verknüpften Einträge (${nodeIds.join(', ')}) löschen möchtest?`)) {
+	fetch(`/api/delete_nodes?ids=${nodeIds.join(',')}`, {
+		method: 'DELETE',
+	}).then(response => {
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+		return response.json();
+	})
+		.then(data => {
+			console.log(data.message);
+			if (data.status === 'success') {
+				fetchData();
+			}
+		})
+		.catch(error => console.error('Fehler beim Löschen:', error));
+	//}
+}
+
+function updateValue(element) {
+	const combinedIds = element.getAttribute('data-id').split(',').map(Number);
+	const propertyName = element.getAttribute('data-property');
+	const newValue = element.value;
+
+	if (element.originalValue === newValue) {
+		return;
+	}
+	element.originalValue = newValue;
+
+	fetch('/api/update_nodes', {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			ids: combinedIds,
+			property: propertyName,
+			value: newValue
+		})
+	}).then(response => {
+		if (!response.ok) {
+			return response.json().then(errorData => {
+				throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+			});
+		}
+		return response.json();
+	}).then(data => {
+		console.log(data.message);
+	}).catch(error => {
+		console.error('Fehler beim Aktualisieren:', error);
+	});
+}
+
+function addColumnToNode(event) {
+	let nodeIds = [];
+
+	// IDs aus allen Inputs der Tabellenzeile sammeln
+	const tr = event.target.closest('tr');
+	if (tr) {
+		const inputs = tr.querySelectorAll('input[data-id]');
+		const idSet = new Set(); // Duplikate vermeiden
+
+		inputs.forEach(input => {
+			const ids = input.getAttribute('data-id').split(',').map(id => id.trim());
+			ids.forEach(id => {
+				if (id) idSet.add(Number(id));
+			});
+		});
+
+		nodeIds = Array.from(idSet);
+	}
+
+	if (nodeIds.length === 0) {
+		alert("Keine IDs in dieser Zeile gefunden!");
+		return;
+	}
+
+	// Aktive Labels aus #querySelection
+	const activeLabels = Array.from(document.querySelectorAll('#querySelection input[type="checkbox"]:checked'))
+		.map(cb => cb.value);
+
+	if (activeLabels.length === 0) {
+		alert("Bitte mindestens einen Node-Typ im Bereich 'querySelection' auswählen!");
+		return;
+	}
+
+	// Overlay erzeugen
+	const overlay = document.createElement('div');
+	overlay.id = 'addColumnOverlay';
+	overlay.style.position = 'fixed';
+	overlay.style.top = 0;
+	overlay.style.left = 0;
+	overlay.style.width = '100%';
+	overlay.style.height = '100%';
+	overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
+	overlay.style.display = 'flex';
+	overlay.style.alignItems = 'center';
+	overlay.style.justifyContent = 'center';
+	overlay.style.zIndex = 1000;
+
+	// Modal-Inhalt
+	const modal = document.createElement('div');
+	modal.style.backgroundColor = '#fff';
+	modal.style.padding = '20px';
+	modal.style.borderRadius = '8px';
+	modal.style.minWidth = '300px';
+	modal.style.textAlign = 'center';
+	modal.style.boxShadow = '0 0 20px rgba(0,0,0,0.3)';
+
+	modal.innerHTML = `
+	<h3>Neue Spalte hinzufügen</h3>
+	<div style="margin-bottom: 10px; text-align: left;">
+	    <label for="columnNameInput">Spaltenname:</label><br>
+	    <input type="text" id="columnNameInput" style="width: 100%; padding: 5px;">
+	</div>
+	<div style="margin-bottom: 10px; text-align: left;">
+	    <label for="nodeTypeSelect">Node-Typ:</label><br>
+	    <select id="nodeTypeSelect" style="width: 100%; padding: 5px;">
+		${activeLabels.map(label => `<option value="${label}">${label}</option>`).join('')}
+	    </select>
+	</div>
+	<div style="margin-top: 15px;">
+	    <button id="confirmAddColumnBtn" style="margin-right: 10px;">OK</button>
+	    <button id="cancelAddColumnBtn">Abbrechen</button>
+	</div>
+    `;
+
+	overlay.appendChild(modal);
+	document.body.appendChild(overlay);
+
+	// Cancel-Handler
+	document.getElementById('cancelAddColumnBtn').addEventListener('click', () => {
+		if (document.body.contains(overlay)) {
+			document.body.removeChild(overlay);
+		}
+	});
+
+	// OK-Handler
+	document.getElementById('confirmAddColumnBtn').addEventListener('click', () => {
+		const columnName = document.getElementById('columnNameInput').value.trim();
+		const targetLabel = document.getElementById('nodeTypeSelect').value;
+
+		if (!columnName) {
+			alert("Bitte einen Spaltennamen eingeben!");
+			return;
+		}
+
+		fetch('/api/add_column', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				ids: nodeIds,
+				column: columnName,
+				label: targetLabel
+			})
+		})
+			.then(response => {
+				if (!response.ok) {
+					return response.json().then(errorData => {
+						throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+					});
+				}
+				return response.json();
+			})
+			.then(data => {
+				console.log(data.message);
+				if (data.status === 'success') {
+					fetchData();
+				}
+			})
+			.catch(error => {
+				console.error('Fehler beim Hinzufügen der Spalte:', error);
+			})
+			.finally(() => {
+				if (document.body.contains(overlay)) {
+					document.body.removeChild(overlay);
+				}
+			});
+	});
+}
+
+
+function addPropertyIfNotEmpty(inputElem) {
+	const value = inputElem.value.trim();
+	const ids = inputElem.getAttribute('data-id');
+
+	if (value === "") return; // nix eintragen, wenn leer
+
+	// Dynamischer Property-Name, z.B. aus dem Placeholder oder automatisch generiert
+	const propertyName = `prop_${Date.now()}`; // eindeutiger Name, optional anpassen
+
+	fetch('/api/update_nodes', {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			ids: ids.split(','),
+			property: propertyName,
+			value: value
+		})
+	}).then(response => {
+		if (!response.ok) {
+			return response.json().then(errorData => {
+				throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+			});
+		}
+		return response.json();
+	}).then(data => {
+		console.log(data.message);
+		// Optional: Header aktualisieren, damit neue Spalte sichtbar wird
+		fetchData();
+	}).catch(error => {
+		console.error('Fehler beim Hinzufügen der Property:', error);
+	});
+}
+
+
+// Neue Funktionen für das Speichern und Laden von Abfragen
+function loadSavedQueriesFromAPI() {
+	fetch('/api/get_saved_queries')
+		.then(response => response.json())
+		.then(data => {
+			const selectElement = document.getElementById('savedQueriesSelect');
+			selectElement.innerHTML = '<option value="">-- Wähle eine gespeicherte Abfrage --</option>';
+			if (data && data.length > 0) {
+				data.forEach(query => {
+					const option = document.createElement('option');
+					option.value = JSON.stringify(query.labels);
+					option.textContent = query.name;
+					selectElement.appendChild(option);
+				});
+			}
+		})
+		.catch(error => console.error('Fehler beim Laden gespeicherter Abfragen:', error));
+}
+
+function saveQuery() {
+	const name = document.getElementById('queryNameInput').value;
+	const selectedLabels = [...querySelection.querySelectorAll('input:checked')]
+		.map(input => input.value);
+
+	if (!name || selectedLabels.length === 0) {
+		alert('Bitte gib einen Namen ein und wähle mindestens ein Label aus.');
+		return;
+	}
+
+	fetch('/api/save_query', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ name, selectedLabels })
+	})
+		.then(response => response.json())
+		.then(data => {
+			alert(data.message);
+			if (data.status === 'success') {
+				document.getElementById('queryNameInput').value = '';
+				loadSavedQueriesFromAPI();
+			}
+		})
+		.catch(error => console.error('Fehler beim Speichern der Abfrage:', error));
+}
+
+function loadSavedQuery() {
+	const selectElement = document.getElementById('savedQueriesSelect');
+	const selectedLabelsJson = selectElement.value;
+
+	if (!selectedLabelsJson) {
+		return;
+	}
+
+	querySelection.querySelectorAll('input[type="checkbox"]').forEach(input => {
+		input.checked = false;
+	});
+
+	const labelsToSelect = JSON.parse(selectedLabelsJson);
+	labelsToSelect.forEach(label => {
+		const checkbox = querySelection.querySelector(`input[value="${label}"]`);
+		if (checkbox) {
+			checkbox.checked = true;
+		}
+	});
+
+	fetchData();
+}
+
+// Initial beim Laden der Seite
+document.addEventListener('DOMContentLoaded', () => {
+	loadSavedQueriesFromAPI();
+});
