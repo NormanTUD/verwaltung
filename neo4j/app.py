@@ -71,7 +71,7 @@ try:
     graph = None
     for attempt in range(15):  # max 15 Versuche
         try:
-            graph = Graph(os.getenv("NEO4J_URI"), auth=(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASS")))
+            graph = Graph(os.getenv("NEO4J_URI"), auth=(os.getenv("NEO4J_USER", "neo4j"), os.getenv("NEO4J_PASS", "test1234")))
             graph.run("RETURN 1")  # Testabfrage
             print("Neo4j ist bereit!")
             break
@@ -801,6 +801,105 @@ def delete_node(node_id):
     except Exception as e:
         print(f"Fehler beim Löschen des Nodes: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+from flask import request, jsonify
+
+@app.route('/api/new_query_table', methods=['GET'])
+def query_table():
+    try:
+        # ------------------------
+        # Parameter auslesen
+        # ------------------------
+        node_csv = request.args.get('nodes')
+        if not node_csv:
+            return jsonify({"status": "error", "message": "Parameter 'nodes' erforderlich"}), 400
+        selected_labels = [n.strip() for n in node_csv.split(',') if n.strip()]
+        max_depth = int(request.args.get('maxDepth', 3))
+        limit = request.args.get('limit')
+        limit = int(limit) if limit else None
+        filter_labels_csv = request.args.get('filterLabels')
+        filter_labels = [l.strip() for l in filter_labels_csv.split(',')] if filter_labels_csv else None
+
+        # ------------------------
+        # Cypher-Abfrage bauen
+        # ------------------------
+        # Dynamischer Pfad über alle ausgewählten Labels
+        cypher_query = f"""
+        MATCH p=(start)-[*..{max_depth}]->(end)
+        WHERE ANY(n IN nodes(p) WHERE ANY(l IN labels(n) WHERE l IN $labels))
+        RETURN p
+        """
+        if limit:
+            cypher_query += f" LIMIT {limit}"
+
+        # ------------------------
+        # Abfrage ausführen
+        # ------------------------
+        results = graph.run(cypher_query, labels=selected_labels).data()
+
+        # ------------------------
+        # Alle Labels sammeln
+        # ------------------------
+        all_labels = set()
+        for r in results:
+            for n in r['p'].nodes:
+                labels = [l for l in n.labels if l in selected_labels]
+                if filter_labels:
+                    labels = [l for l in labels if l in filter_labels]
+                all_labels.update(labels)
+        all_labels = list(all_labels)
+
+        # ------------------------
+        # Tabelle aufbauen
+        # ------------------------
+        table_results = []
+        for r in results:
+            path = r['p']
+            row = {label: [] for label in all_labels}
+            row['relations'] = []
+
+            for n in path.nodes:
+                labels = [l for l in n.labels if l in selected_labels]
+                if filter_labels:
+                    labels = [l for l in labels if l in filter_labels]
+                for label in labels:
+                    row[label].append({'id': n.identity, 'properties': dict(n)})
+
+            for rel in path.relationships:
+                # nur Relationen zwischen den gewählten Nodes
+                if rel.start_node.labels.intersection(selected_labels) and rel.end_node.labels.intersection(selected_labels):
+                    row['relations'].append({
+                        'fromId': rel.start_node.identity,
+                        'toId': rel.end_node.identity,
+                        'relation': type(rel).__name__
+                    })
+
+            # Listen mit nur einem Node vereinfachen
+            for label in all_labels:
+                if len(row[label]) == 1:
+                    row[label] = row[label][0]
+                elif len(row[label]) == 0:
+                    row[label] = None
+
+            table_results.append(row)
+
+        return jsonify({
+            "columns": [{"nodeType": lbl, "property": key} for lbl in all_labels for key in row[lbl]["properties"].keys()] if table_results else [],
+            "rows": [
+                {
+                    "cells": [
+                        {"value": node['properties'][prop], "nodeId": node['id']}
+                        for lbl in all_labels
+                        for prop, node in (row[lbl]["properties"].items(), row[lbl]) if node
+                    ],
+                    "relations": row['relations']
+                } for row in table_results
+            ]
+        })
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 if __name__ == '__main__':
     try:
