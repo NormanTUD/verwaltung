@@ -462,5 +462,14 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Person", response.data)  # Template enthält Node-Label
 
+    def test_overview_empty_db(self):
+        """Übersicht ohne Knoten in der DB."""
+        self.graph.run("MATCH (n) DETACH DELETE n")  # DB leeren
+        response = self.app.get('/overview')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"overview", response.data.lower())  # Template wird korrekt geladen
+
+
+
 if __name__ == '__main__':
     unittest.main()
