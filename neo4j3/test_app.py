@@ -4,6 +4,7 @@ import json
 from flask import session
 from py2neo import Graph, Node, Relationship
 from dotenv import load_dotenv
+from unittest.mock import patch
 
 # Lade Umgebungsvariablen aus der .env.test-Datei für die Tests
 load_dotenv('.env.test')
@@ -469,6 +470,28 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"overview", response.data.lower())  # Template wird korrekt geladen
 
+
+    def test_save_mapping_invalid_csv(self):
+        """Fehler beim Einlesen von ungültigem CSV."""
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = "id,name\nAlice;Bob"  # Trenner falsch
+
+        mapping = {"nodes": {}, "relationships": []}
+        response = self.app.post(
+            '/save_mapping',
+            data=json.dumps(mapping),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"Fehler beim Analysieren der CSV", response.data)
+
+    @patch("app.graph", None)  # Graph-Objekt simuliert als None
+    def test_overview_no_db(self):
+        """Übersicht mit fehlender DB-Verbindung."""
+        response = self.app.get('/overview')
+        self.assertEqual(response.status_code, 500)
+        self.assertIn(b"Datenbank nicht verbunden", response.data)
 
 
 if __name__ == '__main__':
