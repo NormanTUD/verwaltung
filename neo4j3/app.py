@@ -89,6 +89,21 @@ def save_queries_to_file(queries):
     with open(SAVED_QUERIES_FILE, 'w') as f:
         json.dump(queries, f, indent=4)
 
+
+@app.route('/api/delete_all', methods=['POST'])
+@test_if_deleted_db
+def delete_all():
+    """
+    Löscht alle Nodes und Relationships in der Datenbank.
+    Kann ohne Body oder Parameter aufgerufen werden.
+    """
+    try:
+        graph.run("MATCH (n) DETACH DELETE n")
+        return jsonify({"status": "success", "message": "Alle Knoten und Beziehungen wurden gelöscht"})
+    except Exception as e:
+        print("EXCEPTION:", str(e))
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/delete_nodes', methods=['DELETE'])
 @test_if_deleted_db
 def delete_nodes():
