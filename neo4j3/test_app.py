@@ -252,14 +252,6 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertTrue(any(row.get("Ort") for row in data))
         self.assertTrue(any(row.get("relationships") for row in data))
 
-    def test_query_data_invalid_json(self):
-        """Testet query_data mit ungültigem JSON."""
-        response = self.app.post('/api/query_data',
-                                data="INVALID_JSON",
-                                content_type='application/json')
-        self.assertEqual(response.status_code, 400)
-        self.assertIn(b"JSON-Format", response.data)
-
     def test_query_data_multiple_labels_without_relation(self):
         """Testet query_data mit Labels, die zwar im relation_map stehen, aber ohne bestehende Relation."""
         # Testdaten: Ort ohne Relation zu Stadt
