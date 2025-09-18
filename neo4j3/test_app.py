@@ -6,6 +6,13 @@ from py2neo import Graph, Node, Relationship
 from dotenv import load_dotenv
 from unittest.mock import patch
 
+from app import (
+    get_node_by_id,
+    get_all_nodes_and_relationships,
+    serialize_properties,
+    serialize_value
+)
+
 # Lade Umgebungsvariablen aus der .env.test-Datei für die Tests
 load_dotenv('.env.test')
 
@@ -589,6 +596,86 @@ class TestNeo4jApp(unittest.TestCase):
         result = self.graph.run("MATCH (n:NonExistentLabel) RETURN n").data()
         self.assertEqual(len(result), 0)
 
+    def test_get_node_by_id_success(self):
+        """Node wird korrekt über ID zurückgegeben."""
+        node = Node("Person", name="Alice")
+        self.graph.create(node)
+        
+        result_node = get_node_by_id(node.identity)
+        self.assertEqual(result_node["name"], "Alice")
+        self.assertIn("Person", list(result_node.labels))
+
+    def test_get_node_by_id_nonexistent(self):
+        """Fehler beim Zugriff auf nicht existierende Node-ID."""
+        with self.assertRaises(IndexError):
+            get_node_by_id(999999)
+
+    def test_get_all_nodes_and_relationships_success(self):
+        """Holt Labels und Relationship-Typen korrekt."""
+        node = Node("Person", name="Alice")
+        city = Node("Ort", name="Berlin")
+        rel = Relationship(node, "HAT_WOHNSITZ", city)
+        self.graph.create(node | city | rel)
+        
+        result = get_all_nodes_and_relationships()
+        self.assertIn("Person", result["labels"])
+        self.assertIn("Ort", result["labels"])
+        self.assertIn("HAT_WOHNSITZ", result["types"])
+
+    def test_get_all_nodes_and_relationships_empty(self):
+        """Leere DB liefert leere Listen."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        result = get_all_nodes_and_relationships()
+        self.assertEqual(result["labels"], [])
+        self.assertEqual(result["types"], [])
+
+    def test_serialize_properties_basic(self):
+        """Serialisiert einfache Properties unverändert."""
+        props = {"name": "Alice", "age": 30, "active": True}
+        result = serialize_properties(props)
+        self.assertEqual(result, props)
+
+    def test_serialize_properties_with_function(self):
+        """Funktion wird in String konvertiert."""
+        def dummy_func(): pass
+        props = {"callback": dummy_func}
+        result = serialize_properties(props)
+        self.assertEqual(result["callback"], f"FUNCTION_OBJECT: {dummy_func.__name__}")
+
+    def test_serialize_properties_nonstandard_object(self):
+        """Nicht-standard Objekte werden in Strings konvertiert."""
+        class Custom:
+            def __str__(self):
+                return "custom_obj"
+        props = {"obj": Custom()}
+        result = serialize_properties(props)
+        self.assertEqual(result["obj"], "custom_obj")
+
+    def test_serialize_value_basic(self):
+        """Primitive Werte bleiben unverändert."""
+        self.assertEqual(serialize_value(42), 42)
+        self.assertEqual(serialize_value("text"), "text")
+        self.assertEqual(serialize_value(True), True)
+        self.assertEqual(serialize_value(None), None)
+
+    def test_serialize_value_function(self):
+        """Funktion wird in String konvertiert."""
+        def f(): pass
+        self.assertEqual(serialize_value(f), f"FUNCTION_OBJECT: {f.__name__}")
+
+    def test_serialize_value_list_and_dict(self):
+        """Listen und Dicts werden rekursiv serialisiert."""
+        def g(): pass
+        value = {"a": [1, g, {"b": g}]}
+        result = serialize_value(value)
+        self.assertEqual(result["a"][1], f"FUNCTION_OBJECT: {g.__name__}")
+        self.assertEqual(result["a"][2]["b"], f"FUNCTION_OBJECT: {g.__name__}")
+
+    def test_serialize_value_custom_object(self):
+        """Nicht-standard Objekt wird als String serialisiert."""
+        class Custom: pass
+        obj = Custom()
+        self.assertEqual(serialize_value(obj), str(obj))
 
 if __name__ == '__main__':
     unittest.main()
