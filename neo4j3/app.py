@@ -610,113 +610,80 @@ def safe_var_name(label):
     # Ersetzt alle nicht-alphanumerischen Zeichen durch "_"
     return "".join(ch if ch.isalnum() else "_" for ch in label.lower())
 
+from flask import request, jsonify
+import time
+
 @app.route('/api/query_data', methods=['POST'])
 @test_if_deleted_db
 def query_data():
     start_time = time.time()
     print("🚀 API-Anfrage erhalten: /api/query_data")
 
+    # -------------------------------
+    # JSON einlesen
+    # -------------------------------
     try:
         data = request.get_json()
         if not data:
             return jsonify({"status": "error", "message": "Ungültiges JSON-Format oder leerer Body"}), 400
         selected_labels = data.get('selectedLabels', [])
+        max_depth = data.get('maxDepth', 3)
+        limit = data.get('limit', 200)
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
     if not selected_labels:
         return jsonify({"status": "error", "message": "Bitte wählen Sie mindestens einen Node-Typ aus."}), 400
 
-    print(f"🏷️ Ausgewählte Labels: {selected_labels}")
+    print(f"🏷️ Ausgewählte Labels: {selected_labels}, maxDepth={max_depth}, limit={limit}")
 
     # -------------------------------
-    # Debug: Teste Knoten
+    # Pfad-Abfrage dynamisch für beliebige Labels
     # -------------------------------
-    for label in selected_labels:
-        query_nodes = f"MATCH (n:{label}) RETURN n LIMIT 5"
-        try:
-            test_results = graph.run(query_nodes).data()
-            print(f"Label '{label}': {len(test_results)} Knoten")
-            for tr in test_results:
-                n = tr['n']
-                print(f"  id={n.identity}, labels={list(n.labels)}, properties={dict(n)}")
-        except Exception as e:
-            print(f"Fehler Label '{label}': {e}")
-
-    # -------------------------------
-    # Debug: Teste Relationen
-    # -------------------------------
-    for i, src in enumerate(selected_labels):
-        for j, tgt in enumerate(selected_labels):
-            if i == j:
-                continue
-            query_rel = f"MATCH (a:{src})-[r]->(b:{tgt}) RETURN a,r,b LIMIT 5"
-            try:
-                rel_results = graph.run(query_rel).data()
-                print(f"Relation '{src}'->{tgt}: {len(rel_results)} gefunden")
-                for rr in rel_results:
-                    a, r, b = rr['a'], rr['r'], rr['b']
-                    print(f"  {a.identity}-[{type(r).__name__}]->{b.identity}")
-            except Exception as e:
-                print(f"Fehler Relation '{src}->{tgt}': {e}")
-
-    # -------------------------------
-    # Dynamische Pfad-Abfrage
-    # -------------------------------
-    labels_param = list(selected_labels)
-    cypher_query = """
-    MATCH p=(person:Person)-[*..3]->(related)
-    WHERE ANY(l IN labels(related) WHERE l IN $labels)
-    RETURN p LIMIT 100
+    cypher_query = f"""
+    MATCH p=(start)-[*..{max_depth}]->(end)
+    WHERE ANY(n IN nodes(p) WHERE ANY(l IN labels(n) WHERE l IN $labels))
+    RETURN p LIMIT $limit
     """
     print("📊 Generierte Pfad-Abfrage:")
     print(cypher_query)
-    print(f"Labels: {labels_param}")
+    print(f"Labels: {selected_labels}")
 
     try:
-        path_results = graph.run(cypher_query, labels=labels_param).data()
+        path_results = graph.run(cypher_query, labels=selected_labels, limit=limit).data()
         print(f"Gefundene Pfade: {len(path_results)}")
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
     # -------------------------------
-    # Ergebnis pro Person aufbauen
+    # Alle Labels dynamisch aus den Pfaden sammeln
     # -------------------------------
-    person_map = {}
+    all_labels = set()
+    for r in path_results:
+        for n in r['p'].nodes:
+            all_labels.update(n.labels)
+    all_labels = list(all_labels)
+
+    # -------------------------------
+    # Ergebnisse tabellarisch aufbereiten
+    # -------------------------------
+    table_results = []
 
     for r in path_results:
         path = r['p']
-        nodes = path.nodes
-        rels = path.relationships
+        row = {label: [] for label in all_labels}
+        row['relationships'] = []
 
-        # Person = Startknoten
-        person_node = nodes[0]
-        person_id = person_node.identity
-
-        if person_id not in person_map:
-            person_map[person_id] = {label: None for label in selected_labels}
-            person_map[person_id]['relationships'] = []
-            # Person selbst
-            person_map[person_id]['Person'] = {
-                'id': person_node.identity,
-                'labels': list(person_node.labels),
-                'properties': dict(person_node)
-            }
-
-        row = person_map[person_id]
-
-        # andere Nodes zuordnen
-        for n in nodes[1:]:
+        # Nodes einfügen
+        for n in path.nodes:
             for label in n.labels:
-                if label in selected_labels:
-                    row[label] = {
-                        'id': n.identity,
-                        'labels': list(n.labels),
-                        'properties': dict(n)
-                    }
+                row[label].append({
+                    'id': n.identity,
+                    'properties': dict(n)
+                })
 
-        # Beziehungen hinzufügen
-        for rel in rels:
+        # Beziehungen einfügen
+        for rel in path.relationships:
             row['relationships'].append({
                 'from': rel.start_node.identity,
                 'to': rel.end_node.identity,
@@ -724,11 +691,19 @@ def query_data():
                 'properties': dict(rel)
             })
 
-    formatted_results = list(person_map.values())
-    duration = time.time() - start_time
-    print(f"✅ Abfrage fertig: {len(formatted_results)} Personen in {duration:.2f}s")
+        # Listen mit nur einem Element zu Dictionary konvertieren
+        for label in all_labels:
+            if len(row[label]) == 1:
+                row[label] = row[label][0]
+            elif len(row[label]) == 0:
+                row[label] = None
 
-    return jsonify(formatted_results)
+        table_results.append(row)
+
+    duration = time.time() - start_time
+    print(f"✅ Abfrage fertig: {len(table_results)} Zeilen in {duration:.2f}s")
+
+    return jsonify(table_results)
 
 
 
