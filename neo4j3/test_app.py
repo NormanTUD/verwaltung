@@ -243,5 +243,13 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertTrue(any(row.get("Ort") for row in data))
         self.assertTrue(any(row.get("relationships") for row in data))
 
+    def test_query_data_invalid_json(self):
+        """Testet query_data mit ungültigem JSON."""
+        response = self.app.post('/api/query_data',
+                                data="INVALID_JSON",
+                                content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"JSON-Format", response.data)
+
 if __name__ == '__main__':
     unittest.main()
