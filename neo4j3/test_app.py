@@ -730,5 +730,15 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(len(data['nodes']), 2)
         self.assertEqual(len(data['links']), 2)
 
+    def test_upload_valid_csv(self):
+        """Testet den Upload von gültigen CSV-Daten."""
+        csv_data = "id,name,city\n1,Alice,Berlin\n2,Bob,Hamburg"
+        response = self.app.post('/upload', data={'data': csv_data})
+        self.assertEqual(response.status_code, 200)
+        # Prüfen, ob die Header in der Session gespeichert wurden
+        with self.app.session_transaction() as sess:
+            self.assertIn('headers', sess)
+            self.assertEqual(sess['headers'], ['id', 'name', 'city'])
+
 if __name__ == '__main__':
     unittest.main()
