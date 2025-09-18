@@ -614,62 +614,50 @@ from flask import request, jsonify
 import time
 
 
-@app.route('/api/query_data', methods=['POST'])
-@test_if_deleted_db
-def query_data():
-    start_time = time.time()
-    print("🚀 API-Anfrage erhalten: /api/query_data")
 
-    # -------------------------------
-    # JSON einlesen
-    # -------------------------------
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"status": "error", "message": "Ungültiges JSON-Format oder leerer Body"}), 400
-        selected_labels = data.get('selectedLabels', [])
-        max_depth = data.get('maxDepth', 3)
-        limit = data.get('limit', 200)
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 400
-
+def parse_request_json(req_json):
+    """JSON auslesen und default values setzen"""
+    if not req_json:
+        raise ValueError("Ungültiges JSON-Format oder leerer Body")
+    selected_labels = req_json.get('selectedLabels', [])
+    max_depth = req_json.get('maxDepth', 3)
+    limit = req_json.get('limit', 200)
     if not selected_labels:
-        return jsonify({"status": "error", "message": "Bitte wählen Sie mindestens einen Node-Typ aus."}), 400
+        raise ValueError("Bitte wählen Sie mindestens einen Node-Typ aus.")
+    return selected_labels, max_depth, limit
 
-    print(f"🏷️ Ausgewählte Labels: {selected_labels}, maxDepth={max_depth}, limit={limit}")
 
-    # -------------------------------
-    # Pfad-Abfrage dynamisch für beliebige Labels
-    # -------------------------------
-    cypher_query = f"""
+def generate_cypher_query(max_depth):
+    """Dynamische Pfad-Abfrage für Neo4j generieren"""
+    query = f"""
     MATCH p=(start)-[*..{max_depth}]->(end)
     WHERE ANY(n IN nodes(p) WHERE ANY(l IN labels(n) WHERE l IN $labels))
     RETURN p LIMIT $limit
     """
-    print("📊 Generierte Pfad-Abfrage:")
-    print(cypher_query)
-    print(f"Labels: {selected_labels}")
+    return query
 
+
+def run_query(graph, query, labels, limit):
+    """Neo4j-Abfrage ausführen und Ergebnis zurückgeben"""
     try:
-        path_results = graph.run(cypher_query, labels=selected_labels, limit=limit).data()
-        print(f"Gefundene Pfade: {len(path_results)}")
+        results = graph.run(query, labels=labels, limit=limit).data()
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        raise RuntimeError(f"Fehler bei der Neo4j-Abfrage: {e}")
+    return results
 
-    # -------------------------------
-    # Alle Labels dynamisch aus den Pfaden sammeln
-    # -------------------------------
+
+def collect_labels(path_results, selected_labels):
+    """Alle Labels aus den Pfaden sammeln, die ausgewählt wurden"""
     all_labels = set()
     for r in path_results:
         for n in r['p'].nodes:
-            # nur ausgewählte Labels sammeln
             filtered_labels = [l for l in n.labels if l in selected_labels]
             all_labels.update(filtered_labels)
-    all_labels = list(all_labels)
+    return list(all_labels)
 
-    # -------------------------------
-    # Ergebnisse tabellarisch aufbereiten
-    # -------------------------------
+
+def build_table_results(path_results, selected_labels, all_labels):
+    """Tabellarische Ergebnisse aus Pfaden aufbereiten"""
     table_results = []
 
     for r in path_results:
@@ -677,16 +665,13 @@ def query_data():
         row = {label: [] for label in all_labels}
         row['relationships'] = []
 
-        # Nodes einfügen, nur ausgewählte Labels
+        # Nodes einfügen
         for n in path.nodes:
             filtered_labels = [l for l in n.labels if l in selected_labels]
             for label in filtered_labels:
-                row[label].append({
-                    'id': n.identity,
-                    'properties': dict(n)
-                })
+                row[label].append({'id': n.identity, 'properties': dict(n)})
 
-        # Beziehungen einfügen (alle beibehalten)
+        # Beziehungen einfügen
         for rel in path.relationships:
             row['relationships'].append({
                 'from': rel.start_node.identity,
@@ -703,6 +688,45 @@ def query_data():
                 row[label] = None
 
         table_results.append(row)
+    return table_results
+
+
+# -------------------------------
+# Flask Route
+# -------------------------------
+
+@app.route('/api/query_data', methods=['POST'])
+@test_if_deleted_db
+def query_data():
+    start_time = time.time()
+    print("🚀 API-Anfrage erhalten: /api/query_data")
+
+    # JSON parsen
+    try:
+        selected_labels, max_depth, limit = parse_request_json(request.get_json())
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+    print(f"🏷️ Ausgewählte Labels: {selected_labels}, maxDepth={max_depth}, limit={limit}")
+
+    # Cypher-Abfrage generieren
+    cypher_query = generate_cypher_query(max_depth)
+    print("📊 Generierte Pfad-Abfrage:")
+    print(cypher_query)
+    print(f"Labels: {selected_labels}")
+
+    # Abfrage ausführen
+    try:
+        path_results = run_query(graph, cypher_query, selected_labels, limit)
+        print(f"Gefundene Pfade: {len(path_results)}")
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    # Alle Labels sammeln
+    all_labels = collect_labels(path_results, selected_labels)
+
+    # Ergebnisse aufbereiten
+    table_results = build_table_results(path_results, selected_labels, all_labels)
 
     duration = time.time() - start_time
     print(f"✅ Abfrage fertig: {len(table_results)} Zeilen in {duration:.2f}s")
