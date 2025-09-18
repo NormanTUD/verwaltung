@@ -632,7 +632,6 @@ def run_query(graph, query, labels, limit):
         results = graph.run(query, labels=labels, limit=limit).data()
     except Exception as e:
         print(f"❌ Fehler bei der Neo4j-Abfrage: {e}")
-        raise RuntimeError(f"Fehler bei der Neo4j-Abfrage: {e}")
     print(f"✅ Abfrage erfolgreich, {len(results)} Ergebnisse erhalten")
     return results
 
