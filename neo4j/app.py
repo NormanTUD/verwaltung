@@ -603,9 +603,6 @@ def safe_var_name(label):
     # Ersetzt alle nicht-alphanumerischen Zeichen durch "_"
     return "".join(ch if ch.isalnum() else "_" for ch in label.lower())
 
-from flask import request, jsonify
-import time
-
 # -------------------------------
 # Helper Functions
 # -------------------------------
