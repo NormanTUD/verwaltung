@@ -5,10 +5,9 @@ import csv
 import io
 import json
 import inspect
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for
+from flask import Flask, request, jsonify, render_template, session
 from py2neo import Graph, Relationship
 from dotenv import load_dotenv
-import itertools
 import functools
 
 from rich.console import Console
@@ -121,13 +120,13 @@ def delete_nodes():
     """Löscht mehrere Nodes und ihre Beziehungen aus der Datenbank."""
     if not graph:
         return jsonify({"status": "error", "message": "Datenbank nicht verbunden."}), 500
-    
+
     # Check if 'ids' is in the URL query string
     ids_param = request.args.get('ids')
-    
+
     if not ids_param:
         return jsonify({"status": "error", "message": "Fehlende 'ids' im URL-Parameter."}), 400
-    
+
     try:
         # Split the string by comma and convert each part to an integer
         node_ids = []
@@ -143,10 +142,10 @@ def delete_nodes():
                     continue
     except ValueError:
         return jsonify({"status": "error", "message": "Ungültiges Format für 'ids'. Erwarte eine durch Kommas getrennte Liste von Zahlen."}), 400
-        
+
     if not node_ids:
         return jsonify({"status": "success", "message": "Keine Nodes zum Löschen angegeben."})
-        
+
     query = """
         UNWIND $ids AS id
         MATCH (n) WHERE ID(n) = id
@@ -219,7 +218,7 @@ def update_nodes():
     node_ids = data.get('ids', [])
     property_name = data.get('property')
     new_value = data.get('value')
-    
+
     if not all([node_ids, property_name is not None, new_value is not None]):
         return jsonify({"status": "error", "message": "Fehlende Daten im Request."}), 400
 
@@ -233,10 +232,10 @@ def update_nodes():
             MATCH (n) WHERE ID(n) = id
             SET n.{property_name} = $value
         """
-        
+
         # Führe die Abfrage aus
         graph.run(query, ids=node_ids, value=new_value)
-        
+
         return jsonify({"status": "success", "message": f"{len(node_ids)} Nodes wurden aktualisiert."})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -289,11 +288,11 @@ def save_query():
             return jsonify({'status': 'error', 'message': 'Name und Labels sind erforderlich.'}), 400
 
         queries = load_saved_queries()
-        
+
         # Prüfe, ob die Abfrage bereits existiert
         if any(q['name'] == name for q in queries):
             return jsonify({'status': 'error', 'message': f'Abfrage mit dem Namen "{name}" existiert bereits.'}), 409
-            
+
         queries.append({'name': name, 'labels': labels})
         save_queries_to_file(queries)
         return jsonify({'status': 'success', 'message': 'Abfrage erfolgreich gespeichert.'})
@@ -429,7 +428,7 @@ def get_graph_data():
                     # Safely get the type string, even if it's a function object
                     if callable(rel_type):
                         rel_type = rel_type.__name__
-                        
+
                     links.append({
                         'source': n_id,
                         'target': m_id,
@@ -449,20 +448,20 @@ def upload_data():
     """Verarbeitet den CSV/TSV-Upload und zeigt die Header für die Zuordnung an."""
     if 'data' not in request.form:
         return "Keine Daten hochgeladen", 400
-    
+
     data = request.form['data']
     session['raw_data'] = data
-    
+
     try:
         f = io.StringIO(data)
         dialect = csv.Sniffer().sniff(f.read(1024))
         f.seek(0)
         reader = csv.reader(f, dialect)
         headers = next(reader)
-        
+
         # Lege Header in der Session ab
         session['headers'] = headers
-        
+
         return render_template('mapping.html', headers=headers)
     except csv.Error as e:
         return f"Fehler beim Parsen der Daten: {e}", 400
@@ -492,7 +491,7 @@ def save_mapping():
         return jsonify({"status": "error", "message": "Sitzungsdaten fehlen oder Datenbank nicht verbunden."}), 500
 
     raw_data = session.pop('raw_data')
-    
+
     f = io.StringIO(raw_data)
     try:
         dialect = csv.Sniffer().sniff(f.read(1024))
@@ -507,7 +506,7 @@ def save_mapping():
         nodes_to_create = {}
         for i, row in enumerate(reader):
             print(f"\n--- Bearbeite Zeile {i+1} ---")
-            
+
             # MERGE-Vorgänge für Knoten
             for node_type, fields in mapping_data.get('nodes', {}).items():
                 node_var = safe_var_name(node_type)      # safe für Cypher-Variablen
@@ -524,9 +523,9 @@ def save_mapping():
                 if not all_props:
                     print(f"  ❌ Keine Daten für den Knoten-Typ '{node_type}' in dieser Zeile. Überspringe.")
                     continue
-                
+
                 identifier_key, identifier_value = next(iter(all_props.items()))
-                
+
                 print(f"  ➡️ Versuche, einen Knoten vom Typ '{node_type}' zu mergen.")
                 print(f"     Identifikator: '{identifier_key}' = '{identifier_value}'")
                 print(f"     Alle Properties: {all_props}")
@@ -536,14 +535,14 @@ def save_mapping():
                 ON CREATE SET {node_var} = $all_props
                 RETURN {node_var}
                 """
-                
+
                 params = {
                     "identifier_value": identifier_value,
                     "all_props": all_props
                 }
-                
+
                 result = graph.run(cypher_query, **params).data()
-                
+
                 if result:
                     nodes_to_create[node_type] = result[0][node_var]
                     print(f"  ✅ Knoten '{node_type}' wurde erfolgreich gemerged (entweder erstellt oder gefunden).")
@@ -555,7 +554,7 @@ def save_mapping():
                 from_node_type = rel_data['from']
                 to_node_type = rel_data['to']
                 rel_type = rel_data['type']
-                
+
                 clean_rel_type = rel_type.replace(' ', '_').upper()
                 rel_label = f"`{clean_rel_type}`"
 
@@ -569,13 +568,13 @@ def save_mapping():
                 if from_node_type in nodes_to_create and to_node_type in nodes_to_create:
                     from_node = nodes_to_create[from_node_type]
                     to_node = nodes_to_create[to_node_type]
-                    
+
                     rel_query = f"""
                     MATCH ({from_var}:{from_label}) WHERE id({from_var}) = {from_node.identity}
                     MATCH ({to_var}:{to_label}) WHERE id({to_var}) = {to_node.identity}
                     MERGE ({from_var})-[rel:{rel_label}]->({to_var})
                     """
-                    
+
                     graph.run(rel_query)
                     print(f"  ✅ Beziehung '{clean_rel_type}' zwischen '{from_node_type}' und '{to_node_type}' erstellt.")
                 else:
@@ -596,7 +595,7 @@ def overview():
     if not graph:
         # Fehler-Meldung ins Template geben
         return render_template('overview.html', db_info=None, error="Datenbank nicht verbunden."), 500
-    
+
     db_info = get_all_nodes_and_relationships()
     return render_template('overview.html', db_info=db_info, error=None)
 
@@ -718,7 +717,7 @@ def update_node(node_id):
     data = request.get_json()
     property_name = data.get('property')
     new_value = data.get('value')
-    
+
     if not graph:
         return jsonify({"status": "error", "message": "Datenbank nicht verbunden."}), 500
 
