@@ -375,7 +375,7 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(len(kept), 1)
         self.assertEqual(len(removed), 0)
 
-    def test_save_mapping_no_nodes_or_rels(self):
+    def test_save_mapping_no_nodes_or_rels_two(self):
         """Speichert ein leeres Mapping → keine Nodes/Beziehungen."""
         with self.app as client:
             with client.session_transaction() as sess:
