@@ -1,32 +1,54 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# Optional: Benutzer kann Port setzen, default = 1123
 APP_PORT=${1:-1123}
-ACTION=${2:-up}  # default: up, kann auch run_tests sein
+ACTION=${2:-up}
 
-echo "Aktion: $ACTION, APP_PORT=$APP_PORT"
+log() {
+    echo "[INFO] $*"
+}
 
-# Prüfen, ob neo4j-db Container existiert
-if [ "$(docker ps -a -q -f name=neo4j-db)" ]; then
-    echo "Neo4j Container existiert bereits, benutze vorhandenen Container ..."
-    docker start neo4j-db || true
-fi
+error() {
+    echo "[ERROR] $*" >&2
+    exit 1
+}
 
-# Aktion auswählen
-case "$ACTION" in
-    up)
-        echo "Starte Docker-Compose für Python-App..."
-        APP_PORT=$APP_PORT docker-compose up --build python-app
-        ;;
-    run_tests)
-        echo "Führe Tests im Python-Container aus..."
-        APP_PORT=$APP_PORT docker-compose up --build python-app
-        docker-compose run --rm python-app pytest
-        ;;
-    *)
-        echo "Unbekannte Aktion: $ACTION"
-        echo "Verfügbare Aktionen: up, run_tests"
-        exit 1
-        ;;
-esac
+check_neo4j_container() {
+    if docker ps -a -q -f name=neo4j-db >/dev/null; then
+        log "Neo4j Container existiert bereits, starte vorhandenen Container..."
+        docker start neo4j-db || log "Neo4j Container konnte nicht gestartet werden, ggf. läuft er bereits."
+    else
+        log "Neo4j Container existiert nicht. Bitte erst mit 'docker-compose up neo4j-db' starten."
+    fi
+}
+
+run_app() {
+    log "Starte Docker-Compose für Python-App auf Port $APP_PORT..."
+    APP_PORT=$APP_PORT docker-compose up --build python-app
+}
+
+run_tests() {
+    log "Führe Tests im Python-Container aus..."
+    APP_PORT=$APP_PORT docker-compose up --build -d python-app
+    docker-compose run --rm python-app pytest || error "Tests fehlgeschlagen!"
+    docker-compose down
+}
+
+main() {
+    log "Aktion: $ACTION, APP_PORT=$APP_PORT"
+    check_neo4j_container
+
+    case "$ACTION" in
+        up)
+            run_app
+            ;;
+        run_tests)
+            run_tests
+            ;;
+        *)
+            error "Unbekannte Aktion: $ACTION. Verfügbare Aktionen: up, run_tests"
+            ;;
+    esac
+}
+
+main
