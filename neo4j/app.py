@@ -5,10 +5,10 @@ import csv
 import io
 import json
 import inspect
+import functools
 from flask import Flask, request, jsonify, render_template, session
 from py2neo import Graph
 from dotenv import load_dotenv
-import functools
 
 from rich.console import Console
 
@@ -79,7 +79,8 @@ try:
             time.sleep(2)
 
     if graph is None:
-        raise RuntimeError("Neo4j konnte nicht erreicht werden!")
+        print("Neo4j konnte nicht erreicht werden!")
+        sys.exit(1)
 except KeyboardInterrupt:
     print("You pressed CTRL-C")
     sys.exit(0)
@@ -91,12 +92,12 @@ def load_saved_queries():
     """Läd die gespeicherten Abfragen aus der Datei."""
     if not os.path.exists(SAVED_QUERIES_FILE):
         return []
-    with open(SAVED_QUERIES_FILE, 'r') as f:
+    with open(SAVED_QUERIES_FILE, encoding="utf-8", mode='r') as f:
         return json.load(f)
 
 def save_queries_to_file(queries):
     """Speichert die Abfragen in der Datei."""
-    with open(SAVED_QUERIES_FILE, 'w') as f:
+    with open(SAVED_QUERIES_FILE, encoding="utf-8", mode='w') as f:
         json.dump(queries, f, indent=4)
 
 # TODO!!! DELETE AGAIN!!!
