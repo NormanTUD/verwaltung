@@ -559,6 +559,22 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(response2.status_code, 400)
         self.assertIn(b"Request-Body ist leer", response2.data)
 
+    def test_add_column_already_exists(self):
+        """Wenn die Property bereits existiert, wird sie nicht überschrieben."""
+        node = Node("Person", name="Alice", status="existing")
+        self.graph.create(node)
+
+        response = self.app.post(
+            '/api/add_column',
+            data=json.dumps({"column": "status", "label": "Person"}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # Prüfen, dass bestehende Property erhalten bleibt
+        result = self.graph.run("MATCH (n:Person) RETURN n.status AS status").data()
+        self.assertEqual(result[0]["status"], "existing")
+
 
 if __name__ == '__main__':
     unittest.main()
