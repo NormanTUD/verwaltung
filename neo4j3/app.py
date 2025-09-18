@@ -66,20 +66,24 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
 
-# Neo4j-Verbindung
-graph = None
-for attempt in range(15):  # max 15 Versuche
-    try:
-        graph = Graph(os.getenv("NEO4J_URI"), auth=(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASS")))
-        graph.run("RETURN 1")  # Testabfrage
-        print("Neo4j ist bereit!")
-        break
-    except Exception as e:
-        print(f"[{attempt+1}/15] Neo4j nicht bereit, warte 2 Sekunden... ({e})")
-        time.sleep(2)
+try:
+    # Neo4j-Verbindung
+    graph = None
+    for attempt in range(15):  # max 15 Versuche
+        try:
+            graph = Graph(os.getenv("NEO4J_URI"), auth=(os.getenv("NEO4J_USER"), os.getenv("NEO4J_PASS")))
+            graph.run("RETURN 1")  # Testabfrage
+            print("Neo4j ist bereit!")
+            break
+        except Exception as e:
+            print(f"[{attempt+1}/15] Neo4j nicht bereit, warte 2 Sekunden... ({e})")
+            time.sleep(2)
 
-if graph is None:
-    raise RuntimeError("Neo4j konnte nicht erreicht werden!")
+    if graph is None:
+        raise RuntimeError("Neo4j konnte nicht erreicht werden!")
+except KeyboardInterrupt:
+    print("You pressed CTRL-C")
+    sys.exit(0)
 
 # Definiere den Dateipfad
 SAVED_QUERIES_FILE = 'saved_queries.json'

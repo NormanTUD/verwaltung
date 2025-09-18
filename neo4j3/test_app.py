@@ -202,5 +202,11 @@ class TestNeo4jApp(unittest.TestCase):
         results = self.graph.run(f"MATCH (n) WHERE ID(n) IN {node_ids} RETURN n").data()
         self.assertEqual(len(results), 0)
 
+    def test_index_content(self):
+        """Testet, ob die Startseite den erwarteten Text enthält."""
+        response = self.app.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Upload", response.data)
+
 if __name__ == '__main__':
     unittest.main()
