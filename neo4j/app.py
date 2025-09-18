@@ -726,42 +726,6 @@ def build_table_results(path_results, selected_labels, all_labels):
     return table_results
 
 
-# -------------------------------
-# Flask Route
-# -------------------------------
-
-@app.route('/api/query_data', methods=['POST'])
-@test_if_deleted_db
-def query_data():
-    start_time = time.time()
-    print("🚀 API-Anfrage erhalten: /api/query_data")
-
-    # JSON parsen
-    try:
-        selected_labels, max_depth, limit = parse_request_json(request.get_json())
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 400
-
-    # Cypher-Abfrage generieren
-    cypher_query = generate_cypher_query(max_depth)
-
-    # Abfrage ausführen
-    try:
-        path_results = run_query(graph, cypher_query, selected_labels, limit)
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-    # Alle Labels sammeln
-    all_labels = collect_labels(path_results, selected_labels)
-
-    # Ergebnisse aufbereiten
-    table_results = build_table_results(path_results, selected_labels, all_labels)
-
-    duration = time.time() - start_time
-    print(f"✅ Abfrage fertig: {len(table_results)} Zeilen in {duration:.2f}s")
-
-    return jsonify(table_results)
-
 @app.route('/api/update_node/<int:node_id>', methods=['PUT'])
 @test_if_deleted_db
 def update_node(node_id):
