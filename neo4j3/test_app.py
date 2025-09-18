@@ -224,5 +224,24 @@ class TestNeo4jApp(unittest.TestCase):
         # Überprüfen, dass genau 1 Node zurückkommt
         self.assertTrue(any("Alice" in str(node.get("properties")) for node in data))
 
+    def test_query_data_multiple_labels_with_relation(self):
+        """Testet query_data mit zwei Labels, die durch eine definierte Relation verbunden sind."""
+        # Testdaten: Person -> HAT_WOHNSITZ -> Ort
+        person = Node("Person", name="Bob")
+        ort = Node("Ort", name="Berlin")
+        rel = Relationship(person, "HAT_WOHNSITZ", ort)
+        self.graph.create(rel)
+
+        response = self.app.post('/api/query_data',
+                                data=json.dumps({"selectedLabels": ["Person", "Ort"]}),
+                                content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data.decode('utf-8'))
+
+        # Überprüfen, dass beide Nodes und die Relation im Ergebnis enthalten sind
+        self.assertTrue(any(row.get("Person") for row in data))
+        self.assertTrue(any(row.get("Ort") for row in data))
+        self.assertTrue(any(row.get("relationships") for row in data))
+
 if __name__ == '__main__':
     unittest.main()
