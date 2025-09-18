@@ -95,15 +95,6 @@
 		const headers = [...Array.from(allProps), 'Beziehungen', '+', 'Aktion'];
 		thead.innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
 
-		// ➕ Erste zusätzliche Zeile mit großem "+"
-		const addRowTr = document.createElement('tr');
-		const addCell = document.createElement('td');
-		addCell.setAttribute('colspan', headers.length);
-		addCell.style.textAlign = 'center';
-		addCell.innerHTML = `<button onclick="addRow()" style="font-size: 20px; padding: 5px 15px;">+</button>`;
-		addRowTr.appendChild(addCell);
-		tbody.appendChild(addRowTr);
-
 		// ✍️ Datenzeilen erzeugen
 		data.forEach(item => {
 			const row = document.createElement('tr');
@@ -290,38 +281,7 @@
 		// Cancel-Handler
 		document.getElementById('cancelAddColumnBtn').addEventListener('click', () => {
 			document.body.removeChild(overlay);
-		});        function addRow() {
-            // Optional: Defaultwerte für neue Zeile abfragen
-            const defaultValues = {};
-            const propName = prompt("Name der Spalte, die befüllt werden soll (leer lassen für keine):");
-            if (propName) {
-                const propValue = prompt(`Wert für "${propName}":`);
-                defaultValues[propName] = propValue;
-            }
-
-            fetch('/api/add_row', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    properties: defaultValues
-                })
-            }).then(response => {
-                if (!response.ok) {
-                    return response.json().then(errorData => {
-                        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                    });
-                }
-                return response.json();
-            }).then(data => {
-                console.log(data.message);
-                if (data.status === 'success') {
-                    fetchData();
-                }
-            }).catch(error => {
-                console.error('Fehler beim Hinzufügen der Zeile:', error);
-            });
-        }
-
+		});
 
 		// OK-Handler
 		document.getElementById('confirmAddColumnBtn').addEventListener('click', () => {
@@ -363,116 +323,6 @@
 			});
 		});
 	}
-
-function addRow() {
-    // 1️⃣ Node in der DB erstellen (leere Properties)
-    fetch('/api/add_row', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            label: "TmpLabel",  // oder dein Default-Label
-            properties: {}
-        })
-    }).then(response => response.json())
-    .then(data => {
-        if (data.status !== 'success') {
-            throw new Error(data.message || 'Fehler beim Erstellen der Zeile');
-        }
-
-        const newID = data.id;
-        const table = document.querySelector('#resultsContainer table tbody');
-        if (!table) return;
-
-        // 2️⃣ Header auslesen (alle Spalten außer Beziehungen, +, Aktion)
-        const headers = Array.from(table.parentElement.querySelectorAll('thead th'))
-            .map(th => th.textContent)
-            .filter(h => h !== 'Beziehungen' && h !== '+' && h !== 'Aktion');
-
-        // 3️⃣ Neue Zeile erstellen
-        const newRow = document.createElement('tr');
-
-        // Property-Zellen
-        headers.forEach(header => {
-            const cell = document.createElement('td');
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.placeholder = header;
-            input.setAttribute('data-id', newID);
-            input.setAttribute('data-property', header);
-
-            input.onblur = function () {
-                const value = input.value.trim();
-                if (value === "") return;
-
-                fetch('/api/update_nodes', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        ids: [newID],
-                        property: header,
-                        value: value
-                    })
-                }).then(resp => resp.json())
-                .then(res => console.log(res.message))
-                .catch(err => console.error('Fehler beim Speichern:', err));
-            };
-
-            cell.appendChild(input);
-            newRow.appendChild(cell);
-        });
-
-        // Beziehungen-Zelle leer
-        const relCell = document.createElement('td');
-        newRow.appendChild(relCell);
-
-        // Neue Property-Spalte "+"
-        const newPropCell = document.createElement('td');
-        const newPropInput = document.createElement('input');
-        newPropInput.type = 'text';
-        newPropInput.placeholder = 'Neue Property...';
-        newPropInput.setAttribute('data-id', newID);
-
-        newPropInput.onblur = function () {
-            const value = newPropInput.value.trim();
-            if (value === "") return;
-
-            const propertyName = `prop_${Date.now()}`;
-            fetch('/api/update_nodes', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ids: [newID],
-                    property: propertyName,
-                    value: value
-                })
-            }).then(resp => resp.json())
-            .then(res => console.log(res.message))
-            .catch(err => console.error('Fehler beim Speichern:', err));
-        };
-
-        newPropCell.appendChild(newPropInput);
-        newRow.appendChild(newPropCell);
-
-        // Aktion-Zelle (Löschen)
-        const actionCell = document.createElement('td');
-        actionCell.innerHTML = `<button class="delete-btn">Löschen</button>`;
-        actionCell.querySelector('.delete-btn').addEventListener('click', () => {
-            fetch(`/api/delete_nodes?ids=${newID}`, {
-                method: 'DELETE'
-            }).then(resp => resp.json())
-            .then(res => {
-                console.log(res.message);
-                if (res.status === 'success') newRow.remove();
-            }).catch(err => console.error('Fehler beim Löschen:', err));
-        });
-        newRow.appendChild(actionCell);
-
-        table.appendChild(newRow);
-
-    }).catch(err => console.error('Fehler beim Hinzufügen der Zeile:', err));
-}
-
-
 
 function addPropertyIfNotEmpty(inputElem) {
     const value = inputElem.value.trim();
