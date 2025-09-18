@@ -33,3 +33,12 @@ jobs:
         run: |
           chmod +x run_docker
           ./run_docker 1123 run_tests
+
+      - name: Create a new version
+        if: ${{ success() }}
+        run: |
+          echo "Creating new version"
+          git tag ${{ github.run_number }} || true
+          git push origin --tags || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
