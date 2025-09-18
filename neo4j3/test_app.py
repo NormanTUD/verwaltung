@@ -318,5 +318,55 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertIn(response.status_code, [200, 500])
 
 
+    def test_delete_node_success(self):
+        """Löscht erfolgreich einen Node samt Relationen."""
+        person = Node("Person", name="DeleteMe")
+        ort = Node("Ort", name="Berlin")
+        rel = Relationship(person, "HAT_WOHNSITZ", ort)
+        self.graph.create(rel)
+        person_id = person.identity
+
+        response = self.app.delete(f'/api/delete_node/{person_id}')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"alle Beziehungen wurden", response.data)
+
+        # Überprüfen, ob Node wirklich weg ist
+        result = self.graph.run("MATCH (n) WHERE ID(n)=$id RETURN n", id=person_id).data()
+        self.assertEqual(len(result), 0)
+
+
+    def test_delete_node_nonexistent(self):
+        """Versuch, einen Node zu löschen, der nicht existiert."""
+        fake_id = 123456789
+        response = self.app.delete(f'/api/delete_node/{fake_id}')
+        # Query läuft leer durch → trotzdem success
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"und alle Beziehungen wurden", response.data)
+
+
+    def test_delete_node_invalid_id(self):
+        """Ungültige Node-ID (kein Integer)."""
+        response = self.app.delete('/api/delete_node/abc')
+        # Flask selbst wird hier 404 zurückgeben, weil <int:node_id> nicht matcht
+        self.assertEqual(response.status_code, 404)
+
+
+    def test_delete_node_with_multiple_nodes(self):
+        """Erstellt mehrere Nodes, löscht einen und prüft, dass die anderen bestehen bleiben."""
+        n1 = Node("Test", name="KeepMe")
+        n2 = Node("Test", name="RemoveMe")
+        self.graph.create(n1 | n2)
+
+        response = self.app.delete(f'/api/delete_node/{n2.identity}')
+        self.assertEqual(response.status_code, 200)
+
+        # Überprüfen
+        kept = self.graph.run("MATCH (n:Test {name:'KeepMe'}) RETURN n").data()
+        removed = self.graph.run("MATCH (n:Test {name:'RemoveMe'}) RETURN n").data()
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(len(removed), 0)
+
+
+
 if __name__ == '__main__':
     unittest.main()
