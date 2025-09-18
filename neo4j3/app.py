@@ -90,7 +90,8 @@ def save_queries_to_file(queries):
         json.dump(queries, f, indent=4)
 
 
-@app.route('/api/delete_all', methods=['POST'])
+# TODO!!! DELETE AGAIN!!!
+@app.route('/api/delete_all')
 @test_if_deleted_db
 def delete_all():
     """
