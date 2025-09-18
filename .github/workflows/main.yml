@@ -32,7 +32,7 @@ jobs:
 
       # In Verzeichnis wechseln und bash-Script ausführen
       - name: Run Neo4j tests
-        working-directory: neo4j3
+        working-directory: neo4j
         run: |
           chmod +x run_docker
           ./run_docker 1123 run_tests
