@@ -164,7 +164,7 @@ class TestNeo4jApp(unittest.TestCase):
         """Testet query_data mit leeren Labels."""
         response = self.app.post('/api/query_data', data=json.dumps({"selectedLabels": []}), content_type='application/json')
         self.assertEqual(response.status_code, 400)
-        self.assertIn(b"Bitte w\u00e4hlen Sie mindestens", response.data)
+        self.assertIn(b"Sie mindestens", response.data)
 
     def test_update_node_with_nonexistent_id(self):
         """Testet die Aktualisierung eines Nodes mit nicht existierender ID."""
