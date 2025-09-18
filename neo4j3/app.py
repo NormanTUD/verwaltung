@@ -644,7 +644,7 @@ def query_data():
     if len(selected_labels) == 1:
         single_label = selected_labels[0]
         single_label_escaped = f"`{single_label}`"
-        cypher_query = f"MATCH (n:{single_label_escaped}) RETURN n LIMIT 100"
+        cypher_query = f"MATCH (n:{single_label_escaped}) RETURN n"
         print("📊 Generierte Cypher-Abfrage (Einzelfall):")
         print(cypher_query)
 
@@ -698,7 +698,7 @@ def query_data():
         return_parts.append(f"{rel_var} AS {rel_var}")
         rel_vars.append(rel_var)
 
-    cypher_query = " ".join(cypher_parts) + " RETURN " + ", ".join(return_parts) + " LIMIT 100"
+    cypher_query = " ".join(cypher_parts) + " RETURN " + ", ".join(return_parts)
     print("📊 Generierte Cypher-Abfrage (Mehrfachfall inkl. Relationen):")
     print(cypher_query)
 
