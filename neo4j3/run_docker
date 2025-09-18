@@ -1,0 +1,10 @@
+#!/bin/bash
+set -e
+
+# Optional: Benutzer kann Port setzen, default = 1123
+APP_PORT=${1:-1123}
+
+echo "Starte Docker-Compose mit APP_PORT=$APP_PORT ..."
+
+# Docker-Compose Build & Up
+APP_PORT=$APP_PORT docker-compose up --build
