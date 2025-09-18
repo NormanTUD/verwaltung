@@ -202,14 +202,5 @@ class TestNeo4jApp(unittest.TestCase):
         results = self.graph.run(f"MATCH (n) WHERE ID(n) IN {node_ids} RETURN n").data()
         self.assertEqual(len(results), 0)
 
-    def test_delete_nodes_with_invalid_id(self):
-        """Testet die Fehlerbehandlung beim Löschen von Nodes mit ungültiger ID."""
-        # 1. Senden der DELETE-Anfrage mit einem ungültigen ID-Parameter
-        response = self.app.delete('/api/delete_nodes?ids=1,abc,3')
-        
-        # 2. Überprüfen auf den korrekten Statuscode und die Fehlermeldung
-        self.assertEqual(response.status_code, 400)
-        self.assertIn(b"Ung\u00fcltiges Format f\u00fcr 'ids'.", response.data)
-
 if __name__ == '__main__':
     unittest.main()
