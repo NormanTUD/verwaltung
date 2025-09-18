@@ -6,5 +6,11 @@ APP_PORT=${1:-1123}
 
 echo "Starte Docker-Compose mit APP_PORT=$APP_PORT ..."
 
-# Docker-Compose Build & Up
-APP_PORT=$APP_PORT docker-compose up --build
+# Prüfen, ob neo4j-db Container existiert
+if [ "$(docker ps -a -q -f name=neo4j-db)" ]; then
+    echo "Neo4j Container existiert bereits, benutze vorhandenen Container ..."
+    docker start neo4j-db || true
+fi
+
+# Docker-Compose Build & Up für Python-App
+APP_PORT=$APP_PORT docker-compose up --build python-app
