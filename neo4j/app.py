@@ -766,10 +766,10 @@ def delete_node(node_id):
         print(f"Fehler beim Löschen des Nodes: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/api/new_query_table', methods=['GET'])
-def new_query_table():
+@app.route('/api/get_data_as_table', methods=['GET'])
+def get_data_as_table():
     try:
-        print("=== API new_query_table gestartet ===")
+        print("=== API get_data_as_table gestartet ===")
         # ------------------------
         # GET-Parameter
         # ------------------------

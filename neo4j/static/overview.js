@@ -9,7 +9,7 @@ function fetchData() {
   if (!labels.length) { alert('Bitte mindestens ein Label auswählen'); return; }
 
   var qs = 'nodes=' + encodeURIComponent(labels.join(','));
-  var url = '/api/new_query_table?' + qs;
+  var url = '/api/get_data_as_table?' + qs;
 
   fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } })
     .then(function(res){
