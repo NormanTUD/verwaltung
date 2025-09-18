@@ -583,7 +583,7 @@ def save_mapping():
                 else:
                     print(f"  ❌ Konnte die Beziehung nicht erstellen, da einer oder beide Knoten fehlen: '{from_node_type}' (vorhanden: {from_node_type in nodes_to_create}), '{to_node_type}' (vorhanden: {to_node_type in nodes_to_create}).")
 
-        tx.commit()
+        graph.commit(tx)
         print("\nGesamtvorgang erfolgreich: Daten wurden in die Neo4j-Datenbank importiert.")
         return jsonify({"status": "success", "message": "Daten erfolgreich in Neo4j importiert."})
     except Exception as e:
