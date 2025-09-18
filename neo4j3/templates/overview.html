@@ -146,7 +146,7 @@
 			rowContent += `<td>${relText}</td>`;
 
 			// Neue leere Spalte mit "+"
-			rowContent += `<td><button onclick="addColumnToNode()">+</button></td>`;
+			rowContent += `<td><button onclick="addColumnToNode(event)">+</button></td>`;
 
 			// Aktion-Zelle
 			rowContent += `<td><button class="delete-btn" data-id="${nodeIDs.join(',')}">Löschen</button></td>`;
@@ -217,112 +217,134 @@
             });
         }
 
-	function addColumnToNode(event) {
-		let nodeIds = [];
+function addColumnToNode(event) {
+    let nodeIds = [];
 
-		// IDs aus Button (Tabellenzeile)
-		if (event && event.target && event.target.closest('button').hasAttribute('data-id')) {
-			nodeIds = event.target.closest('button').getAttribute('data-id').split(',').map(Number);
-		}
+    // IDs aus allen Inputs der Tabellenzeile sammeln
+    const tr = event.target.closest('tr');
+    if (tr) {
+        const inputs = tr.querySelectorAll('input[data-id]');
+        const idSet = new Set(); // Duplikate vermeiden
 
-		// Aktive Labels aus #querySelection
-		const activeLabels = Array.from(document.querySelectorAll('#querySelection input[type="checkbox"]:checked'))
-			.map(cb => cb.value);
+        inputs.forEach(input => {
+            const ids = input.getAttribute('data-id').split(',').map(id => id.trim());
+            ids.forEach(id => {
+                if (id) idSet.add(Number(id));
+            });
+        });
 
-		if (activeLabels.length === 0) {
-			alert("Bitte mindestens einen Node-Typ im Bereich 'querySelection' auswählen!");
-			return;
-		}
+        nodeIds = Array.from(idSet);
+    }
 
-		// Overlay erzeugen
-		const overlay = document.createElement('div');
-		overlay.id = 'addColumnOverlay';
-		overlay.style.position = 'fixed';
-		overlay.style.top = 0;
-		overlay.style.left = 0;
-		overlay.style.width = '100%';
-		overlay.style.height = '100%';
-		overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
-		overlay.style.display = 'flex';
-		overlay.style.alignItems = 'center';
-		overlay.style.justifyContent = 'center';
-		overlay.style.zIndex = 1000;
+    if (nodeIds.length === 0) {
+        alert("Keine IDs in dieser Zeile gefunden!");
+        return;
+    }
 
-		// Modal-Inhalt
-		const modal = document.createElement('div');
-		modal.style.backgroundColor = '#fff';
-		modal.style.padding = '20px';
-		modal.style.borderRadius = '8px';
-		modal.style.minWidth = '300px';
-		modal.style.textAlign = 'center';
-		modal.style.boxShadow = '0 0 20px rgba(0,0,0,0.3)';
+    // Aktive Labels aus #querySelection
+    const activeLabels = Array.from(document.querySelectorAll('#querySelection input[type="checkbox"]:checked'))
+        .map(cb => cb.value);
 
-		modal.innerHTML = `
-	<h3>Neue Spalte hinzufügen</h3>
-	<div style="margin-bottom: 10px; text-align: left;">
-	    <label for="columnNameInput">Spaltenname:</label><br>
-	    <input type="text" id="columnNameInput" style="width: 100%; padding: 5px;">
-	</div>
-	<div style="margin-bottom: 10px; text-align: left;">
-	    <label for="nodeTypeSelect">Node-Typ:</label><br>
-	    <select id="nodeTypeSelect" style="width: 100%; padding: 5px;">
-		${activeLabels.map(label => `<option value="${label}">${label}</option>`).join('')}
-	    </select>
-	</div>
-	<div style="margin-top: 15px;">
-	    <button id="confirmAddColumnBtn" style="margin-right: 10px;">OK</button>
-	    <button id="cancelAddColumnBtn">Abbrechen</button>
-	</div>
+    if (activeLabels.length === 0) {
+        alert("Bitte mindestens einen Node-Typ im Bereich 'querySelection' auswählen!");
+        return;
+    }
+
+    // Overlay erzeugen
+    const overlay = document.createElement('div');
+    overlay.id = 'addColumnOverlay';
+    overlay.style.position = 'fixed';
+    overlay.style.top = 0;
+    overlay.style.left = 0;
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.zIndex = 1000;
+
+    // Modal-Inhalt
+    const modal = document.createElement('div');
+    modal.style.backgroundColor = '#fff';
+    modal.style.padding = '20px';
+    modal.style.borderRadius = '8px';
+    modal.style.minWidth = '300px';
+    modal.style.textAlign = 'center';
+    modal.style.boxShadow = '0 0 20px rgba(0,0,0,0.3)';
+
+    modal.innerHTML = `
+        <h3>Neue Spalte hinzufügen</h3>
+        <div style="margin-bottom: 10px; text-align: left;">
+            <label for="columnNameInput">Spaltenname:</label><br>
+            <input type="text" id="columnNameInput" style="width: 100%; padding: 5px;">
+        </div>
+        <div style="margin-bottom: 10px; text-align: left;">
+            <label for="nodeTypeSelect">Node-Typ:</label><br>
+            <select id="nodeTypeSelect" style="width: 100%; padding: 5px;">
+                ${activeLabels.map(label => `<option value="${label}">${label}</option>`).join('')}
+            </select>
+        </div>
+        <div style="margin-top: 15px;">
+            <button id="confirmAddColumnBtn" style="margin-right: 10px;">OK</button>
+            <button id="cancelAddColumnBtn">Abbrechen</button>
+        </div>
     `;
 
-		overlay.appendChild(modal);
-		document.body.appendChild(overlay);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
 
-		// Cancel-Handler
-		document.getElementById('cancelAddColumnBtn').addEventListener('click', () => {
-			document.body.removeChild(overlay);
-		});
+    // Cancel-Handler
+    document.getElementById('cancelAddColumnBtn').addEventListener('click', () => {
+        if (document.body.contains(overlay)) {
+            document.body.removeChild(overlay);
+        }
+    });
 
-		// OK-Handler
-		document.getElementById('confirmAddColumnBtn').addEventListener('click', () => {
-			const columnName = document.getElementById('columnNameInput').value.trim();
-			const targetLabel = document.getElementById('nodeTypeSelect').value;
+    // OK-Handler
+    document.getElementById('confirmAddColumnBtn').addEventListener('click', () => {
+        const columnName = document.getElementById('columnNameInput').value.trim();
+        const targetLabel = document.getElementById('nodeTypeSelect').value;
 
-			if (!columnName) {
-				alert("Bitte einen Spaltennamen eingeben!");
-				return;
-			}
+        if (!columnName) {
+            alert("Bitte einen Spaltennamen eingeben!");
+            return;
+        }
 
-			fetch('/api/add_column', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					ids: nodeIds,
-					column: columnName,
-					label: targetLabel
-				})
-			}).then(response => {
-				if (!response.ok) {
-					return response.json().then(errorData => {
-						throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-					});
-				}
-				return response.json();
-			}).then(data => {
-				console.log(data.message);
-				if (data.status === 'success') {
-					fetchData();
-				}
-			}).catch(error => {
-				console.error('Fehler beim Hinzufügen der Spalte:', error);
-			}).finally(() => {
-				// Modal wieder schließen
-				if (document.body.contains(overlay)) {
-					document.body.removeChild(overlay);
-				}
-			});
-		});
-	}
+        fetch('/api/add_column', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ids: nodeIds,
+                column: columnName,
+                label: targetLabel
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(errorData => {
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log(data.message);
+            if (data.status === 'success') {
+                fetchData();
+            }
+        })
+        .catch(error => {
+            console.error('Fehler beim Hinzufügen der Spalte:', error);
+        })
+        .finally(() => {
+            if (document.body.contains(overlay)) {
+                document.body.removeChild(overlay);
+            }
+        });
+    });
+}
+
 
 function addPropertyIfNotEmpty(inputElem) {
     const value = inputElem.value.trim();
