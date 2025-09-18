@@ -2,3 +2,5 @@ Flask
 py2neo
 python-dotenv
 rich
+mypy
+pylint
