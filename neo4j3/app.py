@@ -615,52 +615,78 @@ import time
 
 
 
+
+# -------------------------------
+# Helper Functions
+# -------------------------------
+
 def parse_request_json(req_json):
     """JSON auslesen und default values setzen"""
+    print("🔍 parse_request_json: Start")
+    print(f"📥 Eingehendes JSON: {req_json}")
+
     if not req_json:
         raise ValueError("Ungültiges JSON-Format oder leerer Body")
     selected_labels = req_json.get('selectedLabels', [])
     max_depth = req_json.get('maxDepth', 3)
     limit = req_json.get('limit', 200)
+
+    print(f"✅ Geparste Werte: selected_labels={selected_labels}, max_depth={max_depth}, limit={limit}")
+
     if not selected_labels:
         raise ValueError("Bitte wählen Sie mindestens einen Node-Typ aus.")
+
     return selected_labels, max_depth, limit
 
 
 def generate_cypher_query(max_depth):
     """Dynamische Pfad-Abfrage für Neo4j generieren"""
+    print("🔍 generate_cypher_query: Start")
     query = f"""
     MATCH p=(start)-[*..{max_depth}]->(end)
     WHERE ANY(n IN nodes(p) WHERE ANY(l IN labels(n) WHERE l IN $labels))
     RETURN p LIMIT $limit
     """
+    print(f"📄 Generierte Cypher-Abfrage:\n{query}")
     return query
 
 
 def run_query(graph, query, labels, limit):
     """Neo4j-Abfrage ausführen und Ergebnis zurückgeben"""
+    print("🔍 run_query: Start")
+    print(f"📊 Parameter: labels={labels}, limit={limit}")
     try:
         results = graph.run(query, labels=labels, limit=limit).data()
     except Exception as e:
+        print(f"❌ Fehler bei der Neo4j-Abfrage: {e}")
         raise RuntimeError(f"Fehler bei der Neo4j-Abfrage: {e}")
+    print(f"✅ Abfrage erfolgreich, {len(results)} Ergebnisse erhalten")
     return results
 
 
 def collect_labels(path_results, selected_labels):
     """Alle Labels aus den Pfaden sammeln, die ausgewählt wurden"""
+    print("🔍 collect_labels: Start")
     all_labels = set()
-    for r in path_results:
+    for idx, r in enumerate(path_results):
+        print(f"  🛣️ Pfad {idx+1}: {len(r['p'].nodes)} Nodes")
         for n in r['p'].nodes:
             filtered_labels = [l for l in n.labels if l in selected_labels]
+            if filtered_labels:
+                print(f"    Node {n.identity} Labels gefiltert: {filtered_labels}")
             all_labels.update(filtered_labels)
-    return list(all_labels)
+    all_labels_list = list(all_labels)
+    print(f"✅ Alle gesammelten Labels: {all_labels_list}")
+    return all_labels_list
 
 
 def build_table_results(path_results, selected_labels, all_labels):
     """Tabellarische Ergebnisse aus Pfaden aufbereiten"""
+    print("🔍 build_table_results: Start")
     table_results = []
 
-    for r in path_results:
+    for path_idx, r in enumerate(path_results):
+        print(f"  🛤️ Bearbeite Pfad {path_idx+1}/{len(path_results)}")
         path = r['p']
         row = {label: [] for label in all_labels}
         row['relationships'] = []
@@ -669,25 +695,34 @@ def build_table_results(path_results, selected_labels, all_labels):
         for n in path.nodes:
             filtered_labels = [l for l in n.labels if l in selected_labels]
             for label in filtered_labels:
-                row[label].append({'id': n.identity, 'properties': dict(n)})
+                node_info = {'id': n.identity, 'properties': dict(n)}
+                print(f"    Node hinzufügen: Label={label}, ID={n.identity}, Properties={node_info['properties']}")
+                row[label].append(node_info)
 
         # Beziehungen einfügen
         for rel in path.relationships:
-            row['relationships'].append({
+            rel_info = {
                 'from': rel.start_node.identity,
                 'to': rel.end_node.identity,
                 'type': type(rel).__name__,
                 'properties': dict(rel)
-            })
+            }
+            print(f"    Beziehung hinzufügen: {rel_info}")
+            row['relationships'].append(rel_info)
 
         # Listen mit nur einem Element zu Dictionary konvertieren
         for label in all_labels:
             if len(row[label]) == 1:
+                print(f"    Label {label} hat nur 1 Node, konvertiere zu Dict")
                 row[label] = row[label][0]
             elif len(row[label]) == 0:
+                print(f"    Label {label} hat 0 Nodes, setze auf None")
                 row[label] = None
 
         table_results.append(row)
+        print(f"  ✅ Pfad {path_idx+1} verarbeitet")
+
+    print(f"✅ build_table_results: Fertig, {len(table_results)} Zeilen erstellt")
     return table_results
 
 
@@ -707,18 +742,12 @@ def query_data():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
-    print(f"🏷️ Ausgewählte Labels: {selected_labels}, maxDepth={max_depth}, limit={limit}")
-
     # Cypher-Abfrage generieren
     cypher_query = generate_cypher_query(max_depth)
-    print("📊 Generierte Pfad-Abfrage:")
-    print(cypher_query)
-    print(f"Labels: {selected_labels}")
 
     # Abfrage ausführen
     try:
         path_results = run_query(graph, cypher_query, selected_labels, limit)
-        print(f"Gefundene Pfade: {len(path_results)}")
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
