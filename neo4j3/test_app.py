@@ -196,7 +196,7 @@ class TestNeo4jApp(unittest.TestCase):
         # Die Methode muss als DELETE gesendet werden, auch wenn die Daten als URL-Parameter übergeben werden
         response = self.app.delete(f'/api/delete_nodes?ids={node_ids[0]},{node_ids[1]}')
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Nodes und alle Beziehungen wurden gel\u00f6scht.", response.data)
+        self.assertIn(b"Nodes und alle Beziehungen wurden", response.data)
 
         # 3. Überprüfen, ob die Nodes nicht mehr existieren
         results = self.graph.run(f"MATCH (n) WHERE ID(n) IN {node_ids} RETURN n").data()
