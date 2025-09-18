@@ -575,6 +575,20 @@ class TestNeo4jApp(unittest.TestCase):
         result = self.graph.run("MATCH (n:Person) RETURN n.status AS status").data()
         self.assertEqual(result[0]["status"], "existing")
 
+    def test_add_column_label_not_exist(self):
+        """Wenn das Label nicht existiert, passiert nichts, aber kein Fehler."""
+        response = self.app.post(
+            '/api/add_column',
+            data=json.dumps({"column": "status", "label": "NonExistentLabel"}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Neue Spalte 'status'", response.data)
+
+        # Prüfen, dass keine Nodes existieren
+        result = self.graph.run("MATCH (n:NonExistentLabel) RETURN n").data()
+        self.assertEqual(len(result), 0)
+
 
 if __name__ == '__main__':
     unittest.main()
