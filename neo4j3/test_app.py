@@ -453,6 +453,14 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(response.status_code, 500)
         self.assertIn(b"Sitzungsdaten fehlen", response.data)
 
+    def test_overview_success(self):
+        """Übersicht mit Datenbank-Verbindung."""
+        person = Node("Person", name="Alice")
+        self.graph.create(person)
+
+        response = self.app.get('/overview')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Person", response.data)  # Template enthält Node-Label
 
 if __name__ == '__main__':
     unittest.main()
