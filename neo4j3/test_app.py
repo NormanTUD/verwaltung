@@ -740,5 +740,34 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertIn('headers', sess)
             self.assertEqual(sess['headers'], ['id', 'name', 'city'])
 
+    def test_upload_missing_data(self):
+        """Upload ohne Daten liefert 400."""
+        response = self.app.post('/upload', data={})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(b"Keine Daten hochgeladen", response.data)
+
+    def test_get_rel_types_empty_db(self):
+        """Wenn DB keine Relationships hat, wird leere Liste zurückgegeben."""
+        self.graph.delete_all()
+        response = self.app.get('/get_rel_types')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 0)
+
+    def test_get_rel_types_with_relationships(self):
+        """Testet get_rel_types mit vorhandenen Relationships."""
+        n1 = Node("Person", name="Alice")
+        n2 = Node("Ort", name="Berlin")
+        rel1 = Relationship(n1, "HAT_WOHNSITZ", n2)
+        rel2 = Relationship(n1, "LIVES_IN", n2)
+        self.graph.create(n1 | n2 | rel1 | rel2)
+
+        response = self.app.get('/get_rel_types')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertIn("HAT_WOHNSITZ", data)
+        self.assertIn("LIVES_IN", data)
+
 if __name__ == '__main__':
     unittest.main()
