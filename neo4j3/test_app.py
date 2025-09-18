@@ -208,5 +208,21 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Upload", response.data)
 
+    def test_query_data_single_label(self):
+        """Testet query_data mit nur einem Label."""
+        # Test-Node erstellen
+        person = Node("Person", name="Alice", age=30)
+        self.graph.create(person)
+
+        # Anfrage an die API mit Label "Person"
+        response = self.app.post('/api/query_data',
+                                data=json.dumps({"selectedLabels": ["Person"]}),
+                                content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data.decode('utf-8'))
+
+        # Überprüfen, dass genau 1 Node zurückkommt
+        self.assertTrue(any("Alice" in str(node.get("properties")) for node in data))
+
 if __name__ == '__main__':
     unittest.main()
