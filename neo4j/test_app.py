@@ -1,3 +1,4 @@
+import time
 import unittest
 import os
 import json
@@ -51,7 +52,33 @@ class TestNeo4jApp(unittest.TestCase):
         Wird einmal vor allen Tests ausgeführt.
         Stellt die Verbindung zur Testdatenbank her.
         """
-        cls.graph = Graph(os.getenv('NEO4J_URI'), auth=(os.getenv('NEO4J_USER'), os.getenv('NEO4J_PASS')))
+        cls.graph = None
+        try:
+            # Neo4j-Verbindung
+            graph = None
+            for attempt in range(15):  # max 15 Versuche
+                try:
+                    cls.graph = Graph(
+                        os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+                        auth=(
+                            os.getenv("NEO4J_USER", "neo4j"),
+                            os.getenv("NEO4J_PASS", "testTEST12345678")
+                        )
+                    )
+                    cls.graph.run("RETURN 1")  # Testabfrage
+                    print("Neo4j ist bereit!")
+                    break
+                except Exception as e:
+                    print(f"[{attempt+1}/15] Neo4j nicht bereit, warte 2 Sekunden... ({e})")
+                    time.sleep(2)
+
+            if cls.graph is None:
+                print("Neo4j konnte nicht erreicht werden!")
+                sys.exit(1)
+        except KeyboardInterrupt:
+            print("You pressed CTRL-C")
+            sys.exit(0)
+
         print("Verbindung zu Test-Graph erfolgreich hergestellt!")
     
     @classmethod
