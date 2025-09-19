@@ -98,8 +98,11 @@ class TestNeo4jApp(unittest.TestCase):
         self.app = app.test_client()
         self.app.testing = True
         
+        self.graph = self.__class__.graph
+
         # Leere die Datenbank vor jedem Test für saubere, isolierte Bedingungen
         self.graph.run("MATCH (n) DETACH DELETE n")
+
         print("Testdatenbank wurde erfolgreich geleert für einen neuen Test.")
 
     def test_index_page(self):
