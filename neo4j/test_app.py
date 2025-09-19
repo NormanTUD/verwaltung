@@ -939,6 +939,57 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertEqual(sorted(actual_rows), sorted(expected_rows))
             self.assertEqual(len(actual_rows), len(expected_rows))
 
+    def test_get_data_as_table_complex(self):
+        """Test with 10 persons connected to cities, companies and hobbies."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+
+        inserts = [
+            ("Alice", "Meier", "Berlin", "10115", "Siemens", "Klettern"),
+            ("Bob", "Schulz", "Hamburg", "20095", "Airbus", "Segeln"),
+            ("Carla", "Becker", "München", "80331", "BMW", "Musik"),
+            ("David", "Fischer", "Köln", "50667", "Deutsche Post", "Kochen"),
+            ("Eva", "Wolf", "Frankfurt", "60311", "Deutsche Bank", "Lesen"),
+            ("Felix", "Wagner", "Stuttgart", "70173", "Porsche", "Fotografie"),
+            ("Greta", "Neumann", "Leipzig", "04109", "DB", "Theater"),
+            ("Heinz", "Krüger", "Dresden", "01067", "SAP", "Reisen"),
+            ("Ines", "Zimmer", "Bremen", "28195", "Universität", "Malen"),
+            ("Jonas", "Hoffmann", "Dortmund", "44135", "ThyssenKrupp", "Laufen"),
+        ]
+
+        for vn, nn, stadt, plz, firma, hobby in inserts:
+            self.graph.run("""
+                CREATE (p:Person {vorname:$vn, nachname:$nn})
+                CREATE (s:Stadt {name:$stadt, plz:$plz})
+                CREATE (c:Company {name:$firma})
+                CREATE (h:Hobby {name:$hobby})
+                CREATE (p)-[:WOHNT_IN]->(s)
+                CREATE (p)-[:ARBEITET_BEI]->(c)
+                CREATE (p)-[:MAG]->(h)
+            """, vn=vn, nn=nn, stadt=stadt, plz=plz, firma=firma, hobby=hobby)
+
+        with self.app as client:
+            resp = client.get(
+                '/api/get_data_as_table',
+                query_string={'nodes': 'Person,Stadt,Company,Hobby'}
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+
+            # Expect at least these columns
+            expected_cols = {
+                ('Person', 'vorname'),
+                ('Person', 'nachname'),
+                ('Stadt', 'name'),
+                ('Stadt', 'plz'),
+                ('Company', 'name'),
+                ('Hobby', 'name'),
+            }
+            cols = {(c['nodeType'], c['property']) for c in data['columns']}
+            self.assertTrue(expected_cols.issubset(cols))
+
+            # Expect 10 rows
+            self.assertEqual(len(data['rows']), 10)
+
 
 if __name__ == '__main__':
     unittest.main()
