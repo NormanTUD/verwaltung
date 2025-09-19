@@ -70,7 +70,13 @@ try:
     graph = None
     for attempt in range(15):  # max 15 Versuche
         try:
-            graph = Graph(os.getenv("NEO4J_URI"), auth=(os.getenv("NEO4J_USER", "neo4j"), os.getenv("NEO4J_PASS", "test1234")))
+            graph = Graph(
+                os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+                auth=(
+                    os.getenv("NEO4J_USER", "neo4j"),
+                    os.getenv("NEO4J_PASS", "testTEST12345678")
+                )
+            )
             graph.run("RETURN 1")  # Testabfrage
             print("Neo4j ist bereit!")
             break
