@@ -881,5 +881,64 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertEqual(resp.status_code, 500)
             self.assertIn(b"invalid literal", resp.data)
 
+    def test_get_data_as_table_person_stadt_full_table(self):
+        """Ensure /api/get_data_as_table returns clean table form without duplicates."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        inserts = [
+            ("Maria", "Müller", "Hauptstraße 1", "Berlin", "10115"),
+            ("Hans", "Schmidt", "Marktplatz 5", "Hamburg", "20095"),
+            ("Anna", "Fischer", "Bahnhofsallee 12", "München", "80331"),
+        ]
+        for vorname, nachname, strasse, stadt, plz in inserts:
+            self.graph.run(
+                "CREATE (p:Person {vorname:$vn, nachname:$nn}) "
+                "CREATE (s:Stadt {stadt:$st, plz:$plz, strasse:$str}) "
+                "CREATE (p)-[:WOHNT_IN]->(s)",
+                vn=vorname, nn=nachname, st=stadt, plz=plz, str=strasse
+            )
+
+        with self.app as client:
+            resp = client.get(
+                '/api/get_data_as_table',
+                query_string={'nodes': 'Person,Stadt'}
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+
+            # Must have all expected columns
+            expected_cols = {
+                ('Person', 'vorname'),
+                ('Person', 'nachname'),
+                ('Stadt', 'strasse'),
+                ('Stadt', 'stadt'),
+                ('Stadt', 'plz'),
+            }
+            cols = {(c['nodeType'], c['property']) for c in data['columns']}
+            self.assertTrue(expected_cols.issubset(cols))
+
+            # Map rows using column order
+            col_names = [c['property'] for c in data['columns']]
+            actual_rows = []
+            for row in data['rows']:
+                values = {col_names[i]: cell['value'] for i, cell in enumerate(row['cells'])}
+                tup = (
+                    values.get('vorname'),
+                    values.get('nachname'),
+                    values.get('strasse'),
+                    values.get('stadt'),
+                    values.get('plz'),
+                )
+                actual_rows.append(tup)
+
+            expected_rows = [
+                ("Maria", "Müller", "Hauptstraße 1", "Berlin", "10115"),
+                ("Hans", "Schmidt", "Marktplatz 5", "Hamburg", "20095"),
+                ("Anna", "Fischer", "Bahnhofsallee 12", "München", "80331"),
+            ]
+
+            self.assertEqual(sorted(actual_rows), sorted(expected_rows))
+            self.assertEqual(len(actual_rows), len(expected_rows))
+
+
 if __name__ == '__main__':
     unittest.main()
