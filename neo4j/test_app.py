@@ -1109,6 +1109,14 @@ class TestNeo4jApp(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 400)
 
+    def test_add_property_on_nonexistent_label(self):
+        resp = self.app.post(
+            '/api/add_property_to_nodes',
+            data=json.dumps({"label": "Ghost", "property": "age", "value": 42}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get_json()["updated"], 0)
 
 if __name__ == '__main__':
     unittest.main()
