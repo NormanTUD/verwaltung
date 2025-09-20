@@ -1101,6 +1101,14 @@ class TestNeo4jApp(unittest.TestCase):
         data = resp.get_json()
         self.assertIn("error", data)
 
+    def test_add_property_empty_label(self):
+        resp = self.app.post(
+            '/api/add_property_to_nodes',
+            data=json.dumps({"label": "", "property": "foo"}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 400)
+
 
 if __name__ == '__main__':
     unittest.main()
