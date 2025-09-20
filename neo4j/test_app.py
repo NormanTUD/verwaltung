@@ -1166,6 +1166,5 @@ class TestNeo4jApp(unittest.TestCase):
         val = graph.run("MATCH (p:Person {name:'Eva'}) RETURN p.score AS score").data()[0]["score"]
         self.assertEqual(val, 3.14)
 
-
 if __name__ == '__main__':
     unittest.main()
