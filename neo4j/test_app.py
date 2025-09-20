@@ -1020,6 +1020,87 @@ class TestNeo4jApp(unittest.TestCase):
             # Expect 10 rows
             self.assertEqual(len(data['rows']), 10)
 
+    def test_add_property_basic_with_value(self):
+        r = graph.run("CREATE (p:Person {name:'Alice'}) RETURN id(p) AS id").data()[0]
+        node_id = r['id']
+
+        resp = self.app.post(
+            '/api/add_property_to_nodes',
+            data=json.dumps({"label": "Person", "property": "age", "value": 30}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertIn("updated", data)
+        self.assertEqual(data["updated"], 1)
+
+        props = graph.run("MATCH (p:Person) RETURN p.age AS age").data()[0]
+        self.assertEqual(props["age"], 30)
+
+    def test_add_property_skips_existing(self):
+        graph.run("CREATE (p:Person {name:'Bob', age:25})")
+
+        resp = self.app.post(
+            '/api/add_property_to_nodes',
+            data=json.dumps({"label": "Person", "property": "age", "value": 99}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data["updated"], 0)
+
+        props = graph.run("MATCH (p:Person {name:'Bob'}) RETURN p.age AS age").data()[0]
+        self.assertEqual(props["age"], 25)
+
+    def test_add_property_with_null_value(self):
+        graph.run("CREATE (p:Person {name:'Clara'})")
+
+        resp = self.app.post(
+            '/api/add_property_to_nodes',
+            data=json.dumps({"label": "Person", "property": "nickname", "value": None}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data["updated"], 1)
+
+        props = graph.run("MATCH (p:Person {name:'Clara'}) RETURN p.nickname AS nickname").data()[0]
+        self.assertIsNone(props["nickname"])
+
+    def test_add_property_return_nodes_flag(self):
+        res = graph.run("CREATE (p:Person {name:'Dave'}) RETURN id(p) AS id").data()[0]
+        node_id = res["id"]
+
+        resp = self.app.post(
+            '/api/add_property_to_nodes',
+            data=json.dumps({"label": "Person", "property": "flagged", "value": True, "return_nodes": True}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertIn("nodes", data)
+        self.assertIn(node_id, data["nodes"])
+
+    def test_add_property_invalid_label(self):
+        resp = self.app.post(
+            '/api/add_property_to_nodes',
+            data=json.dumps({"label": "123bad", "property": "test"}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 400)
+        data = resp.get_json()
+        self.assertIn("error", data)
+
+    def test_add_property_invalid_property(self):
+        resp = self.app.post(
+            '/api/add_property_to_nodes',
+            data=json.dumps({"label": "Person", "property": "1!bad"}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 400)
+        data = resp.get_json()
+        self.assertIn("error", data)
+
 
 if __name__ == '__main__':
     unittest.main()
