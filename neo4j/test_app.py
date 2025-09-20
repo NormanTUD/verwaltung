@@ -1118,5 +1118,17 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.get_json()["updated"], 0)
 
+    def test_add_property_multiple_nodes(self):
+        graph.run("CREATE (:Person {name:'A'}), (:Person {name:'B'})")
+        resp = self.app.post(
+            '/api/add_property_to_nodes',
+            data=json.dumps({"label": "Person", "property": "age", "value": 10}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data["updated"], 2)
+
+
 if __name__ == '__main__':
     unittest.main()
