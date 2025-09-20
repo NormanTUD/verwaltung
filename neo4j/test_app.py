@@ -1154,7 +1154,6 @@ class TestNeo4jApp(unittest.TestCase):
         )
         self.assertEqual(resp2.get_json()["updated"], 0)
 
-
     def test_add_property_with_float_value(self):
         graph.run("CREATE (:Person {name:'Eva'})")
         resp = self.app.post(
