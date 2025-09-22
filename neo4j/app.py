@@ -419,10 +419,9 @@ def get_graph_data():
                     }
 
                 if r_id not in seen_links:
-                    rel_type = r.type
-                    # Safely get the type string, even if it's a function object
-                    if callable(rel_type):
-                        rel_type = rel_type.__name__
+                    rel_type = type(r)  # <- Hier liegt der Trick
+                    if not isinstance(rel_type, str):
+                        rel_type = r.__class__.__name__
 
                     links.append({
                         'source': n_id,
@@ -436,6 +435,7 @@ def get_graph_data():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @app.route('/upload', methods=['POST'])
 @test_if_deleted_db
