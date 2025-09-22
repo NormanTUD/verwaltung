@@ -64,7 +64,7 @@ load_dotenv()
 
 # Konfiguration und Initialisierung
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'replace_this_with_a_long_random_secret')
+app.secret_key = os.getenv('SECRET_KEY', 'replace_this_with_a_long_random_secret') # TODO: Remove hardcoded
 
 try:
     # Neo4j-Verbindung
