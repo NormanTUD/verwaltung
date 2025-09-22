@@ -879,32 +879,7 @@ def get_data_as_table():
         # Wenn Pfade vorhanden: Path-Logik
         # ------------------------
         if results:
-            for path_idx, r in enumerate(results):
-                path = r['p']
-                print(f"\n--- Verarbeitung Pfad {path_idx+1}/{len(results)} ---")
-                node_list = list(path.nodes)
-                print("Pfad-Nodes (id: labels):", [(n.identity, list(n.labels)) for n in node_list])
-
-                # finde main nodes in diesem Pfad
-                main_positions = [(i, n) for i, n in enumerate(node_list) if main_label in n.labels]
-                if not main_positions:
-                    print("  Kein main_label in diesem Pfad gefunden -> überspringe")
-                    continue
-                print("  Main positions in path:", [(i, n.identity) for i, n in main_positions])
-
-                for main_index, main_node in main_positions:
-                    main_id = main_node.identity
-                    if main_id not in main_nodes:
-                        main_nodes[main_id] = {"nodes": {}, "adjacent": set(), "relations": []}
-                        print(f"  Neuer main_node bucket: {main_id}")
-
-                    bucket = main_nodes[main_id]
-
-                    for main_id, bucket in main_nodes.items():
-                        collect_nodes_for_bucket(bucket, node_list, main_index, selected_labels, filter_labels)
-
-                    for main_id, bucket in main_nodes.items():
-                        collect_relations_for_bucket(bucket, main_id, path.relationships)
+            main_nodes = process_paths(results, main_label, selected_labels, filter_labels)
 
         # ------------------------
         # Wenn keine Pfade: Einzel-Node-Logik
@@ -962,6 +937,50 @@ def get_data_as_table():
     except Exception as e:
         print("Fehler (Exception):", e)
         return jsonify({"status": "error", "message": str(e)}), 500
+
+def process_paths(results, main_label, selected_labels, filter_labels=None):
+    """
+    Verarbeitet alle Pfade, sammelt Nodes und Relations pro main_node.
+
+    Args:
+        results (list): Liste der Pfad-Ergebnisse, jedes Element enthält 'p' als Path-Objekt.
+        main_label (str): Label, das als Hauptknoten identifiziert wird.
+        selected_labels (list/set): Labels, die für Nodes berücksichtigt werden.
+        filter_labels (list/set, optional): Optional weitere Filterlabels für Nodes.
+
+    Returns:
+        dict: main_nodes Dictionary mit gesammelten Nodes, Adjacent-IDs und Relations.
+    """
+    main_nodes = {}
+
+    for path_idx, r in enumerate(results):
+        path = r['p']
+        print(f"\n--- Verarbeitung Pfad {path_idx+1}/{len(results)} ---")
+        node_list = list(path.nodes)
+        print("Pfad-Nodes (id: labels):", [(n.identity, list(n.labels)) for n in node_list])
+
+        # Finde main nodes in diesem Pfad
+        main_positions = [(i, n) for i, n in enumerate(node_list) if main_label in n.labels]
+        if not main_positions:
+            print("  Kein main_label in diesem Pfad gefunden -> überspringe")
+            continue
+        print("  Main positions in path:", [(i, n.identity) for i, n in main_positions])
+
+        for main_index, main_node in main_positions:
+            main_id = main_node.identity
+            if main_id not in main_nodes:
+                main_nodes[main_id] = {"nodes": {}, "adjacent": set(), "relations": []}
+                print(f"  Neuer main_node bucket: {main_id}")
+
+            bucket = main_nodes[main_id]
+
+            # Nodes sammeln
+            collect_nodes_for_bucket(bucket, node_list, main_index, selected_labels, filter_labels)
+
+            # Relations sammeln
+            collect_relations_for_bucket(bucket, main_id, path.relationships)
+
+    return main_nodes
 
 def collect_nodes_for_bucket(bucket, node_list, main_index, selected_labels, filter_labels=None):
     """
