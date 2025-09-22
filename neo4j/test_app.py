@@ -3044,5 +3044,14 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
+    def test_create_node_basic_success(self):
+        """Ein einfacher Node ohne Beziehung"""
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 1}]
+            resp = self.app.post('/api/create_node', json={"property": "name", "value": "Alice"})
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn(b"Neuer Node erstellt", resp.data)
+
+
 if __name__ == '__main__':
     unittest.main()
