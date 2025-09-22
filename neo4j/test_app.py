@@ -1529,6 +1529,24 @@ class TestNeo4jApp(unittest.TestCase):
             values = {c['property']: data['rows'][0]['cells'][i]['value'] for i, c in enumerate(data['columns'])}
             self.assertEqual(values.get('vorname'), 'Solo')
             self.assertEqual(values.get('nachname'), 'Tester')
+    def test_get_data_as_table_filter_labels_excludes_nodes(self):
+        """FilterLabels should exclude non-matching node types."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (p:Person {name:'X'})-[:REL]->(:Ort {plz:'123'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table',
+                              query_string={'nodes': 'Person,Ort', 'filterLabels': 'Ort'})
+            data = resp.get_json()
+            cols = { (c['nodeType'], c['property']) for c in data['columns'] }
+            self.assertIn(('Ort', 'plz'), cols)
+            self.assertNotIn(('Person', 'name'), cols)
+
+    def test_get_data_as_table_invalid_limit_param(self):
+        """Non-integer limit should trigger error."""
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person', 'limit': 'NaN'})
+            self.assertEqual(resp.status_code, 500)
+            self.assertIn(b"invalid literal", resp.data)
 
 if __name__ == '__main__':
     unittest.main()
