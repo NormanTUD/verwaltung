@@ -3,10 +3,10 @@ const resultsContainer = document.getElementById('resultsContainer');
 
 function fetchData() {
   var sel = document.getElementById('querySelection');
-  if (!sel) return alert('Kein #querySelection im DOM');
+  if (!sel) return error('Kein #querySelection im DOM');
 
   var labels = [].slice.call(sel.querySelectorAll('input:checked')).map(function(i){ return i.value; });
-  if (!labels.length) { console.warn('Bitte mindestens ein Label auswählen'); return; }
+  if (!labels.length) { warning('Bitte mindestens ein Label auswählen'); return; }
 
   var qs = 'nodes=' + encodeURIComponent(labels.join(','));
   var url = '/api/get_data_as_table?' + qs;
@@ -18,20 +18,19 @@ function fetchData() {
     })
     .then(function(data){
       if (data && data.status === 'error') {
-        alert(data.message || 'Fehler vom Server');
+        error(data.message || 'Fehler vom Server');
         return;
       }
       renderTable(data);
     })
     .catch(function(err){
       console.error('fetchData error', err);
-      alert('Fehler beim Laden: ' + (err.message || err));
+      error('Fehler beim Laden: ' + (err.message || err));
     });
 }
-
 function renderTable(data) {
   var container = document.getElementById('resultsContainer');
-  if (!container) return console.error('renderTable: kein #resultsContainer');
+  if (!container) { error('renderTable: kein #resultsContainer'); return; }
 
   container.innerHTML = '';
 
@@ -95,7 +94,6 @@ function renderTable(data) {
   table.appendChild(tbody);
   container.appendChild(table);
 }
-
 
 function make_thead_from_columns(cols) {
   var thead = document.createElement('thead');
@@ -467,7 +465,7 @@ function addColumnToNode(event) {
 	}
 
 	if (nodeIds.length === 0) {
-		alert("Keine IDs in dieser Zeile gefunden!");
+		error("Keine IDs in dieser Zeile gefunden!");
 		return;
 	}
 
@@ -476,7 +474,7 @@ function addColumnToNode(event) {
 		.map(cb => cb.value);
 
 	if (activeLabels.length === 0) {
-		alert("Bitte mindestens einen Node-Typ im Bereich 'querySelection' auswählen!");
+		error("Bitte mindestens einen Node-Typ im Bereich 'querySelection' auswählen!");
 		return;
 	}
 
@@ -537,7 +535,7 @@ function addColumnToNode(event) {
 		const targetLabel = document.getElementById('nodeTypeSelect').value;
 
 		if (!columnName) {
-			alert("Bitte einen Spaltennamen eingeben!");
+			error("Bitte einen Spaltennamen eingeben!");
 			return;
 		}
 
