@@ -2953,5 +2953,96 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
+    def test_save_mapping_hyper_complex_multiple_values_and_conflicts(self):
+        """CSV mit gleichen Knoten mehrfach mit leicht unterschiedlichen Properties, testet Merge/ON CREATE SET Konflikte"""
+        csv_data = "\n".join([
+            "person,city,country,company,role",
+            "Alice,Berlin,Deutschland,ACME,Engineer",
+            "Alice,Berlin,Deutschland,ACME,Senior Engineer",
+            "Alice,Berlin,Deutschland,ACME,Lead Engineer",
+            "Bob,München,Deutschland,Globex,Manager",
+            "Bob,München,Deutschland,Globex,Director",
+            "Carol,Hamburg,Deutschland,ACME,Analyst",
+            "Carol,Hamburg,Deutschland,ACME,Senior Analyst"
+        ])
+        mapping = {
+            "nodes": {
+                "Person": [{"original": "person", "renamed": "name"}, {"original": "role", "renamed": "role"}],
+                "Ort": [{"original": "city", "renamed": "stadt"}],
+                "Land": [{"original": "country", "renamed": "name"}],
+                "Firma": [{"original": "company", "renamed": "name"}]
+            },
+            "relationships": [
+                {"from": "Person", "to": "Ort", "type": "WOHNT_IN"},
+                {"from": "Ort", "to": "Land", "type": "LIEGT_IN"},
+                {"from": "Person", "to": "Firma", "type": "ARBEITET_FUER"},
+                {"from": "Firma", "to": "Land", "type": "IST_IN"}
+            ]
+        }
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
+    def test_save_mapping_hyper_complex_extremely_interconnected_graph(self):
+        """Extrem vernetzter Graph: jeder Person-Knoten mit 3–5 Orten, Firmen, Projekten verbunden, 5 Ebenen, 25 Zeilen, Sonderzeichen, fehlende Felder"""
+        csv_data = "\n".join([
+            "person,city,country,company,dept,role,project",
+            "Alice,Berlin,Deutschland,ACME,IT,Engineer,ProjectX",
+            "Alice,Hamburg,Deutschland,Globex,HR,Analyst,ProjectY",
+            "Alice,München,Deutschland,ACME,Sales,Manager,ProjectZ",
+            "Bob,Berlin,Deutschland,Globex,IT,Engineer,ProjectX",
+            "Bob,Hamburg,Deutschland,ACME,HR,Analyst,ProjectY",
+            "Bob,München,Deutschland,Globex,Sales,Manager,ProjectZ",
+            "Carol,Berlin,Deutschland,ACME,IT,Engineer,ProjectX",
+            "Carol,Hamburg,Deutschland,Globex,HR,Analyst,ProjectY",
+            "Carol,München,Deutschland,ACME,Sales,Manager,ProjectZ",
+            "Dave,Berlin,Deutschland,Globex,IT,Engineer,ProjectX",
+            "Dave,Hamburg,Deutschland,ACME,HR,Analyst,ProjectY",
+            "Dave,München,Deutschland,Globex,Sales,Manager,ProjectZ",
+            "Eve,Berlin,Deutschland,ACME,IT,Engineer,ProjectX",
+            "Eve,Hamburg,Deutschland,Globex,HR,Analyst,ProjectY",
+            "Eve,München,Deutschland,ACME,Sales,Manager,ProjectZ",
+            "Frank,Berlin,,ACME,IT,Engineer,ProjectX",  # fehlendes Land
+            "Grace,Hamburg,Deutschland,,HR,Analyst,ProjectY",  # fehlende Firma
+            "Heidi,München,Deutschland,Globex,Sales,Manager,",  # fehlendes Projekt
+            "Ivan,Berlin,Deutschland,ACME,IT,Engineer,ProjectX",
+            "Judy,Hamburg,Deutschland,Globex,HR,Analyst,ProjectY",
+            "Mallory,München,Deutschland,ACME,Sales,Manager,ProjectZ",
+            "Oscar,Berlin,Deutschland,Globex,IT,Engineer,ProjectX",
+            "Peggy,Hamburg,Deutschland,ACME,HR,Analyst,ProjectY",
+            "Trent,München,Deutschland,Globex,Sales,Manager,ProjectZ",
+            "Victor,Berlin,Deutschland,ACME,IT,Engineer,ProjectX"
+        ])
+        mapping = {
+            "nodes": {
+                "Person": [{"original": "person", "renamed": "name"}, {"original": "role", "renamed": "role"}],
+                "Ort": [{"original": "city", "renamed": "stadt"}],
+                "Land": [{"original": "country", "renamed": "name"}],
+                "Firma": [{"original": "company", "renamed": "name"}],
+                "Abteilung": [{"original": "dept", "renamed": "name"}],
+                "Projekt": [{"original": "project", "renamed": "name"}],
+                "Position": [{"original": "role", "renamed": "title"}],
+                "Team": [{"original": "dept", "renamed": "team_name"}]
+            },
+            "relationships": [
+                {"from": "Person", "to": "Ort", "type": "WOHNT_IN"},
+                {"from": "Ort", "to": "Land", "type": "LIEGT_IN"},
+                {"from": "Person", "to": "Firma", "type": "ARBEITET_FUER"},
+                {"from": "Firma", "to": "Land", "type": "IST_IN"},
+                {"from": "Person", "to": "Abteilung", "type": "GEHOERT_ZU"},
+                {"from": "Abteilung", "to": "Position", "type": "BESTEHT_AUS"},
+                {"from": "Person", "to": "Projekt", "type": "ARBEITET_AN"},
+                {"from": "Projekt", "to": "Team", "type": "WIRD_GELEITET_VON"},
+                {"from": "Team", "to": "Firma", "type": "IST_TEIL_VON"}
+            ]
+        }
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
