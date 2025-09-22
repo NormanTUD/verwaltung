@@ -1762,5 +1762,19 @@ class TestNeo4jApp(unittest.TestCase):
             rels = resp.get_json()['rows'][0]['relations']
             self.assertTrue(any(r['relation'] == 'KNOWS' for r in rels))
 
+    def test_get_data_as_table_main_label_case_sensitive(self):
+        """Passing a lowercase label that doesn't exist should return empty results."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Stadt {stadt:'Berlin'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'stadt'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertIsInstance(data, dict)
+            self.assertEqual(data['columns'], [])
+            self.assertEqual(data['rows'], [])
+
+
+
 if __name__ == '__main__':
     unittest.main()
