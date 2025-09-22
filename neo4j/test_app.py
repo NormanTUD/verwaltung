@@ -1517,5 +1517,18 @@ class TestNeo4jApp(unittest.TestCase):
         count = self.graph.run("MATCH (n:Node {name:'New'}) RETURN COUNT(n) AS c").data()[0]["c"]
         self.assertEqual(count, 1)
 
+    def test_get_data_as_table_only_main_nodes_no_edges(self):
+        """Single Person without relations should still return one row with Person props only."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Person {vorname:'Solo', nachname:'Tester'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertEqual(len(data['rows']), 1)
+            values = {c['property']: data['rows'][0]['cells'][i]['value'] for i, c in enumerate(data['columns'])}
+            self.assertEqual(values.get('vorname'), 'Solo')
+            self.assertEqual(values.get('nachname'), 'Tester')
+
 if __name__ == '__main__':
     unittest.main()
