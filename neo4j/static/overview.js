@@ -255,54 +255,79 @@ function deleteNode(event) {
 }
 
 function updateValue(element) {
+    console.groupCollapsed("updateValue triggered");
     try {
-        console.log("DEBUG: updateValue triggered", element);
-        if (!element) return;
+        if (!element) {
+            console.warn("Kein Element übergeben");
+            console.groupEnd();
+            return;
+        }
+
+        console.log("Element:", element);
 
         const newValue = element.value;
         if (element.originalValue === newValue) {
-            console.log("DEBUG: Wert unverändert, Abbruch");
+            console.log("Wert unverändert, Abbruch");
+            console.groupEnd();
             return;
         }
         element.originalValue = newValue;
 
         const propertyName = element.getAttribute('data-property');
         if (!propertyName) {
-            console.log("DEBUG: data-property fehlt");
+            console.warn("data-property fehlt");
+            console.groupEnd();
             return;
         }
 
         const dataIdAttr = element.getAttribute('data-id');
-        console.log("DEBUG: dataIdAttr =", dataIdAttr);
+        console.log("data-id attribute:", dataIdAttr);
 
         // === Update vorhandener Node ===
         if (dataIdAttr && dataIdAttr !== "null") {
             const ids = dataIdAttr.split(',').map(s => Number(s.trim()));
-            console.log("DEBUG: Update vorhandene Nodes, ids =", ids);
+            console.group("Update vorhandene Nodes");
+            console.log("IDs:", ids);
             fetch('/api/update_nodes', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ids, property: propertyName, value: newValue })
-            }).then(r => r.json())
-              .then(d => console.log("DEBUG: update_nodes response:", d))
-              .catch(err => console.error("DEBUG: update_nodes error:", err));
+            })
+            .then(r => r.json())
+            .then(d => console.log("update_nodes response:", d))
+            .catch(err => console.error("update_nodes error:", err))
+            .finally(() => console.groupEnd());
+            console.groupEnd();
             return;
         }
 
         // === Node existiert noch nicht ===
         const tr = element.closest('tr');
         if (!tr) {
-            console.log("DEBUG: Kein tr gefunden");
+            console.warn("Kein tr gefunden");
+            console.groupEnd();
             return;
         }
 
-        // Verbindungs-IDs sammeln
-        const otherInputs = Array.from(tr.querySelectorAll('input[data-id]'));
-        const connectedIds = otherInputs.map(inp => Number(inp.getAttribute('data-id')))
-                                       .filter(id => !isNaN(id));
-        console.log("DEBUG: connectedIds =", connectedIds);
+        // Verbindungs-IDs sammeln (nur für passende Relation GESCHRIEBENVON)
+        console.group("Connected IDs sammeln");
+        const otherInputs = Array.from(tr.querySelectorAll('input[data-id][data-relation]'));
+        const connectedIds = otherInputs.map(inp => {
+            try {
+                const relations = inp.getAttribute('data-relation')?.split(',') || [];
+                if (relations.includes('GESCHRIEBENVON')) {
+                    return Number(inp.getAttribute('data-id'));
+                }
+            } catch (err) {
+                console.error("Fehler beim Parsen der data-relation:", err, inp);
+            }
+            return null;
+        }).filter(id => id !== null && !isNaN(id));
+        console.log("Filtered connectedIds (GESCHRIEBENVON):", connectedIds);
+        console.groupEnd();
 
         // Alle Relations aus derselben Spalte sammeln
+        console.group("Relationen sammeln");
         const tdIndex = Array.from(tr.children).indexOf(element.parentElement);
         const table = element.closest('table');
         const relationSet = new Set();
@@ -315,19 +340,25 @@ function updateValue(element) {
                     const parsed = JSON.parse(decodeURIComponent(relData));
                     parsed.forEach(r => {
                         relationSet.add(r.relation);
-                        console.log("DEBUG: gefundene Relation:", r.relation);
+                        console.log("Gefundene Relation:", r.relation);
                     });
                 } catch (err) {
-                    console.warn("DEBUG: JSON parse error in data-relations", err);
+                    console.warn("JSON parse error in data-relations:", err);
                 }
             }
         });
 
         const uniqueRelations = Array.from(relationSet);
-        console.log("DEBUG: uniqueRelations =", uniqueRelations);
+        console.log("uniqueRelations:", uniqueRelations);
+        console.groupEnd();
 
+        // Funktion zum Erstellen eines Nodes
         function createNode(relType) {
-            console.log("DEBUG: createNode aufgerufen mit relType =", relType);
+            console.group("createNode aufgerufen");
+            console.log("relType:", relType);
+            console.log("property:", propertyName, "value:", newValue);
+            console.log("connectTo IDs:", connectedIds);
+
             fetch('/api/create_node', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -337,32 +368,35 @@ function updateValue(element) {
                     connectTo: connectedIds,
                     relation: relType ? { relation: relType, targetLabel: "Buch" } : { targetLabel: "Buch" }
                 })
-            }).then(r => r.json())
-              .then(data => {
-                  console.log("DEBUG: create_node response:", data);
-                  if (data.status === 'success') {
-                      element.setAttribute('data-id', data.newNodeId);
-                      console.log("DEBUG: data-id gesetzt auf", data.newNodeId);
-                  }
-              })
-              .catch(err => console.error("DEBUG: create_node error:", err));
+            })
+            .then(r => r.json())
+            .then(data => {
+                console.log("create_node response:", data);
+                if (data.status === 'success') {
+                    element.setAttribute('data-id', data.newNodeId);
+                    console.log("data-id gesetzt auf", data.newNodeId);
+                }
+            })
+            .catch(err => console.error("create_node error:", err))
+            .finally(() => console.groupEnd());
         }
 
         // === Relation-Handling ===
         if (uniqueRelations.length === 0) {
-            console.log("DEBUG: keine Relation, Node ohne Relation erstellen");
+            console.log("Keine Relation, Node ohne Relation erstellen");
             createNode(null);
         } else if (uniqueRelations.length === 1) {
-            console.log("DEBUG: nur eine Relation, Node direkt erstellen");
+            console.log("Nur eine Relation, Node direkt erstellen");
             createNode(uniqueRelations[0]);
         } else {
-            console.log("DEBUG: mehrere Relationen, Modal anzeigen");
+            console.log("Mehrere Relationen, Modal anzeigen");
             showRelationModal(uniqueRelations, createNode);
         }
 
     } catch (err) {
-        console.error('DEBUG: updateValue exception:', err);
+        console.error('updateValue exception:', err);
     }
+    console.groupEnd();
 }
 
 // === Einfaches Modal, zeigt nur Relation-Typen ===
