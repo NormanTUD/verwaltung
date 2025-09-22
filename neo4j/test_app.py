@@ -2645,5 +2645,28 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
+    def test_save_mapping_super_complex_nested_graph(self):
+        """3 Zeilen, 4 Knoten-Typen, 4 Beziehungen, verschachtelt und teilweise fehlende Werte."""
+        csv_data = "person,city,country,company\nAlice,Berlin,Deutschland,ACME\nBob,Munich,,Globex\nCarol,Hamburg,Deutschland,"
+        mapping = {
+            "nodes": {
+                "Person": [{"original": "person", "renamed": "name"}],
+                "Ort": [{"original": "city", "renamed": "stadt"}],
+                "Land": [{"original": "country", "renamed": "name"}],
+                "Firma": [{"original": "company", "renamed": "name"}]
+            },
+            "relationships": [
+                {"from": "Person", "to": "Ort", "type": "WOHNT_IN"},
+                {"from": "Ort", "to": "Land", "type": "LIEGT_IN"},
+                {"from": "Person", "to": "Firma", "type": "ARBEITET_FUER"},
+                {"from": "Firma", "to": "Land", "type": "IST_IN"}
+            ]
+        }
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
