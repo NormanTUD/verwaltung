@@ -2692,5 +2692,40 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
+
+    def test_save_mapping_super_complex_large_graph_with_duplicates(self):
+        """10 Zeilen, mehrere Knoten-Typen, viele Duplikate, verschachtelte Beziehungen, fehlende Felder teilweise."""
+        csv_data = "\n".join([
+            "Alice,Berlin,Deutschland,ACME",
+            "Bob,Munich,Deutschland,Globex",
+            "Carol,Hamburg,Deutschland,ACME",
+            "Dave,Berlin,Deutschland,Globex",
+            "Eve,Berlin,Deutschland,ACME",
+            "Alice,Berlin,Deutschland,ACME",  # Duplikat
+            "Bob,Munich,Deutschland,Globex",  # Duplikat
+            "Frank,Hamburg,,ACME",            # fehlendes Land
+            "Grace,,Deutschland,Globex",      # fehlender Ort
+            "Heidi,Hamburg,Deutschland,"      # fehlende Firma
+        ])
+        mapping = {
+            "nodes": {
+                "Person": [{"original": "person", "renamed": "name"}],
+                "Ort": [{"original": "city", "renamed": "stadt"}],
+                "Land": [{"original": "country", "renamed": "name"}],
+                "Firma": [{"original": "company", "renamed": "name"}]
+            },
+            "relationships": [
+                {"from": "Person", "to": "Ort", "type": "WOHNT_IN"},
+                {"from": "Ort", "to": "Land", "type": "LIEGT_IN"},
+                {"from": "Person", "to": "Firma", "type": "ARBEITET_FUER"},
+                {"from": "Firma", "to": "Land", "type": "IST_IN"}
+            ]
+        }
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
