@@ -981,28 +981,8 @@ def get_data_as_table():
         # ------------------------
         rows = []
         for main_id, bucket in main_nodes.items():
-            cells = []
-            for col in columns:
-                label = col["nodeType"]
-                prop = col["property"]
-                nodes_map = bucket["nodes"].get(label, {})
-                chosen_node_id = None
-                chosen_info = None
-
-                if nodes_map:
-                    adjacent_candidates = {nid: info for nid, info in nodes_map.items() if nid in bucket["adjacent"]}
-                    if adjacent_candidates:
-                        chosen_node_id = min(adjacent_candidates.items(), key=lambda x: x[1]["min_dist"])[0]
-                        chosen_info = adjacent_candidates[chosen_node_id]
-                    else:
-                        chosen_node_id, chosen_info = min(nodes_map.items(), key=lambda x: x[1]["min_dist"])
-                if chosen_info:
-                    val = chosen_info["props"].get(prop)
-                    cells.append({"value": val if val is not None else None, "nodeId": chosen_node_id})
-                else:
-                    cells.append({"value": None, "nodeId": None})
-
-            rows.append({"cells": cells, "relations": bucket["relations"]})
+            cells = build_cells_for_bucket(bucket, columns)
+            rows.append({"cells": cells, "relations": bucket.get("relations", [])})
 
         print("\n=== Fertige Tabelle ===")
         print("Columns:", columns)
@@ -1013,6 +993,50 @@ def get_data_as_table():
     except Exception as e:
         print("Fehler (Exception):", e)
         return jsonify({"status": "error", "message": str(e)}), 500
+
+def build_cells_for_bucket(bucket, columns):
+    """
+    Erzeugt die Zellen für einen einzelnen Bucket.
+
+    Args:
+        bucket (dict): Ein einzelner Bucket aus main_nodes.
+        columns (list): Liste der Spaltendefinitionen, jede mit "nodeType" und "property".
+
+    Returns:
+        list: Liste von Zellen im Format {"value": ..., "nodeId": ...}
+    """
+    cells = []
+    try:
+        for col in columns:
+            label = col.get("nodeType")
+            prop = col.get("property")
+            nodes_map = bucket.get("nodes", {}).get(label, {})
+            chosen_node_id = None
+            chosen_info = None
+
+            if nodes_map:
+                adjacent_candidates = {nid: info for nid, info in nodes_map.items() if nid in bucket.get("adjacent", {})}
+                if adjacent_candidates:
+                    chosen_node_id, chosen_info = min(
+                        adjacent_candidates.items(), key=lambda x: x[1].get("min_dist", float('inf'))
+                    )
+                else:
+                    chosen_node_id, chosen_info = min(
+                        nodes_map.items(), key=lambda x: x[1].get("min_dist", float('inf'))
+                    )
+
+            if chosen_info:
+                val = chosen_info.get("props", {}).get(prop)
+                cells.append({"value": val if val is not None else None, "nodeId": chosen_node_id})
+            else:
+                cells.append({"value": None, "nodeId": None})
+
+    except Exception as e:
+        print(f"Fehler beim Erstellen der Zellen für bucket: {e}")
+        # Optional: fallback, leere Zellen erzeugen
+        cells = [{"value": None, "nodeId": None} for _ in columns]
+
+    return cells
 
 @app.route("/api/add_property_to_nodes", methods=["POST"])
 @test_if_deleted_db
