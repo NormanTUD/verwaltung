@@ -633,53 +633,70 @@ def generate_cypher_query(max_depth):
 
 @app.route('/api/create_node', methods=['POST'])
 def create_node():
-    data = request.get_json(silent=True)
-    if not data:
-        return jsonify({
-            "status": "error",
-            "message": "Request-Body leer oder ungültig. property und value erforderlich."
-        }), 400
-
-    prop_name = data.get("property")
-    value = data.get("value")
-    connect_ids = data.get("connectTo", [])
-    relation_data = data.get("relation")  # Optional, dict mit relation info
-
-    if not prop_name:
-        return jsonify({"status": "error", "message": "property fehlt im Request."}), 400
-    if value is None:
-        return jsonify({"status": "error", "message": "value fehlt im Request."}), 400
-    if not prop_name.isidentifier():
-        return jsonify({"status": "error", "message": f"Ungültiger Property-Name: {prop_name}"}), 400
-
     try:
+        data = request.get_json(silent=True)
+        print("DEBUG: Eingehende Daten:", data)
+
+        if not data:
+            print("DEBUG: Kein Request-Body vorhanden!")
+            return jsonify({
+                "status": "error",
+                "message": "Request-Body leer oder ungültig. property und value erforderlich."
+            }), 400
+
+        prop_name = data.get("property")
+        value = data.get("value")
+        connect_ids = data.get("connectTo", [])
+        relation_data = data.get("relation")  # Optional
+
+        print(f"DEBUG: property={prop_name}, value={value}, connect_ids={connect_ids}, relation_data={relation_data}")
+
+        if not prop_name:
+            print("DEBUG: property fehlt!")
+            return jsonify({"status": "error", "message": "property fehlt im Request."}), 400
+        if value is None:
+            print("DEBUG: value fehlt!")
+            return jsonify({"status": "error", "message": "value fehlt im Request."}), 400
+        if not prop_name.isidentifier():
+            print(f"DEBUG: Ungültiger Property-Name: {prop_name}")
+            return jsonify({"status": "error", "message": f"Ungültiger Property-Name: {prop_name}"}), 400
+
         # Node erstellen
         query_create = f"CREATE (n) SET n.{prop_name}=$value RETURN ID(n) AS id"
+        print("DEBUG: Node-Creation-Query:", query_create)
         result = graph.run(query_create, value=value).data()
+        print("DEBUG: Ergebnis der Node-Erstellung:", result)
+
         if not result:
+            print("DEBUG: Node konnte nicht erstellt werden!")
             return jsonify({"status": "error", "message": "Node konnte nicht erstellt werden."}), 500
 
         new_node_id = result[0]["id"]
+        print(f"DEBUG: Neue Node-ID: {new_node_id}")
 
         # Beziehungen erstellen
         connect_ids_clean = [int(i) for i in connect_ids if isinstance(i, (int, float))]
         connect_ids_clean = list(set(connect_ids_clean))  # Duplikate entfernen
+        print(f"DEBUG: Bereinigte connect_ids: {connect_ids_clean}")
 
         if connect_ids_clean:
             # Relation-Typ bestimmen
             rel_type = "CONNECTED_TO"
             if relation_data and isinstance(relation_data, dict) and "relation" in relation_data:
                 rel_type = relation_data["relation"]
+            print(f"DEBUG: Relationstyp: {rel_type}")
 
-            # Von/Zu bestimmen: wir nehmen new_node_id als "to", connect_ids als "from"
             for other_id in connect_ids_clean:
                 query_rel = f"""
                     MATCH (n),(m)
                     WHERE ID(n) = $from_id AND ID(m) = $to_id
                     MERGE (n)-[:{rel_type}]->(m)
                 """
+                print(f"DEBUG: Relation-Query für other_id={other_id} -> new_node_id={new_node_id}:\n{query_rel}")
                 graph.run(query_rel, from_id=other_id, to_id=new_node_id)
+                print(f"DEBUG: Relation erstellt: {other_id} -[{rel_type}]-> {new_node_id}")
 
+        print(f"DEBUG: Node-Erstellung abgeschlossen: {new_node_id}")
         return jsonify({
             "status": "success",
             "message": f"Neuer Node erstellt mit ID {new_node_id}",
@@ -687,8 +704,9 @@ def create_node():
         })
 
     except Exception as e:
-        print("Fehler create_node:", e)
+        print("DEBUG: Exception create_node:", e)
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 def run_query(graph, query, labels, limit):
     """Neo4j-Abfrage ausführen und Ergebnis zurückgeben"""
