@@ -2766,5 +2766,68 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
+    def test_save_mapping_mega_complex_special_characters_and_types(self):
+        """Zeilen mit Sonderzeichen, Umlauten, Emojis, boolean & numeric, alle Beziehungen."""
+        csv_data = "\n".join([
+            "person,city,country,active,age",
+            "Älice & Bob,Berlin,Deutschland,True,30",
+            "Bób,München,Deutschland,False,25",
+            "Carol,Hamburg,Deutschland,True,28",
+            "D@ve,Berlin,Deutschland,False,35",
+            "Eve,Hamburg,Deutschland,True,32"
+        ])
+        mapping = {
+            "nodes": {
+                "Person": [
+                    {"original": "person", "renamed": "name"},
+                    {"original": "age", "renamed": "age"},
+                    {"original": "active", "renamed": "active"}
+                ],
+                "Ort": [{"original": "city", "renamed": "stadt"}],
+                "Land": [{"original": "country", "renamed": "name"}]
+            },
+            "relationships": [
+                {"from": "Person", "to": "Ort", "type": "WOHNT_IN"},
+                {"from": "Ort", "to": "Land", "type": "LIEGT_IN"}
+            ]
+        }
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
+    def test_save_mapping_mega_complex_many_to_many(self):
+        """Mehrere Personen, mehrere Orte, viele-to-viele Beziehungen, teilweise fehlende Felder."""
+        csv_data = "\n".join([
+            "person,city,country,company",
+            "Alice,Berlin,Deutschland,ACME",
+            "Alice,Hamburg,Deutschland,ACME",
+            "Bob,Munich,Deutschland,Globex",
+            "Bob,Berlin,Deutschland,Globex",
+            "Carol,Hamburg,Deutschland,ACME",
+            "Dave,Berlin,Deutschland,Globex",
+            "Eve,Berlin,Deutschland,ACME"
+        ])
+        mapping = {
+            "nodes": {
+                "Person": [{"original": "person", "renamed": "name"}],
+                "Ort": [{"original": "city", "renamed": "stadt"}],
+                "Land": [{"original": "country", "renamed": "name"}],
+                "Firma": [{"original": "company", "renamed": "name"}]
+            },
+            "relationships": [
+                {"from": "Person", "to": "Ort", "type": "WOHNT_IN"},
+                {"from": "Person", "to": "Firma", "type": "ARBEITET_FUER"},
+                {"from": "Ort", "to": "Land", "type": "LIEGT_IN"},
+                {"from": "Firma", "to": "Land", "type": "IST_IN"}
+            ]
+        }
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
