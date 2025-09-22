@@ -2,450 +2,450 @@ const querySelection = document.getElementById('querySelection');
 const resultsContainer = document.getElementById('resultsContainer');
 
 function fetchData() {
-  var sel = document.getElementById('querySelection');
-  if (!sel) return error('Kein #querySelection im DOM');
+	var sel = document.getElementById('querySelection');
+	if (!sel) return error('Kein #querySelection im DOM');
 
-  var labels = [].slice.call(sel.querySelectorAll('input:checked')).map(function(i){ return i.value; });
-  if (!labels.length) { warning('Bitte mindestens ein Label auswählen'); return; }
+	var labels = [].slice.call(sel.querySelectorAll('input:checked')).map(function(i){ return i.value; });
+	if (!labels.length) { warning('Bitte mindestens ein Label auswählen'); return; }
 
-  var qs = 'nodes=' + encodeURIComponent(labels.join(','));
-  var url = '/api/get_data_as_table?' + qs;
+	var qs = 'nodes=' + encodeURIComponent(labels.join(','));
+	var url = '/api/get_data_as_table?' + qs;
 
-  fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } })
-    .then(function(res){
-      if (!res.ok) throw new Error('Server antwortete mit ' + res.status);
-      return res.json();
-    })
-    .then(function(data){
-      if (data && data.status === 'error') {
-        error(data.message || 'Fehler vom Server');
-        return;
-      }
-      renderTable(data);
-    })
-    .catch(function(err){
-      error('Fehler beim Laden: ' + (err.message || err));
-    });
+	fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } })
+		.then(function(res){
+			if (!res.ok) throw new Error('Server antwortete mit ' + res.status);
+			return res.json();
+		})
+		.then(function(data){
+			if (data && data.status === 'error') {
+				error(data.message || 'Fehler vom Server');
+				return;
+			}
+			renderTable(data);
+		})
+		.catch(function(err){
+			error('Fehler beim Laden: ' + (err.message || err));
+		});
 }
 function renderTable(data) {
-  var container = document.getElementById('resultsContainer');
-  if (!container) { error('renderTable: kein #resultsContainer'); return; }
+	var container = document.getElementById('resultsContainer');
+	if (!container) { error('renderTable: kein #resultsContainer'); return; }
 
-  container.innerHTML = '';
+	container.innerHTML = '';
 
-  var cols = data.columns || [];
-  var rows = data.rows || [];
+	var cols = data.columns || [];
+	var rows = data.rows || [];
 
-  var table = document.createElement('table');
-  table.className = 'query-results-table';
+	var table = document.createElement('table');
+	table.className = 'query-results-table';
 
-  table.appendChild(make_thead_from_columns(cols));
-  var tbody = document.createElement('tbody');
+	table.appendChild(make_thead_from_columns(cols));
+	var tbody = document.createElement('tbody');
 
-  rows.forEach(function(row) {
-      var node_map = build_node_map_from_row(cols, row.cells || []);
-      var tr = document.createElement('tr');
+	rows.forEach(function(row) {
+		var node_map = build_node_map_from_row(cols, row.cells || []);
+		var tr = document.createElement('tr');
 
-      for (var i = 0; i < cols.length; ++i) {
-        var col = cols[i];
-        var cell = (row.cells && row.cells[i]) ? row.cells[i] : null;
-        var td = make_input_td(cell, col);
+		for (var i = 0; i < cols.length; ++i) {
+			var col = cols[i];
+			var cell = (row.cells && row.cells[i]) ? row.cells[i] : null;
+			var td = make_input_td(cell, col);
 
-        // Beziehungen auf das jeweilige td setzen, wenn es ein data-id hat
-        var td_id = td.querySelector('input')?.getAttribute('data-id');
-        if (td_id) {
-          // Filter relations für diese Node
-          var relevantRelations = (row.relations || []).filter(r => r.fromId == td_id || r.toId == td_id);
-          td.setAttribute('data-relations', encodeURIComponent(JSON.stringify(relevantRelations)));
-        }
+			// Beziehungen auf das jeweilige td setzen, wenn es ein data-id hat
+			var td_id = td.querySelector('input')?.getAttribute('data-id');
+			if (td_id) {
+				// Filter relations für diese Node
+				var relevantRelations = (row.relations || []).filter(r => r.fromId == td_id || r.toId == td_id);
+				td.setAttribute('data-relations', encodeURIComponent(JSON.stringify(relevantRelations)));
+			}
 
-        tr.appendChild(td);
-      }
+			tr.appendChild(td);
+		}
 
-      var td_rel = document.createElement('td');
-      td_rel.innerHTML = format_relations_html(row.relations || [], node_map);
-      tr.appendChild(td_rel);
+		var td_rel = document.createElement('td');
+		td_rel.innerHTML = format_relations_html(row.relations || [], node_map);
+		tr.appendChild(td_rel);
 
-      var td_plus = document.createElement('td');
-      var btn_plus = document.createElement('button');
-      btn_plus.type = 'button';
-      btn_plus.setAttribute('onclick', 'addColumnToNode(event)');
-      btn_plus.textContent = '+';
-      td_plus.appendChild(btn_plus);
-      tr.appendChild(td_plus);
+		var td_plus = document.createElement('td');
+		var btn_plus = document.createElement('button');
+		btn_plus.type = 'button';
+		btn_plus.setAttribute('onclick', 'addColumnToNode(event)');
+		btn_plus.textContent = '+';
+		td_plus.appendChild(btn_plus);
+		tr.appendChild(td_plus);
 
-      var td_act = document.createElement('td');
-      var btn_del = document.createElement('button');
-      btn_del.type = 'button';
-      btn_del.className = 'delete-btn';
-      btn_del.setAttribute('data-id', first_node_id_from_row(row));
-      btn_del.textContent = 'Löschen';
-      btn_del.addEventListener('click', function (ev) {
-        var id = ev.currentTarget.getAttribute('data-id');
-        handle_delete_node_by_id(id, ev.currentTarget, ev);
-      });
-      td_act.appendChild(btn_del);
-      tr.appendChild(td_act);
+		var td_act = document.createElement('td');
+		var btn_del = document.createElement('button');
+		btn_del.type = 'button';
+		btn_del.className = 'delete-btn';
+		btn_del.setAttribute('data-id', first_node_id_from_row(row));
+		btn_del.textContent = 'Löschen';
+		btn_del.addEventListener('click', function (ev) {
+			var id = ev.currentTarget.getAttribute('data-id');
+			handle_delete_node_by_id(id, ev.currentTarget, ev);
+		});
+		td_act.appendChild(btn_del);
+		tr.appendChild(td_act);
 
-      tbody.appendChild(tr);
-  });
+		tbody.appendChild(tr);
+	});
 
-  table.appendChild(tbody);
-  container.appendChild(table);
+	table.appendChild(tbody);
+	container.appendChild(table);
 }
 
 function make_thead_from_columns(cols) {
-  var thead = document.createElement('thead');
-  var tr = document.createElement('tr');
+	var thead = document.createElement('thead');
+	var tr = document.createElement('tr');
 
-  // decide if we need to prefix nodeType (when >1 distinct nodeType present)
-  var types = {};
-  for (var i = 0; i < cols.length; ++i) types[cols[i].nodeType] = true;
-  var multi_types = Object.keys(types).length > 1;
+	// decide if we need to prefix nodeType (when >1 distinct nodeType present)
+	var types = {};
+	for (var i = 0; i < cols.length; ++i) types[cols[i].nodeType] = true;
+	var multi_types = Object.keys(types).length > 1;
 
-  for (var i = 0; i < cols.length; ++i) {
-    var c = cols[i];
-    var th = document.createElement('th');
-    th.textContent = multi_types ? (c.nodeType + ':' + c.property) : c.property;
-    tr.appendChild(th);
-  }
+	for (var i = 0; i < cols.length; ++i) {
+		var c = cols[i];
+		var th = document.createElement('th');
+		th.textContent = multi_types ? (c.nodeType + ':' + c.property) : c.property;
+		tr.appendChild(th);
+	}
 
-  var thR = document.createElement('th'); thR.textContent = 'Beziehungen'; tr.appendChild(thR);
-  var thPlus = document.createElement('th'); thPlus.textContent = '+'; tr.appendChild(thPlus);
-  var thAct = document.createElement('th'); thAct.textContent = 'Aktion'; tr.appendChild(thAct);
-  thead.appendChild(tr);
-  return thead;
+	var thR = document.createElement('th'); thR.textContent = 'Beziehungen'; tr.appendChild(thR);
+	var thPlus = document.createElement('th'); thPlus.textContent = '+'; tr.appendChild(thPlus);
+	var thAct = document.createElement('th'); thAct.textContent = 'Aktion'; tr.appendChild(thAct);
+	thead.appendChild(tr);
+	return thead;
 }
 
 function make_input_td(cell, col) {
-  var td = document.createElement('td');
-  var input = document.createElement('input');
-  input.type = 'text';
-  input.value = cell ? (cell.value == null ? '' : cell.value) : '';
-  if (cell && cell.nodeId != null) input.setAttribute('data-id', cell.nodeId);
-  input.setAttribute('data-property', col.property || '');
-  input.setAttribute('onblur', 'updateValue(this)');
-  td.appendChild(input);
-  return td;
+	var td = document.createElement('td');
+	var input = document.createElement('input');
+	input.type = 'text';
+	input.value = cell ? (cell.value == null ? '' : cell.value) : '';
+	if (cell && cell.nodeId != null) input.setAttribute('data-id', cell.nodeId);
+	input.setAttribute('data-property', col.property || '');
+	input.setAttribute('onblur', 'updateValue(this)');
+	td.appendChild(input);
+	return td;
 }
 
 function build_node_map_from_row(cols, cells) {
-  var map = {};
-  for (var i = 0; i < cols.length; ++i) {
-    var c = cols[i];
-    var cell = cells[i];
-    if (!cell) continue;
-    var id = String(cell.nodeId);
-    if (!map[id]) map[id] = { props: {}, order: [] };
-    var prop = c.property || ('col' + i);
-    if (map[id].order.indexOf(prop) === -1) map[id].order.push(prop);
-    map[id].props[prop] = cell.value;
-  }
-  return map;
+	var map = {};
+	for (var i = 0; i < cols.length; ++i) {
+		var c = cols[i];
+		var cell = cells[i];
+		if (!cell) continue;
+		var id = String(cell.nodeId);
+		if (!map[id]) map[id] = { props: {}, order: [] };
+		var prop = c.property || ('col' + i);
+		if (map[id].order.indexOf(prop) === -1) map[id].order.push(prop);
+		map[id].props[prop] = cell.value;
+	}
+	return map;
 }
 
 function format_relations_html(rels, node_map) {
-  if (!rels || !rels.length) return '';
-  var parts = [];
-  for (var i = 0; i < rels.length; ++i) {
-    var r = rels[i];
-    var from_label = node_label(String(r.fromId), node_map);
-    var to_label = node_label(String(r.toId), node_map);
-    parts.push(escape_html(r.relation) + ': ' + escape_html(from_label || r.fromId) + ' → ' + escape_html(to_label || r.toId));
-  }
-  return parts.join('<br>');
+	if (!rels || !rels.length) return '';
+	var parts = [];
+	for (var i = 0; i < rels.length; ++i) {
+		var r = rels[i];
+		var from_label = node_label(String(r.fromId), node_map);
+		var to_label = node_label(String(r.toId), node_map);
+		parts.push(escape_html(r.relation) + ': ' + escape_html(from_label || r.fromId) + ' → ' + escape_html(to_label || r.toId));
+	}
+	return parts.join('<br>');
 }
 
 function node_label(id, node_map) {
-  var n = node_map && node_map[id];
-  if (!n) return '';
-  var prefer = ['nachname','vorname','plz','straße','strasse','stadt'];
-  var out = [];
-  for (var i = 0; i < prefer.length; ++i) {
-    if (n.props[prefer[i]]) out.push(n.props[prefer[i]]);
-  }
-  if (out.length) return out.join(' ');
-  // fallback: all props in order
-  var all = [];
-  for (var j = 0; j < n.order.length; ++j) {
-    var p = n.order[j];
-    if (n.props[p]) all.push(n.props[p]);
-  }
-  return all.join(' ');
+	var n = node_map && node_map[id];
+	if (!n) return '';
+	var prefer = ['nachname','vorname','plz','straße','strasse','stadt'];
+	var out = [];
+	for (var i = 0; i < prefer.length; ++i) {
+		if (n.props[prefer[i]]) out.push(n.props[prefer[i]]);
+	}
+	if (out.length) return out.join(' ');
+	// fallback: all props in order
+	var all = [];
+	for (var j = 0; j < n.order.length; ++j) {
+		var p = n.order[j];
+		if (n.props[p]) all.push(n.props[p]);
+	}
+	return all.join(' ');
 }
 
 function first_node_id_from_row(row) {
-  if (row.cells && row.cells.length) return row.cells[0].nodeId;
-  return '';
+	if (row.cells && row.cells.length) return row.cells[0].nodeId;
+	return '';
 }
 
 function handle_delete_node_by_id(id, btnEl, ev) {
-  if (!id) return;
-  if (typeof window.deleteNode === 'function') {
-    try { window.deleteNode(ev); } catch (e) { error(e); }
-  } else {
-    var ev = new CustomEvent('delete-node', { detail: { id: id } });
-    document.dispatchEvent(ev);
-  }
-  // remove row from DOM for instant feedback
-  var tr = btnEl && btnEl.closest && btnEl.closest('tr');
-  if (tr) tr.remove();
+	if (!id) return;
+	if (typeof window.deleteNode === 'function') {
+		try { window.deleteNode(ev); } catch (e) { error(e); }
+	} else {
+		var ev = new CustomEvent('delete-node', { detail: { id: id } });
+		document.dispatchEvent(ev);
+	}
+	// remove row from DOM for instant feedback
+	var tr = btnEl && btnEl.closest && btnEl.closest('tr');
+	if (tr) tr.remove();
 }
 
 function escape_html(s) {
-  if (s === null || s === undefined) return '';
-  return String(s).replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); });
+	if (s === null || s === undefined) return '';
+	return String(s).replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); });
 }
 
 function deleteNode(event) {
-    console.group('deleteNode triggered');
-    const button = event.target;
-    const row = button.closest('tr');
+	console.group('deleteNode triggered');
+	const button = event.target;
+	const row = button.closest('tr');
 
-    if (!row) {
-        error('Kein <tr> gefunden!');
-        console.groupEnd();
-        return;
-    }
+	if (!row) {
+		error('Kein <tr> gefunden!');
+		console.groupEnd();
+		return;
+	}
 
-    // Alle Inputs in dieser Zeile mit data-id sammeln
-    const nodeIds = Array.from(row.querySelectorAll('input[data-id]'))
-        .map(input => input.getAttribute('data-id').trim())
-        .filter(id => id && id !== 'null');
+	// Alle Inputs in dieser Zeile mit data-id sammeln
+	const nodeIds = Array.from(row.querySelectorAll('input[data-id]'))
+		.map(input => input.getAttribute('data-id').trim())
+		.filter(id => id && id !== 'null');
 
-    console.log('Gefundene nodeIds in der Zeile:', nodeIds);
+	console.log('Gefundene nodeIds in der Zeile:', nodeIds);
 
-    if (nodeIds.length === 0) {
-        warning('Keine Nodes zum Löschen auf dem Server vorhanden. Entferne Zeile lokal.');
-        row.remove();
-        console.groupEnd();
-        return;
-    }
+	if (nodeIds.length === 0) {
+		warning('Keine Nodes zum Löschen auf dem Server vorhanden. Entferne Zeile lokal.');
+		row.remove();
+		console.groupEnd();
+		return;
+	}
 
-    console.log('Nodes vorhanden, sende DELETE Request:', nodeIds);
+	console.log('Nodes vorhanden, sende DELETE Request:', nodeIds);
 
-    fetch(`/api/delete_nodes?ids=${nodeIds.join(',')}`, {
-        method: 'DELETE',
-    })
-        .then(response => {
-            console.log('Fetch Response object:', response);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Server returned data:', data);
-            if (data.status === 'success') {
-                console.log('DELETE erfolgreich, aktualisiere Tabelle...');
-                fetchData();
-            } else {
-                warning('DELETE nicht erfolgreich:', data);
-            }
-        })
-        .catch(error => {
-            error('Fehler beim Löschen:', error);
-        })
-        .finally(() => {
-            console.groupEnd();
-        });
+	fetch(`/api/delete_nodes?ids=${nodeIds.join(',')}`, {
+		method: 'DELETE',
+	})
+		.then(response => {
+			console.log('Fetch Response object:', response);
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`);
+			}
+			return response.json();
+		})
+		.then(data => {
+			console.log('Server returned data:', data);
+			if (data.status === 'success') {
+				console.log('DELETE erfolgreich, aktualisiere Tabelle...');
+				fetchData();
+			} else {
+				warning('DELETE nicht erfolgreich:', data);
+			}
+		})
+		.catch(error => {
+			error('Fehler beim Löschen:', error);
+		})
+		.finally(() => {
+			console.groupEnd();
+		});
 }
 
 function updateValue(element) {
-    console.groupCollapsed("updateValue triggered");
-    try {
-        if (!element) {
-            warning("Kein Element übergeben");
-            console.groupEnd();
-            return;
-        }
+	console.groupCollapsed("updateValue triggered");
+	try {
+		if (!element) {
+			warning("Kein Element übergeben");
+			console.groupEnd();
+			return;
+		}
 
-        console.log("Element:", element);
+		console.log("Element:", element);
 
-        const newValue = element.value;
-        if (element.originalValue === newValue) {
-            console.log("Wert unverändert, Abbruch");
-            console.groupEnd();
-            return;
-        }
-        element.originalValue = newValue;
+		const newValue = element.value;
+		if (element.originalValue === newValue) {
+			console.log("Wert unverändert, Abbruch");
+			console.groupEnd();
+			return;
+		}
+		element.originalValue = newValue;
 
-        const propertyName = element.getAttribute('data-property');
-        if (!propertyName) {
-            warning("data-property fehlt");
-            console.groupEnd();
-            return;
-        }
+		const propertyName = element.getAttribute('data-property');
+		if (!propertyName) {
+			warning("data-property fehlt");
+			console.groupEnd();
+			return;
+		}
 
-        const dataIdAttr = element.getAttribute('data-id');
-        console.log("data-id attribute:", dataIdAttr);
+		const dataIdAttr = element.getAttribute('data-id');
+		console.log("data-id attribute:", dataIdAttr);
 
-        // === Update vorhandener Node ===
-	    if (dataIdAttr && dataIdAttr !== "null") {
-		    const ids = dataIdAttr.split(',').map(s => Number(s.trim()));
-		    console.group("Update vorhandene Nodes");
-		    console.log("IDs:", ids);
-		    fetch('/api/update_nodes', {
-			    method: 'PUT',
-			    headers: { 'Content-Type': 'application/json' },
-			    body: JSON.stringify({ ids, property: propertyName, value: newValue })
-		    })
-			    .then(r => r.json())
-			    .then(d => {
-				    console.log("update_nodes response:", d);
-				    if (d.status === "success") success(d.message);
-				    else error(d.message);
-			    })
-			    .catch(err => error("update_nodes error:", err))
-			    .finally(() => console.groupEnd());
-		    console.groupEnd();
-		    return;
-	    }
+		// === Update vorhandener Node ===
+		if (dataIdAttr && dataIdAttr !== "null") {
+			const ids = dataIdAttr.split(',').map(s => Number(s.trim()));
+			console.group("Update vorhandene Nodes");
+			console.log("IDs:", ids);
+			fetch('/api/update_nodes', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ ids, property: propertyName, value: newValue })
+			})
+				.then(r => r.json())
+				.then(d => {
+					console.log("update_nodes response:", d);
+					if (d.status === "success") success(d.message);
+					else error(d.message);
+				})
+				.catch(err => error("update_nodes error:", err))
+				.finally(() => console.groupEnd());
+			console.groupEnd();
+			return;
+		}
 
-        // === Node existiert noch nicht ===
-        const tr = element.closest('tr');
-        if (!tr) {
-            warning("Kein tr gefunden");
-            console.groupEnd();
-            return;
-        }
+		// === Node existiert noch nicht ===
+		const tr = element.closest('tr');
+		if (!tr) {
+			warning("Kein tr gefunden");
+			console.groupEnd();
+			return;
+		}
 
-        // Verbindungs-IDs sammeln (nur für passende Relation GESCHRIEBENVON)
-        console.group("Connected IDs sammeln");
-        const otherInputs = Array.from(tr.querySelectorAll('input[data-id][data-relation]'));
-        const connectedIds = otherInputs.map(inp => {
-            try {
-                const relations = inp.getAttribute('data-relation')?.split(',') || [];
-                if (relations.includes('GESCHRIEBENVON')) {
-                    return Number(inp.getAttribute('data-id'));
-                }
-            } catch (err) {
-                error("Fehler beim Parsen der data-relation:", err, inp);
-            }
-            return null;
-        }).filter(id => id !== null && !isNaN(id));
-        console.log("Filtered connectedIds (GESCHRIEBENVON):", connectedIds);
-        console.groupEnd();
+		// Verbindungs-IDs sammeln (nur für passende Relation GESCHRIEBENVON)
+		console.group("Connected IDs sammeln");
+		const otherInputs = Array.from(tr.querySelectorAll('input[data-id][data-relation]'));
+		const connectedIds = otherInputs.map(inp => {
+			try {
+				const relations = inp.getAttribute('data-relation')?.split(',') || [];
+				if (relations.includes('GESCHRIEBENVON')) {
+					return Number(inp.getAttribute('data-id'));
+				}
+			} catch (err) {
+				error("Fehler beim Parsen der data-relation:", err, inp);
+			}
+			return null;
+		}).filter(id => id !== null && !isNaN(id));
+		console.log("Filtered connectedIds (GESCHRIEBENVON):", connectedIds);
+		console.groupEnd();
 
-        // Alle Relations aus derselben Spalte sammeln
-        console.group("Relationen sammeln");
-        const tdIndex = Array.from(tr.children).indexOf(element.parentElement);
-        const table = element.closest('table');
-        const relationSet = new Set();
+		// Alle Relations aus derselben Spalte sammeln
+		console.group("Relationen sammeln");
+		const tdIndex = Array.from(tr.children).indexOf(element.parentElement);
+		const table = element.closest('table');
+		const relationSet = new Set();
 
-        table.querySelectorAll('tbody tr').forEach(row => {
-            const td = row.children[tdIndex];
-            const relData = td?.getAttribute('data-relations');
-            if (relData) {
-                try {
-                    const parsed = JSON.parse(decodeURIComponent(relData));
-                    parsed.forEach(r => {
-                        relationSet.add(r.relation);
-                        console.log("Gefundene Relation:", r.relation);
-                    });
-                } catch (err) {
-                    warning("JSON parse error in data-relations:", err);
-                }
-            }
-        });
+		table.querySelectorAll('tbody tr').forEach(row => {
+			const td = row.children[tdIndex];
+			const relData = td?.getAttribute('data-relations');
+			if (relData) {
+				try {
+					const parsed = JSON.parse(decodeURIComponent(relData));
+					parsed.forEach(r => {
+						relationSet.add(r.relation);
+						console.log("Gefundene Relation:", r.relation);
+					});
+				} catch (err) {
+					warning("JSON parse error in data-relations:", err);
+				}
+			}
+		});
 
-        const uniqueRelations = Array.from(relationSet);
-        console.log("uniqueRelations:", uniqueRelations);
-        console.groupEnd();
+		const uniqueRelations = Array.from(relationSet);
+		console.log("uniqueRelations:", uniqueRelations);
+		console.groupEnd();
 
-        // Funktion zum Erstellen eines Nodes
-        function createNode(relType) {
-            console.group("createNode aufgerufen");
-            console.log("relType:", relType);
-            console.log("property:", propertyName, "value:", newValue);
-            console.log("connectTo IDs:", connectedIds);
+		// Funktion zum Erstellen eines Nodes
+		function createNode(relType) {
+			console.group("createNode aufgerufen");
+			console.log("relType:", relType);
+			console.log("property:", propertyName, "value:", newValue);
+			console.log("connectTo IDs:", connectedIds);
 
-            fetch('/api/create_node', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    property: propertyName,
-                    value: newValue,
-                    connectTo: connectedIds,
-                    relation: relType ? { relation: relType, targetLabel: "Buch" } : { targetLabel: "Buch" }
-                })
-            })
-            .then(r => r.json())
-            .then(data => {
-                console.log("create_node response:", data);
-                if (data.status === 'success') {
-                    element.setAttribute('data-id', data.newNodeId);
-                    console.log("data-id gesetzt auf", data.newNodeId);
-                }
-            })
-            .catch(err => error("create_node error:", err))
-            .finally(() => console.groupEnd());
-        }
+			fetch('/api/create_node', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					property: propertyName,
+					value: newValue,
+					connectTo: connectedIds,
+					relation: relType ? { relation: relType, targetLabel: "Buch" } : { targetLabel: "Buch" }
+				})
+			})
+				.then(r => r.json())
+				.then(data => {
+					console.log("create_node response:", data);
+					if (data.status === 'success') {
+						element.setAttribute('data-id', data.newNodeId);
+						console.log("data-id gesetzt auf", data.newNodeId);
+					}
+				})
+				.catch(err => error("create_node error:", err))
+				.finally(() => console.groupEnd());
+		}
 
-        // === Relation-Handling ===
-        if (uniqueRelations.length === 0) {
-            console.log("Keine Relation, Node ohne Relation erstellen");
-            createNode(null);
-        } else if (uniqueRelations.length === 1) {
-            console.log("Nur eine Relation, Node direkt erstellen");
-            createNode(uniqueRelations[0]);
-        } else {
-            console.log("Mehrere Relationen, Modal anzeigen");
-            showRelationModal(uniqueRelations, createNode);
-        }
+		// === Relation-Handling ===
+		if (uniqueRelations.length === 0) {
+			console.log("Keine Relation, Node ohne Relation erstellen");
+			createNode(null);
+		} else if (uniqueRelations.length === 1) {
+			console.log("Nur eine Relation, Node direkt erstellen");
+			createNode(uniqueRelations[0]);
+		} else {
+			console.log("Mehrere Relationen, Modal anzeigen");
+			showRelationModal(uniqueRelations, createNode);
+		}
 
-    } catch (err) {
-        error('updateValue exception:', err);
-    }
-    console.groupEnd();
+	} catch (err) {
+		error('updateValue exception:', err);
+	}
+	console.groupEnd();
 }
 
 // === Einfaches Modal, zeigt nur Relation-Typen ===
 function showRelationModal(relations, callback) {
-    console.log("DEBUG: showRelationModal", relations);
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+	console.log("DEBUG: showRelationModal", relations);
+	const overlay = document.createElement('div');
+	overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
 
-    const modal = document.createElement('div');
-    modal.style.cssText = 'background:white;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.2);min-width:300px;';
+	const modal = document.createElement('div');
+	modal.style.cssText = 'background:white;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.2);min-width:300px;';
 
-    const title = document.createElement('h3');
-    title.textContent = 'Wähle die Relation für die neue Node';
-    modal.appendChild(title);
+	const title = document.createElement('h3');
+	title.textContent = 'Wähle die Relation für die neue Node';
+	modal.appendChild(title);
 
-    const select = document.createElement('select');
-    select.style.width = '100%';
-    relations.forEach(rel => {
-        const option = document.createElement('option');
-        option.value = rel;
-        option.textContent = rel;
-        select.appendChild(option);
-    });
-    modal.appendChild(select);
+	const select = document.createElement('select');
+	select.style.width = '100%';
+	relations.forEach(rel => {
+		const option = document.createElement('option');
+		option.value = rel;
+		option.textContent = rel;
+		select.appendChild(option);
+	});
+	modal.appendChild(select);
 
-    const btnContainer = document.createElement('div');
-    btnContainer.style.textAlign = 'right';
-    const okBtn = document.createElement('button');
-    okBtn.textContent = 'OK';
-    okBtn.onclick = () => {
-        console.log("DEBUG: Modal OK gedrückt, selected relation =", select.value);
-        callback(select.value);
-        document.body.removeChild(overlay);
-    };
-    btnContainer.appendChild(okBtn);
+	const btnContainer = document.createElement('div');
+	btnContainer.style.textAlign = 'right';
+	const okBtn = document.createElement('button');
+	okBtn.textContent = 'OK';
+	okBtn.onclick = () => {
+		console.log("DEBUG: Modal OK gedrückt, selected relation =", select.value);
+		callback(select.value);
+		document.body.removeChild(overlay);
+	};
+	btnContainer.appendChild(okBtn);
 
-    const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Abbrechen';
-    cancelBtn.style.marginLeft = '10px';
-    cancelBtn.onclick = () => {
-        console.log("DEBUG: Modal Abbrechen gedrückt");
-        document.body.removeChild(overlay);
-    };
-    btnContainer.appendChild(cancelBtn);
+	const cancelBtn = document.createElement('button');
+	cancelBtn.textContent = 'Abbrechen';
+	cancelBtn.style.marginLeft = '10px';
+	cancelBtn.onclick = () => {
+		console.log("DEBUG: Modal Abbrechen gedrückt");
+		document.body.removeChild(overlay);
+	};
+	btnContainer.appendChild(cancelBtn);
 
-    modal.appendChild(btnContainer);
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
+	modal.appendChild(btnContainer);
+	overlay.appendChild(modal);
+	document.body.appendChild(overlay);
 }
 
 function addColumnToNode(event) {
