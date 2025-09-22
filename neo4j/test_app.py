@@ -3363,13 +3363,13 @@ class TestNeo4jApp(unittest.TestCase):
             CREATE (p3)-[:WOHNT_IN]->(o3)
 
             CREATE (p4:Person {vorname:'Bob', nachname:'Johnson'})
-            CREATE (o4:Ort {plz:'00000', straße:''})
+            CREATE (o4:Ort {plz:'', straße:''})
             CREATE (b2:Buch {titel:'The Graph Odyssey', erscheinungsjahr:2022})
             CREATE (p4)-[:WOHNT_IN]->(o4)
             CREATE (p4)-[:HAT_GESCHRIEBEN]->(b2)
 
             CREATE (p5:Person {vorname:'Charlie', nachname:'Brown'})
-            CREATE (o5:Ort {plz:'00000', straße:''})
+            CREATE (o5:Ort {plz:'', straße:''})
             CREATE (b3:Buch {titel:"Neo's Journey", erscheinungsjahr:2024})
             CREATE (p5)-[:WOHNT_IN]->(o5)
             CREATE (p5)-[:HAT_GESCHRIEBEN]->(b3)
