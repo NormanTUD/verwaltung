@@ -45,48 +45,46 @@ function renderTable(data) {
   var tbody = document.createElement('tbody');
 
   rows.forEach(function(row) {
-    // build node map from columns + cells (index-aligned)
-    var node_map = build_node_map_from_row(cols, row.cells || []);
+      var node_map = build_node_map_from_row(cols, row.cells || []);
+      var tr = document.createElement('tr');
 
-    // single visual row per row: each column cell -> input
-    var tr = document.createElement('tr');
+      // relations als data-attribute speichern, JSON encoded und HTML-sicher
+      tr.setAttribute('data-relations', encodeURIComponent(JSON.stringify(row.relations || [])));
 
-    for (var i = 0; i < cols.length; ++i) {
-      var col = cols[i];
-      var cell = (row.cells && row.cells[i]) ? row.cells[i] : null;
-      tr.appendChild(make_input_td(cell, col));
-    }
+      for (var i = 0; i < cols.length; ++i) {
+        var col = cols[i];
+        var cell = (row.cells && row.cells[i]) ? row.cells[i] : null;
+        tr.appendChild(make_input_td(cell, col));
+      }
 
-    // relations column
-    var td_rel = document.createElement('td');
-    td_rel.innerHTML = format_relations_html(row.relations || [], node_map);
-    tr.appendChild(td_rel);
+      var td_rel = document.createElement('td');
+      td_rel.innerHTML = format_relations_html(row.relations || [], node_map);
+      tr.appendChild(td_rel);
 
-    // plus button
-    var td_plus = document.createElement('td');
-    var btn_plus = document.createElement('button');
-    btn_plus.type = 'button';
-    btn_plus.setAttribute('onclick', 'addColumnToNode(event)');
-    btn_plus.textContent = '+';
-    td_plus.appendChild(btn_plus);
-    tr.appendChild(td_plus);
+      var td_plus = document.createElement('td');
+      var btn_plus = document.createElement('button');
+      btn_plus.type = 'button';
+      btn_plus.setAttribute('onclick', 'addColumnToNode(event)');
+      btn_plus.textContent = '+';
+      td_plus.appendChild(btn_plus);
+      tr.appendChild(td_plus);
 
-    // action (delete) button
-    var td_act = document.createElement('td');
-    var btn_del = document.createElement('button');
-    btn_del.type = 'button';
-    btn_del.className = 'delete-btn';
-    btn_del.setAttribute('data-id', first_node_id_from_row(row));
-    btn_del.textContent = 'Löschen';
-    btn_del.addEventListener('click', function (ev) {
-      var id = ev.currentTarget.getAttribute('data-id');
-      handle_delete_node_by_id(id, ev.currentTarget);
-    });
-    td_act.appendChild(btn_del);
-    tr.appendChild(td_act);
+      var td_act = document.createElement('td');
+      var btn_del = document.createElement('button');
+      btn_del.type = 'button';
+      btn_del.className = 'delete-btn';
+      btn_del.setAttribute('data-id', first_node_id_from_row(row));
+      btn_del.textContent = 'Löschen';
+      btn_del.addEventListener('click', function (ev) {
+        var id = ev.currentTarget.getAttribute('data-id');
+        handle_delete_node_by_id(id, ev.currentTarget);
+      });
+      td_act.appendChild(btn_del);
+      tr.appendChild(td_act);
 
-    tbody.appendChild(tr);
+      tbody.appendChild(tr);
   });
+
 
   table.appendChild(tbody);
   container.appendChild(table);
