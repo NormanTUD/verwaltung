@@ -201,23 +201,59 @@ function escape_html(s) {
 }
 
 function deleteNode(event) {
-	const nodeIds = event.target.getAttribute('data-id').split(',');
-	fetch(`/api/delete_nodes?ids=${nodeIds.join(',')}`, {
-		method: 'DELETE',
-	}).then(response => {
-		if (!response.ok) {
-			throw new Error(`HTTP error! status: ${response.status}`);
-		}
-		return response.json();
-	})
-		.then(data => {
-			console.log(data.message);
-			if (data.status === 'success') {
-				fetchData();
-			}
-		})
-		.catch(error => console.error('Fehler beim Löschen:', error));
+    console.group('deleteNode triggered');
+    const button = event.target;
+    const row = button.closest('tr');
+
+    if (!row) {
+        console.error('Kein <tr> gefunden!');
+        console.groupEnd();
+        return;
+    }
+
+    // Alle Inputs in dieser Zeile mit data-id sammeln
+    const nodeIds = Array.from(row.querySelectorAll('input[data-id]'))
+        .map(input => input.getAttribute('data-id').trim())
+        .filter(id => id && id !== 'null');
+
+    console.log('Gefundene nodeIds in der Zeile:', nodeIds);
+
+    if (nodeIds.length === 0) {
+        console.warn('Keine Nodes zum Löschen auf dem Server vorhanden. Entferne Zeile lokal.');
+        row.remove();
+        console.groupEnd();
+        return;
+    }
+
+    console.log('Nodes vorhanden, sende DELETE Request:', nodeIds);
+
+    fetch(`/api/delete_nodes?ids=${nodeIds.join(',')}`, {
+        method: 'DELETE',
+    })
+        .then(response => {
+            console.log('Fetch Response object:', response);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Server returned data:', data);
+            if (data.status === 'success') {
+                console.log('DELETE erfolgreich, aktualisiere Tabelle...');
+                fetchData();
+            } else {
+                console.warn('DELETE nicht erfolgreich:', data);
+            }
+        })
+        .catch(error => {
+            console.error('Fehler beim Löschen:', error);
+        })
+        .finally(() => {
+            console.groupEnd();
+        });
 }
+
 
 function updateValue(element) {
     try {
