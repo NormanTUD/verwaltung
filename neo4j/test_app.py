@@ -2385,5 +2385,40 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
+    def test_save_mapping_missing_field(self):
+        """CSV enthält fehlendes Feld, Knoten wird trotzdem erstellt."""
+        csv_data = "name\nAlice"
+        mapping = {
+            "nodes": {
+                "Person": [{"original": "name", "renamed": "name"}, {"original": "age", "renamed": "age"}]
+            },
+            "relationships": []
+        }
+
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
+    def test_save_mapping_single_relationship(self):
+        """Eine Beziehung wird korrekt erstellt."""
+        csv_data = "person_name,city_name\nAlice,Berlin"
+        mapping = {
+            "nodes": {
+                "Person": [{"original": "person_name", "renamed": "name"}],
+                "Ort": [{"original": "city_name", "renamed": "stadt"}]
+            },
+            "relationships": [
+                {"from": "Person", "to": "Ort", "type": "WOHNT_IN"}
+            ]
+        }
+
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
