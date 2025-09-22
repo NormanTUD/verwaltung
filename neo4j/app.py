@@ -1055,52 +1055,85 @@ def process_paths(results, main_label, selected_labels, filter_labels=None):
 
     return main_nodes
 
+def fn_debug_collect(label, data):
+    print(f"DEBUG [collect_nodes]: {label}: {data}")
+
+
+def fn_get_node_id(node):
+    node_id = getattr(node, "identity", None)
+    fn_debug_collect("Node ID", node_id)
+    return node_id
+
+
+def fn_filter_labels(node, selected_labels, filter_labels=None):
+    node_labels = [label for label in getattr(node, "labels", []) if label in selected_labels]
+    if filter_labels:
+        node_labels = [label for label in node_labels if label in filter_labels]
+    fn_debug_collect("Filtered labels", node_labels)
+    return node_labels
+
+
+def fn_calculate_distance(idx, main_index):
+    dist = abs(idx - main_index)
+    fn_debug_collect(f"Distance for index {idx}", dist)
+    return dist
+
+
+def fn_store_or_update_node(bucket_nodes, node_id, label, props, dist):
+    label_map = bucket_nodes.setdefault(label, {})
+    existing = label_map.get(node_id)
+
+    if existing is None:
+        label_map[node_id] = {"props": props, "min_dist": dist}
+        fn_debug_collect("Storing new node", {"node_id": node_id, "label": label, "dist": dist})
+    else:
+        if dist < existing.get("min_dist", float('inf')):
+            existing["min_dist"] = dist
+            existing["props"] = props
+            fn_debug_collect("Updating node", {"node_id": node_id, "label": label, "dist": dist})
+    return
+
+
 def collect_nodes_for_bucket(bucket, node_list, main_index, selected_labels, filter_labels=None):
     """
     Sammelt Nodes in einem Bucket und aktualisiert min_dist, falls nötig.
 
     Args:
-        bucket (dict): Bucket, der die Nodes enthält, erwartet bucket["nodes"] als dict.
-        node_list (iterable): Liste der Knoten (z.B. aus Neo4j).
-        main_index (int): Index des Hauptknotens im node_list.
+        bucket (dict): Bucket mit bucket["nodes"] als dict.
+        node_list (iterable): Liste der Nodes (z.B. aus Neo4j).
+        main_index (int): Index des Hauptknotens.
         selected_labels (set/list): Labels, die berücksichtigt werden sollen.
-        filter_labels (set/list, optional): Optional zusätzliche Filterlabels.
-
-    Modifiziert:
-        bucket["nodes"]: Fügt Nodes hinzu oder aktualisiert bestehende mit minimaler Distanz.
+        filter_labels (set/list, optional): Zusätzliche Filterlabels.
     """
     try:
-        for idx, n in enumerate(node_list):
-            node_id = getattr(n, "identity", None)
+        bucket_nodes = bucket.setdefault("nodes", {})
+        fn_debug_collect("Starting bucket collection", {"main_index": main_index, "selected_labels": selected_labels, "filter_labels": filter_labels})
+
+        for idx, node in enumerate(node_list):
+            fn_debug_collect("Processing node index", idx)
+
+            node_id = fn_get_node_id(node)
             if node_id is None:
-                continue  # Ungültiger Node überspringen
+                fn_debug_collect("Skipping invalid node", node)
+                continue
 
-            node_labels = [label for label in getattr(n, "labels", []) if label in selected_labels]
-
-            if filter_labels:
-                node_labels = [label for label in node_labels if label in filter_labels]
-
+            node_labels = fn_filter_labels(node, selected_labels, filter_labels)
             if not node_labels:
-                continue  # Kein passendes Label
+                fn_debug_collect("No matching labels, skipping node", node_id)
+                continue
 
-            dist = abs(idx - main_index)
-            props = dict(n)  # Annahme: Node ist dict-like
+            dist = fn_calculate_distance(idx, main_index)
+            props = dict(node)  # Annahme: Node ist dict-like
+            fn_debug_collect("Node props", props)
 
             for label in node_labels:
-                label_map = bucket.setdefault("nodes", {}).setdefault(label, {})
-                existing = label_map.get(node_id)
+                fn_store_or_update_node(bucket_nodes, node_id, label, props, dist)
 
-                if existing is None:
-                    label_map[node_id] = {"props": props, "min_dist": dist}
-                    print(f"      -> store node {node_id} label {label}, dist {dist}")
-                else:
-                    if dist < existing.get("min_dist", float('inf')):
-                        existing["min_dist"] = dist
-                        existing["props"] = props
-                        print(f"      -> update node {node_id} label {label}, dist -> {dist}")
+        fn_debug_collect("Finished bucket collection", bucket_nodes)
 
     except Exception as e:
         print(f"Fehler beim Sammeln von Nodes für bucket: {e}")
+
 
 def collect_relations_for_bucket(bucket, main_id, relationships):
     """
