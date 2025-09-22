@@ -281,22 +281,26 @@ function updateValue(element) {
         console.log("data-id attribute:", dataIdAttr);
 
         // === Update vorhandener Node ===
-        if (dataIdAttr && dataIdAttr !== "null") {
-            const ids = dataIdAttr.split(',').map(s => Number(s.trim()));
-            console.group("Update vorhandene Nodes");
-            console.log("IDs:", ids);
-            fetch('/api/update_nodes', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids, property: propertyName, value: newValue })
-            })
-            .then(r => r.json())
-            .then(d => console.log("update_nodes response:", d))
-            .catch(err => error("update_nodes error:", err))
-            .finally(() => console.groupEnd());
-            console.groupEnd();
-            return;
-        }
+	    if (dataIdAttr && dataIdAttr !== "null") {
+		    const ids = dataIdAttr.split(',').map(s => Number(s.trim()));
+		    console.group("Update vorhandene Nodes");
+		    console.log("IDs:", ids);
+		    fetch('/api/update_nodes', {
+			    method: 'PUT',
+			    headers: { 'Content-Type': 'application/json' },
+			    body: JSON.stringify({ ids, property: propertyName, value: newValue })
+		    })
+			    .then(r => r.json())
+			    .then(d => {
+				    console.log("update_nodes response:", d);
+				    if (d.status === "success") success(d.message);
+				    else error(d.message);
+			    })
+			    .catch(err => error("update_nodes error:", err))
+			    .finally(() => console.groupEnd());
+		    console.groupEnd();
+		    return;
+	    }
 
         // === Node existiert noch nicht ===
         const tr = element.closest('tr');
