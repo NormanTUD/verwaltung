@@ -3433,6 +3433,28 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertTrue(nt2_node_ids, "NT2 node fehlt im Ergebnis")
             self.assertTrue(node_typ2_ids, "Node-Typ 2 node fehlt im Ergebnis")
 
+    def test_complex_multi_level_paths(self):
+        """Person -> Ort -> Buch -> NT2, verschiedene Depths, teilweise fehlende Nodes."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("""
+            CREATE (p1:Person {vorname:'Alice', nachname:'Wonder'})
+            CREATE (o1:Ort {plz:'12345', straße:'Fabelweg 1'})
+            CREATE (b1:Buch {titel:'Fabelbuch', erscheinungsjahr:2021})
+            CREATE (nt2:NT2 {xxxxxxxx:'foobar'})
+            CREATE (p1)-[:WOHNT_IN]->(o1)
+            CREATE (o1)-[:HAT_BUCH]->(b1)
+            CREATE (b1)-[:REFERENZIERT]->(nt2)
+        """)
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person,Ort,Buch,NT2'})
+            data = resp.get_json()
+            self.assertEqual(resp.status_code, 200)
+            # Prüfen, dass jeder Node-Typ vertreten ist
+            values = [c['value'] for row in data['rows'] for c in row['cells']]
+            self.assertIn('Alice', values)
+            self.assertIn('Fabelbuch', values)
+            self.assertIn('foobar', values)
+
 
 if __name__ == '__main__':
     unittest.main()
