@@ -1366,6 +1366,30 @@ class TestNeo4jApp(unittest.TestCase):
         ).data()[0]["c"]
         self.assertEqual(rel_count, 1)
 
+    def test_update_node_invalid_property_name(self):
+        """Ungültiger Property-Name beim Update wird abgelehnt"""
+        node = Node("Person", name="Test")
+        self.graph.create(node)
+        response = self.app.put(
+            f'/api/update_node/{node.identity}',
+            data=json.dumps({"property": "123abc", "value": "X"}),
+            content_type='application/json'
+        )
+        self.assertIn(response.status_code, [400, 500])
+
+    def test_update_node_with_none_value(self):
+        """Property auf None setzen"""
+        node = Node("Person", name="Test")
+        self.graph.create(node)
+        response = self.app.put(
+            f'/api/update_node/{node.identity}',
+            data=json.dumps({"property": "nickname", "value": None}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        val = self.graph.run("MATCH (n:Person) WHERE ID(n)=$id RETURN n.nickname AS nickname",
+                            id=node.identity).data()[0]["nickname"]
+        self.assertIsNone(val)
 
 if __name__ == '__main__':
     unittest.main()
