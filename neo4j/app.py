@@ -649,71 +649,104 @@ def generate_cypher_query(max_depth):
 # ===========================
 # Backend: Flask / Neo4j
 # ===========================
+def fn_debug_print(label, data):
+    print(f"DEBUG: {label}: {data}")
+
+def fn_validate_request_body(data):
+    fn_debug_print("Validating request body", data)
+    if not data:
+        return False, "Request-Body leer oder ungültig. property und value erforderlich."
+    if "property" not in data:
+        return False, "property fehlt im Request."
+    if "value" not in data:
+        return False, "value fehlt im Request."
+    if not str(data["property"]).isidentifier():
+        return False, f"Ungültiger Property-Name: {data['property']}"
+    return True, None
+
+def fn_parse_request_data(data):
+    fn_debug_print("Parsing request data", data)
+    prop_name = data.get("property")
+    value = data.get("value")
+    connect_ids = data.get("connectTo", [])
+    relation_data = data.get("relation", None)
+    return prop_name, value, connect_ids, relation_data
+
+def fn_determine_node_label(relation_data):
+    node_label = "Node"
+    if relation_data and "targetLabel" in relation_data:
+        node_label = relation_data["targetLabel"]
+    fn_debug_print("Determined node label", node_label)
+    return node_label
+
+def fn_create_node(node_label, prop_name, value):
+    query = f"CREATE (n:{node_label}) SET n.{prop_name}=$value RETURN ID(n) AS id"
+    fn_debug_print("Node creation query", query)
+    result = graph.run(query, value=value).data()
+    fn_debug_print("Node creation result", result)
+    if not result:
+        raise Exception("Node konnte nicht erstellt werden.")
+    new_node_id = result[0]["id"]
+    fn_debug_print("New node ID", new_node_id)
+    return new_node_id
+
+def fn_clean_connect_ids(connect_ids):
+    cleaned = [int(i) for i in connect_ids if isinstance(i, (int, float))]
+    cleaned = list(set(cleaned))
+    fn_debug_print("Cleaned connect IDs", cleaned)
+    return cleaned
+
+def fn_create_relationships(new_node_id, connect_ids_clean, relation_data):
+    if not connect_ids_clean or not relation_data:
+        fn_debug_print("No relationships to create", {"connect_ids_clean": connect_ids_clean, "relation_data": relation_data})
+        return
+
+    rel_type = relation_data.get("relation", "CONNECTED_TO")
+    direction = relation_data.get("direction", "from_new_to_existing")
+    fn_debug_print("Relationship info", {"rel_type": rel_type, "direction": direction})
+
+    for other_id in connect_ids_clean:
+        from_id, to_id = (new_node_id, other_id) if direction == "from_new_to_existing" else (other_id, new_node_id)
+        query_rel = f"""
+            MATCH (n),(m)
+            WHERE ID(n) = $from_id AND ID(m) = $to_id
+            MERGE (n)-[:{rel_type}]->(m)
+        """
+        fn_debug_print("Relationship creation query", f"{from_id} -[{rel_type}]-> {to_id}")
+        graph.run(query_rel, from_id=from_id, to_id=to_id)
+        fn_debug_print("Relationship created", f"{from_id} -[{rel_type}]-> {to_id}")
+
+# ===============================
+# Flask Route
+# ===============================
+
 @app.route('/api/create_node', methods=['POST'])
-def create_node():
+def api_create_node():
     try:
         data = request.get_json(silent=True)
-        print("DEBUG: Eingehende Daten:", data)
+        fn_debug_print("Incoming request data", data)
 
-        if not data:
-            return jsonify({
-                "status": "error",
-                "message": "Request-Body leer oder ungültig. property und value erforderlich."
-            }), 400
+        # Validate request
+        is_valid, error_msg = fn_validate_request_body(data)
+        if not is_valid:
+            return jsonify({"status": "error", "message": error_msg}), 400
 
-        prop_name = data.get("property")
-        value = data.get("value")
-        connect_ids = data.get("connectTo", [])
-        relation_data = data.get("relation")  # dict mit keys: "relation", "direction", optional "targetLabel"
+        # Parse request data
+        prop_name, value, connect_ids, relation_data = fn_parse_request_data(data)
 
-        print(f"DEBUG: property={prop_name}, value={value}, connect_ids={connect_ids}, relation_data={relation_data}")
+        # Determine node label
+        node_label = fn_determine_node_label(relation_data)
 
-        if not prop_name:
-            return jsonify({"status": "error", "message": "property fehlt im Request."}), 400
-        if value is None:
-            return jsonify({"status": "error", "message": "value fehlt im Request."}), 400
-        if not prop_name.isidentifier():
-            return jsonify({"status": "error", "message": f"Ungültiger Property-Name: {prop_name}"}), 400
+        # Create node
+        new_node_id = fn_create_node(node_label, prop_name, value)
 
-        # Dynamischer Label
-        node_label = relation_data.get("targetLabel") if relation_data and "targetLabel" in relation_data else "Node"
-        query_create = f"CREATE (n:{node_label}) SET n.{prop_name}=$value RETURN ID(n) AS id"
-        print("DEBUG: Node-Creation-Query:", query_create)
+        # Clean connect IDs
+        connect_ids_clean = fn_clean_connect_ids(connect_ids)
 
-        result = graph.run(query_create, value=value).data()
-        print("DEBUG: Ergebnis der Node-Erstellung:", result)
-        if not result:
-            return jsonify({"status": "error", "message": "Node konnte nicht erstellt werden."}), 500
+        # Create relationships
+        fn_create_relationships(new_node_id, connect_ids_clean, relation_data)
 
-        new_node_id = result[0]["id"]
-        print(f"DEBUG: Neue Node-ID: {new_node_id}")
-
-        # Beziehungen erstellen
-        connect_ids_clean = [int(i) for i in connect_ids if isinstance(i, (int, float))]
-        connect_ids_clean = list(set(connect_ids_clean))
-        print(f"DEBUG: Bereinigte connect_ids: {connect_ids_clean}")
-
-        if connect_ids_clean and relation_data:
-            rel_type = relation_data.get("relation", "CONNECTED_TO")
-            direction = relation_data.get("direction", "from_new_to_existing")
-            print(f"DEBUG: Relationstyp={rel_type}, direction={direction}")
-
-            for other_id in connect_ids_clean:
-                if direction == "from_new_to_existing":
-                    from_id, to_id = new_node_id, other_id
-                else:
-                    from_id, to_id = other_id, new_node_id
-
-                query_rel = f"""
-                    MATCH (n),(m)
-                    WHERE ID(n) = $from_id AND ID(m) = $to_id
-                    MERGE (n)-[:{rel_type}]->(m)
-                """
-                print(f"DEBUG: Relation-Query: {from_id} -[{rel_type}]-> {to_id}")
-                graph.run(query_rel, from_id=from_id, to_id=to_id)
-                print(f"DEBUG: Relation erstellt: {from_id} -[{rel_type}]-> {to_id}")
-
-        print(f"DEBUG: Node-Erstellung abgeschlossen: {new_node_id}")
+        fn_debug_print("Node creation process completed", new_node_id)
         return jsonify({
             "status": "success",
             "message": f"Neuer Node erstellt mit ID {new_node_id}",
@@ -721,11 +754,8 @@ def create_node():
         })
 
     except Exception as e:
-        print("DEBUG: Exception create_node:", e)
+        fn_debug_print("Exception in api_create_node", e)
         return jsonify({"status": "error", "message": str(e)}), 500
-
-
-
 
 def run_query(graph, query, labels, limit):
     """Neo4j-Abfrage ausführen und Ergebnis zurückgeben"""
