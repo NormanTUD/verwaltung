@@ -85,7 +85,6 @@ function renderTable(data) {
       tbody.appendChild(tr);
   });
 
-
   table.appendChild(tbody);
   container.appendChild(table);
 }
