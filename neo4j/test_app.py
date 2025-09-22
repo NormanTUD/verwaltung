@@ -1431,5 +1431,91 @@ class TestNeo4jApp(unittest.TestCase):
         resp2 = self.app.delete(f'/api/delete_node/{n.identity}')
         self.assertEqual(resp2.status_code, 200)
 
+    def test_update_node_with_string_value(self):
+        """Update Property mit String"""
+        n = Node("Person", name="Tom")
+        self.graph.create(n)
+        self.app.put(f'/api/update_node/{n.identity}', data=json.dumps({"property":"nickname","value":"Tommy"}), content_type='application/json')
+        val = self.graph.run("MATCH (n:Person) WHERE ID(n)=$id RETURN n.nickname AS nickname", id=n.identity).data()[0]["nickname"]
+        self.assertEqual(val, "Tommy")
+
+    def test_update_node_with_boolean_value(self):
+        """Update Property mit Boolean"""
+        n = Node("Person", name="Bool")
+        self.graph.create(n)
+        self.app.put(f'/api/update_node/{n.identity}', data=json.dumps({"property":"flag","value":True}), content_type='application/json')
+        val = self.graph.run("MATCH (n:Person) WHERE ID(n)=$id RETURN n.flag AS flag", id=n.identity).data()[0]["flag"]
+        self.assertTrue(val)
+
+    def test_update_node_with_float_value(self):
+        """Update Property mit Float"""
+        n = Node("Person", name="Float")
+        self.graph.create(n)
+        self.app.put(f'/api/update_node/{n.identity}', data=json.dumps({"property":"score","value":3.14}), content_type='application/json')
+        val = self.graph.run("MATCH (n:Person) WHERE ID(n)=$id RETURN n.score AS score", id=n.identity).data()[0]["score"]
+        self.assertEqual(val, 3.14)
+
+    def test_update_node_idempotent(self):
+        """Update eines Properties auf denselben Wert → updated=0"""
+        n = Node("Person", name="Idem")
+        self.graph.create(n)
+        self.app.put(f'/api/update_node/{n.identity}', data=json.dumps({"property":"flag","value":True}), content_type='application/json')
+        response = self.app.put(f'/api/update_node/{n.identity}', data=json.dumps({"property":"flag","value":True}), content_type='application/json')
+        self.assertIn(response.status_code, [200, 204])
+
+    def test_delete_node_with_relations_to_multiple_nodes(self):
+        """Node hat Relationen zu mehreren Nodes"""
+        n1 = Node("Person", name="Main")
+        n2 = Node("City", name="Berlin")
+        n3 = Node("City", name="Paris")
+        self.graph.create(n1 | n2 | n3)
+        self.graph.create(Relationship(n1, "VISITS", n2) | Relationship(n1, "VISITS", n3))
+        response = self.app.delete(f'/api/delete_node/{n1.identity}')
+        self.assertEqual(response.status_code, 200)
+        remaining = self.graph.run("MATCH (n) RETURN n").data()
+        self.assertEqual(len(remaining), 2)  # nur n2, n3 bleiben
+
+    def test_delete_node_with_cascade_relations(self):
+        """Node löschen → alle Beziehungen entfernt"""
+        n1 = Node("Person", name="Cascade")
+        n2 = Node("City", name="City1")
+        self.graph.create(n1 | n2)
+        self.graph.create(Relationship(n1, "LIVES_IN", n2))
+        self.app.delete(f'/api/delete_node/{n1.identity}')
+        rel_count = self.graph.run("MATCH ()-[r]->() RETURN COUNT(r) AS c").data()[0]["c"]
+        self.assertEqual(rel_count, 0)
+
+    def test_save_mapping_with_custom_label(self):
+        """Nodes werden mit dynamischem Label erstellt"""
+        csv_data = "id,name\n1,Alice"
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+        mapping = {"nodes": {"Special": [{"original":"id","renamed":"id"},{"original":"name","renamed":"name"}]}, "relationships":[]}
+        response = self.app.post('/save_mapping', data=json.dumps(mapping), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        count = self.graph.run("MATCH (n:Special) RETURN COUNT(n) AS c").data()[0]["c"]
+        self.assertEqual(count, 1)
+
+    def test_update_node_multiple_properties(self):
+        """Update mehrere Properties gleichzeitig"""
+        n = Node("Person", name="Multi")
+        self.graph.create(n)
+        self.app.put(f'/api/update_node/{n.identity}', data=json.dumps({"property":"age","value":30}), content_type='application/json')
+        self.app.put(f'/api/update_node/{n.identity}', data=json.dumps({"property":"score","value":9.5}), content_type='application/json')
+        data = self.graph.run("MATCH (n:Person) WHERE ID(n)=$id RETURN n.age AS age, n.score AS score", id=n.identity).data()[0]
+        self.assertEqual(data["age"], 30)
+        self.assertEqual(data["score"], 9.5)
+
+    def test_delete_node_then_create_new_node(self):
+        """Nach Löschung eines Nodes kann ein neuer Node erstellt werden"""
+        n = Node("Person", name="Old")
+        self.graph.create(n)
+        self.app.delete(f'/api/delete_node/{n.identity}')
+        resp = self.app.post('/api/create_node', data=json.dumps({"property":"name","value":"New"}), content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+        count = self.graph.run("MATCH (n:Node {name:'New'}) RETURN COUNT(n) AS c").data()[0]["c"]
+        self.assertEqual(count, 1)
+
 if __name__ == '__main__':
     unittest.main()
