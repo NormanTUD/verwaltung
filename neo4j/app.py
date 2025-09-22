@@ -980,44 +980,31 @@ def build_rows(main_nodes, columns):
         rows.append({"cells": cells, "relations": bucket.get("relations", [])})
     return rows
 
-def collect_single_nodes(graph, main_nodes, main_label, limit=None):
-    """
-    Holt einzelne Nodes vom Graphen, falls keine Pfade gefunden wurden.
-
-    Args:
-        graph: Neo4j Graph-Objekt.
-        main_nodes (dict): Dictionary zum Speichern der Buckets.
-        main_label (str): Label der Hauptknoten.
-        limit (int, optional): Optional Limit für abgefragte Nodes.
-
-    Modifiziert:
-        main_nodes: Fügt Nodes hinzu, initialisiert Buckets, speichert props und min_dist.
-    """
+def collect_single_nodes(graph, main_nodes, label, limit=None):
     try:
-        print("Keine Pfade gefunden -> hole einzelne Nodes")
-        cypher_nodes = f"MATCH (n:{main_label}) RETURN n"
+        print(f"Hole einzelne Nodes für Label: {label}")
+        cypher_nodes = f"MATCH (n:`{label}`) RETURN n"
         if limit:
             cypher_nodes += f" LIMIT {limit}"
-
         node_results = graph.run(cypher_nodes).data()
         print(f"Einzelne Nodes erhalten: {len(node_results)}")
 
         for r in node_results:
             n = r.get('n')
             if n is None:
-                continue  # Ungültige Node überspringen
+                continue
 
             main_id = getattr(n, "identity", None)
             if main_id is None:
                 continue
 
             if main_id not in main_nodes:
+                # Neuer Bucket für jeden Node, auch wenn kein Pivot existiert
                 main_nodes[main_id] = {"nodes": {}, "adjacent": set(), "relations": []}
-                print(f"  Neuer main_node bucket (single): {main_id}")
 
             bucket = main_nodes[main_id]
             props = dict(n)
-            label_map = bucket.setdefault("nodes", {}).setdefault(main_label, {})
+            label_map = bucket.setdefault("nodes", {}).setdefault(label, {})
             label_map[main_id] = {"props": props, "min_dist": 0}
             print(f"  -> Einzelnode gespeichert: {main_id} mit props {list(props.keys())}")
 
