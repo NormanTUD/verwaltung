@@ -7,9 +7,10 @@ import json
 import inspect
 import functools
 from flask import Flask, request, jsonify, render_template, session
-from py2neo import Graph
+from py2neo import Graph, NodeMatcher
 from dotenv import load_dotenv
 import logging
+
 
 from rich.console import Console
 
@@ -91,6 +92,8 @@ try:
 except KeyboardInterrupt:
     print("You pressed CTRL-C")
     sys.exit(0)
+
+matcher = NodeMatcher(graph)
 
 # Definiere den Dateipfad
 SAVED_QUERIES_FILE = 'saved_queries.json'

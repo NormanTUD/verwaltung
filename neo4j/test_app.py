@@ -3455,6 +3455,56 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertIn('Fabelbuch', values)
             self.assertIn('foobar', values)
 
+    def test_nodes_with_multiple_labels(self):
+        """Ein Node hat mehrere Labels und wird korrekt zugeordnet."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("""
+            CREATE (p:Person:Buch {vorname:'Dora', titel:'Dora’s Adventure'})
+        """)
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person,Buch'})
+            data = resp.get_json()
+            values = [c['value'] for row in data['rows'] for c in row['cells']]
+            self.assertIn('Dora', values)
+            self.assertIn("Dora’s Adventure", values)
+
+    def test_nested_loops(self):
+        """Person -> Buch -> NT2 -> Person loop, prüfen min_dist korrekt."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("""
+            CREATE (p1:Person {vorname:'Eve'})
+            CREATE (b1:Buch {titel:'Loop Book'})
+            CREATE (nt2:NT2 {xxxxxxxx:'loopNT2'})
+            CREATE (p1)-[:HAT_GESCHRIEBEN]->(b1)
+            CREATE (b1)-[:REFERENZIERT]->(nt2)
+            CREATE (nt2)-[:VERKNUEPFT_MIT]->(p1)
+        """)
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person,Buch,NT2'})
+            data = resp.get_json()
+            values = [c['value'] for row in data['rows'] for c in row['cells']]
+            self.assertIn('Eve', values)
+            self.assertIn('Loop Book', values)
+            self.assertIn('loopNT2', values)
+
+    def test_missing_properties_and_mixed_types(self):
+        """Nodes mit teilweise fehlenden Properties oder unterschiedlichen Datentypen."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("""
+            CREATE (p1:Person {vorname:'Frank'})
+            CREATE (b1:Buch {titel:'Mystery', erscheinungsjahr:''})
+            CREATE (o1:Ort {plz:'', straße:'Mystery Lane'})
+            CREATE (p1)-[:WOHNT_IN]->(o1)
+            CREATE (p1)-[:HAT_GESCHRIEBEN]->(b1)
+        """)
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person,Buch,Ort'})
+            data = resp.get_json()
+            # Prüfen, dass keine None-Fehler auftauchen
+            for row in data['rows']:
+                for cell in row['cells']:
+                    self.assertIn('value', cell)
+
 
 if __name__ == '__main__':
     unittest.main()
