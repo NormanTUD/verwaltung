@@ -235,12 +235,12 @@ function deleteNode(event) {
 			return response.json();
 		})
 		.then(data => {
-			console.log('Server returned data:', data);
 			if (data.status === 'success') {
 				console.log('DELETE erfolgreich, aktualisiere Tabelle...');
 				fetchData();
+				success(data.message);
 			} else {
-				warning('DELETE nicht erfolgreich:', data);
+				warning('DELETE nicht erfolgreich:', data.message);
 			}
 		})
 		.catch(error => {
