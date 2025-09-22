@@ -826,50 +826,50 @@ def delete_node(node_id):
 @app.route('/api/get_data_as_table', methods=['GET'])
 def get_data_as_table():
     try:
-        print("=== API get_data_as_table gestartet ===")
+        print("\n=== API get_data_as_table gestartet ===")
 
-        # ------------------------
         # Parameter parsen
-        # ------------------------
+        print("-> Parsing Request-Parameter ...")
         selected_labels, main_label, max_depth, limit, filter_labels = parse_request_params(request)
-        print("Selected labels:", selected_labels, "main_label:", main_label, "Max depth:", max_depth, "Limit:", limit, "Filter labels:", filter_labels)
+        print(f"   -> Selected labels: {selected_labels}")
+        print(f"   -> Main label (Pivot): {main_label}")
+        print(f"   -> Max depth: {max_depth}")
+        print(f"   -> Limit: {limit}")
+        print(f"   -> Filter labels: {filter_labels}")
 
-        # ------------------------
-        # Cypher-Abfrage
-        # ------------------------
+        # Cypher-Abfrage starten
+        print("-> Starte Cypher-Abfrage für Pfade ...")
         results = run_cypher_paths(graph, selected_labels, max_depth, limit)
-        print(f"Ergebnisse erhalten: {len(results)} Pfade")
+        print(f"   -> Anzahl Pfade erhalten: {len(results)}")
 
-        # ------------------------
-        # Haupt-Sammlung
-        # ------------------------
+        # Haupt-Sammlung initialisieren
         main_nodes = {}
         if results:
+            print("-> Verarbeite Pfade und sammle Nodes & Relations ...")
             main_nodes = process_paths(results, main_label, selected_labels, filter_labels)
+            print(f"   -> Fertig mit Pfad-Verarbeitung, Haupt-Buckets: {list(main_nodes.keys())}")
         else:
+            print("-> Keine Pfade gefunden, hole einzelne Nodes ...")
             collect_single_nodes(graph, main_nodes, main_label, limit)
+            print(f"   -> Fertig mit Single-Node-Verarbeitung, Haupt-Buckets: {list(main_nodes.keys())}")
 
-        print("\n=== Sammlung abgeschlossen ===")
-        print("Haupt-Buckets gefunden:", list(main_nodes.keys()))
-
-        # ------------------------
         # Columns bestimmen
-        # ------------------------
+        print("-> Bestimme Spalten (Columns) basierend auf gesammelten Nodes ...")
         columns = determine_columns(main_nodes)
-        print("Columns (sorted):", columns)
+        print(f"   -> Columns (sortiert): {columns}")
 
-        # ------------------------
         # Rows bauen
-        # ------------------------
+        print("-> Baue Rows für die Ausgabe ...")
         rows = build_rows(main_nodes, columns)
-        print("Anzahl Rows:", len(rows))
+        print(f"   -> Anzahl Rows erstellt: {len(rows)}")
 
+        # Fertige Tabelle zurückgeben
+        print("-> JSON-Antwort wird erstellt und zurückgegeben ...")
         return jsonify({"columns": columns, "rows": rows})
 
     except Exception as e:
-        print("Fehler (Exception):", e)
+        print(f"!!! Fehler aufgetreten: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 # ------------------------
 # Hilfsfunktionen
