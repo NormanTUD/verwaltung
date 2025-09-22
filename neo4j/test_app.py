@@ -1311,5 +1311,11 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("ungültig", resp.get_json()["message"].lower())
 
+    def test_create_node_empty_body(self):
+        resp = self.app.post('/api/create_node', data=json.dumps({}), content_type="application/json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("property", resp.get_json()["message"])
+
+
 if __name__ == '__main__':
     unittest.main()
