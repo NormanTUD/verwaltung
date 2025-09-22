@@ -1336,6 +1336,16 @@ class TestNeo4jApp(unittest.TestCase):
         ).data()[0]["c"]
         self.assertEqual(rel_count, len(ids))
 
+    def test_create_node_with_custom_label(self):
+        resp = self.app.post(
+            '/api/create_node',
+            data=json.dumps({"property": "name", "value": "X", "relation": {"targetLabel": "SpecialNode"}}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        label_exists = graph.run("MATCH (n:SpecialNode {name:'X'}) RETURN COUNT(n) AS c").data()[0]["c"]
+        self.assertEqual(label_exists, 1)
+
 
 if __name__ == '__main__':
     unittest.main()
