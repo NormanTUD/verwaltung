@@ -631,6 +631,58 @@ def generate_cypher_query(max_depth):
     print(f"📄 Generierte Cypher-Abfrage:\n{query}")
     return query
 
+@app.route('/api/create_node', methods=['POST'])
+def create_node():
+    data = request.get_json(silent=True)
+    if not data:
+        # angepasst, damit "property" im Fehlertext erscheint
+        return jsonify({
+            "status": "error",
+            "message": "Request-Body leer oder ungültig. property und value erforderlich."
+        }), 400
+
+    prop_name = data.get("property")
+    value = data.get("value")
+    connect_ids = data.get("connectTo", [])
+
+    if not prop_name:
+        return jsonify({"status": "error", "message": "property fehlt im Request."}), 400
+    if value is None:
+        return jsonify({"status": "error", "message": "value fehlt im Request."}), 400
+
+    if not prop_name.isidentifier():
+        return jsonify({"status": "error", "message": f"Ungültiger Property-Name: {prop_name}"}), 400
+
+    try:
+        # Node erstellen
+        query_create = f"CREATE (n) SET n.{prop_name}=$value RETURN ID(n) AS id"
+        result = graph.run(query_create, value=value).data()
+        if not result:
+            return jsonify({"status": "error", "message": "Node konnte nicht erstellt werden."}), 500
+
+        new_node_id = result[0]["id"]
+
+        # Beziehungen erstellen (nur numerische IDs)
+        connect_ids_clean = [int(i) for i in connect_ids if isinstance(i, (int, float))]
+        connect_ids_clean = list(set(connect_ids_clean))  # Duplikate entfernen
+        if connect_ids_clean:
+            query_rels = """
+                UNWIND $ids AS other_id
+                MATCH (n),(m) WHERE ID(n) = $new_id AND ID(m) = other_id
+                MERGE (n)-[:CONNECTED_TO]->(m)
+            """
+            graph.run(query_rels, new_id=new_node_id, ids=connect_ids_clean)
+
+        return jsonify({
+            "status": "success",
+            "message": f"Neuer Node erstellt mit ID {new_node_id}",
+            "newNodeId": new_node_id
+        })
+
+    except Exception as e:
+        print("Fehler create_node:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 def run_query(graph, query, labels, limit):
     """Neo4j-Abfrage ausführen und Ergebnis zurückgeben"""
     print("🔍 run_query: Start")

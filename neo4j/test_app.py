@@ -1165,5 +1165,106 @@ class TestNeo4jApp(unittest.TestCase):
         val = graph.run("MATCH (p:Person {name:'Eva'}) RETURN p.score AS score").data()[0]["score"]
         self.assertEqual(val, 3.14)
 
+
+    def test_create_node_basic(self):
+        resp = self.app.post(
+            '/api/create_node',
+            data=json.dumps({"property": "stadt", "value": "Berlin"}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data["status"], "success")
+        self.assertIn("newNodeId", data)
+
+    def test_create_node_missing_property(self):
+        resp = self.app.post(
+            '/api/create_node',
+            data=json.dumps({"value": "Berlin"}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("property", resp.get_json()["message"])
+
+    def test_create_node_missing_value(self):
+        resp = self.app.post(
+            '/api/create_node',
+            data=json.dumps({"property": "stadt"}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("value", resp.get_json()["message"])
+
+    def test_create_node_invalid_property_name(self):
+        resp = self.app.post(
+            '/api/create_node',
+            data=json.dumps({"property": "123invalid", "value": "Test"}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("ungültig", resp.get_json()["message"].lower())
+
+    def test_create_node_with_connectTo(self):
+        # Zuerst bestehende Nodes erstellen
+        result = graph.run("CREATE (a:Person {name:'A'}), (b:Person {name:'B'}) RETURN ID(a) AS idA, ID(b) AS idB").data()
+        existing_ids = [record["idA"] for record in result] + [record["idB"] for record in result]
+
+        resp = self.app.post(
+            '/api/create_node',
+            data=json.dumps({"property": "stadt", "value": "ASDF", "connectTo": existing_ids}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        new_id = data["newNodeId"]
+
+        # Prüfen, ob Beziehungen erstellt wurden
+        rels = graph.run(
+            "MATCH (n)-[:CONNECTED_TO]->(m) WHERE ID(n)=$new_id RETURN ID(m) AS mid",
+            {"new_id": new_id}
+        ).data()
+        rel_ids = [r["mid"] for r in rels]
+
+        for eid in existing_ids:
+            self.assertIn(eid, rel_ids)
+
+    def test_create_node_with_empty_connectTo(self):
+        resp = self.app.post(
+            '/api/create_node',
+            data=json.dumps({"property": "stadt", "value": "LeereVerbindungen", "connectTo": []}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertIn("newNodeId", data)
+
+    def test_create_node_with_invalid_connectTo(self):
+        resp = self.app.post(
+            '/api/create_node',
+            data=json.dumps({"property": "stadt", "value": "XYZ", "connectTo": ["a", None, 42]}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertIn("newNodeId", data)  # sollte den validen 42 verwenden
+
+    def test_create_node_empty_body(self):
+        resp = self.app.post(
+            '/api/create_node',
+            data=json.dumps({}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("property", resp.get_json()["message"].lower())
+
+    def test_create_node_none_body(self):
+        resp = self.app.post(
+            '/api/create_node',
+            data=None,
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("ungültig", resp.get_json()["message"].lower())
+
 if __name__ == '__main__':
     unittest.main()

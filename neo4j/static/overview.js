@@ -217,87 +217,104 @@ function deleteNode(event) {
 }
 
 function updateValue(element) {
-	try {
-		if (!element) {
-			console.error('updateValue wurde ohne Element aufgerufen.');
-			return;
-		}
+    try {
+        if (!element) {
+            console.error('updateValue wurde ohne Element aufgerufen.');
+            return;
+        }
 
-		// Attribute auslesen
-		const dataIdAttr = element.getAttribute('data-id');
-		const propertyName = element.getAttribute('data-property');
+        const newValue = element.value;
+        if (element.originalValue === newValue) {
+            console.log('Kein Update nötig, Wert unverändert:', newValue);
+            return;
+        }
+        element.originalValue = newValue;
 
-		if (!dataIdAttr) {
-			console.error('Fehlendes "data-id"-Attribut auf dem Element:', element);
-			return;
-		}
-		if (!propertyName) {
-			console.error('Fehlendes "data-property"-Attribut auf dem Element:', element);
-			return;
-		}
+        const propertyName = element.getAttribute('data-property');
 
-		// IDs parsen
-		const combinedIds = dataIdAttr.split(',').map(idStr => {
-			const idNum = Number(idStr.trim());
-			if (isNaN(idNum)) {
-				throw new Error(`Ungültige ID "${idStr}" in "data-id" gefunden. Erwartet: Zahl.`);
-			}
-			return idNum;
-		});
+        if (!propertyName) {
+            console.error('Fehlendes "data-property"-Attribut auf dem Element:', element);
+            return;
+        }
 
-		// Wert prüfen
-		const newValue = element.value;
-		if (element.originalValue === newValue) {
-			console.log('Kein Update nötig, Wert unverändert:', newValue);
-			return;
-		}
-		element.originalValue = newValue;
+        const dataIdAttr = element.getAttribute('data-id');
 
-		// Logging vor dem Request
-		console.log('Sende Update für IDs:', combinedIds);
-		console.log('Property:', propertyName);
-		console.log('Neuer Wert:', newValue);
+        // Fall 1: Node existiert, update
+        if (dataIdAttr) {
+            const combinedIds = dataIdAttr.split(',').map(idStr => Number(idStr.trim()));
+            fetch('/api/update_nodes', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ids: combinedIds,
+                    property: propertyName,
+                    value: newValue
+                })
+            })
+            .then(async response => {
+                let data;
+                try {
+                    data = await response.json();
+                } catch {
+                    throw new Error(`Antwort konnte nicht als JSON geparsed werden. HTTP-Status: ${response.status}`);
+                }
 
-		// Fetch request
-		fetch('/api/update_nodes', {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				ids: combinedIds,
-				property: propertyName,
-				value: newValue
-			})
-		})
-		.then(async response => {
-			let responseBody;
-			try {
-				responseBody = await response.json();
-			} catch (jsonError) {
-				throw new Error(`Antwort konnte nicht als JSON geparsed werden. HTTP-Status: ${response.status}`);
-			}
+                if (!response.ok) {
+                    throw new Error(`Update fehlgeschlagen. HTTP-Status: ${response.status}. Server meldet: ${data?.message || 'Keine Nachricht'}`);
+                }
 
-			if (!response.ok) {
-				const serverMessage = responseBody?.message || 'Keine Nachricht vom Server.';
-				throw new Error(`Update fehlgeschlagen. HTTP-Status: ${response.status}. Server meldet: ${serverMessage}. Gesendet: ${JSON.stringify({ ids: combinedIds, property: propertyName, value: newValue })}`);
-			}
+                console.log('Update erfolgreich:', data.message);
+            })
+            .catch(err => console.error('Fehler beim Update:', err.message));
+            return;
+        }
 
-			return responseBody;
-		})
-		.then(data => {
-			if (!data || !data.message) {
-				console.warn('Antwort ohne "message"-Feld erhalten:', data);
-			} else {
-				console.log('Update erfolgreich:', data.message);
-			}
-		})
-		.catch(error => {
-			console.error('Fehler beim Aktualisieren:', error.message);
-		});
+        // Fall 2: Node existiert noch nicht, Insert
+        // andere nodeIds aus derselben Zeile sammeln
+        const tr = element.closest('tr');
+        if (!tr) {
+            console.error('Keine Zeilen-Eltern gefunden, kann Node nicht anlegen.');
+            return;
+        }
 
-	} catch (err) {
-		console.error('Fehler in updateValue-Funktion:', err.message, err);
-	}
+        const otherInputs = Array.from(tr.querySelectorAll('input[data-id]'));
+        const connectedIds = otherInputs.map(inp => Number(inp.getAttribute('data-id'))).filter(id => !isNaN(id));
+
+        console.log('Neuer Node nötig. Property:', propertyName, 'Value:', newValue, 'Verbunden mit IDs:', connectedIds);
+
+        fetch('/api/create_node', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                property: propertyName,
+                value: newValue,
+                connectTo: connectedIds
+            })
+        })
+        .then(async response => {
+            let data;
+            try {
+                data = await response.json();
+            } catch {
+                throw new Error(`Antwort konnte nicht als JSON geparsed werden. HTTP-Status: ${response.status}`);
+            }
+
+            if (!response.ok) {
+                throw new Error(`Node-Erstellung fehlgeschlagen. HTTP-Status: ${response.status}. Server meldet: ${data?.message || 'Keine Nachricht'}`);
+            }
+
+            console.log('Neuer Node erstellt:', data.message, 'ID:', data.newNodeId);
+
+            // Update input mit neuer Node-ID
+            element.setAttribute('data-id', data.newNodeId);
+        })
+        .catch(err => console.error('Fehler beim Erstellen des Nodes:', err.message));
+
+    } catch (err) {
+        console.error('Fehler in updateValue-Funktion:', err.message, err);
+    }
 }
+
 
 function addColumnToNode(event) {
 	let nodeIds = [];
