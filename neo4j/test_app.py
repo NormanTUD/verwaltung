@@ -1391,5 +1391,45 @@ class TestNeo4jApp(unittest.TestCase):
                             id=node.identity).data()[0]["nickname"]
         self.assertIsNone(val)
 
+    def test_update_node_partial_update_multiple_nodes(self):
+        """Update nur auf Nodes mit vorhandenem Property"""
+        self.graph.create(Node("Person", name="A", age=10) | Node("Person", name="B"))
+        response = self.app.put(
+            '/api/update_node/0',  # Dummy: eigentlich IDs variabel
+            data=json.dumps({"property": "age", "value": 20}),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_delete_node_with_multiple_relationships(self):
+        """Node löschen mit mehreren Relationen"""
+        n1 = Node("Person", name="Alice")
+        n2 = Node("Ort", name="Berlin")
+        n3 = Node("Ort", name="Hamburg")
+        self.graph.create(n1 | n2 | n3)
+        self.graph.create(Relationship(n1, "HAT_WOHNSITZ", n2) | Relationship(n1, "HAT_ZWEITWOHNUNG", n3))
+        response = self.app.delete(f'/api/delete_node/{n1.identity}')
+        self.assertEqual(response.status_code, 200)
+        res = self.graph.run("MATCH (n) RETURN n").data()
+        self.assertEqual(len(res), 2)  # n2 und n3 bleiben
+
+    def test_delete_node_with_self_relationship(self):
+        """Node hat Relation zu sich selbst"""
+        n = Node("Person", name="Loop")
+        self.graph.create(n)
+        self.graph.create(Relationship(n, "SELF", n))
+        response = self.app.delete(f'/api/delete_node/{n.identity}')
+        self.assertEqual(response.status_code, 200)
+        remaining = self.graph.run("MATCH (n) RETURN n").data()
+        self.assertEqual(len(remaining), 0)
+
+    def test_delete_node_multiple_times(self):
+        """Node wird mehrfach gelöscht (Idempotenz)"""
+        n = Node("Person", name="Repeat")
+        self.graph.create(n)
+        self.app.delete(f'/api/delete_node/{n.identity}')
+        resp2 = self.app.delete(f'/api/delete_node/{n.identity}')
+        self.assertEqual(resp2.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
