@@ -898,6 +898,10 @@ def get_data_as_table():
             collect_single_nodes(graph, main_nodes, main_label, limit)
             print(f"   -> Fertig mit Single-Node-Verarbeitung, Haupt-Buckets: {list(main_nodes.keys())}")
 
+        for lbl in selected_labels:
+            if lbl != main_label:
+                collect_single_nodes(graph, main_nodes, lbl, limit)
+
         # Columns bestimmen
         print("-> Bestimme Spalten (Columns) basierend auf gesammelten Nodes ...")
         columns = determine_columns(main_nodes)
