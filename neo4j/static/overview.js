@@ -24,7 +24,6 @@ function fetchData() {
       renderTable(data);
     })
     .catch(function(err){
-      console.error('fetchData error', err);
       error('Fehler beim Laden: ' + (err.message || err));
     });
 }
@@ -183,7 +182,7 @@ function first_node_id_from_row(row) {
 function handle_delete_node_by_id(id, btnEl, ev) {
   if (!id) return;
   if (typeof window.deleteNode === 'function') {
-    try { window.deleteNode(ev); } catch (e) { console.error(e); }
+    try { window.deleteNode(ev); } catch (e) { error(e); }
   } else {
     var ev = new CustomEvent('delete-node', { detail: { id: id } });
     document.dispatchEvent(ev);
@@ -204,7 +203,7 @@ function deleteNode(event) {
     const row = button.closest('tr');
 
     if (!row) {
-        console.error('Kein <tr> gefunden!');
+        error('Kein <tr> gefunden!');
         console.groupEnd();
         return;
     }
@@ -217,7 +216,7 @@ function deleteNode(event) {
     console.log('Gefundene nodeIds in der Zeile:', nodeIds);
 
     if (nodeIds.length === 0) {
-        console.warn('Keine Nodes zum Löschen auf dem Server vorhanden. Entferne Zeile lokal.');
+        warning('Keine Nodes zum Löschen auf dem Server vorhanden. Entferne Zeile lokal.');
         row.remove();
         console.groupEnd();
         return;
@@ -241,11 +240,11 @@ function deleteNode(event) {
                 console.log('DELETE erfolgreich, aktualisiere Tabelle...');
                 fetchData();
             } else {
-                console.warn('DELETE nicht erfolgreich:', data);
+                warning('DELETE nicht erfolgreich:', data);
             }
         })
         .catch(error => {
-            console.error('Fehler beim Löschen:', error);
+            error('Fehler beim Löschen:', error);
         })
         .finally(() => {
             console.groupEnd();
@@ -256,7 +255,7 @@ function updateValue(element) {
     console.groupCollapsed("updateValue triggered");
     try {
         if (!element) {
-            console.warn("Kein Element übergeben");
+            warning("Kein Element übergeben");
             console.groupEnd();
             return;
         }
@@ -273,7 +272,7 @@ function updateValue(element) {
 
         const propertyName = element.getAttribute('data-property');
         if (!propertyName) {
-            console.warn("data-property fehlt");
+            warning("data-property fehlt");
             console.groupEnd();
             return;
         }
@@ -293,7 +292,7 @@ function updateValue(element) {
             })
             .then(r => r.json())
             .then(d => console.log("update_nodes response:", d))
-            .catch(err => console.error("update_nodes error:", err))
+            .catch(err => error("update_nodes error:", err))
             .finally(() => console.groupEnd());
             console.groupEnd();
             return;
@@ -302,7 +301,7 @@ function updateValue(element) {
         // === Node existiert noch nicht ===
         const tr = element.closest('tr');
         if (!tr) {
-            console.warn("Kein tr gefunden");
+            warning("Kein tr gefunden");
             console.groupEnd();
             return;
         }
@@ -317,7 +316,7 @@ function updateValue(element) {
                     return Number(inp.getAttribute('data-id'));
                 }
             } catch (err) {
-                console.error("Fehler beim Parsen der data-relation:", err, inp);
+                error("Fehler beim Parsen der data-relation:", err, inp);
             }
             return null;
         }).filter(id => id !== null && !isNaN(id));
@@ -341,7 +340,7 @@ function updateValue(element) {
                         console.log("Gefundene Relation:", r.relation);
                     });
                 } catch (err) {
-                    console.warn("JSON parse error in data-relations:", err);
+                    warning("JSON parse error in data-relations:", err);
                 }
             }
         });
@@ -375,7 +374,7 @@ function updateValue(element) {
                     console.log("data-id gesetzt auf", data.newNodeId);
                 }
             })
-            .catch(err => console.error("create_node error:", err))
+            .catch(err => error("create_node error:", err))
             .finally(() => console.groupEnd());
         }
 
@@ -392,7 +391,7 @@ function updateValue(element) {
         }
 
     } catch (err) {
-        console.error('updateValue exception:', err);
+        error('updateValue exception:', err);
     }
     console.groupEnd();
 }
@@ -563,7 +562,7 @@ function addColumnToNode(event) {
 				}
 			})
 			.catch(error => {
-				console.error('Fehler beim Hinzufügen der Spalte:', error);
+				error('Fehler beim Hinzufügen der Spalte:', error);
 			})
 			.finally(() => {
 				if (document.body.contains(overlay)) {
@@ -602,7 +601,7 @@ function addPropertyIfNotEmpty(inputElem) {
 		// Optional: Header aktualisieren, damit neue Spalte sichtbar wird
 		fetchData();
 	}).catch(error => {
-		console.error('Fehler beim Hinzufügen der Property:', error);
+		error('Fehler beim Hinzufügen der Property:', error);
 	});
 }
 
@@ -622,7 +621,7 @@ function loadSavedQueriesFromAPI() {
 				});
 			}
 		})
-		.catch(error => console.error('Fehler beim Laden gespeicherter Abfragen:', error));
+		.catch(error => error('Fehler beim Laden gespeicherter Abfragen:', error));
 }
 
 function saveQuery() {
@@ -631,7 +630,7 @@ function saveQuery() {
 		.map(input => input.value);
 
 	if (!name || selectedLabels.length === 0) {
-		alert('Bitte gib einen Namen ein und wähle mindestens ein Label aus.');
+		error('Bitte gib einen Namen ein und wähle mindestens ein Label aus.');
 		return;
 	}
 
@@ -642,13 +641,13 @@ function saveQuery() {
 	})
 		.then(response => response.json())
 		.then(data => {
-			alert(data.message);
+			error(data.message);
 			if (data.status === 'success') {
 				document.getElementById('queryNameInput').value = '';
 				loadSavedQueriesFromAPI();
 			}
 		})
-		.catch(error => console.error('Fehler beim Speichern der Abfrage:', error));
+		.catch(error => error('Fehler beim Speichern der Abfrage:', error));
 }
 
 function loadSavedQuery() {
