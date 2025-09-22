@@ -2096,5 +2096,110 @@ class TestNeo4jApp(unittest.TestCase):
             data = resp.get_json()
             self.assertGreaterEqual(len(data['rows']), 3)
 
+
+    def test_get_data_as_table_multiple_labels_on_same_node(self):
+        """Node mit Person+Autor Labels wird bei nodes=Person erfasst"""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (p:Person:Autor {vorname:'Leo', nachname:'Tolstoi'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            labels = {c['nodeType'] for c in data['columns']}
+            self.assertIn('Person', labels)
+
+    def test_get_data_as_table_property_edge_cases(self):
+        """Properties mit None, '', 0, False, langen Strings, Emoji"""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        long_str = "😀" + "x"*1000
+        self.graph.run(
+            "CREATE (:Person {vorname:$v, nachname:$n, age:$a, active:$act, bio:$b})",
+            v="", n=None, a=0, act=False, b=long_str
+        )
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertTrue(any(cell['value'] in ("", None, 0, False, long_str)
+                                for row in data['rows'] for cell in row['cells']))
+            
+    def test_get_data_as_table_array_and_map_properties(self):
+        """Listen- und Map-Properties müssen als String serialisierbar sein"""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        meta_str = '{"lang":"de","score":5}'
+        self.graph.run(
+            "CREATE (:Person {tags:$tags, meta:$meta})",
+            tags=['a','b'], meta=meta_str
+        )
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            values = [cell['value'] for row in data['rows'] for cell in row['cells']]
+            self.assertIn(meta_str, values)
+            self.assertIn("a", "".join(str(v) for v in values))
+
+    def test_get_data_as_table_multiple_components(self):
+        """Zwei unverbundene Teilgraphen, beide sollen Rows erzeugen"""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Person {vorname:'A'})")
+        self.graph.run("CREATE (:Person {vorname:'B'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertGreaterEqual(len(data['rows']), 2)
+
+    def test_get_data_as_table_parallel_relationships(self):
+        """Zwei Relationen zwischen denselben Nodes dürfen keine Duplikatfehler erzeugen"""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run(
+            "CREATE (a:Person {vorname:'A'})-[:R1]->(b:Stadt {stadt:'X'}), (a)-[:R2]->(b)"
+        )
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person,Stadt'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertEqual(len(data['rows']), 1)
+
+    def test_get_data_as_table_self_loop_relationship(self):
+        """Node mit Self-Loop-Relation darf nicht abstürzen"""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (p:Person {vorname:'Loop'})-[:KNOWS]->(p)")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person','maxDepth':'2'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertGreaterEqual(len(data['rows']), 1)
+
+    def test_get_data_as_table_invalid_limit_and_depth(self):
+        """Ungültige Parameter limit=-5, maxDepth=-1 -> 500"""
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table',
+                              query_string={'nodes':'Person','limit':'-5','maxDepth':'-1'})
+            self.assertEqual(resp.status_code, 500)
+
+    def test_get_data_as_table_unicode_and_special_chars(self):
+        """Unicode, Zitate und Backslashes müssen korrekt im JSON erscheinen"""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Stadt {stadt:'München \"\\ Test 😀'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Stadt'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            vals = [cell['value'] for row in data['rows'] for cell in row['cells']]
+            self.assertTrue(any("München" in str(v) for v in vals))
+
+    def test_get_data_as_table_large_graph_with_limit(self):
+        """100 Personen, limit=10 soll nur 10 Rows liefern"""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        for i in range(100):
+            self.graph.run(f"CREATE (:Person {{vorname:'P{i}', nachname:'X'}})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person','limit':'10'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertLessEqual(len(data['rows']), 10)
+
 if __name__ == '__main__':
     unittest.main()
