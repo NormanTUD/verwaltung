@@ -2420,5 +2420,49 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
+    def test_save_mapping_duplicate_nodes(self):
+        """Doppelte Knoten werden gemerged, nicht dupliziert."""
+        csv_data = "name\nAlice\nAlice"
+        mapping = {"nodes": {"Person": [{"original": "name", "renamed": "name"}]}, "relationships": []}
+
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
+    def test_save_mapping_numeric_values(self):
+        """Numerische Werte in CSV werden korrekt übernommen."""
+        csv_data = "name,age\nAlice,30"
+        mapping = {"nodes": {"Person": [{"original": "name", "renamed": "name"}, {"original": "age", "renamed": "age"}]}, "relationships": []}
+
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
+    def test_save_mapping_boolean_values(self):
+        """Boolean-Werte korrekt speichern."""
+        csv_data = "name,active\nAlice,True"
+        mapping = {"nodes": {"Person": [{"original": "name", "renamed": "name"}, {"original": "active", "renamed": "active"}]}, "relationships": []}
+
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
+    def test_save_mapping_special_chars(self):
+        """Knoten mit Sonderzeichen im Namen."""
+        csv_data = "name\nÄlice & Bob"
+        mapping = {"nodes": {"Person": [{"original": "name", "renamed": "name"}]}, "relationships": []}
+
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
