@@ -84,7 +84,7 @@ function renderTable(data) {
       btn_del.textContent = 'Löschen';
       btn_del.addEventListener('click', function (ev) {
         var id = ev.currentTarget.getAttribute('data-id');
-        handle_delete_node_by_id(id, ev.currentTarget);
+        handle_delete_node_by_id(id, ev.currentTarget, ev);
       });
       td_act.appendChild(btn_del);
       tr.appendChild(td_act);
@@ -182,10 +182,10 @@ function first_node_id_from_row(row) {
   return '';
 }
 
-function handle_delete_node_by_id(id, btnEl) {
+function handle_delete_node_by_id(id, btnEl, ev) {
   if (!id) return;
   if (typeof window.deleteNode === 'function') {
-    try { window.deleteNode(id); } catch (e) { console.error(e); }
+    try { window.deleteNode(ev); } catch (e) { console.error(e); }
   } else {
     var ev = new CustomEvent('delete-node', { detail: { id: id } });
     document.dispatchEvent(ev);
