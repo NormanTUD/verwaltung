@@ -1206,9 +1206,12 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_create_node_with_connectTo(self):
         # Zuerst bestehende Nodes erstellen
-        result = graph.run("CREATE (a:Person {name:'A'}), (b:Person {name:'B'}) RETURN ID(a) AS idA, ID(b) AS idB").data()
+        result = graph.run(
+            "CREATE (a:Person {name:'A'}), (b:Person {name:'B'}) RETURN ID(a) AS idA, ID(b) AS idB"
+        ).data()
         existing_ids = [record["idA"] for record in result] + [record["idB"] for record in result]
 
+        # Node mit connectTo erstellen
         resp = self.app.post(
             '/api/create_node',
             data=json.dumps({"property": "stadt", "value": "ASDF", "connectTo": existing_ids}),
@@ -1219,8 +1222,9 @@ class TestNeo4jApp(unittest.TestCase):
         new_id = data["newNodeId"]
 
         # Prüfen, ob Beziehungen erstellt wurden
+        # ACHTUNG: Richtung jetzt andere, bestehende Nodes -> neue Node
         rels = graph.run(
-            "MATCH (n)-[:CONNECTED_TO]->(m) WHERE ID(n)=$new_id RETURN ID(m) AS mid",
+            "MATCH (m)-[:CONNECTED_TO]->(n) WHERE ID(n)=$new_id RETURN ID(m) AS mid",
             {"new_id": new_id}
         ).data()
         rel_ids = [r["mid"] for r in rels]

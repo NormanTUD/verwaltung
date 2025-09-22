@@ -635,7 +635,6 @@ def generate_cypher_query(max_depth):
 def create_node():
     data = request.get_json(silent=True)
     if not data:
-        # angepasst, damit "property" im Fehlertext erscheint
         return jsonify({
             "status": "error",
             "message": "Request-Body leer oder ungültig. property und value erforderlich."
@@ -644,12 +643,12 @@ def create_node():
     prop_name = data.get("property")
     value = data.get("value")
     connect_ids = data.get("connectTo", [])
+    relation_data = data.get("relation")  # Optional, dict mit relation info
 
     if not prop_name:
         return jsonify({"status": "error", "message": "property fehlt im Request."}), 400
     if value is None:
         return jsonify({"status": "error", "message": "value fehlt im Request."}), 400
-
     if not prop_name.isidentifier():
         return jsonify({"status": "error", "message": f"Ungültiger Property-Name: {prop_name}"}), 400
 
@@ -662,16 +661,24 @@ def create_node():
 
         new_node_id = result[0]["id"]
 
-        # Beziehungen erstellen (nur numerische IDs)
+        # Beziehungen erstellen
         connect_ids_clean = [int(i) for i in connect_ids if isinstance(i, (int, float))]
         connect_ids_clean = list(set(connect_ids_clean))  # Duplikate entfernen
+
         if connect_ids_clean:
-            query_rels = """
-                UNWIND $ids AS other_id
-                MATCH (n),(m) WHERE ID(n) = $new_id AND ID(m) = other_id
-                MERGE (n)-[:CONNECTED_TO]->(m)
-            """
-            graph.run(query_rels, new_id=new_node_id, ids=connect_ids_clean)
+            # Relation-Typ bestimmen
+            rel_type = "CONNECTED_TO"
+            if relation_data and isinstance(relation_data, dict) and "relation" in relation_data:
+                rel_type = relation_data["relation"]
+
+            # Von/Zu bestimmen: wir nehmen new_node_id als "to", connect_ids als "from"
+            for other_id in connect_ids_clean:
+                query_rel = f"""
+                    MATCH (n),(m)
+                    WHERE ID(n) = $from_id AND ID(m) = $to_id
+                    MERGE (n)-[:{rel_type}]->(m)
+                """
+                graph.run(query_rel, from_id=other_id, to_id=new_node_id)
 
         return jsonify({
             "status": "success",

@@ -234,7 +234,6 @@ function updateValue(element) {
         element.originalValue = newValue;
 
         const propertyName = element.getAttribute('data-property');
-
         if (!propertyName) {
             console.error('Fehlendes "data-property"-Attribut auf dem Element:', element);
             return;
@@ -242,8 +241,8 @@ function updateValue(element) {
 
         const dataIdAttr = element.getAttribute('data-id');
 
-        // Fall 1: Node existiert, update
-        if (dataIdAttr) {
+        // === Fall 1: Node existiert, update ===
+        if (dataIdAttr && dataIdAttr !== "null") {
             const combinedIds = dataIdAttr.split(',').map(idStr => Number(idStr.trim()));
             fetch('/api/update_nodes', {
                 method: 'PUT',
@@ -256,11 +255,8 @@ function updateValue(element) {
             })
             .then(async response => {
                 let data;
-                try {
-                    data = await response.json();
-                } catch {
-                    throw new Error(`Antwort konnte nicht als JSON geparsed werden. HTTP-Status: ${response.status}`);
-                }
+                try { data = await response.json(); } 
+                catch { throw new Error(`Antwort konnte nicht als JSON geparsed werden. HTTP-Status: ${response.status}`); }
 
                 if (!response.ok) {
                     throw new Error(`Update fehlgeschlagen. HTTP-Status: ${response.status}. Server meldet: ${data?.message || 'Keine Nachricht'}`);
@@ -272,52 +268,140 @@ function updateValue(element) {
             return;
         }
 
-        // Fall 2: Node existiert noch nicht, Insert
-        // andere nodeIds aus derselben Zeile sammeln
+        // === Fall 2: Node existiert noch nicht, Insert ===
         const tr = element.closest('tr');
         if (!tr) {
             console.error('Keine Zeilen-Eltern gefunden, kann Node nicht anlegen.');
             return;
         }
 
+        // Alle Inputs in derselben Zeile für connectTo
         const otherInputs = Array.from(tr.querySelectorAll('input[data-id]'));
         const connectedIds = otherInputs.map(inp => Number(inp.getAttribute('data-id'))).filter(id => !isNaN(id));
 
-        console.log('Neuer Node nötig. Property:', propertyName, 'Value:', newValue, 'Verbunden mit IDs:', connectedIds);
+        // Alle data-relations der Spalte sammeln
+        const tdIndex = Array.from(tr.children).indexOf(element.parentElement);
+        const table = element.closest('table');
+        const relationsSet = new Set();
 
-        fetch('/api/create_node', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                property: propertyName,
-                value: newValue,
-                connectTo: connectedIds
+        table.querySelectorAll('tbody tr').forEach(row => {
+            const td = row.children[tdIndex];
+            const relData = td?.getAttribute('data-relations');
+            if (relData) {
+                try {
+                    const parsed = JSON.parse(decodeURIComponent(relData));
+                    parsed.forEach(rel => relationsSet.add(JSON.stringify(rel)));
+                } catch {}
+            }
+        });
+
+        const uniqueRelations = Array.from(relationsSet).map(r => JSON.parse(r));
+
+        function createNodeWithRelation(selectedRelation) {
+            fetch('/api/create_node', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    property: propertyName,
+                    value: newValue,
+                    connectTo: connectedIds,
+                    relation: selectedRelation || null
+                })
             })
-        })
-        .then(async response => {
-            let data;
-            try {
-                data = await response.json();
-            } catch {
-                throw new Error(`Antwort konnte nicht als JSON geparsed werden. HTTP-Status: ${response.status}`);
-            }
+            .then(async response => {
+                let data;
+                try { data = await response.json(); } 
+                catch { throw new Error(`Antwort konnte nicht als JSON geparsed werden. HTTP-Status: ${response.status}`); }
 
-            if (!response.ok) {
-                throw new Error(`Node-Erstellung fehlgeschlagen. HTTP-Status: ${response.status}. Server meldet: ${data?.message || 'Keine Nachricht'}`);
-            }
+                if (!response.ok) {
+                    throw new Error(`Node-Erstellung fehlgeschlagen. HTTP-Status: ${response.status}. Server meldet: ${data?.message || 'Keine Nachricht'}`);
+                }
 
-            console.log('Neuer Node erstellt:', data.message, 'ID:', data.newNodeId);
+                console.log('Neuer Node erstellt:', data.message, 'ID:', data.newNodeId);
+                element.setAttribute('data-id', data.newNodeId);
+            })
+            .catch(err => console.error('Fehler beim Erstellen des Nodes:', err.message));
+        }
 
-            // Update input mit neuer Node-ID
-            element.setAttribute('data-id', data.newNodeId);
-        })
-        .catch(err => console.error('Fehler beim Erstellen des Nodes:', err.message));
+        if (uniqueRelations.length === 0) {
+            // Keine Relation verfügbar, direkt erstellen
+            createNodeWithRelation(null);
+        } else if (uniqueRelations.length === 1) {
+            // Eindeutige Relation
+            createNodeWithRelation(uniqueRelations[0]);
+        } else {
+            // Mehrdeutig, Modal anzeigen
+            showRelationModal(uniqueRelations, createNodeWithRelation);
+        }
 
     } catch (err) {
         console.error('Fehler in updateValue-Funktion:', err.message, err);
     }
 }
 
+// === Modal-Funktion ===
+function showRelationModal(relations, callback) {
+    // Overlay
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.zIndex = '9999';
+
+    // Modal
+    const modal = document.createElement('div');
+    modal.style.background = 'white';
+    modal.style.padding = '20px';
+    modal.style.borderRadius = '8px';
+    modal.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+    modal.style.maxHeight = '80vh';
+    modal.style.overflowY = 'auto';
+    modal.style.minWidth = '300px';
+
+    const title = document.createElement('h3');
+    title.innerText = 'Wähle die Relation für die neue Node';
+    modal.appendChild(title);
+
+    const select = document.createElement('select');
+    select.style.width = '100%';
+    select.style.margin = '10px 0';
+
+    relations.forEach((rel, idx) => {
+        const option = document.createElement('option');
+        option.value = idx;
+        option.innerText = `${rel.relation}: ${rel.fromId} → ${rel.toId}`;
+        select.appendChild(option);
+    });
+    modal.appendChild(select);
+
+    const btnContainer = document.createElement('div');
+    btnContainer.style.textAlign = 'right';
+
+    const okBtn = document.createElement('button');
+    okBtn.innerText = 'OK';
+    okBtn.onclick = () => {
+        const selected = relations[Number(select.value)];
+        document.body.removeChild(overlay);
+        callback(selected);
+    };
+    btnContainer.appendChild(okBtn);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.innerText = 'Abbrechen';
+    cancelBtn.style.marginLeft = '10px';
+    cancelBtn.onclick = () => { document.body.removeChild(overlay); };
+    btnContainer.appendChild(cancelBtn);
+
+    modal.appendChild(btnContainer);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+}
 
 function addColumnToNode(event) {
 	let nodeIds = [];
