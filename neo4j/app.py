@@ -901,7 +901,12 @@ def get_data_as_table():
             for lbl in bucket.get("nodes", {}).keys()
         }
 
-        missing_labels = [lbl for lbl in selected_labels if lbl not in existing_labels]
+        if filter_labels:
+            candidate_labels = [lbl for lbl in selected_labels if lbl in filter_labels]
+        else:
+            candidate_labels = selected_labels
+
+        missing_labels = [lbl for lbl in candidate_labels if lbl not in existing_labels]
 
         for lbl in missing_labels:
             collect_single_nodes(graph, main_nodes, lbl, limit)

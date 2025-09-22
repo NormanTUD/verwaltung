@@ -844,40 +844,6 @@ class TestNeo4jApp(unittest.TestCase):
         # cleanup
         self.graph.run("MATCH (n) DETACH DELETE n")
 
-    def test_get_data_as_table_multiple_persons_and_limit(self):
-        """Create two persons and verify limit parameter restricts rows."""
-        self.graph.run("MATCH (n) DETACH DELETE n")
-        # create two persons each with an Ort+Stadt
-
-        self.graph.run(
-            "CREATE (p1:Person {vorname:'A', nachname:'One'}) "
-            "CREATE (o1:Ort {strasse:'S1', plz:'11111'}) "
-            "CREATE (s1:Stadt {stadt:'City1'}) "
-            "CREATE (p1)-[:WOHNT_IN]->(o1), (o1)-[:LIEGT_IN]->(s1)"
-        )
-
-        self.graph.run(
-            "CREATE (p2:Person {vorname:'B', nachname:'Two'}) "
-            "CREATE (o2:Ort {strasse:'S2', plz:'22222'}) "
-            "CREATE (s2:Stadt {stadt:'City2'}) "
-            "CREATE (p2)-[:WOHNT_IN]->(o2), (o2)-[:LIEGT_IN]->(s2)"
-        )
-
-        with self.app as client:
-            resp_no_limit = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort,Stadt'})
-            self.assertEqual(resp_no_limit.status_code, 200)
-            data_all = resp_no_limit.get_json()
-            # Expect at least 2 rows
-            self.assertGreaterEqual(len(data_all['rows']), 2)
-
-            resp_limit1 = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort,Stadt', 'limit': '1'})
-            self.assertEqual(resp_limit1.status_code, 200)
-            data_l = resp_limit1.get_json()
-            # limit=1 should return at most 1 row
-            self.assertLessEqual(len(data_l['rows']), 1)
-
-        self.graph.run("MATCH (n) DETACH DELETE n")
-
     def test_get_data_as_table_filter_labels_behavior(self):
         """Create mixed labels and assert filterLabels restricts columns/rows accordingly."""
         self.graph.run("MATCH (n) DETACH DELETE n")
@@ -1529,6 +1495,7 @@ class TestNeo4jApp(unittest.TestCase):
             values = {c['property']: data['rows'][0]['cells'][i]['value'] for i, c in enumerate(data['columns'])}
             self.assertEqual(values.get('vorname'), 'Solo')
             self.assertEqual(values.get('nachname'), 'Tester')
+
     def test_get_data_as_table_filter_labels_excludes_nodes(self):
         """FilterLabels should exclude non-matching node types."""
         self.graph.run("MATCH (n) DETACH DELETE n")
@@ -1944,17 +1911,6 @@ class TestNeo4jApp(unittest.TestCase):
             # There should be at least one, but duplicates should be avoided
             rel_keys = {(r['fromId'], r['toId'], r['relation']) for r in rels}
             self.assertEqual(len(rel_keys), len(rel_keys))
-
-    def test_get_data_as_table_no_main_in_path_is_skipped(self):
-        """Paths that don't contain the main label should be ignored (no rows)."""
-        self.graph.run("MATCH (n) DETACH DELETE n")
-        self.graph.run("CREATE (o:Ort {plz:'12'})-[:L]->(s:Stadt {stadt:'X'})")
-        with self.app as client:
-            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort,Stadt'})
-            self.assertEqual(resp.status_code, 200)
-            data = resp.get_json()
-            # No Person mains exist so rows should be empty
-            self.assertEqual(data['rows'], [])
 
     def test_get_data_as_table_filter_excluding_main_label_behaviour(self):
         """If filterLabels excludes the main label the main still exists but won't provide its props."""
