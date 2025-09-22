@@ -3344,5 +3344,58 @@ class TestNeo4jApp(unittest.TestCase):
                 resp = self.app.post('/api/create_node', json=node)
                 self.assertEqual(resp.status_code, 200)
 
+    def test_get_data_as_table_person_ort_buch_with_relations(self):
+        """Persons with living places and optionally books should return joined rows with relations."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("""
+            CREATE (p1:Person {vorname:'Maria', nachname:'Müller'})
+            CREATE (o1:Ort {plz:'10115', straße:'Hauptstraße 1'})
+            CREATE (b1:Buch {titel:'The Cypher Key', erscheinungsjahr:2023})
+            CREATE (p1)-[:WOHNT_IN]->(o1)
+            CREATE (p1)-[:HAT_GESCHRIEBEN]->(b1)
+
+            CREATE (p2:Person {vorname:'Hans', nachname:'Schmidt'})
+            CREATE (o2:Ort {plz:'20095', straße:'Marktplatz 5'})
+            CREATE (p2)-[:WOHNT_IN]->(o2)
+
+            CREATE (p3:Person {vorname:'Anna', nachname:'Fischer'})
+            CREATE (o3:Ort {plz:'80331', straße:'Bahnhofsallee 12'})
+            CREATE (p3)-[:WOHNT_IN]->(o3)
+
+            CREATE (p4:Person {vorname:'Bob', nachname:'Johnson'})
+            CREATE (o4:Ort {plz:'00000', straße:''})
+            CREATE (b2:Buch {titel:'The Graph Odyssey', erscheinungsjahr:2022})
+            CREATE (p4)-[:WOHNT_IN]->(o4)
+            CREATE (p4)-[:HAT_GESCHRIEBEN]->(b2)
+
+            CREATE (p5:Person {vorname:'Charlie', nachname:'Brown'})
+            CREATE (o5:Ort {plz:'00000', straße:''})
+            CREATE (b3:Buch {titel:"Neo's Journey", erscheinungsjahr:2024})
+            CREATE (p5)-[:WOHNT_IN]->(o5)
+            CREATE (p5)-[:HAT_GESCHRIEBEN]->(b3)
+        """)
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table',
+                              query_string={'nodes': 'Person,Ort,Buch'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertEqual(len(data['rows']), 5)
+
+            # check that at least one row has both Person and Buch values
+            has_book = any(
+                any(c['value'] == 'The Cypher Key' for c in row['cells'])
+                for row in data['rows']
+            )
+            self.assertTrue(has_book)
+
+            # check that each person is present
+            persons = {c['value'] for row in data['rows'] for c in row['cells'] if c['value'] in ['Maria','Hans','Anna','Bob','Charlie']}
+            self.assertEqual(persons, {'Maria','Hans','Anna','Bob','Charlie'})
+
+            # check that relations are included
+            all_relations = [rel['relation'] for row in data['rows'] for rel in row['relations']]
+            self.assertIn('WOHNT_IN', all_relations)
+            self.assertIn('HAT_GESCHRIEBEN', all_relations)
+
 if __name__ == '__main__':
     unittest.main()
