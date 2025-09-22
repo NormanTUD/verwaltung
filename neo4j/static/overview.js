@@ -254,7 +254,6 @@ function deleteNode(event) {
         });
 }
 
-
 function updateValue(element) {
     try {
         console.log("DEBUG: updateValue triggered", element);
