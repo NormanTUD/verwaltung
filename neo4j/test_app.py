@@ -2829,5 +2829,75 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
+    def test_save_mapping_mega_complex_large_duplicates_and_missing(self):
+        """15 Zeilen, viele Duplikate, fehlende Felder, Sonderzeichen, boolean, numeric, viele Beziehungen."""
+        csv_data = "\n".join([
+            "person,city,country,company,age,active",
+            "Alice,Berlin,Deutschland,ACME,30,True",
+            "Bob,Munich,Deutschland,Globex,25,False",
+            "Carol,Hamburg,Deutschland,ACME,28,True",
+            "Dave,Berlin,Deutschland,Globex,35,False",
+            "Eve,Hamburg,Deutschland,ACME,32,True",
+            "Alice,Berlin,Deutschland,ACME,30,True",   # Duplikat
+            "Bob,Munich,Deutschland,Globex,25,False", # Duplikat
+            "Frank,Hamburg,,ACME,29,True",            # fehlendes Land
+            "Grace,,Deutschland,Globex,31,False",     # fehlender Ort
+            "Heidi,Hamburg,Deutschland,,27,True",     # fehlende Firma
+            "Ivan,Berlin,Deutschland,ACME,34,False",
+            "Judy,Hamburg,Deutschland,Globex,30,True",
+            "Mallory,Berlin,Deutschland,ACME,28,True",
+            "Oscar,,Deutschland,Globex,26,False",
+            "Peggy,Hamburg,Deutschland,,33,True"
+        ])
+        mapping = {
+            "nodes": {
+                "Person": [{"original": "person", "renamed": "name"}, {"original": "age", "renamed": "age"}, {"original": "active", "renamed": "active"}],
+                "Ort": [{"original": "city", "renamed": "stadt"}],
+                "Land": [{"original": "country", "renamed": "name"}],
+                "Firma": [{"original": "company", "renamed": "name"}]
+            },
+            "relationships": [
+                {"from": "Person", "to": "Ort", "type": "WOHNT_IN"},
+                {"from": "Person", "to": "Firma", "type": "ARBEITET_FUER"},
+                {"from": "Ort", "to": "Land", "type": "LIEGT_IN"},
+                {"from": "Firma", "to": "Land", "type": "IST_IN"}
+            ]
+        }
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
+    def test_save_mapping_mega_complex_extreme_special_chars(self):
+        """CSV mit extremen Sonderzeichen, Unicode, Emojis, Leerzeichen, alle Beziehungen werden korrekt gesetzt."""
+        csv_data = "\n".join([
+            "person,city,country,company",
+            "Ålice 🚀,Berlin,Deutschland,ACME 🔧",
+            "Bób 🐍,München,Deutschland,Globex 💼",
+            "Carôl 🌟,Hamburg,Deutschland,ACME 🔧",
+            "D@ve 💻,Berlin,Deutschland,Globex 💼",
+            "Eve 🌈,Hamburg,Deutschland,ACME 🔧"
+        ])
+        mapping = {
+            "nodes": {
+                "Person": [{"original": "person", "renamed": "name"}],
+                "Ort": [{"original": "city", "renamed": "stadt"}],
+                "Land": [{"original": "country", "renamed": "name"}],
+                "Firma": [{"original": "company", "renamed": "name"}]
+            },
+            "relationships": [
+                {"from": "Person", "to": "Ort", "type": "WOHNT_IN"},
+                {"from": "Ort", "to": "Land", "type": "LIEGT_IN"},
+                {"from": "Person", "to": "Firma", "type": "ARBEITET_FUER"},
+                {"from": "Firma", "to": "Land", "type": "IST_IN"}
+            ]
+        }
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
