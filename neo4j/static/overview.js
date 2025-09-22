@@ -202,7 +202,6 @@ function escape_html(s) {
 
 function deleteNode(event) {
 	const nodeIds = event.target.getAttribute('data-id').split(',');
-	//if (confirm(`Sicher, dass du die verknüpften Einträge (${nodeIds.join(', ')}) löschen möchtest?`)) {
 	fetch(`/api/delete_nodes?ids=${nodeIds.join(',')}`, {
 		method: 'DELETE',
 	}).then(response => {
@@ -218,7 +217,6 @@ function deleteNode(event) {
 			}
 		})
 		.catch(error => console.error('Fehler beim Löschen:', error));
-	//}
 }
 
 function updateValue(element) {
