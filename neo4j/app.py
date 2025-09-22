@@ -924,18 +924,8 @@ def get_data_as_table():
                                     existing["props"] = props
                                     print(f"      -> update node {node_id} dist -> {dist}")
 
-                    # Relations sammeln
-                    for rel in path.relationships:
-                        from_id = rel.start_node.identity
-                        to_id = rel.end_node.identity
-                        rel_dict = {"fromId": from_id, "toId": to_id, "relation": type(rel).__name__}
-                        if rel_dict not in bucket["relations"]:
-                            bucket["relations"].append(rel_dict)
-
-                        if from_id == main_id:
-                            bucket["adjacent"].add(to_id)
-                        if to_id == main_id:
-                            bucket["adjacent"].add(from_id)
+                    for main_id, bucket in main_nodes.items():
+                        collect_relations_for_bucket(bucket, main_id, path.relationships)
 
         # ------------------------
         # Wenn keine Pfade: Einzel-Node-Logik
@@ -993,6 +983,40 @@ def get_data_as_table():
     except Exception as e:
         print("Fehler (Exception):", e)
         return jsonify({"status": "error", "message": str(e)}), 500
+
+def collect_relations_for_bucket(bucket, main_id, relationships):
+    """
+    Sammelt die Relations und Adjacent-Nodes für einen Bucket.
+
+    Args:
+        bucket (dict): Ein einzelner Bucket, enthält 'relations' (list) und 'adjacent' (set).
+        main_id (int/str): Die ID des Hauptknotens.
+        relationships (iterable): Iterable von Relationship-Objekten (z.B. path.relationships).
+
+    Modifiziert:
+        bucket["relations"]: Fügt neue Relations hinzu, falls sie noch nicht existieren.
+        bucket["adjacent"]: Fügt IDs von benachbarten Nodes hinzu.
+    """
+    try:
+        for rel in relationships:
+            from_id = getattr(rel.start_node, 'identity', None)
+            to_id = getattr(rel.end_node, 'identity', None)
+            if from_id is None or to_id is None:
+                continue  # Ungültige Relation überspringen
+
+            rel_dict = {"fromId": from_id, "toId": to_id, "relation": type(rel).__name__}
+
+            if rel_dict not in bucket.get("relations", []):
+                bucket.setdefault("relations", []).append(rel_dict)
+
+            bucket.setdefault("adjacent", set())
+            if from_id == main_id:
+                bucket["adjacent"].add(to_id)
+            if to_id == main_id:
+                bucket["adjacent"].add(from_id)
+
+    except Exception as e:
+        print(f"Fehler beim Sammeln der Relations für bucket {main_id}: {e}")
 
 def build_cells_for_bucket(bucket, columns):
     """
