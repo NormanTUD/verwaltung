@@ -2356,5 +2356,34 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertEqual(resp.status_code, 400)
             self.assertIn(b"Fehler beim Analysieren der CSV", resp.data)
 
+    def test_save_mapping_single_node(self):
+        """Ein einfacher Knoten wird erfolgreich gemerged."""
+        csv_data = "name\nAlice"
+        mapping = {"nodes": {"Person": [{"original": "name", "renamed": "name"}]}, "relationships": []}
+
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn(b"Daten erfolgreich", resp.data)
+
+    def test_save_mapping_multiple_nodes(self):
+        """Mehrere Knoten ohne Beziehungen werden gemerged."""
+        csv_data = "name,city\nAlice,Berlin"
+        mapping = {
+            "nodes": {
+                "Person": [{"original": "name", "renamed": "name"}],
+                "Ort": [{"original": "city", "renamed": "stadt"}]
+            },
+            "relationships": []
+        }
+
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
