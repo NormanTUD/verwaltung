@@ -2668,5 +2668,29 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
+    def test_save_mapping_super_complex_special_chars_and_types(self):
+        """CSV mit Sonderzeichen, gemischten Datentypen und boolean-Werten, alle Beziehungen werden gesetzt."""
+        csv_data = "person,city,country,age,active\nÄlice & Bob,Berlin,Deutschland,30,True\nBób,München,Deutschland,25,False\nCarol,Hamburg,Deutschland,28,True"
+        mapping = {
+            "nodes": {
+                "Person": [
+                    {"original": "person", "renamed": "name"},
+                    {"original": "age", "renamed": "age"},
+                    {"original": "active", "renamed": "active"}
+                ],
+                "Ort": [{"original": "city", "renamed": "stadt"}],
+                "Land": [{"original": "country", "renamed": "name"}]
+            },
+            "relationships": [
+                {"from": "Person", "to": "Ort", "type": "WOHNT_IN"},
+                {"from": "Ort", "to": "Land", "type": "LIEGT_IN"}
+            ]
+        }
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
