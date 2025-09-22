@@ -6,7 +6,7 @@ function fetchData() {
   if (!sel) return alert('Kein #querySelection im DOM');
 
   var labels = [].slice.call(sel.querySelectorAll('input:checked')).map(function(i){ return i.value; });
-  if (!labels.length) { alert('Bitte mindestens ein Label auswählen'); return; }
+  if (!labels.length) { console.warn('Bitte mindestens ein Label auswählen'); return; }
 
   var qs = 'nodes=' + encodeURIComponent(labels.join(','));
   var url = '/api/get_data_as_table?' + qs;
