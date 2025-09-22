@@ -478,102 +478,22 @@ def get_rel_types():
 @app.route('/save_mapping', methods=['POST'])
 @test_if_deleted_db
 def save_mapping():
-    """Speichert die zugeordneten Daten in der Neo4j-Datenbank."""
+    """Hauptfunktion: speichert die zugeordneten Daten in Neo4j."""
     mapping_data = request.get_json()
 
     if 'raw_data' not in session or not graph:
         print("Fehler: Sitzungsdaten fehlen oder Datenbank nicht verbunden.")
         return jsonify({"status": "error", "message": "Sitzungsdaten fehlen oder Datenbank nicht verbunden."}), 500
 
-    raw_data = session.pop('raw_data')
-
-    f = io.StringIO(raw_data)
-    try:
-        dialect = csv.Sniffer().sniff(f.read(1024))
-        f.seek(0)
-        reader = csv.DictReader(f, dialect=dialect)
-    except csv.Error as e:
-        print(f"Fehler beim Analysieren der CSV-Daten: {e}")
-        return jsonify({"status": "error", "message": f"Fehler beim Analysieren der CSV-Daten: {str(e)}"}), 400
+    reader = parse_csv_from_session()
+    if reader is None:
+        return jsonify({"status": "error", "message": "Fehler beim Analysieren der CSV-Daten."}), 400
 
     tx = graph.begin()
     try:
-        nodes_to_create = {}
         for i, row in enumerate(reader):
             print(f"\n--- Bearbeite Zeile {i+1} ---")
-
-            # MERGE-Vorgänge für Knoten
-            for node_type, fields in mapping_data.get('nodes', {}).items():
-                node_var = safe_var_name(node_type)      # safe für Cypher-Variablen
-                node_label = f"`{node_type}`"            # Label immer escapen
-
-                all_props = {}
-                for field_map in fields:
-                    original_name = field_map['original']
-                    renamed_name = field_map['renamed']
-                    value = row.get(original_name)
-                    if value:
-                        all_props[renamed_name] = value
-
-                if not all_props:
-                    print(f"  ❌ Keine Daten für den Knoten-Typ '{node_type}' in dieser Zeile. Überspringe.")
-                    continue
-
-                identifier_key, identifier_value = next(iter(all_props.items()))
-
-                print(f"  ➡️ Versuche, einen Knoten vom Typ '{node_type}' zu mergen.")
-                print(f"     Identifikator: '{identifier_key}' = '{identifier_value}'")
-                print(f"     Alle Properties: {all_props}")
-
-                cypher_query = f"""
-                MERGE ({node_var}:{node_label} {{`{identifier_key}`: $identifier_value}})
-                ON CREATE SET {node_var} = $all_props
-                RETURN {node_var}
-                """
-
-                params = {
-                    "identifier_value": identifier_value,
-                    "all_props": all_props
-                }
-
-                result = graph.run(cypher_query, **params).data()
-
-                if result:
-                    nodes_to_create[node_type] = result[0][node_var]
-                    print(f"  ✅ Knoten '{node_type}' wurde erfolgreich gemerged (entweder erstellt oder gefunden).")
-                else:
-                    print(f"  ⚠️ Warnung: Der MERGE-Vorgang für '{node_type}' hat nichts zurückgegeben.")
-
-            # Erstellung von Beziehungen
-            for rel_data in mapping_data.get('relationships', []):
-                from_node_type = rel_data['from']
-                to_node_type = rel_data['to']
-                rel_type = rel_data['type']
-
-                clean_rel_type = rel_type.replace(' ', '_').upper()
-                rel_label = f"`{clean_rel_type}`"
-
-                from_label = f"`{from_node_type}`"
-                to_label = f"`{to_node_type}`"
-                from_var = safe_var_name(from_node_type)
-                to_var = safe_var_name(to_node_type)
-
-                print(f"  ➡️ Versuche, eine Beziehung '{rel_type}' zu erstellen.")
-
-                if from_node_type in nodes_to_create and to_node_type in nodes_to_create:
-                    from_node = nodes_to_create[from_node_type]
-                    to_node = nodes_to_create[to_node_type]
-
-                    rel_query = f"""
-                    MATCH ({from_var}:{from_label}) WHERE id({from_var}) = {from_node.identity}
-                    MATCH ({to_var}:{to_label}) WHERE id({to_var}) = {to_node.identity}
-                    MERGE ({from_var})-[rel:{rel_label}]->({to_var})
-                    """
-
-                    graph.run(rel_query)
-                    print(f"  ✅ Beziehung '{clean_rel_type}' zwischen '{from_node_type}' und '{to_node_type}' erstellt.")
-                else:
-                    print(f"  ❌ Konnte die Beziehung nicht erstellen, da einer oder beide Knoten fehlen: '{from_node_type}' (vorhanden: {from_node_type in nodes_to_create}), '{to_node_type}' (vorhanden: {to_node_type in nodes_to_create}).")
+            nodes_created = process_row(tx, row, mapping_data)
 
         graph.commit(tx)
         print("\nGesamtvorgang erfolgreich: Daten wurden in die Neo4j-Datenbank importiert.")
@@ -582,6 +502,101 @@ def save_mapping():
         tx.rollback()
         print(f"\n❌ Fehler beim Speichern in der DB: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+def parse_csv_from_session():
+    """Liest die CSV-Daten aus der Session und gibt einen DictReader zurück."""
+    raw_data = session.pop('raw_data')
+    f = io.StringIO(raw_data)
+    try:
+        dialect = csv.Sniffer().sniff(f.read(1024))
+        f.seek(0)
+        reader = csv.DictReader(f, dialect=dialect)
+        return reader
+    except csv.Error as e:
+        print(f"Fehler beim Analysieren der CSV-Daten: {e}")
+        return None
+
+
+def process_row(tx, row, mapping_data):
+    """Verarbeitet eine Zeile: Knoten mergen und Beziehungen erstellen."""
+    nodes_created = {}
+
+    # Knoten erstellen/mergen
+    for node_type, fields in mapping_data.get('nodes', {}).items():
+        node = merge_node(tx, node_type, fields, row)
+        if node:
+            nodes_created[node_type] = node
+
+    # Beziehungen erstellen
+    for rel_data in mapping_data.get('relationships', []):
+        create_relationship(tx, rel_data['from'], rel_data['to'], rel_data['type'], nodes_created)
+
+    return nodes_created
+
+
+def merge_node(tx, node_type, fields, row):
+    """Merged einen Knoten vom Typ node_type mit gegebenen Properties."""
+    node_var = safe_var_name(node_type)
+    node_label = f"`{node_type}`"
+
+    all_props = {}
+    for field_map in fields:
+        original_name = field_map['original']
+        renamed_name = field_map['renamed']
+        value = row.get(original_name)
+        if value:
+            all_props[renamed_name] = value
+
+    if not all_props:
+        print(f"  ❌ Keine Daten für den Knoten-Typ '{node_type}' in dieser Zeile. Überspringe.")
+        return None
+
+    identifier_key, identifier_value = next(iter(all_props.items()))
+    print(f"  ➡️ Versuche, einen Knoten vom Typ '{node_type}' zu mergen.")
+    print(f"     Identifikator: '{identifier_key}' = '{identifier_value}'")
+    print(f"     Alle Properties: {all_props}")
+
+    cypher_query = f"""
+    MERGE ({node_var}:{node_label} {{`{identifier_key}`: $identifier_value}})
+    ON CREATE SET {node_var} = $all_props
+    RETURN {node_var}
+    """
+
+    params = {"identifier_value": identifier_value, "all_props": all_props}
+    result = graph.run(cypher_query, **params).data()
+
+    if result:
+        print(f"  ✅ Knoten '{node_type}' erfolgreich gemerged.")
+        return result[0][node_var]
+    else:
+        print(f"  ⚠️ MERGE-Vorgang für '{node_type}' hat nichts zurückgegeben.")
+        return None
+
+
+def create_relationship(tx, from_node_type, to_node_type, rel_type, nodes_created):
+    """Erstellt eine Beziehung zwischen zwei vorhandenen Knoten."""
+    clean_rel_type = rel_type.replace(' ', '_').upper()
+    rel_label = f"`{clean_rel_type}`"
+
+    from_var = safe_var_name(from_node_type)
+    to_var = safe_var_name(to_node_type)
+
+    print(f"  ➡️ Versuche, eine Beziehung '{rel_type}' zu erstellen.")
+
+    if from_node_type in nodes_created and to_node_type in nodes_created:
+        from_node = nodes_created[from_node_type]
+        to_node = nodes_created[to_node_type]
+
+        rel_query = f"""
+        MATCH ({from_var}:`{from_node_type}`) WHERE id({from_var}) = {from_node.identity}
+        MATCH ({to_var}:`{to_node_type}`) WHERE id({to_var}) = {to_node.identity}
+        MERGE ({from_var})-[rel:{rel_label}]->({to_var})
+        """
+        graph.run(rel_query)
+        print(f"  ✅ Beziehung '{clean_rel_type}' zwischen '{from_node_type}' und '{to_node_type}' erstellt.")
+    else:
+        print(f"  ❌ Beziehung konnte nicht erstellt werden, Knoten fehlen: '{from_node_type}' (vorhanden: {from_node_type in nodes_created}), '{to_node_type}' (vorhanden: {to_node_type in nodes_created}).")
 
 @app.route('/overview')
 @test_if_deleted_db
