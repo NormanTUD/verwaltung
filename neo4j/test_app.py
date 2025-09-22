@@ -2338,6 +2338,14 @@ class TestNeo4jApp(unittest.TestCase):
             city_values = [cell['value'] for row in data['rows'] for col, cell in zip(data['columns'], row['cells']) if col['nodeType']=='Stadt']
             self.assertTrue(all(v is None for v in city_values))
 
+    def test_save_mapping_missing_session_data(self):
+        """Fehler, wenn 'raw_data' in session fehlt."""
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess.pop('raw_data', None)
+            resp = client.post('/save_mapping', json={})
+            self.assertEqual(resp.status_code, 500)
+            self.assertIn(b"Sitzungsdaten fehlen", resp.data)
 
 if __name__ == '__main__':
     unittest.main()
