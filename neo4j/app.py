@@ -885,25 +885,7 @@ def get_data_as_table():
         # Wenn keine Pfade: Einzel-Node-Logik
         # ------------------------
         else:
-            print("Keine Pfade gefunden -> hole einzelne Nodes")
-            cypher_nodes = f"MATCH (n:{main_label}) RETURN n"
-            if limit:
-                cypher_nodes += f" LIMIT {limit}"
-            node_results = graph.run(cypher_nodes).data()
-            print(f"Einzelne Nodes erhalten: {len(node_results)}")
-
-            for r in node_results:
-                n = r['n']
-                main_id = n.identity
-                if main_id not in main_nodes:
-                    main_nodes[main_id] = {"nodes": {}, "adjacent": set(), "relations": []}
-                    print(f"  Neuer main_node bucket (single): {main_id}")
-
-                bucket = main_nodes[main_id]
-                props = dict(n)
-                label_map = bucket["nodes"].setdefault(main_label, {})
-                label_map[main_id] = {"props": props, "min_dist": 0}
-                print(f"  -> Einzelnode gespeichert: {main_id} mit props {list(props.keys())}")
+            collect_single_nodes(graph, main_nodes, main_label, limit)
 
         print("\n=== Sammlung abgeschlossen ===")
         print("Haupt-Buckets gefunden:", list(main_nodes.keys()))
@@ -937,6 +919,50 @@ def get_data_as_table():
     except Exception as e:
         print("Fehler (Exception):", e)
         return jsonify({"status": "error", "message": str(e)}), 500
+
+def collect_single_nodes(graph, main_nodes, main_label, limit=None):
+    """
+    Holt einzelne Nodes vom Graphen, falls keine Pfade gefunden wurden.
+
+    Args:
+        graph: Neo4j Graph-Objekt.
+        main_nodes (dict): Dictionary zum Speichern der Buckets.
+        main_label (str): Label der Hauptknoten.
+        limit (int, optional): Optional Limit für abgefragte Nodes.
+
+    Modifiziert:
+        main_nodes: Fügt Nodes hinzu, initialisiert Buckets, speichert props und min_dist.
+    """
+    try:
+        print("Keine Pfade gefunden -> hole einzelne Nodes")
+        cypher_nodes = f"MATCH (n:{main_label}) RETURN n"
+        if limit:
+            cypher_nodes += f" LIMIT {limit}"
+
+        node_results = graph.run(cypher_nodes).data()
+        print(f"Einzelne Nodes erhalten: {len(node_results)}")
+
+        for r in node_results:
+            n = r.get('n')
+            if n is None:
+                continue  # Ungültige Node überspringen
+
+            main_id = getattr(n, "identity", None)
+            if main_id is None:
+                continue
+
+            if main_id not in main_nodes:
+                main_nodes[main_id] = {"nodes": {}, "adjacent": set(), "relations": []}
+                print(f"  Neuer main_node bucket (single): {main_id}")
+
+            bucket = main_nodes[main_id]
+            props = dict(n)
+            label_map = bucket.setdefault("nodes", {}).setdefault(main_label, {})
+            label_map[main_id] = {"props": props, "min_dist": 0}
+            print(f"  -> Einzelnode gespeichert: {main_id} mit props {list(props.keys())}")
+
+    except Exception as e:
+        print(f"Fehler beim Sammeln einzelner Nodes: {e}")
 
 def process_paths(results, main_label, selected_labels, filter_labels=None):
     """
