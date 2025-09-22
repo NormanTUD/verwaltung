@@ -890,17 +890,21 @@ def get_data_as_table():
         # Haupt-Sammlung initialisieren
         main_nodes = {}
         if results:
-            print("-> Verarbeite Pfade und sammle Nodes & Relations ...")
             main_nodes = process_paths(results, main_label, selected_labels, filter_labels)
-            print(f"   -> Fertig mit Pfad-Verarbeitung, Haupt-Buckets: {list(main_nodes.keys())}")
         else:
-            print("-> Keine Pfade gefunden, hole einzelne Nodes ...")
             collect_single_nodes(graph, main_nodes, main_label, limit)
-            print(f"   -> Fertig mit Single-Node-Verarbeitung, Haupt-Buckets: {list(main_nodes.keys())}")
 
-        for lbl in selected_labels:
-            if lbl != main_label:
-                collect_single_nodes(graph, main_nodes, lbl, limit)
+        # Jetzt prüfen, ob es Labels gibt, die bisher noch gar nicht vorkommen
+        existing_labels = {
+            lbl
+            for bucket in main_nodes.values()
+            for lbl in bucket.get("nodes", {}).keys()
+        }
+
+        missing_labels = [lbl for lbl in selected_labels if lbl not in existing_labels]
+
+        for lbl in missing_labels:
+            collect_single_nodes(graph, main_nodes, lbl, limit)
 
         # Columns bestimmen
         print("-> Bestimme Spalten (Columns) basierend auf gesammelten Nodes ...")
