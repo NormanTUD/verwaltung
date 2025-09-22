@@ -221,36 +221,51 @@ function deleteNode(event) {
 
 function updateValue(element) {
     try {
+        console.log("DEBUG: updateValue triggered", element);
         if (!element) return;
 
         const newValue = element.value;
-        if (element.originalValue === newValue) return;
+        if (element.originalValue === newValue) {
+            console.log("DEBUG: Wert unverändert, Abbruch");
+            return;
+        }
         element.originalValue = newValue;
 
         const propertyName = element.getAttribute('data-property');
-        if (!propertyName) return;
+        if (!propertyName) {
+            console.log("DEBUG: data-property fehlt");
+            return;
+        }
 
         const dataIdAttr = element.getAttribute('data-id');
+        console.log("DEBUG: dataIdAttr =", dataIdAttr);
 
         // === Update vorhandener Node ===
         if (dataIdAttr && dataIdAttr !== "null") {
             const ids = dataIdAttr.split(',').map(s => Number(s.trim()));
+            console.log("DEBUG: Update vorhandene Nodes, ids =", ids);
             fetch('/api/update_nodes', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ids, property: propertyName, value: newValue })
-            }).then(r => r.json()).then(d => console.log(d.message))
-              .catch(err => console.error(err));
+            }).then(r => r.json())
+              .then(d => console.log("DEBUG: update_nodes response:", d))
+              .catch(err => console.error("DEBUG: update_nodes error:", err));
             return;
         }
 
         // === Node existiert noch nicht ===
         const tr = element.closest('tr');
-        if (!tr) return;
+        if (!tr) {
+            console.log("DEBUG: Kein tr gefunden");
+            return;
+        }
 
         // Verbindungs-IDs sammeln
         const otherInputs = Array.from(tr.querySelectorAll('input[data-id]'));
-        const connectedIds = otherInputs.map(inp => Number(inp.getAttribute('data-id'))).filter(id => !isNaN(id));
+        const connectedIds = otherInputs.map(inp => Number(inp.getAttribute('data-id')))
+                                       .filter(id => !isNaN(id));
+        console.log("DEBUG: connectedIds =", connectedIds);
 
         // Alle Relations aus derselben Spalte sammeln
         const tdIndex = Array.from(tr.children).indexOf(element.parentElement);
@@ -263,14 +278,21 @@ function updateValue(element) {
             if (relData) {
                 try {
                     const parsed = JSON.parse(decodeURIComponent(relData));
-                    parsed.forEach(r => relationSet.add(r.relation));
-                } catch {}
+                    parsed.forEach(r => {
+                        relationSet.add(r.relation);
+                        console.log("DEBUG: gefundene Relation:", r.relation);
+                    });
+                } catch (err) {
+                    console.warn("DEBUG: JSON parse error in data-relations", err);
+                }
             }
         });
 
         const uniqueRelations = Array.from(relationSet);
+        console.log("DEBUG: uniqueRelations =", uniqueRelations);
 
         function createNode(relType) {
+            console.log("DEBUG: createNode aufgerufen mit relType =", relType);
             fetch('/api/create_node', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -278,31 +300,39 @@ function updateValue(element) {
                     property: propertyName,
                     value: newValue,
                     connectTo: connectedIds,
-                    relation: relType ? { relation: relType } : null
+                    relation: relType ? { relation: relType, targetLabel: "Buch" } : { targetLabel: "Buch" }
                 })
             }).then(r => r.json())
               .then(data => {
-                  if (data.status === 'success') element.setAttribute('data-id', data.newNodeId);
+                  console.log("DEBUG: create_node response:", data);
+                  if (data.status === 'success') {
+                      element.setAttribute('data-id', data.newNodeId);
+                      console.log("DEBUG: data-id gesetzt auf", data.newNodeId);
+                  }
               })
-              .catch(err => console.error(err));
+              .catch(err => console.error("DEBUG: create_node error:", err));
         }
 
         // === Relation-Handling ===
         if (uniqueRelations.length === 0) {
+            console.log("DEBUG: keine Relation, Node ohne Relation erstellen");
             createNode(null);
         } else if (uniqueRelations.length === 1) {
-            createNode(uniqueRelations[0]); // direkt erstellen, kein Modal
+            console.log("DEBUG: nur eine Relation, Node direkt erstellen");
+            createNode(uniqueRelations[0]);
         } else {
+            console.log("DEBUG: mehrere Relationen, Modal anzeigen");
             showRelationModal(uniqueRelations, createNode);
         }
 
     } catch (err) {
-        console.error('updateValue error:', err);
+        console.error('DEBUG: updateValue exception:', err);
     }
 }
 
 // === Einfaches Modal, zeigt nur Relation-Typen ===
 function showRelationModal(relations, callback) {
+    console.log("DEBUG: showRelationModal", relations);
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
 
@@ -328,6 +358,7 @@ function showRelationModal(relations, callback) {
     const okBtn = document.createElement('button');
     okBtn.textContent = 'OK';
     okBtn.onclick = () => {
+        console.log("DEBUG: Modal OK gedrückt, selected relation =", select.value);
         callback(select.value);
         document.body.removeChild(overlay);
     };
@@ -336,14 +367,16 @@ function showRelationModal(relations, callback) {
     const cancelBtn = document.createElement('button');
     cancelBtn.textContent = 'Abbrechen';
     cancelBtn.style.marginLeft = '10px';
-    cancelBtn.onclick = () => document.body.removeChild(overlay);
+    cancelBtn.onclick = () => {
+        console.log("DEBUG: Modal Abbrechen gedrückt");
+        document.body.removeChild(overlay);
+    };
     btnContainer.appendChild(cancelBtn);
 
     modal.appendChild(btnContainer);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 }
-
 
 function addColumnToNode(event) {
 	let nodeIds = [];
