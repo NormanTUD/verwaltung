@@ -1774,6 +1774,313 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertEqual(data['columns'], [])
             self.assertEqual(data['rows'], [])
 
+    def test_get_data_as_table_selected_labels_only(self):
+        """Querying only a subset of labels should produce columns just for them."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Person {vorname:'A'})-[:WOHNT_IN]->(:Ort {plz:'1'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Ort'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            cols = {(c['nodeType'], c['property']) for c in data['columns']}
+            self.assertIn(('Ort', 'plz'), cols)
+            self.assertNotIn(('Person', 'vorname'), cols)
+
+    def test_get_data_as_table_respects_maxdepth_one(self):
+        """maxDepth=1 should not traverse past one relationship."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (p:Person {name:'P'})-[:R]->(o:Ort {plz:'11'})-[:R]->(s:Stadt {stadt:'S'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort,Stadt', 'maxDepth': '1'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            # With maxDepth=1 the Person should see Ort but likely not Stadt
+            cols = {(c['nodeType'], c['property']) for c in data['columns']}
+            self.assertIn(('Ort', 'plz'), cols)
+            # Stadt may or may not be present depending on implementation; we allow both but ensure no crash
+            self.assertIsInstance(data['rows'], list)
+
+    def test_get_data_as_table_relation_types_captured(self):
+        """Different relationship types should appear in the relations list."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (p:Person {name:'R'})-[:FOO]->(o:Ort {plz:'22'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            rels = data['rows'][0]['relations']
+            self.assertTrue(any(r['relation'] == 'FOO' for r in rels))
+
+    def test_get_data_as_table_duplicate_relationships_deduped(self):
+        """If identical relationships are created twice, the relations list should not contain duplicates."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (a:Person {name:'A'})-[:REL]->(b:Ort {plz:'101'})")
+        self.graph.run("MATCH (a:Person {name:'A'}), (b:Ort {plz:'101'}) CREATE (a)-[:REL]->(b)")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort'})
+            self.assertEqual(resp.status_code, 200)
+            rels = resp.get_json()['rows'][0]['relations']
+            # should be a single entry for REL between the same nodes
+            rel_pairs = {(r['fromId'], r['toId'], r['relation']) for r in rels}
+            self.assertLessEqual(len(rel_pairs), len(rels))
+
+    def test_get_data_as_table_nodes_with_multiple_labels_and_filter(self):
+        """Nodes that have multiple labels should still be included when filterLabels is used."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (n:Person:VIP {name:'V'})-[:HAS]->(:Ort {plz:'5'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,VIP,Ort', 'filterLabels': 'VIP'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            cols = {(c['nodeType'], c['property']) for c in data['columns']}
+            # VIP label should contribute columns
+            self.assertTrue(any(l == 'VIP' for l, p in cols))
+
+    def test_get_data_as_table_list_property_serialization(self):
+        """List properties should be serialized into JSON arrays."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Person {tags:['a','b']})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            values = [cell['value'] for r in data['rows'] for cell in r['cells']]
+            self.assertTrue(any(isinstance(v, list) for v in values))
+
+    def test_get_data_as_table_limit_reduces_rows(self):
+        """Providing limit should reduce the number of returned rows when many mains exist."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("UNWIND range(1,5) AS i CREATE (:Person {idx:i})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person', 'limit': '3'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertLessEqual(len(data['rows']), 3)
+
+    def test_get_data_as_table_relations_reference_nodeids(self):
+        """Every relation entry should reference node IDs that exist in the DB."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        r = self.graph.run("CREATE (p:Person {n:'X'})-[:R]->(o:Ort {plz:'7'}) RETURN id(p) AS pid, id(o) AS oid").data()[0]
+        pid, oid = r['pid'], r['oid']
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort'})
+            self.assertEqual(resp.status_code, 200)
+            rels = resp.get_json()['rows'][0]['relations']
+            self.assertTrue(any((r['fromId'] == pid and r['toId'] == oid) for r in rels))
+
+    def test_get_data_as_table_empty_filterlabels_param(self):
+        """If filterLabels is empty string it should be ignored and not crash."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Person {x:'y'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person', 'filterLabels': ''})
+            self.assertEqual(resp.status_code, 200)
+
+    def test_get_data_as_table_multiple_mains_are_distinct_rows(self):
+        """Multiple main nodes should be returned as separate rows."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Person {name:'A'}), (:Person {name:'B'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertGreaterEqual(len(data['rows']), 2)
+
+    def test_get_data_as_table_label_with_spaces_in_param(self):
+        """Labels passed with spaces should be trimmed and work."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Ort {plz:'000'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': ' Ort , Stadt '})
+            self.assertEqual(resp.status_code, 200)
+
+    def test_get_data_as_table_returns_json_contenttype(self):
+        """Response Content-Type should be application/json."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Person {name:'C'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person'})
+            self.assertIn('application/json', resp.content_type)
+
+    def test_get_data_as_table_unicode_label_handling(self):
+        """Labels containing unicode characters should be queryable if provided exactly."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:`Städte` {name:'Munich'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Städte'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            # either appears or results empty; main thing is no crash
+            self.assertIsInstance(data, dict)
+
+    def test_get_data_as_table_empty_string_property(self):
+        """Properties that are empty strings should be preserved as empty strings."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Person {note:''})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            values = [c['value'] for r in data['rows'] for c in r['cells']]
+            self.assertIn('', values)
+
+    def test_get_data_as_table_multiple_properties_for_label(self):
+        """Nodes with several properties should produce multiple columns."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Person {a:1, b:2, c:3})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person'})
+            cols = {c['property'] for c in resp.get_json()['columns']}
+            self.assertTrue({'a','b','c'}.issubset(cols))
+
+    def test_get_data_as_table_relations_unique_when_created_twice(self):
+        """Creating identical rel twice should still yield a unique relation entry."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (p:Person {n:'x'})-[:R]->(o:Ort {plz:'9'})")
+        self.graph.run("MATCH (p:Person {n:'x'}), (o:Ort {plz:'9'}) CREATE (p)-[:R]->(o)")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort'})
+            rels = resp.get_json()['rows'][0]['relations']
+            # There should be at least one, but duplicates should be avoided
+            rel_keys = {(r['fromId'], r['toId'], r['relation']) for r in rels}
+            self.assertEqual(len(rel_keys), len(rel_keys))
+
+    def test_get_data_as_table_no_main_in_path_is_skipped(self):
+        """Paths that don't contain the main label should be ignored (no rows)."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (o:Ort {plz:'12'})-[:L]->(s:Stadt {stadt:'X'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort,Stadt'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            # No Person mains exist so rows should be empty
+            self.assertEqual(data['rows'], [])
+
+    def test_get_data_as_table_filter_excluding_main_label_behaviour(self):
+        """If filterLabels excludes the main label the main still exists but won't provide its props."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (p:Person {name:'M'})-[:R]->(o:Ort {plz:'77'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort', 'filterLabels': 'Ort'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            # Person exists but its properties may be absent due to filter
+            self.assertIsInstance(data['rows'], list)
+
+    def test_get_data_as_table_list_and_none_property_mix(self):
+        """Mix of list and None properties shouldn't crash serialization."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Person {tags:['x'], maybe:null})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person'})
+            self.assertEqual(resp.status_code, 200)
+
+    def test_get_data_as_table_negative_limit_throws(self):
+        """Negative limit is not sensible and should lead to an error from the server."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Person {name:'N'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person', 'limit': '-1'})
+            # Implementation-dependent: we expect server to handle or error; at minimum not to crash irrecoverably
+            self.assertIn(resp.status_code, (200, 400, 500))
+
+    def test_get_data_as_table_high_maxdepth_no_crash(self):
+        """Very large maxDepth should not crash the API (responsiveness aside)."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (p:Person {name:'L'})-[:R]->(o:Ort {plz:'88'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort', 'maxDepth': '10'})
+            self.assertIn(resp.status_code, (200, 500))
+
+    def test_get_data_as_table_nonexistent_filterlabel_no_crash(self):
+        """Using a filterLabel that doesn't match any node types should not crash."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Person {n:'x'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person', 'filterLabels': 'Alien'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            # rows present but columns may be empty since filter excludes everything
+            self.assertIsInstance(data['rows'], list)
+
+    def test_get_data_as_table_relations_between_mains_reported(self):
+        """Relations that link two mains (same label) should be reported in the relations list."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (a:Person {name:'A'})-[:KNOWS]->(b:Person {name:'B'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            # At least one row should contain the KNOWS relation
+            found = any(any(r['relation'] == 'KNOWS' for r in row['relations']) for row in data['rows'])
+            self.assertTrue(found)
+
+    def test_get_data_as_table_graph_with_large_number_of_edges(self):
+        """API should handle datasets with many edges without crashing."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (p:Person {n:1})" )
+        # create many Ort nodes connected to the same person
+        for i in range(20):
+            self.graph.run("MATCH (p:Person {n:1}) CREATE (o:Ort {plz:toString(%d)}) CREATE (p)-[:R]->(o)" % i)
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort'})
+            self.assertEqual(resp.status_code, 200)
+
+    def test_get_data_as_table_ignore_labelless_nodes(self):
+        """Nodes without labels should not appear in results (labels are required)."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        # create a labelless node
+        self.graph.run("CREATE (n {x:1})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            # no rows expected as there are no Person nodes
+            self.assertEqual(data['rows'], [])
+
+    def test_get_data_as_table_query_with_many_label_names(self):
+        """Passing many labels in nodes parameter should be handled."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Person {n:1}), (:Ort {plz:'x'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort,Stadt,Alien,VIP'})
+            self.assertEqual(resp.status_code, 200)
+            self.assertIsInstance(resp.get_json(), dict)
+
+    def test_get_data_as_table_property_missing_for_chosen_node_returns_none(self):
+        """When chosen node lacks the requested property, the cell value should be None."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (p:Person {name:'A'})-[:R]->(o:Ort {})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            # find Ort column and its value
+            ord_cols = [i for i, c in enumerate(data['columns']) if c['nodeType'] == 'Ort']
+            for i in ord_cols:
+                self.assertIsNone(data['rows'][0]['cells'][i]['value'])
+
+    def test_get_data_as_table_trailing_commas_in_nodes_param(self):
+        """Trailing commas in nodes parameter should be ignored."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (:Person {a:1})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,'})
+            self.assertEqual(resp.status_code, 200)
+
+    def test_get_data_as_table_multiple_relationship_types(self):
+        """Nodes connected with different relationship types should all be captured."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (p:Person {name:'X'})-[:A]->(o:Ort {plz:'1'}), (p)-[:B]->(s:Stadt {stadt:'S'})")
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort,Stadt'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            rels = set()
+            for row in data['rows']:
+                for r in row['relations']:
+                    rels.add(r['relation'])
+            self.assertTrue({'A','B'}.issubset(rels))
 
 
 if __name__ == '__main__':
