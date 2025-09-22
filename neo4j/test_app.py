@@ -1288,6 +1288,20 @@ class TestNeo4jApp(unittest.TestCase):
 
         print("DEBUG: Test test_create_node_with_connectTo erfolgreich abgeschlossen.")
 
+    def test_add_property_partial_update(self):
+        graph.run("CREATE (:Person {name:'Anna'}), (:Person {name:'Ben', age:5})")
+        resp = self.app.post(
+            '/api/add_property_to_nodes',
+            data=json.dumps({"label": "Person", "property": "age", "value": 10}),
+            content_type="application/json"
+        )
+        data = resp.get_json()
+        self.assertEqual(data["updated"], 1)
+        age_anna = graph.run("MATCH (p:Person {name:'Anna'}) RETURN p.age AS age").data()[0]["age"]
+        age_ben = graph.run("MATCH (p:Person {name:'Ben'}) RETURN p.age AS age").data()[0]["age"]
+        self.assertEqual(age_anna, 10)
+        self.assertEqual(age_ben, 5)  # sollte unverändert bleiben
+
 
 if __name__ == '__main__':
     unittest.main()
