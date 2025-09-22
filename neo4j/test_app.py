@@ -1302,6 +1302,14 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(age_anna, 10)
         self.assertEqual(age_ben, 5)  # sollte unverändert bleiben
 
+    def test_create_node_invalid_unicode_property(self):
+        resp = self.app.post(
+            '/api/create_node',
+            data=json.dumps({"property": "na me", "value": "Test"}),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("ungültig", resp.get_json()["message"].lower())
 
 if __name__ == '__main__':
     unittest.main()
