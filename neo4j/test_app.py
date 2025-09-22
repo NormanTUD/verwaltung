@@ -2600,5 +2600,18 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
+    def test_save_mapping_complex_special_chars(self):
+        """Knoten- und Relationship-Namen mit Sonderzeichen."""
+        csv_data = "person,city\nÄlice & Bob,Berlin"
+        mapping = {
+            "nodes": {"Person": [{"original": "person", "renamed": "name"}], "Ort": [{"original": "city", "renamed": "stadt"}]},
+            "relationships": [{"from": "Person", "to": "Ort", "type": "WOHNT IN"}]
+        }
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
