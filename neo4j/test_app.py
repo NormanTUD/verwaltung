@@ -3044,6 +3044,7 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
+
     def test_create_node_basic_success(self):
         """Ein einfacher Node ohne Beziehung"""
         with patch("app.graph.run") as mock_run:
@@ -3052,6 +3053,254 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertEqual(resp.status_code, 200)
             self.assertIn(b"Neuer Node erstellt", resp.data)
 
+    def test_create_node_missing_body(self):
+        """Leerer Body -> 400"""
+        resp = self.app.post('/api/create_node', data="")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn(b"Request-Body leer", resp.data)
+
+    def test_create_node_missing_property(self):
+        """Fehlende property -> 400"""
+        resp = self.app.post('/api/create_node', json={"value": "Alice"})
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn(b"property fehlt", resp.data)
+
+    def test_create_node_missing_value(self):
+        """Fehlender value -> 400"""
+        resp = self.app.post('/api/create_node', json={"property": "name"})
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn(b"value fehlt", resp.data)
+
+    def test_create_node_invalid_property_name(self):
+        """Property ist kein identifier -> 400"""
+        resp = self.app.post('/api/create_node', json={"property": "123abc", "value": "Alice"})
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn(b"ltiger Property-Name", resp.data)
+
+    # -----------------------------
+    # Einfache Node mit Relation
+    # -----------------------------
+    def test_create_node_with_relation_to_existing(self):
+        """Node wird erstellt und mit bestehendem Node verbunden"""
+        with patch("app.graph.run") as mock_run:
+            # Node Creation
+            mock_run.return_value.data.return_value = [{"id": 10}]
+            resp = self.app.post('/api/create_node', json={
+                "property": "name",
+                "value": "Alice",
+                "connectTo": [5],
+                "relation": {"relation": "KNOWS", "direction": "from_new_to_existing"}
+            })
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn(b"Neuer Node erstellt", resp.data)
+            self.assertIn(b"newNodeId", resp.data)
+
+    def test_create_node_relation_reverse_direction(self):
+        """Relation in umgekehrter Richtung"""
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 20}]
+            resp = self.app.post('/api/create_node', json={
+                "property": "name",
+                "value": "Bob",
+                "connectTo": [15],
+                "relation": {"relation": "LIKES", "direction": "from_existing_to_new"}
+            })
+            self.assertEqual(resp.status_code, 200)
+
+    def test_create_node_connect_ids_duplicates(self):
+        """connectTo enthält doppelte IDs"""
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 30}]
+            resp = self.app.post('/api/create_node', json={
+                "property": "name",
+                "value": "Carol",
+                "connectTo": [1, 1, 2, 2],
+                "relation": {"relation": "FRIENDS_WITH"}
+            })
+            self.assertEqual(resp.status_code, 200)
+
+    def test_create_node_missing_relation_field(self):
+        """Relation-Dict ohne relation key -> default 'CONNECTED_TO'"""
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 40}]
+            resp = self.app.post('/api/create_node', json={
+                "property": "name",
+                "value": "Dave",
+                "connectTo": [2],
+                "relation": {"direction": "from_new_to_existing"}
+            })
+            self.assertEqual(resp.status_code, 200)
+
+    def test_create_node_no_connect_ids(self):
+        """Relation-Dict vorhanden, aber connectTo leer -> Node wird nur erstellt"""
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 50}]
+            resp = self.app.post('/api/create_node', json={
+                "property": "name",
+                "value": "Eve",
+                "connectTo": [],
+                "relation": {"relation": "KNOWS"}
+            })
+            self.assertEqual(resp.status_code, 200)
+
+    # -----------------------------
+    # Mittlere Komplexität
+    # -----------------------------
+    def test_create_node_with_target_label(self):
+        """Node wird unter benutzerdefiniertem Label erstellt"""
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 60}]
+            resp = self.app.post('/api/create_node', json={
+                "property": "name",
+                "value": "Frank",
+                "relation": {"targetLabel": "Person"}
+            })
+            self.assertEqual(resp.status_code, 200)
+
+    def test_create_node_relation_to_multiple_nodes(self):
+        """Node verbindet sich mit mehreren bestehenden Nodes"""
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 70}]
+            resp = self.app.post('/api/create_node', json={
+                "property": "name",
+                "value": "Grace",
+                "connectTo": [1,2,3],
+                "relation": {"relation": "KNOWS"}
+            })
+            self.assertEqual(resp.status_code, 200)
+
+    def test_create_node_value_numeric_boolean(self):
+        """Value ist Zahl oder Boolean"""
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 80}]
+            resp1 = self.app.post('/api/create_node', json={"property": "age", "value": 42})
+            resp2 = self.app.post('/api/create_node', json={"property": "active", "value": True})
+            self.assertEqual(resp1.status_code, 200)
+            self.assertEqual(resp2.status_code, 200)
+
+    def test_create_node_graph_run_exception(self):
+        """graph.run wirft Exception -> 500"""
+        with patch("app.graph.run", side_effect=Exception("DB offline")):
+            resp = self.app.post('/api/create_node', json={"property": "name", "value": "Alice"})
+            self.assertEqual(resp.status_code, 500)
+            self.assertIn(b"DB offline", resp.data)
+
+    def test_create_node_invalid_connect_ids(self):
+        """connectTo enthält ungültige IDs (Strings)"""
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 90}]
+            resp = self.app.post('/api/create_node', json={
+                "property": "name",
+                "value": "Hugo",
+                "connectTo": ["a", "b", 3]
+            })
+            self.assertEqual(resp.status_code, 200)
+
+    def test_create_node_relation_missing_direction(self):
+        """relation Dict ohne direction -> default from_new_to_existing"""
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 100}]
+            resp = self.app.post('/api/create_node', json={
+                "property": "name",
+                "value": "Ivy",
+                "connectTo": [5],
+                "relation": {"relation": "FRIENDS_WITH"}
+            })
+            self.assertEqual(resp.status_code, 200)
+
+    # -----------------------------
+    # Komplexe Tests
+    # -----------------------------
+    def test_create_node_multiple_properties_and_relations(self):
+        """Node mit mehreren Properties und mehreren Verbindungen"""
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 110}]
+            resp = self.app.post('/api/create_node', json={
+                "property": "name",
+                "value": "Jack",
+                "connectTo": [1,2],
+                "relation": {"relation": "WORKS_WITH", "targetLabel": "Person"}
+            })
+            self.assertEqual(resp.status_code, 200)
+
+    def test_create_node_extreme_special_chars(self):
+        """Node name mit Umlauten, Emojis, Sonderzeichen"""
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 120}]
+            resp = self.app.post('/api/create_node', json={
+                "property": "name",
+                "value": "Ålice 🚀 & Bob 🐍",
+                "connectTo": [],
+                "relation": {"relation": "KNOWS"}
+            })
+            self.assertEqual(resp.status_code, 200)
+
+    def test_create_node_large_number_of_connections(self):
+        """Node verbindet sich mit sehr vielen bestehenden Nodes"""
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 130}]
+            resp = self.app.post('/api/create_node', json={
+                "property": "name",
+                "value": "Lara",
+                "connectTo": list(range(1, 21)),
+                "relation": {"relation": "CONNECTED_TO"}
+            })
+            self.assertEqual(resp.status_code, 200)
+
+    def test_create_node_multiple_nodes_creation_loop(self):
+        """Mehrere Nodes nacheinander erstellen, mit Relationen zwischen ihnen"""
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 140}]
+            for i in range(5):
+                resp = self.app.post('/api/create_node', json={
+                    "property": "name",
+                    "value": f"Node{i}",
+                    "connectTo": [100,101],
+                    "relation": {"relation": f"REL{i}"}
+                })
+                self.assertEqual(resp.status_code, 200)
+
+    def test_create_node_missing_target_label_default_node(self):
+        """Node ohne targetLabel -> Default 'Node'"""
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 150}]
+            resp = self.app.post('/api/create_node', json={
+                "property": "title",
+                "value": "CEO"
+            })
+            self.assertEqual(resp.status_code, 200)
+
+    def test_create_node_relation_with_invalid_node_ids(self):
+        """Relation zu IDs, die nicht existieren (simulation)"""
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 160}]
+            resp = self.app.post('/api/create_node', json={
+                "property": "name",
+                "value": "Mike",
+                "connectTo": [9999, 8888],
+                "relation": {"relation": "KNOWS"}
+            })
+            self.assertEqual(resp.status_code, 200)
+
+    def test_create_node_ultrasuper_complex_network(self):
+        """Ultrasuperkomplex: 10 Nodes, mehrere Relationen, teilweise fehlende Werte, Sonderzeichen"""
+        csv_nodes = [
+            {"property":"name","value":"Alice 🚀","connectTo":[2,3],"relation":{"relation":"KNOWS"}},
+            {"property":"name","value":"Bob 🐍","connectTo":[1,3],"relation":{"relation":"KNOWS"}},
+            {"property":"name","value":"Carol 🌟","connectTo":[1,2],"relation":{"relation":"WORKS_WITH"}},
+            {"property":"name","value":"Dave 💻","connectTo":[],"relation":{"relation":"MANAGES"}},
+            {"property":"name","value":"Eve 🌈","connectTo":[4,5],"relation":{"relation":"REPORTS_TO"}},
+            {"property":"name","value":"Frank 🧪","connectTo":[5],"relation":{"relation":"MENTORS"}},
+            {"property":"name","value":"Grace 💡","connectTo":[6,7,8],"relation":{"relation":"COLLABORATES"}},
+            {"property":"name","value":"Heidi 🔧","connectTo":[7,8],"relation":{"relation":"LEADS"}},
+            {"property":"name","value":"Ivan 🏹","connectTo":[1,2,3,4],"relation":{"relation":"ASSISTS"}},
+            {"property":"name","value":"Judy 🎨","connectTo":[],"relation":{"relation":"KNOWS"}}
+        ]
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 200}]
+            for node in csv_nodes:
+                resp = self.app.post('/api/create_node', json=node)
+                self.assertEqual(resp.status_code, 200)
 
 if __name__ == '__main__':
     unittest.main()
