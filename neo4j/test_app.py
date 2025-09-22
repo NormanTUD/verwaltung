@@ -3397,5 +3397,42 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertIn('WOHNT_IN', all_relations)
             self.assertIn('HAT_GESCHRIEBEN', all_relations)
 
+    def test_get_data_as_table_no_missing_nodes(self):
+        """Ensure previously missing labels (e.g., 'Node-Typ 2', 'NT2') are always included."""
+        # Alte Testdaten löschen
+        self.graph.run("MATCH (n) DETACH DELETE n")
+
+        # Setup Nodes, inklusive Labels, die früher Probleme gemacht haben
+        self.graph.run("""
+            CREATE (n1:NT2 {xxxxxxxx:'qwertz'})
+            CREATE (n2:`Node-Typ 2` {abc:'XXXAAABBB'})
+            CREATE (p1:Person {vorname:'Maria', nachname:'Müller'})
+            CREATE (o1:Ort {plz:'10115', straße:'Hauptstraße 1'})
+            CREATE (p1)-[:WOHNT_IN]->(o1)
+        """)
+
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table',
+                            query_string={'nodes': 'NT2,Node-Typ 2,Person,Ort'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+
+            # Alle Rows prüfen
+            all_labels_in_rows = set()
+            for row in data['rows']:
+                for col in row['cells']:
+                    if col['value'] is not None:
+                        all_labels_in_rows.add(col.get('nodeId'))
+
+            # Prüfen, dass die alten problematischen Nodes jetzt auftauchen
+            nt2_node_ids = [n['nodeId'] for row in data['rows']
+                            for n in row['cells'] if n['value'] == 'qwertz']
+            node_typ2_ids = [n['nodeId'] for row in data['rows']
+                            for n in row['cells'] if n['value'] == 'XXXAAABBB']
+
+            self.assertTrue(nt2_node_ids, "NT2 node fehlt im Ergebnis")
+            self.assertTrue(node_typ2_ids, "Node-Typ 2 node fehlt im Ergebnis")
+
+
 if __name__ == '__main__':
     unittest.main()
