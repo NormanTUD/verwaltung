@@ -1316,6 +1316,26 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("property", resp.get_json()["message"])
 
+    def test_create_node_multiple_connections(self):
+        ids = [graph.run("CREATE (n:City {name:$name}) RETURN ID(n) AS id", name=n).data()[0]["id"] for n in ["A","B"]]
+        resp = self.app.post(
+            '/api/create_node',
+            data=json.dumps({
+                "property": "stadt",
+                "value": "Berlin",
+                "connectTo": ids,
+                "relation": {"relation": "CONNECTED_TO"}
+            }),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        new_id = resp.get_json()["newNodeId"]
+        rel_count = graph.run(
+            "MATCH (n)-[r:CONNECTED_TO]->(m) WHERE ID(n)=$new_id RETURN COUNT(r) AS c",
+            new_id=new_id
+        ).data()[0]["c"]
+        self.assertEqual(rel_count, len(ids))
+
 
 if __name__ == '__main__':
     unittest.main()
