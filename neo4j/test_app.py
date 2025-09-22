@@ -1204,34 +1204,6 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("ungültig", resp.get_json()["message"].lower())
 
-    def test_create_node_with_connectTo(self):
-        # Zuerst bestehende Nodes erstellen
-        result = graph.run(
-            "CREATE (a:Person {name:'A'}), (b:Person {name:'B'}) RETURN ID(a) AS idA, ID(b) AS idB"
-        ).data()
-        existing_ids = [record["idA"] for record in result] + [record["idB"] for record in result]
-
-        # Node mit connectTo erstellen
-        resp = self.app.post(
-            '/api/create_node',
-            data=json.dumps({"property": "stadt", "value": "ASDF", "connectTo": existing_ids}),
-            content_type="application/json"
-        )
-        self.assertEqual(resp.status_code, 200)
-        data = resp.get_json()
-        new_id = data["newNodeId"]
-
-        # Prüfen, ob Beziehungen erstellt wurden
-        # ACHTUNG: Richtung jetzt andere, bestehende Nodes -> neue Node
-        rels = graph.run(
-            "MATCH (m)-[:CONNECTED_TO]->(n) WHERE ID(n)=$new_id RETURN ID(m) AS mid",
-            {"new_id": new_id}
-        ).data()
-        rel_ids = [r["mid"] for r in rels]
-
-        for eid in existing_ids:
-            self.assertIn(eid, rel_ids)
-
     def test_create_node_with_empty_connectTo(self):
         resp = self.app.post(
             '/api/create_node',
@@ -1269,6 +1241,53 @@ class TestNeo4jApp(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 400)
         self.assertIn("ungültig", resp.get_json()["message"].lower())
+
+    def test_create_node_with_connectTo(self):
+        # === Schritt 1: Bestehende Nodes erstellen ===
+        result = graph.run(
+            "CREATE (a:Person {name:'A'}), (b:Person {name:'B'}) RETURN ID(a) AS idA, ID(b) AS idB"
+        ).data()
+        existing_ids = [record["idA"] for record in result] + [record["idB"] for record in result]
+        print(f"DEBUG: Bestehende Node-IDs: {existing_ids}")
+
+        # === Schritt 2: Neue Node erstellen und mit bestehenden Nodes verbinden ===
+        payload = {
+            "property": "stadt",
+            "value": "ASDF",
+            "connectTo": existing_ids,
+            "relation": {"relation": "CONNECTED_TO"}  # explizit Relation angeben
+        }
+        print(f"DEBUG: POST /api/create_node Payload: {payload}")
+
+        resp = self.app.post(
+            '/api/create_node',
+            data=json.dumps(payload),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        print(f"DEBUG: Antwort create_node: {data}")
+
+        new_id = data["newNodeId"]
+        print(f"DEBUG: Neue Node-ID: {new_id}")
+
+        # === Schritt 3: Beziehungen prüfen ===
+        # Richtung: neue Node -> bestehende Nodes (wie vom Endpoint erstellt)
+        rels = graph.run(
+            "MATCH (n)-[:CONNECTED_TO]->(m) WHERE ID(n)=$new_id RETURN ID(m) AS mid",
+            {"new_id": new_id}
+        ).data()
+        rel_ids = [r["mid"] for r in rels]
+        print(f"DEBUG: IDs der Nodes, auf die die neue Node zeigt: {rel_ids}")
+
+        # === Schritt 4: Test Assertions ===
+        for eid in existing_ids:
+            print(f"DEBUG: Prüfe, ob neue Node auf bestehende Node {eid} zeigt...")
+            self.assertIn(eid, rel_ids)
+            print(f"DEBUG: Neue Node ist korrekt mit bestehender Node {eid} verbunden.")
+
+        print("DEBUG: Test test_create_node_with_connectTo erfolgreich abgeschlossen.")
+
 
 if __name__ == '__main__':
     unittest.main()
