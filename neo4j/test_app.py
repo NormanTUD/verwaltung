@@ -2727,5 +2727,44 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
+    def test_save_mapping_mega_complex_multi_level_graph(self):
+        """10 Zeilen, 6 Knoten-Typen, 4 Ebenen Beziehungen, gemischte Daten, Duplikate, fehlende Felder."""
+        csv_data = "\n".join([
+            "person,city,country,company,dept,role",
+            "Alice,Berlin,Deutschland,ACME,IT,Engineer",
+            "Bob,Munich,Deutschland,Globex,Sales,Manager",
+            "Carol,Hamburg,Deutschland,ACME,HR,Analyst",
+            "Dave,Berlin,Deutschland,Globex,IT,Engineer",
+            "Eve,Berlin,Deutschland,ACME,Sales,Manager",
+            "Alice,Berlin,Deutschland,ACME,IT,Engineer",  # Duplikat
+            "Bob,Munich,Deutschland,Globex,Sales,Manager",  # Duplikat
+            "Frank,Hamburg,,ACME,HR,Analyst",            # fehlendes Land
+            "Grace,,Deutschland,Globex,IT,Engineer",      # fehlender Ort
+            "Heidi,Hamburg,Deutschland,,Sales,Manager"   # fehlende Firma
+        ])
+        mapping = {
+            "nodes": {
+                "Person": [{"original": "person", "renamed": "name"}, {"original": "role", "renamed": "role"}],
+                "Ort": [{"original": "city", "renamed": "stadt"}],
+                "Land": [{"original": "country", "renamed": "name"}],
+                "Firma": [{"original": "company", "renamed": "name"}],
+                "Abteilung": [{"original": "dept", "renamed": "name"}],
+                "Position": [{"original": "role", "renamed": "title"}]
+            },
+            "relationships": [
+                {"from": "Person", "to": "Ort", "type": "WOHNT_IN"},
+                {"from": "Ort", "to": "Land", "type": "LIEGT_IN"},
+                {"from": "Person", "to": "Firma", "type": "ARBEITET_FUER"},
+                {"from": "Firma", "to": "Land", "type": "IST_IN"},
+                {"from": "Person", "to": "Abteilung", "type": "GEHOERT_ZU"},
+                {"from": "Abteilung", "to": "Position", "type": "BESTEHT_AUS"}
+            ]
+        }
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
