@@ -829,61 +829,23 @@ def get_data_as_table():
         print("=== API get_data_as_table gestartet ===")
 
         # ------------------------
-        # GET-Parameter
+        # Parameter parsen
         # ------------------------
-        node_csv = request.args.get('nodes')
-        if not node_csv:
-            print("Fehler: nodes-Parameter fehlt")
-            return jsonify({"status": "error", "message": "Parameter 'nodes' erforderlich"}), 400
-        selected_labels = [n.strip() for n in node_csv.split(',') if n.strip()]
-        print("Selected labels:", selected_labels)
-
-        max_depth = int(request.args.get('maxDepth', 3))
-        limit = request.args.get('limit')
-        limit = int(limit) if limit else None
-        print("Max depth:", max_depth, "Limit:", limit)
-
-        filter_labels_csv = request.args.get('filterLabels')
-        filter_labels = [_l.strip() for _l in filter_labels_csv.split(',')] if filter_labels_csv else None
-        print("Filter labels:", filter_labels)
-
-        if not selected_labels:
-            print("Keine selected_labels nach Parsen - Abbruch")
-            return jsonify({"status": "error", "message": "No labels parsed"}), 400
-
-        main_label = selected_labels[0]
-        print("main_label (pivot):", main_label)
+        selected_labels, main_label, max_depth, limit, filter_labels = parse_request_params(request)
+        print("Selected labels:", selected_labels, "main_label:", main_label, "Max depth:", max_depth, "Limit:", limit, "Filter labels:", filter_labels)
 
         # ------------------------
-        # Cypher-Abfrage: Pfade
+        # Cypher-Abfrage
         # ------------------------
-        cypher_query = f"""
-        MATCH p=(start)-[*..{max_depth}]->(end)
-        WHERE ANY(n IN nodes(p) WHERE ANY(l IN labels(n) WHERE l IN $labels))
-        RETURN p
-        """
-        if limit:
-            cypher_query += f" LIMIT {limit}"
-        print("Cypher Query:", cypher_query.strip())
-
-        results = graph.run(cypher_query, labels=selected_labels).data()
+        results = run_cypher_paths(graph, selected_labels, max_depth, limit)
         print(f"Ergebnisse erhalten: {len(results)} Pfade")
 
         # ------------------------
         # Haupt-Sammlung
         # ------------------------
-        main_nodes = {}  # keyed by main_id
-        columns_set = set()
-
-        # ------------------------
-        # Wenn Pfade vorhanden: Path-Logik
-        # ------------------------
+        main_nodes = {}
         if results:
             main_nodes = process_paths(results, main_label, selected_labels, filter_labels)
-
-        # ------------------------
-        # Wenn keine Pfade: Einzel-Node-Logik
-        # ------------------------
         else:
             collect_single_nodes(graph, main_nodes, main_label, limit)
 
@@ -893,25 +855,13 @@ def get_data_as_table():
         # ------------------------
         # Columns bestimmen
         # ------------------------
-        for bucket in main_nodes.values():
-            for label, nodes_map in bucket["nodes"].items():
-                for info in nodes_map.values():
-                    for prop in info["props"].keys():
-                        columns_set.add((label, prop))
-
-        columns = [{"nodeType": lbl, "property": prop} for lbl, prop in sorted(columns_set, key=lambda x: (x[0], x[1]))]
+        columns = determine_columns(main_nodes)
         print("Columns (sorted):", columns)
 
         # ------------------------
         # Rows bauen
         # ------------------------
-        rows = []
-        for main_id, bucket in main_nodes.items():
-            cells = build_cells_for_bucket(bucket, columns)
-            rows.append({"cells": cells, "relations": bucket.get("relations", [])})
-
-        print("\n=== Fertige Tabelle ===")
-        print("Columns:", columns)
+        rows = build_rows(main_nodes, columns)
         print("Anzahl Rows:", len(rows))
 
         return jsonify({"columns": columns, "rows": rows})
@@ -919,6 +869,58 @@ def get_data_as_table():
     except Exception as e:
         print("Fehler (Exception):", e)
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# ------------------------
+# Hilfsfunktionen
+# ------------------------
+def parse_request_params(request):
+    node_csv = request.args.get('nodes')
+    if not node_csv:
+        raise ValueError("Parameter 'nodes' erforderlich")
+    selected_labels = [n.strip() for n in node_csv.split(',') if n.strip()]
+    if not selected_labels:
+        raise ValueError("No labels parsed")
+    main_label = selected_labels[0]
+
+    max_depth = int(request.args.get('maxDepth', 3))
+    limit = request.args.get('limit')
+    limit = int(limit) if limit else None
+
+    filter_labels_csv = request.args.get('filterLabels')
+    filter_labels = [_l.strip() for _l in filter_labels_csv.split(',')] if filter_labels_csv else None
+
+    return selected_labels, main_label, max_depth, limit, filter_labels
+
+
+def run_cypher_paths(graph, selected_labels, max_depth, limit=None):
+    cypher_query = f"""
+    MATCH p=(start)-[*..{max_depth}]->(end)
+    WHERE ANY(n IN nodes(p) WHERE ANY(l IN labels(n) WHERE l IN $labels))
+    RETURN p
+    """
+    if limit:
+        cypher_query += f" LIMIT {limit}"
+    print("Cypher Query:", cypher_query.strip())
+    return graph.run(cypher_query, labels=selected_labels).data()
+
+
+def determine_columns(main_nodes):
+    columns_set = set()
+    for bucket in main_nodes.values():
+        for label, nodes_map in bucket.get("nodes", {}).items():
+            for info in nodes_map.values():
+                for prop in info.get("props", {}):
+                    columns_set.add((label, prop))
+    return [{"nodeType": lbl, "property": prop} for lbl, prop in sorted(columns_set, key=lambda x: (x[0], x[1]))]
+
+
+def build_rows(main_nodes, columns):
+    rows = []
+    for main_id, bucket in main_nodes.items():
+        cells = build_cells_for_bucket(bucket, columns)
+        rows.append({"cells": cells, "relations": bucket.get("relations", [])})
+    return rows
 
 def collect_single_nodes(graph, main_nodes, main_label, limit=None):
     """

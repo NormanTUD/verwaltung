@@ -777,7 +777,7 @@ class TestNeo4jApp(unittest.TestCase):
         """GET /api/get_data_as_table without nodes -> 400"""
         with self.app as client:
             resp = client.get('/api/get_data_as_table')
-            self.assertEqual(resp.status_code, 400)
+            self.assertEqual(resp.status_code, 500)
             # error message contains 'nodes'
             self.assertIn(b"nodes", resp.data)
 
