@@ -48,13 +48,20 @@ function renderTable(data) {
       var node_map = build_node_map_from_row(cols, row.cells || []);
       var tr = document.createElement('tr');
 
-      // relations als data-attribute speichern, JSON encoded und HTML-sicher
-      tr.setAttribute('data-relations', encodeURIComponent(JSON.stringify(row.relations || [])));
-
       for (var i = 0; i < cols.length; ++i) {
         var col = cols[i];
         var cell = (row.cells && row.cells[i]) ? row.cells[i] : null;
-        tr.appendChild(make_input_td(cell, col));
+        var td = make_input_td(cell, col);
+
+        // Beziehungen auf das jeweilige td setzen, wenn es ein data-id hat
+        var td_id = td.querySelector('input')?.getAttribute('data-id');
+        if (td_id) {
+          // Filter relations für diese Node
+          var relevantRelations = (row.relations || []).filter(r => r.fromId == td_id || r.toId == td_id);
+          td.setAttribute('data-relations', encodeURIComponent(JSON.stringify(relevantRelations)));
+        }
+
+        tr.appendChild(td);
       }
 
       var td_rel = document.createElement('td');
@@ -88,6 +95,7 @@ function renderTable(data) {
   table.appendChild(tbody);
   container.appendChild(table);
 }
+
 
 function make_thead_from_columns(cols) {
   var thead = document.createElement('thead');
