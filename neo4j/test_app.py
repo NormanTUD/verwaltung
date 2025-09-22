@@ -3302,5 +3302,91 @@ class TestNeo4jApp(unittest.TestCase):
                 resp = self.app.post('/api/create_node', json=node)
                 self.assertEqual(resp.status_code, 200)
 
+    def test_create_node_ultrahyper_complex_network_1(self):
+        """15 Nodes, mehrere Labels, viele Beziehungen, Emojis, fehlende Werte"""
+        nodes = [
+            {"property":"name","value":"Alice 🚀","connectTo":[2,3],"relation":{"relation":"KNOWS","direction":"from_new_to_existing","targetLabel":"Person"}},
+            {"property":"name","value":"Bob 🐍","connectTo":[1,3],"relation":{"relation":"WORKS_WITH","direction":"from_existing_to_new","targetLabel":"Person"}},
+            {"property":"name","value":"Carol 🌟","connectTo":[1,2],"relation":{"relation":"MANAGES","targetLabel":"Person"}},
+            {"property":"company","value":"ACME","connectTo":[],"relation":{"relation":"LOCATED_IN","targetLabel":"Firma"}},
+            {"property":"project","value":"ProjectX","connectTo":[4],"relation":{"relation":"PART_OF","targetLabel":"Projekt"}},
+            {"property":"city","value":"Berlin","connectTo":[4],"relation":{"relation":"LOCATED_IN","targetLabel":"Ort"}},
+            {"property":"role","value":"Engineer","connectTo":[1,5],"relation":{"relation":"ASSIGNED_TO","targetLabel":"Position"}},
+            {"property":"team","value":"IT","connectTo":[7,4],"relation":{"relation":"BELONGS_TO","targetLabel":"Team"}},
+            {"property":"name","value":"Dave 💻","connectTo":[1,2,3],"relation":{"relation":"KNOWS"}},
+            {"property":"name","value":"Eve 🌈","connectTo":[3,5,6],"relation":{"relation":"REPORTS_TO"}},
+            {"property":"name","value":"Frank 🧪","connectTo":[7,8],"relation":{"relation":"MENTORS"}},
+            {"property":"name","value":"Grace 💡","connectTo":[9,10],"relation":{"relation":"COLLABORATES"}},
+            {"property":"name","value":"Heidi 🔧","connectTo":[11,12],"relation":{"relation":"LEADS"}},
+            {"property":"name","value":"Ivan 🏹","connectTo":[1,2,3,4],"relation":{"relation":"ASSISTS"}},
+            {"property":"name","value":"Judy 🎨","connectTo":[],"relation":{"relation":"KNOWS"}}
+        ]
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 1000}]
+            for node in nodes:
+                resp = self.app.post('/api/create_node', json=node)
+                self.assertEqual(resp.status_code, 200)
+
+    def test_create_node_ultrahyper_complex_network_2(self):
+        """Loop von Nodes, mehrere Beziehungen zwischen neu erstellten Nodes"""
+        nodes = []
+        for i in range(1, 16):
+            nodes.append({"property":"name","value":f"Node{i}","connectTo":list(range(1,i)),"relation":{"relation":"CONNECTED_TO"}})
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id": 2000}]
+            for node in nodes:
+                resp = self.app.post('/api/create_node', json=node)
+                self.assertEqual(resp.status_code, 200)
+
+    def test_create_node_ultrahyper_complex_network_3(self):
+        """Dynamische Labels, multi-type Properties, verschachtelte Relationen, fehlende Werte ersetzt"""
+        nodes = [
+            {"property":"name","value":"Alice","connectTo":[2,3],"relation":{"relation":"KNOWS","targetLabel":"Person"}},
+            {"property":"age","value":30,"connectTo":[],"relation":{"relation":"ASSOCIATED_WITH","targetLabel":"Person"}},
+            {"property":"salary","value":75000.5,"connectTo":[1],"relation":{"relation":"WORKS_FOR","targetLabel":"Firma"}},
+            {"property":"city","value":"Berlin","connectTo":[3],"relation":{"relation":"LOCATED_IN","targetLabel":"Ort"}},
+            {"property":"project","value":"ProjectX","connectTo":[2,4],"relation":{"relation":"PART_OF","targetLabel":"Projekt"}},
+            {"property":"active","value":True,"connectTo":[5],"relation":{"relation":"ASSIGNED_TO","targetLabel":"Position"}},
+            {"property":"team","value":"IT","connectTo":[6,7],"relation":{"relation":"BELONGS_TO","targetLabel":"Team"}},
+            {"property":"bonus","value":"Unknown","connectTo":[1,5],"relation":{"relation":"ELIGIBLE_FOR"}},  # fehlender Wert ersetzt
+        ]
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id":3000}]
+            for node in nodes:
+                resp = self.app.post('/api/create_node', json=node)
+                self.assertEqual(resp.status_code, 200)
+
+    def test_create_node_ultrahyper_complex_network_4(self):
+        """Nodes mit Emojis, Sonderzeichen, multi-relations, mehrere connectIds gleichzeitig"""
+        nodes = [
+            {"property":"name","value":"Alice 🚀","connectTo":[2,3,4],"relation":{"relation":"KNOWS"}},
+            {"property":"name","value":"Bob 🐍","connectTo":[1,3,4],"relation":{"relation":"WORKS_WITH"}},
+            {"property":"name","value":"Carol 🌟","connectTo":[1,2,4],"relation":{"relation":"COLLABORATES"}},
+            {"property":"name","value":"Dave 💻","connectTo":[1,2,3],"relation":{"relation":"LEADS"}},
+            {"property":"name","value":"Eve 🌈","connectTo":[1,2,3,4],"relation":{"relation":"REPORTS_TO"}}
+        ]
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id":4000}]
+            for node in nodes:
+                resp = self.app.post('/api/create_node', json=node)
+                self.assertEqual(resp.status_code, 200)
+
+    def test_create_node_ultrahyper_complex_network_5(self):
+        """Extrem vernetzter Graph mit Duplikaten, fehlenden Werten ersetzt, verschiedene Labels"""
+        nodes = [
+            {"property":"name","value":"Alice","connectTo":[2,3],"relation":{"relation":"KNOWS","targetLabel":"Person"}},
+            {"property":"name","value":"Alice","connectTo":[1,3],"relation":{"relation":"KNOWS","targetLabel":"Person"}},  # Duplikat
+            {"property":"name","value":"Bob","connectTo":[1,2],"relation":{"relation":"WORKS_WITH","targetLabel":"Person"}},
+            {"property":"company","value":"ACME","connectTo":[1,2,3],"relation":{"relation":"LOCATED_IN","targetLabel":"Firma"}},
+            {"property":"project","value":"Unknown","connectTo":[4],"relation":{"relation":"PART_OF","targetLabel":"Projekt"}},  # fehlend ersetzt
+            {"property":"city","value":"Berlin","connectTo":[4,5],"relation":{"relation":"LOCATED_IN","targetLabel":"Ort"}},
+            {"property":"team","value":"IT","connectTo":[1,2,3],"relation":{"relation":"BELONGS_TO","targetLabel":"Team"}}
+        ]
+        with patch("app.graph.run") as mock_run:
+            mock_run.return_value.data.return_value = [{"id":5000}]
+            for node in nodes:
+                resp = self.app.post('/api/create_node', json=node)
+                self.assertEqual(resp.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
