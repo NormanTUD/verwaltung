@@ -2464,5 +2464,48 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
+    def test_save_mapping_spaces_in_field_names(self):
+        """Felder mit Leerzeichen werden korrekt umbenannt."""
+        csv_data = "full name\nAlice"
+        mapping = {"nodes": {"Person": [{"original": "full name", "renamed": "name"}]}, "relationships": []}
+
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
+    def test_save_mapping_multiple_relationships(self):
+        """Mehrere Beziehungen gleichzeitig erstellen."""
+        csv_data = "person_name,city_name,country_name\nAlice,Berlin,Deutschland"
+        mapping = {
+            "nodes": {
+                "Person": [{"original": "person_name", "renamed": "name"}],
+                "Ort": [{"original": "city_name", "renamed": "stadt"}],
+                "Land": [{"original": "country_name", "renamed": "name"}]
+            },
+            "relationships": [
+                {"from": "Person", "to": "Ort", "type": "WOHNT_IN"},
+                {"from": "Ort", "to": "Land", "type": "LIEGT_IN"}
+            ]
+        }
+
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
+    def test_save_mapping_empty_relationships(self):
+        """Keine Beziehungen, nur Knoten."""
+        csv_data = "name\nAlice"
+        mapping = {"nodes": {"Person": [{"original": "name", "renamed": "name"}]}, "relationships": []}
+
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
