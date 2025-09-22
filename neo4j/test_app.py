@@ -2201,5 +2201,143 @@ class TestNeo4jApp(unittest.TestCase):
             data = resp.get_json()
             self.assertLessEqual(len(data['rows']), 10)
 
+    def test_get_data_as_table_multiple_labels_and_relations(self):
+        """Nodes mit mehreren Labels, versch. Relationen und Property-Kombinationen"""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run(
+            "CREATE (p:Person:Employee {vorname:'Alice', nachname:'A'}) "
+            "CREATE (d:Department:Team {name:'Dev'}) "
+            "CREATE (c:City:Place {stadt:'Berlin'}) "
+            "CREATE (p)-[:WORKS_IN]->(d), (p)-[:LIVES_IN]->(c), (d)-[:LOCATED_IN]->(c)"
+        )
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person,Employee,Department,Team,City,Place'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertGreaterEqual(len(data['rows']), 1)
+
+    def test_get_data_as_table_cyclic_graph(self):
+        """Graph mit Zyklus: Node verweist auf sich selbst und auf andere"""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run(
+            "CREATE (n:Node {name:'Loop'}) "
+            "CREATE (n)-[:CONNECTS]->(n)"
+        )
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Node'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertGreaterEqual(len(data['rows']), 1)
+            self.assertEqual(data['rows'][0]['cells'][0]['value'], 'Loop')
+
+    def test_get_data_as_table_missing_properties_and_none_values(self):
+        """Nodes mit fehlenden Properties (nicht gesetzte Properties)"""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run(
+            "CREATE (p:Person {vorname:'Bob'}) "
+            "CREATE (o:Ort) "   # plz fehlt komplett
+            "CREATE (p)-[:WOHNT_IN]->(o)"
+        )
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person,Ort'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            # Column für 'Ort.plz' existiert nicht, weil kein Node sie hat
+            ort_plz_col = [c for c in data['columns'] if c['nodeType']=='Ort' and c['property']=='plz']
+            self.assertEqual(len(ort_plz_col), 0)
+            # Person-Vorname sollte vorhanden sein
+            person_vorname_col = [c for c in data['columns'] if c['nodeType']=='Person' and c['property']=='vorname']
+            self.assertEqual(len(person_vorname_col), 1)
+            col_idx = data['columns'].index(person_vorname_col[0])
+            value = data['rows'][0]['cells'][col_idx]['value']
+            self.assertEqual(value, 'Bob')
+
+    def test_get_data_as_table_deep_hierarchy(self):
+        """Tiefer verschachtelter Pfad: Person->Ort->Stadt->Land->Kontinent"""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run(
+            "CREATE (p:Person {vorname:'C'}) "
+            "CREATE (o:Ort {name:'O'}) "
+            "CREATE (s:Stadt {name:'S'}) "
+            "CREATE (l:Land {name:'L'}) "
+            "CREATE (k:Kontinent {name:'K'}) "
+            "CREATE (p)-[:WOHNT_IN]->(o) "
+            "CREATE (o)-[:LIEGT_IN]->(s) "
+            "CREATE (s)-[:LIEGT_IN]->(l) "
+            "CREATE (l)-[:LIEGT_IN]->(k)"
+        )
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person,Ort,Stadt,Land,Kontinent','maxDepth':5})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertEqual(len(data['rows']), 1)
+
+    def test_get_data_as_table_parallel_paths(self):
+        """Node mit mehreren parallelen Pfaden zu verschiedenen Nodes"""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run(
+            "CREATE (p:Person {vorname:'D'}) "
+            "CREATE (o1:Ort {name:'O1'}) "
+            "CREATE (o2:Ort {name:'O2'}) "
+            "CREATE (p)-[:WOHNT_IN]->(o1) "
+            "CREATE (p)-[:WOHNT_IN]->(o2)"
+        )
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person,Ort'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertGreaterEqual(len(data['rows']), 1)
+            # beide Orte sollten in den Zellen auftauchen
+            values = [cell['value'] for row in data['rows'] for cell in row['cells']]
+            self.assertTrue(any(v in ('O1','O2') for v in values))
+
+    def test_get_data_as_table_long_strings_and_unicode(self):
+        """Nodes mit sehr langen Strings und Unicode/Emoji"""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        long_bio = "😀" + "x"*5000
+        self.graph.run(
+            "CREATE (p:Person {vorname:'E', bio:$bio})", bio=long_bio
+        )
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertIn(long_bio, [cell['value'] for row in data['rows'] for cell in row['cells']])
+
+    def test_get_data_as_table_nodes_with_multiple_adjacent_relations(self):
+        """Node mit vielen Adjacents, Auswahl nach min_dist"""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run(
+            "CREATE (p:Person {vorname:'F'}) "
+            "CREATE (o1:Ort {name:'O1'}) "
+            "CREATE (o2:Ort {name:'O2'}) "
+            "CREATE (o3:Ort {name:'O3'}) "
+            "CREATE (p)-[:WOHNT_IN]->(o2) "
+            "CREATE (p)-[:WOHNT_IN]->(o1) "
+            "CREATE (p)-[:WOHNT_IN]->(o3)"
+        )
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person,Ort'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertEqual(len(data['rows']), 1)
+
+    def test_get_data_as_table_optional_nodes_and_missing_paths(self):
+        """Einige Pfade existieren nicht -> None in entsprechenden Columns"""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run(
+            "CREATE (p:Person {vorname:'G'}) "
+            "CREATE (o:Ort {name:'O'}) "
+            "CREATE (p)-[:WOHNT_IN]->(o)"
+        )
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person,Ort,Stadt'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            # Column für Stadt sollte None enthalten
+            city_values = [cell['value'] for row in data['rows'] for col, cell in zip(data['columns'], row['cells']) if col['nodeType']=='Stadt']
+            self.assertTrue(all(v is None for v in city_values))
+
+
 if __name__ == '__main__':
     unittest.main()
