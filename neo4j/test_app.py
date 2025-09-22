@@ -2507,5 +2507,37 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
+
+    def test_save_mapping_large_csv(self):
+        """CSV mit vielen Zeilen wird verarbeitet."""
+        csv_data = "name\n" + "\n".join(f"Person{i}" for i in range(50))
+        mapping = {"nodes": {"Person": [{"original": "name", "renamed": "name"}]}, "relationships": []}
+
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
+    def test_save_mapping_node_with_multiple_properties(self):
+        """Knoten mit mehreren Properties wird erstellt."""
+        csv_data = "name,age,city\nAlice,30,Berlin"
+        mapping = {
+            "nodes": {
+                "Person": [
+                    {"original": "name", "renamed": "name"},
+                    {"original": "age", "renamed": "age"},
+                    {"original": "city", "renamed": "city"}
+                ]
+            },
+            "relationships": []
+        }
+
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
