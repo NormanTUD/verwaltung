@@ -1346,6 +1346,26 @@ class TestNeo4jApp(unittest.TestCase):
         label_exists = graph.run("MATCH (n:SpecialNode {name:'X'}) RETURN COUNT(n) AS c").data()[0]["c"]
         self.assertEqual(label_exists, 1)
 
+    def test_create_node_relation_direction_existing_to_new(self):
+        existing_id = graph.run("CREATE (n:City {name:'Old'}) RETURN ID(n) AS id").data()[0]["id"]
+        resp = self.app.post(
+            '/api/create_node',
+            data=json.dumps({
+                "property": "name",
+                "value": "New",
+                "connectTo": [existing_id],
+                "relation": {"relation": "LINKED", "direction": "from_existing_to_new"}
+            }),
+            content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        new_id = resp.get_json()["newNodeId"]
+        rel_count = graph.run(
+            "MATCH (a)-[r:LINKED]->(b) WHERE ID(a)=$existing AND ID(b)=$new RETURN COUNT(r) AS c",
+            existing=existing_id, new=new_id
+        ).data()[0]["c"]
+        self.assertEqual(rel_count, 1)
+
 
 if __name__ == '__main__':
     unittest.main()
