@@ -216,35 +216,86 @@ function deleteNode(event) {
 }
 
 function updateValue(element) {
-	const combinedIds = element.getAttribute('data-id').split(',').map(Number);
-	const propertyName = element.getAttribute('data-property');
-	const newValue = element.value;
-
-	if (element.originalValue === newValue) {
-		return;
-	}
-	element.originalValue = newValue;
-
-	fetch('/api/update_nodes', {
-		method: 'PUT',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			ids: combinedIds,
-			property: propertyName,
-			value: newValue
-		})
-	}).then(response => {
-		if (!response.ok) {
-			return response.json().then(errorData => {
-				throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-			});
+	try {
+		if (!element) {
+			console.error('updateValue wurde ohne Element aufgerufen.');
+			return;
 		}
-		return response.json();
-	}).then(data => {
-		console.log(data.message);
-	}).catch(error => {
-		console.error('Fehler beim Aktualisieren:', error);
-	});
+
+		// Attribute auslesen
+		const dataIdAttr = element.getAttribute('data-id');
+		const propertyName = element.getAttribute('data-property');
+
+		if (!dataIdAttr) {
+			console.error('Fehlendes "data-id"-Attribut auf dem Element:', element);
+			return;
+		}
+		if (!propertyName) {
+			console.error('Fehlendes "data-property"-Attribut auf dem Element:', element);
+			return;
+		}
+
+		// IDs parsen
+		const combinedIds = dataIdAttr.split(',').map(idStr => {
+			const idNum = Number(idStr.trim());
+			if (isNaN(idNum)) {
+				throw new Error(`Ungültige ID "${idStr}" in "data-id" gefunden. Erwartet: Zahl.`);
+			}
+			return idNum;
+		});
+
+		// Wert prüfen
+		const newValue = element.value;
+		if (element.originalValue === newValue) {
+			console.log('Kein Update nötig, Wert unverändert:', newValue);
+			return;
+		}
+		element.originalValue = newValue;
+
+		// Logging vor dem Request
+		console.log('Sende Update für IDs:', combinedIds);
+		console.log('Property:', propertyName);
+		console.log('Neuer Wert:', newValue);
+
+		// Fetch request
+		fetch('/api/update_nodes', {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				ids: combinedIds,
+				property: propertyName,
+				value: newValue
+			})
+		})
+		.then(async response => {
+			let responseBody;
+			try {
+				responseBody = await response.json();
+			} catch (jsonError) {
+				throw new Error(`Antwort konnte nicht als JSON geparsed werden. HTTP-Status: ${response.status}`);
+			}
+
+			if (!response.ok) {
+				const serverMessage = responseBody?.message || 'Keine Nachricht vom Server.';
+				throw new Error(`Update fehlgeschlagen. HTTP-Status: ${response.status}. Server meldet: ${serverMessage}. Gesendet: ${JSON.stringify({ ids: combinedIds, property: propertyName, value: newValue })}`);
+			}
+
+			return responseBody;
+		})
+		.then(data => {
+			if (!data || !data.message) {
+				console.warn('Antwort ohne "message"-Feld erhalten:', data);
+			} else {
+				console.log('Update erfolgreich:', data.message);
+			}
+		})
+		.catch(error => {
+			console.error('Fehler beim Aktualisieren:', error.message);
+		});
+
+	} catch (err) {
+		console.error('Fehler in updateValue-Funktion:', err.message, err);
+	}
 }
 
 function addColumnToNode(event) {
