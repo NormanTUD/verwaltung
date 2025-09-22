@@ -1370,8 +1370,8 @@ def api_reset_and_load_data():
             {"vorname": "Maria", "nachname": "Müller", "straße": "Hauptstraße 1", "stadt": "Berlin", "plz": "10115"},
             {"vorname": "Hans", "nachname": "Schmidt", "straße": "Marktplatz 5", "stadt": "Hamburg", "plz": "20095"},
             {"vorname": "Anna", "nachname": "Fischer", "straße": "Bahnhofsallee 12", "stadt": "München", "plz": "80331"},
-            {"vorname": "Bob", "nachname": "Johnson", "straße": "Unbekannt", "stadt": "Unbekannt", "plz": "00000"},
-            {"vorname": "Charlie", "nachname": "Brown", "straße": "Unbekannt", "stadt": "Unbekannt", "plz": "00000"}
+            {"vorname": "Bob", "nachname": "Johnson", "straße": "", "stadt": "", "plz": "00000"},
+            {"vorname": "Charlie", "nachname": "Brown", "straße": "", "stadt": "", "plz": "00000"}
         ]
 
         ort_ids = {}
