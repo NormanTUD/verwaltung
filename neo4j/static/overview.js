@@ -28,6 +28,7 @@ function fetchData() {
       alert('Fehler beim Laden: ' + (err.message || err));
     });
 }
+
 function renderTable(data) {
   var container = document.getElementById('resultsContainer');
   if (!container) return console.error('renderTable: kein #resultsContainer');
