@@ -2899,5 +2899,59 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
+    def test_save_mapping_hyper_complex_multi_layer_network(self):
+        """20 Zeilen, 8 Knoten-Typen, 5 Ebenen Beziehungen, teils zyklisch, Sonderzeichen, Duplikate, fehlende Werte"""
+        csv_data = "\n".join([
+            "person,city,country,company,dept,role,project",
+            "Alice 🚀,Berlin,Deutschland,ACME,IT,Engineer,ProjectX",
+            "Bob 🐍,München,Deutschland,Globex,Sales,Manager,ProjectY",
+            "Carol 🌟,Hamburg,Deutschland,ACME,HR,Analyst,ProjectX",
+            "Dave 💻,Berlin,Deutschland,Globex,IT,Engineer,ProjectZ",
+            "Eve 🌈,Hamburg,Deutschland,ACME,Sales,Manager,ProjectY",
+            "Frank 🧪,Berlin,Deutschland,ACME,IT,Intern,ProjectX",
+            "Grace 💡,München,Deutschland,Globex,HR,Analyst,ProjectZ",
+            "Heidi 🔧,Hamburg,Deutschland,,Sales,Manager,ProjectY",  # fehlende Firma
+            "Ivan 🏹,Berlin,Deutschland,ACME,IT,Engineer,",  # fehlendes Projekt
+            "Judy 🎨,Hamburg,Deutschland,Globex,Sales,Manager,ProjectZ",
+            "Mallory ⚡,Berlin,,ACME,HR,Analyst,ProjectX",      # fehlendes Land
+            "Oscar 🌊,München,Deutschland,Globex,IT,Engineer,ProjectY",
+            "Peggy 🌹,Hamburg,Deutschland,,Sales,Manager,ProjectZ",  # fehlende Firma
+            "Trent 🛡️,Berlin,Deutschland,ACME,IT,Engineer,ProjectX",
+            "Victor 🕶️,München,Deutschland,Globex,HR,Analyst,ProjectY",
+            "Walter 🔥,Berlin,Deutschland,ACME,Sales,Manager,ProjectZ",
+            "Yvonne 🧩,Hamburg,Deutschland,Globex,IT,Intern,ProjectX",
+            "Zoe 🌌,Berlin,Deutschland,ACME,HR,Engineer,ProjectY",
+            "Alice 🚀,Berlin,Deutschland,ACME,IT,Engineer,ProjectX",  # exaktes Duplikat
+            "Bob 🐍,München,Deutschland,Globex,Sales,Manager,ProjectY"  # exaktes Duplikat
+        ])
+        mapping = {
+            "nodes": {
+                "Person": [{"original": "person", "renamed": "name"}, {"original": "role", "renamed": "role"}],
+                "Ort": [{"original": "city", "renamed": "stadt"}],
+                "Land": [{"original": "country", "renamed": "name"}],
+                "Firma": [{"original": "company", "renamed": "name"}],
+                "Abteilung": [{"original": "dept", "renamed": "name"}],
+                "Projekt": [{"original": "project", "renamed": "name"}],
+                "Position": [{"original": "role", "renamed": "title"}],
+                "Team": [{"original": "dept", "renamed": "team_name"}]
+            },
+            "relationships": [
+                {"from": "Person", "to": "Ort", "type": "WOHNT_IN"},
+                {"from": "Ort", "to": "Land", "type": "LIEGT_IN"},
+                {"from": "Person", "to": "Firma", "type": "ARBEITET_FUER"},
+                {"from": "Firma", "to": "Land", "type": "IST_IN"},
+                {"from": "Person", "to": "Abteilung", "type": "GEHOERT_ZU"},
+                {"from": "Abteilung", "to": "Position", "type": "BESTEHT_AUS"},
+                {"from": "Person", "to": "Projekt", "type": "ARBEITET_AN"},
+                {"from": "Projekt", "to": "Team", "type": "WIRD_GELEITET_VON"},
+                {"from": "Team", "to": "Firma", "type": "IST_TEIL_VON"}
+            ]
+        }
+        with self.app as client:
+            with client.session_transaction() as sess:
+                sess['raw_data'] = csv_data
+            resp = client.post('/save_mapping', json=mapping)
+            self.assertEqual(resp.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
