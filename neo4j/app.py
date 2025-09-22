@@ -900,29 +900,8 @@ def get_data_as_table():
 
                     bucket = main_nodes[main_id]
 
-                    # Nodes sammeln
-                    for idx, n in enumerate(node_list):
-                        node_id = n.identity
-                        node_labels = [_l for _l in n.labels if _l in selected_labels]
-                        if filter_labels:
-                            node_labels = [_l for _l in node_labels if _l in filter_labels]
-                        if not node_labels:
-                            continue
-
-                        dist = abs(idx - main_index)
-                        for label in node_labels:
-                            label_map = bucket["nodes"].setdefault(label, {})
-                            existing = label_map.get(node_id)
-                            props = dict(n)
-
-                            if existing is None:
-                                label_map[node_id] = {"props": props, "min_dist": dist}
-                                print(f"      -> store node {node_id} label {label}, dist {dist}")
-                            else:
-                                if dist < existing["min_dist"]:
-                                    existing["min_dist"] = dist
-                                    existing["props"] = props
-                                    print(f"      -> update node {node_id} dist -> {dist}")
+                    for main_id, bucket in main_nodes.items():
+                        collect_nodes_for_bucket(bucket, node_list, main_index, selected_labels, filter_labels)
 
                     for main_id, bucket in main_nodes.items():
                         collect_relations_for_bucket(bucket, main_id, path.relationships)
@@ -983,6 +962,53 @@ def get_data_as_table():
     except Exception as e:
         print("Fehler (Exception):", e)
         return jsonify({"status": "error", "message": str(e)}), 500
+
+def collect_nodes_for_bucket(bucket, node_list, main_index, selected_labels, filter_labels=None):
+    """
+    Sammelt Nodes in einem Bucket und aktualisiert min_dist, falls nötig.
+
+    Args:
+        bucket (dict): Bucket, der die Nodes enthält, erwartet bucket["nodes"] als dict.
+        node_list (iterable): Liste der Knoten (z.B. aus Neo4j).
+        main_index (int): Index des Hauptknotens im node_list.
+        selected_labels (set/list): Labels, die berücksichtigt werden sollen.
+        filter_labels (set/list, optional): Optional zusätzliche Filterlabels.
+
+    Modifiziert:
+        bucket["nodes"]: Fügt Nodes hinzu oder aktualisiert bestehende mit minimaler Distanz.
+    """
+    try:
+        for idx, n in enumerate(node_list):
+            node_id = getattr(n, "identity", None)
+            if node_id is None:
+                continue  # Ungültiger Node überspringen
+
+            node_labels = [label for label in getattr(n, "labels", []) if label in selected_labels]
+
+            if filter_labels:
+                node_labels = [label for label in node_labels if label in filter_labels]
+
+            if not node_labels:
+                continue  # Kein passendes Label
+
+            dist = abs(idx - main_index)
+            props = dict(n)  # Annahme: Node ist dict-like
+
+            for label in node_labels:
+                label_map = bucket.setdefault("nodes", {}).setdefault(label, {})
+                existing = label_map.get(node_id)
+
+                if existing is None:
+                    label_map[node_id] = {"props": props, "min_dist": dist}
+                    print(f"      -> store node {node_id} label {label}, dist {dist}")
+                else:
+                    if dist < existing.get("min_dist", float('inf')):
+                        existing["min_dist"] = dist
+                        existing["props"] = props
+                        print(f"      -> update node {node_id} label {label}, dist -> {dist}")
+
+    except Exception as e:
+        print(f"Fehler beim Sammeln von Nodes für bucket: {e}")
 
 def collect_relations_for_bucket(bucket, main_id, relationships):
     """
