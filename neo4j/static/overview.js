@@ -1,4 +1,3 @@
-const log = console.log;
 const querySelection = document.getElementById('querySelection');
 const resultsContainer = document.getElementById('resultsContainer');
 
