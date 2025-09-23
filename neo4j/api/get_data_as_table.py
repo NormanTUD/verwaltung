@@ -17,8 +17,6 @@ def create_get_data_bp(graph):
         except Exception as e:
             return handle_error(e)
 
-    # === Helper Functions (Tiny, <= 5 lines each) ===
-
     def log_start():
         print("\n=== API get_data_as_table gestartet ===")
 
