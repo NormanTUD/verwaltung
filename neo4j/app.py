@@ -829,21 +829,6 @@ def run_query(graph, query, labels, limit):
     print(f"✅ Abfrage erfolgreich, {len(results)} Ergebnisse erhalten")
     return results
 
-def collect_labels(path_results, selected_labels):
-    """Alle Labels aus den Pfaden sammeln, die ausgewählt wurden"""
-    print("🔍 collect_labels: Start")
-    all_labels = set()
-    for idx, r in enumerate(path_results):
-        print(f"  🛣️ Pfad {idx+1}: {len(r['p'].nodes)} Nodes")
-        for n in r['p'].nodes:
-            filtered_labels = [_l for _l in n.labels if _l in selected_labels]
-            if filtered_labels:
-                print(f"    Node {n.identity} Labels gefiltert: {filtered_labels}")
-            all_labels.update(filtered_labels)
-    all_labels_list = list(all_labels)
-    print(f"✅ Alle gesammelten Labels: {all_labels_list}")
-    return all_labels_list
-
 @app.route('/api/update_node/<int:node_id>', methods=['PUT'])
 @test_if_deleted_db
 def update_node(node_id):
