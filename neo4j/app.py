@@ -630,39 +630,6 @@ def safe_var_name(label):
     # Ersetzt alle nicht-alphanumerischen Zeichen durch "_"
     return "".join(ch if ch.isalnum() else "_" for ch in label.lower())
 
-# -------------------------------
-# Helper Functions
-# -------------------------------
-
-def parse_request_json(req_json):
-    """JSON auslesen und default values setzen"""
-    print("🔍 parse_request_json: Start")
-    print(f"📥 Eingehendes JSON: {req_json}")
-
-    if not req_json:
-        raise ValueError("Ungültiges JSON-Format oder leerer Body")
-    selected_labels = req_json.get('selectedLabels', [])
-    max_depth = req_json.get('maxDepth', 3)
-    limit = req_json.get('limit', 200)
-
-    print(f"✅ Geparste Werte: selected_labels={selected_labels}, max_depth={max_depth}, limit={limit}")
-
-    if not selected_labels:
-        raise ValueError("Bitte wählen Sie mindestens einen Node-Typ aus.")
-
-    return selected_labels, max_depth, limit
-
-def generate_cypher_query(max_depth):
-    """Dynamische Pfad-Abfrage für Neo4j generieren"""
-    print("🔍 generate_cypher_query: Start")
-    query = f"""
-    MATCH p=(start)-[*..{max_depth}]->(end)
-    WHERE ANY(n IN nodes(p) WHERE ANY(l IN labels(n) WHERE l IN $labels))
-    RETURN p LIMIT $limit
-    """
-    print(f"📄 Generierte Cypher-Abfrage:\n{query}")
-    return query
-
 # ===========================
 # Backend: Flask / Neo4j
 # ===========================
@@ -694,36 +661,6 @@ def fn_validate_request_body(data):
 
     return False, "Unbekannter Request-Typ. Weder 'props' noch 'property' und 'value' gefunden."
 
-def fn_parse_request_data(data):
-    fn_debug_print("Parsing request data", data)
-    prop_name = None
-    value = None
-    
-    if "props" in data and isinstance(data["props"], dict):
-        props = data["props"]
-        if props:
-            prop_name, value = next(iter(props.items()))
-    else:
-        prop_name = data.get("property")
-        value = data.get("value")
-
-    # This is the change: get the connectTo list directly
-    connect_data = data.get("connectTo", [])
-    node_label = data.get("node_label")
-    
-    return prop_name, value, connect_data, node_label
-
-def fn_determine_node_label(data):
-    # Lese das Label direkt aus dem Request, wenn es existiert.
-    if "node_label" in data and isinstance(data["node_label"], str):
-        node_label = data["node_label"]
-    else:
-        # Fallback auf generisches Label, wenn es nicht übermittelt wird.
-        node_label = "Node"
-    
-    fn_debug_print("Determined node label", node_label)
-    return node_label
-
 def fn_create_node(node_label, prop_name, value):
     fn_debug_print("Determined node label", node_label)
     
@@ -744,12 +681,6 @@ def fn_create_node(node_label, prop_name, value):
         return result[0]['id']
     else:
         raise Exception("Failed to create new node in the database.")
-
-def fn_clean_connect_ids(connect_ids):
-    cleaned = [int(i) for i in connect_ids if isinstance(i, (int, float))]
-    cleaned = list(set(cleaned))
-    fn_debug_print("Cleaned connect IDs", cleaned)
-    return cleaned
 
 def fn_create_relationships(new_node_id, connect_data):
     if not connect_data:
