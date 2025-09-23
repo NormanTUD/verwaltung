@@ -9,7 +9,6 @@ from unittest.mock import patch
 
 from app import (
     get_all_nodes_and_relationships,
-    serialize_value
 )
 
 # Lade Umgebungsvariablen aus der .env.test-Datei für die Tests
@@ -560,32 +559,6 @@ class TestNeo4jApp(unittest.TestCase):
         result = get_all_nodes_and_relationships()
         self.assertEqual(result["labels"], [])
         self.assertEqual(result["types"], [])
-
-    def test_serialize_value_basic(self):
-        """Primitive Werte bleiben unverändert."""
-        self.assertEqual(serialize_value(42), 42)
-        self.assertEqual(serialize_value("text"), "text")
-        self.assertEqual(serialize_value(True), True)
-        self.assertEqual(serialize_value(None), None)
-
-    def test_serialize_value_function(self):
-        """Funktion wird in String konvertiert."""
-        def f(): pass
-        self.assertEqual(serialize_value(f), f"FUNCTION_OBJECT: {f.__name__}")
-
-    def test_serialize_value_list_and_dict(self):
-        """Listen und Dicts werden rekursiv serialisiert."""
-        def g(): pass
-        value = {"a": [1, g, {"b": g}]}
-        result = serialize_value(value)
-        self.assertEqual(result["a"][1], f"FUNCTION_OBJECT: {g.__name__}")
-        self.assertEqual(result["a"][2]["b"], f"FUNCTION_OBJECT: {g.__name__}")
-
-    def test_serialize_value_custom_object(self):
-        """Nicht-standard Objekt wird als String serialisiert."""
-        class Custom: pass
-        obj = Custom()
-        self.assertEqual(serialize_value(obj), str(obj))
 
     def test_graph_data_empty_db(self):
         """Leere DB liefert leere Nodes und Links."""

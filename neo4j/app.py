@@ -87,19 +87,6 @@ def get_all_nodes_and_relationships():
         "types": [rel['relationshipType'] for rel in relationship_types]
     }
 
-def serialize_value(value):
-    """Recursively serializes a value, handling functions and complex types."""
-    if inspect.isfunction(value) or inspect.ismethod(value):
-        return f"FUNCTION_OBJECT: {value.__name__}"
-    if isinstance(value, (str, int, float, bool, type(None))):
-        return value
-    if isinstance(value, list):
-        return [serialize_value(item) for item in value]
-    if isinstance(value, dict):
-        return {k: serialize_value(v) for k, v in value.items()}
-    # Catch any other complex objects and convert them to a string.
-    return str(value)
-
 @app.route('/')
 def index():
     return render_template('import.html')
