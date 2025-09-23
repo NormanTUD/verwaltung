@@ -5,7 +5,6 @@ import csv
 import io
 import json
 import inspect
-import functools
 from flask import Flask, request, jsonify, render_template, session
 from py2neo import Graph, NodeMatcher
 from dotenv import load_dotenv
@@ -21,50 +20,6 @@ from api.add_property_to_nodes import create_add_property_to_nodes_bp
 from rich.console import Console
 
 console = Console()
-
-def test_if_deleted_db(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            before_count = 0
-            if graph:
-                try:
-                    res = graph.run("MATCH (n) RETURN count(n) as c").data()
-                    before_count = res[0]["c"] if res else 0
-                except Exception as e:
-                    console.print(f"[red]!!!!!!!!!!!!!!! Fehler beim Vor-Check: {e} !!!!!!!!!!!!!!![/red]")
-
-            result = func(*args, **kwargs)
-
-            after_count = 0
-            if graph:
-                try:
-                    res = graph.run("MATCH (n) RETURN count(n) as c").data()
-                    after_count = res[0]["c"] if res else 0
-                except Exception as e:
-                    console.print(f"[red]!!!!!!!!!!!!!!! Fehler beim Nach-Check: {e} !!!!!!!!!!!!!!![/red]")
-
-            if before_count > 0 and after_count == 0:
-                console.print(
-                    f"[bold red]\n\n"
-                    f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
-                    f"!!!!!!!!!!!!!!!  DATEN GELÖSCHT von Funktion {func.__name__} !!!!!!!!!!!!!!!\n"
-                    f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n[/bold red]"
-                )
-            elif after_count < before_count:
-                console.print(
-                    f"[yellow]\n\n"
-                    f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
-                    f"!!!! WARNUNG: Funktion {func.__name__} hat Knoten entfernt "
-                    f"({before_count} → {after_count}) !!!!\n"
-                    f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n[/yellow]"
-                )
-
-            return result
-        except Exception as e:
-            console.print(f"[red]!!!!!!!!!!!!!!! Fehler im Decorator test_if_deleted_db: {e} !!!!!!!!!!!!!!![/red]")
-            raise
-    return wrapper
 
 # Lade Umgebungsvariablen aus der .env-Datei
 load_dotenv()
@@ -127,7 +82,6 @@ def save_queries_to_file(queries):
 
 # TODO!!! DELETE AGAIN!!!
 @app.route('/api/delete_all')
-@test_if_deleted_db
 def delete_all():
     """
     Löscht alle Nodes und Relationships in der Datenbank.
@@ -141,7 +95,6 @@ def delete_all():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/add_row', methods=['POST'])
-@test_if_deleted_db
 def add_row():
     """Fügt einen neuen Node mit Label und optionalen Properties hinzu."""
     data = request.get_json(silent=True)
@@ -190,7 +143,6 @@ def add_row():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/update_nodes', methods=['PUT'])
-@test_if_deleted_db
 def update_nodes():
     data = request.get_json(silent=True)
 
@@ -223,7 +175,6 @@ def update_nodes():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/add_column', methods=['POST'])
-@test_if_deleted_db
 def add_column():
     """Fügt allen Nodes eines bestimmten Labels eine neue Property hinzu (Standardwert = "")."""
     data = request.get_json(silent=True)
@@ -259,7 +210,6 @@ def add_column():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/save_query', methods=['POST'])
-@test_if_deleted_db
 def save_query():
     """Speichert eine Abfrage mit einem Namen."""
     try:
@@ -282,7 +232,6 @@ def save_query():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/get_saved_queries')
-@test_if_deleted_db
 def get_saved_queries():
     """Gibt alle gespeicherten Abfragen zurück."""
     try:
@@ -340,17 +289,14 @@ def serialize_value(value):
     return str(value)
 
 @app.route('/')
-@test_if_deleted_db
 def index():
     return render_template('import.html')
 
 @app.route('/graph')
-@test_if_deleted_db
 def show_graph():
     return render_template('graph.html')
 
 @app.route('/api/graph-data')
-@test_if_deleted_db
 def get_graph_data():
     if graph is None:
         return jsonify({"error": "Neo4j connection not available"}), 500
@@ -411,7 +357,6 @@ def get_graph_data():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/upload', methods=['POST'])
-@test_if_deleted_db
 def upload_data():
     """Verarbeitet den CSV/TSV-Upload und zeigt die Header für die Zuordnung an."""
     if 'data' not in request.form:
@@ -435,7 +380,6 @@ def upload_data():
         return f"Fehler beim Parsen der Daten: {e}", 400
 
 @app.route('/get_rel_types', methods=['GET'])
-@test_if_deleted_db
 def get_rel_types():
     """Gibt eine Liste aller existierenden Relationship-Typen in der DB zurück."""
     try:
@@ -449,7 +393,6 @@ def get_rel_types():
         return jsonify([]), 500
 
 @app.route('/save_mapping', methods=['POST'])
-@test_if_deleted_db
 def save_mapping():
     """Hauptfunktion: speichert die zugeordneten Daten in Neo4j."""
     mapping_data = request.get_json()
@@ -571,7 +514,6 @@ def create_relationship(tx, from_node_type, to_node_type, rel_type, nodes_create
         #print(f"  ❌ Beziehung konnte nicht erstellt werden, Knoten fehlen: '{from_node_type}' (vorhanden: {from_node_type in nodes_created}), '{to_node_type}' (vorhanden: {to_node_type in nodes_created}).")
 
 @app.route('/overview')
-@test_if_deleted_db
 def overview():
     """Zeigt die Übersichtsseite mit allen Node-Typen an."""
     if not graph:
@@ -603,7 +545,6 @@ def run_query(graph, query, labels, limit):
     return results
 
 @app.route('/api/update_node/<int:node_id>', methods=['PUT'])
-@test_if_deleted_db
 def update_node(node_id):
     data = request.get_json()
     property_name = data.get('property')
