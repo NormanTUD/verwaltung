@@ -663,27 +663,62 @@ def fn_debug_print(label, data):
 def fn_validate_request_body(data):
     fn_debug_print("Validating request body", data)
     if not data:
-        return False, "Request-Body leer oder ungültig. property und value erforderlich."
-    if "property" not in data:
-        return False, "property fehlt im Request."
-    if "value" not in data:
-        return False, "value fehlt im Request."
-    if not str(data["property"]).isidentifier():
-        return False, f"Ungültiger Property-Name: {data['property']}"
-    return True, None
+        return False, "Request-Body leer oder ungültig."
+
+    # Validierung für den 'create_node' Request
+    if "props" in data:
+        props = data["props"]
+        if not isinstance(props, dict) or not props:
+            return False, "Props-Objekt ist leer oder ungültig."
+        # Da props ein Wörterbuch ist, überprüfen wir, ob es mindestens ein property/value-Paar hat.
+        # Wir können davon ausgehen, dass der erste Schlüssel der property-Name ist.
+        property_name = next(iter(props), None)
+        if not property_name or not str(property_name).isidentifier():
+            return False, f"Ungültiger Property-Name in props: {property_name}"
+        return True, None
+    
+    # Validierung für den 'update_nodes' Request
+    if "property" in data and "value" in data:
+        if not str(data["property"]).isidentifier():
+            return False, f"Ungültiger Property-Name: {data['property']}"
+        return True, None
+
+    return False, "Unbekannter Request-Typ. Weder 'props' noch 'property' und 'value' gefunden."
 
 def fn_parse_request_data(data):
     fn_debug_print("Parsing request data", data)
-    prop_name = data.get("property")
-    value = data.get("value")
-    connect_ids = data.get("connectTo", [])
+    prop_name = None
+    value = None
+    
+    # Check for the new 'props' structure first
+    if "props" in data and isinstance(data["props"], dict):
+        props = data["props"]
+        if props:
+            # Get the first key and value from the props dictionary
+            prop_name, value = next(iter(props.items()))
+    else:
+        # Fallback to the old, flat structure
+        prop_name = data.get("property")
+        value = data.get("value")
+
+    connect_data = data.get("connectTo", [])
     relation_data = data.get("relation", None)
-    return prop_name, value, connect_ids, relation_data
+    
+    return prop_name, value, connect_data, relation_data
 
 def fn_determine_node_label(relation_data):
-    node_label = "Node"
-    if relation_data and "targetLabel" in relation_data:
-        node_label = relation_data["targetLabel"]
+    # Mapping von Relationstypen zu den entsprechenden Ziel-Labels
+    relation_to_label_map = {
+        "HAT_GESCHRIEBEN": "Buch",
+        "WOHNT_IN": "Ort",
+        # Füge hier weitere Relationstypen und deren Ziel-Labels hinzu
+    }
+
+    rel_type = relation_data.get("relation", "")
+    
+    # Versuche, das Label aus dem Mapping zu finden
+    node_label = relation_to_label_map.get(rel_type, "Node")
+    
     fn_debug_print("Determined node label", node_label)
     return node_label
 
@@ -704,25 +739,31 @@ def fn_clean_connect_ids(connect_ids):
     fn_debug_print("Cleaned connect IDs", cleaned)
     return cleaned
 
-def fn_create_relationships(new_node_id, connect_ids_clean, relation_data):
-    if not connect_ids_clean or not relation_data:
-        fn_debug_print("No relationships to create", {"connect_ids_clean": connect_ids_clean, "relation_data": relation_data})
+def fn_create_relationships(new_node_id, connect_data, relation_data):
+    if not connect_data or not relation_data:
+        fn_debug_print("No relationships to create", {"connect_data": connect_data, "relation_data": relation_data})
         return
 
     rel_type = relation_data.get("relation", "CONNECTED_TO")
-    direction = relation_data.get("direction", "from_new_to_existing")
-    fn_debug_print("Relationship info", {"rel_type": rel_type, "direction": direction})
+    
+    # Use the correct `id` and `relation` from the connect_data list of dictionaries
+    for item in connect_data:
+        # Ensure the item has an `id` and `relation` key
+        if "id" in item and "relation" in item:
+            other_id = item["id"]
+            
+            # Use the relation from the `connectTo` item, not the top-level relation_data.
+            # This makes the function more flexible for multiple relationships.
+            specific_rel_type = item["relation"]
 
-    for other_id in connect_ids_clean:
-        from_id, to_id = (new_node_id, other_id) if direction == "from_new_to_existing" else (other_id, new_node_id)
-        query_rel = f"""
-            MATCH (n),(m)
-            WHERE ID(n) = $from_id AND ID(m) = $to_id
-            MERGE (n)-[:{rel_type}]->(m)
-        """
-        fn_debug_print("Relationship creation query", f"{from_id} -[{rel_type}]-> {to_id}")
-        graph.run(query_rel, from_id=from_id, to_id=to_id)
-        fn_debug_print("Relationship created", f"{from_id} -[{rel_type}]-> {to_id}")
+            query_rel = f"""
+                MATCH (n),(m)
+                WHERE ID(n) = $from_id AND ID(m) = $to_id
+                MERGE (n)-[:{specific_rel_type}]->(m)
+            """
+            fn_debug_print("Relationship creation query", f"{other_id} -[{specific_rel_type}]-> {new_node_id}")
+            graph.run(query_rel, from_id=other_id, to_id=new_node_id)
+            fn_debug_print("Relationship created", f"{other_id} -[{specific_rel_type}]-> {new_node_id}")
 
 # ===============================
 # Flask Route
@@ -740,19 +781,16 @@ def api_create_node():
             return jsonify({"status": "error", "message": error_msg}), 400
 
         # Parse request data
-        prop_name, value, connect_ids, relation_data = fn_parse_request_data(data)
+        prop_name, value, connect_data, relation_data = fn_parse_request_data(data)
 
         # Determine node label
         node_label = fn_determine_node_label(relation_data)
-
+        
         # Create node
         new_node_id = fn_create_node(node_label, prop_name, value)
-
-        # Clean connect IDs
-        connect_ids_clean = fn_clean_connect_ids(connect_ids)
-
+        
         # Create relationships
-        fn_create_relationships(new_node_id, connect_ids_clean, relation_data)
+        fn_create_relationships(new_node_id, connect_data, relation_data)
 
         fn_debug_print("Node creation process completed", new_node_id)
         return jsonify({
