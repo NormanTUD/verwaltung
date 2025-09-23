@@ -3050,14 +3050,6 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("label", resp.get_json()["message"])
 
-    def test_add_row_invalid_property_name(self):
-        resp = self.app.post("/api/add_row", json={
-            "label": "Person",
-            "properties": {"invalid-key!": "oops"}
-        })
-        self.assertEqual(resp.status_code, 400)
-        self.assertIn("Ungültiger Property-Name", resp.get_json()["message"])
-
     def test_delete_all_success(self):
         # Vorher ein Node anlegen, damit auch wirklich was gelöscht wird
         self.graph.run("CREATE (:TestLabel {foo:'bar'})")
@@ -3143,6 +3135,29 @@ class TestNeo4jApp(unittest.TestCase):
             f"MATCH (a)-[r]->(b) WHERE ID(b)={new_id} RETURN type(r) AS t"
         ).data()
         self.assertTrue(rels)
+
+    def test_add_row_creates_node(self):
+        """POST /add_row erstellt Node korrekt."""
+        data = {"label": "TestNode", "properties": {"name": "Alice"}}
+        response = self.app.post("/api/add_row", json=data)
+        self.assertEqual(response.status_code, 200)
+        result = json.loads(response.data)
+        self.assertIn("id", result)
+
+        node = self.graph.nodes.match("TestNode", name="Alice").first()
+        self.assertIsNotNone(node)
+        self.assertEqual(node["name"], "Alice")
+
+    def test_add_row_filters_invalid_properties(self):
+        """Ungültige Property-Namen werden ignoriert."""
+        data = {"label": "TestNode2", "properties": {"123invalid": "val", "validName": "ok"}}
+        response = self.app.post("/api/add_row", json=data)
+        self.assertEqual(response.status_code, 200)
+
+        node = self.graph.nodes.match("TestNode2").first()
+        self.assertIsNotNone(node)
+        self.assertNotIn("123invalid", node)
+        self.assertEqual(node["validName"], "ok")
 
 if __name__ == '__main__':
     unittest.main()
