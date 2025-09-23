@@ -524,7 +524,7 @@ def merge_node(tx, node_type, fields, row):
             all_props[renamed_name] = value
 
     if not all_props:
-        print(f"  ❌ Keine Daten für den Knoten-Typ '{node_type}' in dieser Zeile. Überspringe.")
+        #print(f"  ❌ Keine Daten für den Knoten-Typ '{node_type}' in dieser Zeile. Überspringe.")
         return None
 
     identifier_key, identifier_value = next(iter(all_props.items()))
