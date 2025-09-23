@@ -1,326 +1,149 @@
 from flask import Blueprint, request, jsonify
 
-get_data_bp = Blueprint('get_data_bp', __name__)
 
 def create_get_data_bp(graph):
-    bp = Blueprint('get_data_bp', __name__)
+    bp = Blueprint("get_data_bp", __name__)
 
-    @bp.route('/get_data_as_table', methods=['GET'])
+    @bp.route("/get_data_as_table", methods=["GET"])
     def get_data_as_table():
         try:
-            print("\n=== API get_data_as_table gestartet ===")
-
-            print("-> Parsing Request-Parameter ...")
-            selected_labels, main_label, max_depth, limit, filter_labels = parse_request_params(request)
-            print(f"   -> Selected labels: {selected_labels}")
-            print(f"   -> Main label (Pivot): {main_label}")
-            print(f"   -> Max depth: {max_depth}")
-            print(f"   -> Limit: {limit}")
-            print(f"   -> Filter labels: {filter_labels}")
-
-            print("-> Starte Cypher-Abfrage für Pfade ...")
-            results = run_cypher_paths(graph, selected_labels, max_depth, limit)
-            print(f"   -> Anzahl Pfade erhalten: {len(results)}")
-
-            main_nodes = {}
-            if results:
-                main_nodes = process_paths(results, main_label, selected_labels, filter_labels)
-            else:
-                collect_single_nodes(graph, main_nodes, main_label, limit)
-
-            existing_labels = {lbl for bucket in main_nodes.values() for lbl in bucket.get("nodes", {}).keys()}
-
-            candidate_labels = [lbl for lbl in selected_labels if (not filter_labels or lbl in filter_labels)]
-            missing_labels = [lbl for lbl in candidate_labels if lbl not in existing_labels]
-
-            for lbl in missing_labels:
-                collect_single_nodes(graph, main_nodes, lbl, limit)
-
-            print("-> Bestimme Spalten (Columns) basierend auf gesammelten Nodes ...")
+            log_start()
+            params = parse_request_params(request)
+            results = run_cypher_paths(graph, params[0], params[2], params[3])
+            main_nodes = handle_results(graph, results, params)
             columns = determine_columns(main_nodes)
-            print(f"   -> Columns (sortiert): {columns}")
-
-            print("-> Baue Rows für die Ausgabe ...")
             rows = build_rows(main_nodes, columns)
-            print(f"   -> Anzahl Rows erstellt: {len(rows)}")
-
-            print("-> JSON-Antwort wird erstellt und zurückgegeben ...")
             return jsonify({"columns": columns, "rows": rows})
-
         except Exception as e:
-            print(f"!!! Fehler aufgetreten: {e}")
-            return jsonify({"status": "error", "message": str(e)}), 500
+            return handle_error(e)
 
-    def build_rows(main_nodes, columns):
-        rows = []
-        for main_id, bucket in main_nodes.items():
-            cells = build_cells_for_bucket(bucket, columns)
-            rows.append({"cells": cells, "relations": bucket.get("relations", [])})
-        return rows
+    # === Helper Functions (Tiny, <= 5 lines each) ===
 
-    def determine_columns(main_nodes):
-        columns_set = set()
-        for bucket in main_nodes.values():
-            for label, nodes_map in bucket.get("nodes", {}).items():
-                for info in nodes_map.values():
-                    for prop in info.get("props", {}):
-                        columns_set.add((label, prop))
-        return [{"nodeType": lbl, "property": prop} for lbl, prop in sorted(columns_set, key=lambda x: (x[0], x[1]))]
+    def log_start():
+        print("\n=== API get_data_as_table gestartet ===")
 
-    def parse_request_params(request):
-        node_csv = request.args.get('nodes')
-        if not node_csv:
-            raise ValueError("Parameter 'nodes' erforderlich")
-        selected_labels = [n.strip() for n in node_csv.split(',') if n.strip()]
-        if not selected_labels:
-            raise ValueError("No labels parsed")
-        main_label = selected_labels[0]
+    def handle_error(e):
+        print(f"!!! Fehler aufgetreten: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-        max_depth = int(request.args.get('maxDepth', 3))
-        limit = request.args.get('limit')
-        limit = int(limit) if limit else None
+    def handle_results(graph, results, params):
+        selected_labels, main_label, max_depth, limit, filter_labels = params
+        if results:
+            nodes = process_paths(results, main_label, selected_labels, filter_labels)
+        else:
+            nodes = {}
+            collect_single_nodes(graph, nodes, main_label, limit)
+        return ensure_missing_labels(graph, nodes, selected_labels, filter_labels, limit)
 
-        filter_labels_csv = request.args.get('filterLabels')
-        filter_labels = [_l.strip() for _l in filter_labels_csv.split(',')] if filter_labels_csv else None
-
-        return selected_labels, main_label, max_depth, limit, filter_labels
-
-    def collect_single_nodes(graph, main_nodes, label, limit=None):
-        try:
-            print(f"Hole einzelne Nodes für Label: {label}")
-            cypher_nodes = f"MATCH (n:`{label}`) RETURN n"
-            if limit:
-                cypher_nodes += f" LIMIT {limit}"
-            node_results = graph.run(cypher_nodes).data()
-            print(f"Einzelne Nodes erhalten: {len(node_results)}")
-
-            for r in node_results:
-                n = r.get('n')
-                if n is None:
-                    continue
-
-                main_id = getattr(n, "identity", None)
-                if main_id is None:
-                    continue
-
-                if main_id not in main_nodes:
-                    # Neuer Bucket für jeden Node, auch wenn kein Pivot existiert
-                    main_nodes[main_id] = {"nodes": {}, "adjacent": set(), "relations": []}
-
-                bucket = main_nodes[main_id]
-                props = dict(n)
-                label_map = bucket.setdefault("nodes", {}).setdefault(label, {})
-                label_map[main_id] = {"props": props, "min_dist": 0}
-                print(f"  -> Einzelnode gespeichert: {main_id} mit props {list(props.keys())}")
-
-        except Exception as e:
-            print(f"Fehler beim Sammeln einzelner Nodes: {e}")
-
-    def process_paths(results, main_label, selected_labels, filter_labels=None):
-        """
-        Verarbeitet alle Pfade, sammelt Nodes und Relations pro main_node.
-
-        Args:
-            results (list): Liste der Pfad-Ergebnisse, jedes Element enthält 'p' als Path-Objekt.
-            main_label (str): Label, das als Hauptknoten identifiziert wird.
-            selected_labels (list/set): Labels, die für Nodes berücksichtigt werden.
-            filter_labels (list/set, optional): Optional weitere Filterlabels für Nodes.
-
-        Returns:
-            dict: main_nodes Dictionary mit gesammelten Nodes, Adjacent-IDs und Relations.
-        """
-        main_nodes = {}
-
-        for path_idx, r in enumerate(results):
-            path = r['p']
-            print(f"\n--- Verarbeitung Pfad {path_idx+1}/{len(results)} ---")
-            node_list = list(path.nodes)
-            print("Pfad-Nodes (id: labels):", [(n.identity, list(n.labels)) for n in node_list])
-
-            # Finde main nodes in diesem Pfad
-            main_positions = [(i, n) for i, n in enumerate(node_list) if main_label in n.labels]
-            if not main_positions:
-                print("  Kein main_label in diesem Pfad gefunden -> überspringe")
-                continue
-            print("  Main positions in path:", [(i, n.identity) for i, n in main_positions])
-
-            for main_index, main_node in main_positions:
-                main_id = main_node.identity
-                if main_id not in main_nodes:
-                    main_nodes[main_id] = {"nodes": {}, "adjacent": set(), "relations": []}
-                    print(f"  Neuer main_node bucket: {main_id}")
-
-                bucket = main_nodes[main_id]
-
-                # Nodes sammeln
-                collect_nodes_for_bucket(bucket, node_list, main_index, selected_labels, filter_labels)
-
-                # Relations sammeln
-                collect_relations_for_bucket(bucket, main_id, path.relationships)
-
+    def ensure_missing_labels(graph, main_nodes, selected, filters, limit):
+        existing = {lbl for b in main_nodes.values() for lbl in b.get("nodes", {})}
+        candidates = [lbl for lbl in selected if (not filters or lbl in filters)]
+        for lbl in [l for l in candidates if l not in existing]:
+            collect_single_nodes(graph, main_nodes, lbl, limit)
         return main_nodes
 
+    def build_rows(main_nodes, columns):
+        return [{"cells": build_cells_for_bucket(b, columns), "relations": b.get("relations", [])} for b in main_nodes.values()]
+
+    def determine_columns(main_nodes):
+        pairs = {(l, p) for b in main_nodes.values() for l, m in b.get("nodes", {}).items() for i in m.values() for p in i.get("props", {})}
+        return [{"nodeType": l, "property": p} for l, p in sorted(pairs)]
+
+    def parse_request_params(req):
+        nodes = req.args.get("nodes")
+        if not nodes:
+            raise ValueError("Parameter 'nodes' erforderlich")
+        selected = [n.strip() for n in nodes.split(",") if n.strip()]
+        main_label = selected[0]
+        max_depth = int(req.args.get("maxDepth", 3))
+        limit = int(req.args["limit"]) if req.args.get("limit") else None
+        filters = [l.strip() for l in req.args["filterLabels"].split(",")] if req.args.get("filterLabels") else None
+        return selected, main_label, max_depth, limit, filters
+
+    def collect_single_nodes(graph, main_nodes, label, limit=None):
+        query = f"MATCH (n:`{label}`) RETURN n" + (f" LIMIT {limit}" if limit else "")
+        for r in graph.run(query).data():
+            add_single_node(main_nodes, label, r.get("n"))
+
+    def add_single_node(main_nodes, label, n):
+        if n is None:
+            return
+        mid = getattr(n, "identity", None)
+        if mid is None:   # <-- entscheidend: nicht `if not mid`
+            return
+        b = main_nodes.setdefault(mid, {"nodes": {}, "adjacent": set(), "relations": []})
+        b["nodes"].setdefault(label, {})[mid] = {"props": dict(n), "min_dist": 0}
+
+    def process_paths(results, main_label, selected_labels, filter_labels=None):
+        nodes = {}
+        for r in results:
+            path = r["p"]
+            for i, n in enumerate(path.nodes):
+                if main_label in n.labels:
+                    b = nodes.setdefault(n.identity, {"nodes": {}, "adjacent": set(), "relations": []})
+                    collect_nodes_for_bucket(b, path.nodes, i, selected_labels, filter_labels)
+                    collect_relations_for_bucket(b, n.identity, path.relationships)
+        return nodes
+
     def run_cypher_paths(graph, selected_labels, max_depth, limit=None):
-        cypher_query = f"""
+        q = f"""
         MATCH p=(start)-[*..{max_depth}]->(end)
         WHERE ANY(n IN nodes(p) WHERE ANY(l IN labels(n) WHERE l IN $labels))
         RETURN p
-        """
-        if limit:
-            cypher_query += f" LIMIT {limit}"
-        print("Cypher Query:", cypher_query.strip())
-        return graph.run(cypher_query, labels=selected_labels).data()
+        """ + (f" LIMIT {limit}" if limit else "")
+        return graph.run(q, labels=selected_labels).data()
 
     def collect_nodes_for_bucket(bucket, node_list, main_index, selected_labels, filter_labels=None):
-        """
-        Sammelt Nodes in einem Bucket und aktualisiert min_dist, falls nötig.
-
-        Args:
-            bucket (dict): Bucket mit bucket["nodes"] als dict.
-            node_list (iterable): Liste der Nodes (z.B. aus Neo4j).
-            main_index (int): Index des Hauptknotens.
-            selected_labels (set/list): Labels, die berücksichtigt werden sollen.
-            filter_labels (set/list, optional): Zusätzliche Filterlabels.
-        """
-        try:
-            bucket_nodes = bucket.setdefault("nodes", {})
-            fn_debug_collect("Starting bucket collection", {"main_index": main_index, "selected_labels": selected_labels, "filter_labels": filter_labels})
-
-            for idx, node in enumerate(node_list):
-                fn_debug_collect("Processing node index", idx)
-
-                node_id = fn_get_node_id(node)
-                if node_id is None:
-                    fn_debug_collect("Skipping invalid node", node)
-                    continue
-
-                node_labels = fn_filter_labels(node, selected_labels, filter_labels)
-                if not node_labels:
-                    fn_debug_collect("No matching labels, skipping node", node_id)
-                    continue
-
-                dist = fn_calculate_distance(idx, main_index)
-                props = dict(node)  # Annahme: Node ist dict-like
-                fn_debug_collect("Node props", props)
-
-                for label in node_labels:
-                    fn_store_or_update_node(bucket_nodes, node_id, label, props, dist)
-
-            fn_debug_collect("Finished bucket collection", bucket_nodes)
-
-        except Exception as e:
-            print(f"Fehler beim Sammeln von Nodes für bucket: {e}")
+        for idx, node in enumerate(node_list):
+            node_id = fn_get_node_id(node)
+            if not node_id:
+                continue
+            labels = fn_filter_labels(node, selected_labels, filter_labels)
+            for l in labels:
+                fn_store_or_update_node(bucket.setdefault("nodes", {}), node_id, l, dict(node), abs(idx - main_index))
 
     def collect_relations_for_bucket(bucket, main_id, relationships):
-        """
-        Sammelt die Relations und Adjacent-Nodes für einen Bucket.
+        for rel in relationships:
+            f, t = getattr(rel.start_node, "identity", None), getattr(rel.end_node, "identity", None)
+            if not f or not t:
+                continue
+            add_relation(bucket, main_id, f, t, type(rel).__name__)
 
-        Args:
-            bucket (dict): Ein einzelner Bucket, enthält 'relations' (list) und 'adjacent' (set).
-            main_id (int/str): Die ID des Hauptknotens.
-            relationships (iterable): Iterable von Relationship-Objekten (z.B. path.relationships).
-
-        Modifiziert:
-            bucket["relations"]: Fügt neue Relations hinzu, falls sie noch nicht existieren.
-            bucket["adjacent"]: Fügt IDs von benachbarten Nodes hinzu.
-        """
-        try:
-            for rel in relationships:
-                from_id = getattr(rel.start_node, 'identity', None)
-                to_id = getattr(rel.end_node, 'identity', None)
-                if from_id is None or to_id is None:
-                    continue  # Ungültige Relation überspringen
-
-                rel_dict = {"fromId": from_id, "toId": to_id, "relation": type(rel).__name__}
-
-                if rel_dict not in bucket.get("relations", []):
-                    bucket.setdefault("relations", []).append(rel_dict)
-
-                bucket.setdefault("adjacent", set())
-                if from_id == main_id:
-                    bucket["adjacent"].add(to_id)
-                if to_id == main_id:
-                    bucket["adjacent"].add(from_id)
-
-        except Exception as e:
-            print(f"Fehler beim Sammeln der Relations für bucket {main_id}: {e}")
+    def add_relation(bucket, main_id, f, t, name):
+        rel = {"fromId": f, "toId": t, "relation": name}
+        if rel not in bucket.get("relations", []):
+            bucket["relations"].append(rel)
+        if f == main_id:
+            bucket["adjacent"].add(t)
+        if t == main_id:
+            bucket["adjacent"].add(f)
 
     def build_cells_for_bucket(bucket, columns):
-        """
-        Erzeugt die Zellen für einen einzelnen Bucket.
+        return [pick_cell(bucket, c) for c in columns]
 
-        Args:
-            bucket (dict): Ein einzelner Bucket aus main_nodes.
-            columns (list): Liste der Spaltendefinitionen, jede mit "nodeType" und "property".
+    def pick_cell(bucket, col):
+        nodes = bucket.get("nodes", {}).get(col["nodeType"], {})
+        chosen = pick_node(nodes, bucket.get("adjacent", set()))
+        val = chosen[1].get("props", {}).get(col["property"]) if chosen else None
+        return {"value": val, "nodeId": chosen[0] if chosen else None}
 
-        Returns:
-            list: Liste von Zellen im Format {"value": ..., "nodeId": ...}
-        """
-        cells = []
-        try:
-            for col in columns:
-                label = col.get("nodeType")
-                prop = col.get("property")
-                nodes_map = bucket.get("nodes", {}).get(label, {})
-                chosen_node_id = None
-                chosen_info = None
-
-                if nodes_map:
-                    adjacent_candidates = {nid: info for nid, info in nodes_map.items() if nid in bucket.get("adjacent", {})}
-                    if adjacent_candidates:
-                        chosen_node_id, chosen_info = min(
-                            adjacent_candidates.items(), key=lambda x: x[1].get("min_dist", float('inf'))
-                        )
-                    else:
-                        chosen_node_id, chosen_info = min(
-                            nodes_map.items(), key=lambda x: x[1].get("min_dist", float('inf'))
-                        )
-
-                if chosen_info:
-                    val = chosen_info.get("props", {}).get(prop)
-                    cells.append({"value": val if val is not None else None, "nodeId": chosen_node_id})
-                else:
-                    cells.append({"value": None, "nodeId": None})
-
-        except Exception as e:
-            print(f"Fehler beim Erstellen der Zellen für bucket: {e}")
-            # Optional: fallback, leere Zellen erzeugen
-            cells = [{"value": None, "nodeId": None} for _ in columns]
-
-        return cells
+    def pick_node(nodes_map, adj):
+        if not nodes_map:
+            return None
+        candidates = {nid: i for nid, i in nodes_map.items() if nid in adj}
+        return min(candidates.items() if candidates else nodes_map.items(), key=lambda x: x[1].get("min_dist", 1e9))
 
     def fn_store_or_update_node(bucket_nodes, node_id, label, props, dist):
-        label_map = bucket_nodes.setdefault(label, {})
-        existing = label_map.get(node_id)
+        m = bucket_nodes.setdefault(label, {})
+        e = m.get(node_id)
+        if not e or dist < e.get("min_dist", 1e9):
+            m[node_id] = {"props": props, "min_dist": dist}
 
-        if existing is None:
-            label_map[node_id] = {"props": props, "min_dist": dist}
-            fn_debug_collect("Storing new node", {"node_id": node_id, "label": label, "dist": dist})
-        else:
-            if dist < existing.get("min_dist", float('inf')):
-                existing["min_dist"] = dist
-                existing["props"] = props
-                fn_debug_collect("Updating node", {"node_id": node_id, "label": label, "dist": dist})
-        return
-
-    def fn_calculate_distance(idx, main_index):
-        dist = abs(idx - main_index)
-        fn_debug_collect(f"Distance for index {idx}", dist)
-        return dist
-
-    def fn_filter_labels(node, selected_labels, filter_labels=None):
-        node_labels = [label for label in getattr(node, "labels", []) if label in selected_labels]
-        if filter_labels:
-            node_labels = [label for label in node_labels if label in filter_labels]
-        fn_debug_collect("Filtered labels", node_labels)
-        return node_labels
+    def fn_filter_labels(node, selected, filters=None):
+        labs = [l for l in getattr(node, "labels", []) if l in selected]
+        return [l for l in labs if not filters or l in filters]
 
     def fn_get_node_id(node):
-        node_id = getattr(node, "identity", None)
-        fn_debug_collect("Node ID", node_id)
-        return node_id
-
-    def fn_debug_collect(label, data):
-        print(f"DEBUG [collect_nodes]: {label}: {data}")
+        return getattr(node, "identity", None)
 
     return bp
