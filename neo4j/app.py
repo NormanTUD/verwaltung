@@ -844,51 +844,6 @@ def collect_labels(path_results, selected_labels):
     print(f"✅ Alle gesammelten Labels: {all_labels_list}")
     return all_labels_list
 
-def build_table_results(path_results, selected_labels, all_labels):
-    """Tabellarische Ergebnisse aus Pfaden aufbereiten"""
-    print("🔍 build_table_results: Start")
-    table_results = []
-
-    for path_idx, r in enumerate(path_results):
-        print(f"  🛤️ Bearbeite Pfad {path_idx+1}/{len(path_results)}")
-        path = r['p']
-        row = {label: [] for label in all_labels}
-        row['relationships'] = []
-
-        # Nodes einfügen
-        for n in path.nodes:
-            filtered_labels = [_l for _l in n.labels if _l in selected_labels]
-            for label in filtered_labels:
-                node_info = {'id': n.identity, 'properties': dict(n)}
-                print(f"    Node hinzufügen: Label={label}, ID={n.identity}, Properties={node_info['properties']}")
-                row[label].append(node_info)
-
-        # Beziehungen einfügen
-        for rel in path.relationships:
-            rel_info = {
-                'from': rel.start_node.identity,
-                'to': rel.end_node.identity,
-                'type': type(rel).__name__,
-                'properties': dict(rel)
-            }
-            print(f"    Beziehung hinzufügen: {rel_info}")
-            row['relationships'].append(rel_info)
-
-        # Listen mit nur einem Element zu Dictionary konvertieren
-        for label in all_labels:
-            if len(row[label]) == 1:
-                print(f"    Label {label} hat nur 1 Node, konvertiere zu Dict")
-                row[label] = row[label][0]
-            elif len(row[label]) == 0:
-                print(f"    Label {label} hat 0 Nodes, setze auf None")
-                row[label] = None
-
-        table_results.append(row)
-        print(f"  ✅ Pfad {path_idx+1} verarbeitet")
-
-    print(f"✅ build_table_results: Fertig, {len(table_results)} Zeilen erstellt")
-    return table_results
-
 @app.route('/api/update_node/<int:node_id>', methods=['PUT'])
 @test_if_deleted_db
 def update_node(node_id):
