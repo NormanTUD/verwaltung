@@ -57,6 +57,7 @@ function updateExistingNodes(dataIdAttr, property, value) {
 }
 
 // === Node erstellen, falls noch nicht vorhanden ===
+// Hier ist die wirklich dynamische createNewNode-Funktion, hardcode-frei
 function createNewNode(element, property, value) {
     console.group("createNewNode: Start");
     const tr = element.closest('tr');
@@ -66,65 +67,39 @@ function createNewNode(element, property, value) {
         return;
     }
     
-    // 1. Get ALL relations for the entire row, which are now correctly stored on the <td>
+    // Hole das Node-Label aus der Spaltenüberschrift
+    const tdIndex = Array.from(tr.children).indexOf(element.parentElement);
+    const tableHeader = tr.closest('table').querySelector('thead tr');
+    const headerCell = tableHeader.children[tdIndex];
+    const headerText = headerCell.textContent.trim();
+    const parts = headerText.split(':');
+    const nodeLabel = parts[0];
+    
+    // Hole alle Relationen der Zeile, um die verbundene ID zu finden
     const td = element.parentElement;
     const relDataAttr = td.getAttribute('data-relations');
-    
-    if (!relDataAttr) {
-        // Fallback for cases where no relations are found at all in the row.
-        console.log("Keine Relationsdaten in der Zeile gefunden. Erstelle Node ohne Verbindung.");
-        createNodeRequest(element, property, value, null, null);
-        console.groupEnd();
-        return;
-    }
-
     let allRowRelations = [];
-    try {
-        allRowRelations = JSON.parse(decodeURIComponent(relDataAttr));
-    } catch (err) {
-        error("Fehler beim Parsen der Relationen: " + err);
-        console.groupEnd();
-        return;
-    }
-    
-    console.log("DEBUG: Alle Relationen in der Zeile:", allRowRelations);
-    
-    // 2. Identify the target of the new relation
-    // We need to find the node that the new node will connect to.
-    // The existing nodes in the row are the potential connection points.
-    let connectToNode = null;
-    let newRelationType = null;
-    
-    // Dynamically determine the relation and connected node based on existing relations in the row.
-    // Logic: A new node (e.g., Buch) is the 'toId' for a relation (e.g., HAT_GESCHRIEBEN)
-    // from an existing node (e.g., Person), which is the 'fromId'.
-    // We can find the 'fromId' for the new relation by looking at the existing relations in the row.
-    if (allRowRelations.length > 0) {
-        // Example: if the row contains a 'WOHNT_IN' relation, the 'fromId' is a Person.
-        // A new 'Buch' node would connect to this Person.
-        const personRelation = allRowRelations.find(r => r.relation === 'WOHNT_IN');
-        if (personRelation) {
-            connectToNode = {
-                id: personRelation.fromId,
-                relation: 'HAT_GESCHRIEBEN' // The new relation will be 'HAT_GESCHRIEBEN'
-            };
-            newRelationType = 'HAT_GESCHRIEBEN';
+    if (relDataAttr) {
+        try {
+            allRowRelations = JSON.parse(decodeURIComponent(relDataAttr));
+        } catch (err) {
+            error("Fehler beim Parsen der Relationen: " + err);
+            console.groupEnd();
+            return;
         }
-        // Add more dynamic logic here if other node types or relations are possible.
-        // For example, finding a different fromId for a different relation type.
+    }
+    
+    let connectedData = [];
+    if (allRowRelations.length > 0) {
+        // Die verbundene ID ist die 'fromId' des ersten Nodes in der Zeile
+        const connectId = allRowRelations[0].fromId;
+        if (connectId) {
+            connectedData.push({ id: connectId }); // Sende nur die ID
+        }
     }
 
-    // 3. Call the request function with the dynamically determined values
-    console.log("DEBUG: Abgeleiteter Relationstyp:", newRelationType);
-    console.log("DEBUG: Abgeleitete verbundene ID:", connectToNode ? connectToNode.id : null);
-
-    if (connectToNode && newRelationType) {
-        // Pass the single connection object to the request
-        createNodeRequest(element, property, value, [connectToNode], newRelationType);
-    } else {
-        // Fallback: create node without a connection
-        createNodeRequest(element, property, value, [], null);
-    }
+    // Rufe createNodeRequest ohne relType auf
+    createNodeRequest(element, property, value, connectedData, nodeLabel);
 
     console.groupEnd();
 }
@@ -187,31 +162,22 @@ function collectUniqueRelations(element) {
 }
 
 // === Node via API erstellen, komplett dynamisch ===
-function createNodeRequest(element, property, value, connectTo, relType) {
+// Hier ist die angepasste createNodeRequest Funktion
+function createNodeRequest(element, property, value, connectTo, nodeLabel) {
     console.group("createNodeRequest: Start");
 
     const props = {};
     props[property] = value;
     
-    const requestBody = { props };
+    const requestBody = { props, node_label: nodeLabel };
 
-    // ✨ Fix: Die `connectTo`-Struktur wird jetzt direkt aus den übergebenen Daten erstellt.
-    // Die Logik in createNewNode sollte bereits das korrekte `connectTo`-Objekt übergeben.
     if (connectTo && Array.isArray(connectTo) && connectTo.length > 0) {
-        requestBody.connectTo = connectTo; // Fügt das Array direkt hinzu
-        // Die Relation der obersten Ebene wird aus dem `relType` abgeleitet.
-        // `relType` sollte den Stringwert der Relation enthalten (z.B. 'HAT_GESCHRIEBEN').
-        if (relType) {
-            requestBody.relation = { relation: relType };
-        }
+        requestBody.connectTo = connectTo;
     } else {
-        // Fallback: Wenn keine gültigen Verbindungsdaten vorhanden sind
         console.log("DEBUG: Keine gültigen Verbindungsdaten gefunden. Sende Request ohne `connectTo`.");
         requestBody.connectTo = [];
-        requestBody.relation = null;
     }
     
-    // --- DEBUG: Endgültiger Request-Body ---
     console.log("DEBUG: Sende Request mit Body:", JSON.stringify(requestBody, null, 2));
 
     fetch('/api/create_node', {

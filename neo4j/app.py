@@ -690,34 +690,27 @@ def fn_parse_request_data(data):
     prop_name = None
     value = None
     
-    # Check for the new 'props' structure first
     if "props" in data and isinstance(data["props"], dict):
         props = data["props"]
         if props:
-            # Get the first key and value from the props dictionary
             prop_name, value = next(iter(props.items()))
     else:
-        # Fallback to the old, flat structure
         prop_name = data.get("property")
         value = data.get("value")
 
+    # This is the change: get the connectTo list directly
     connect_data = data.get("connectTo", [])
-    relation_data = data.get("relation", None)
+    node_label = data.get("node_label")
     
-    return prop_name, value, connect_data, relation_data
+    return prop_name, value, connect_data, node_label
 
-def fn_determine_node_label(relation_data):
-    # Mapping von Relationstypen zu den entsprechenden Ziel-Labels
-    relation_to_label_map = {
-        "HAT_GESCHRIEBEN": "Buch",
-        "WOHNT_IN": "Ort",
-        # Füge hier weitere Relationstypen und deren Ziel-Labels hinzu
-    }
-
-    rel_type = relation_data.get("relation", "")
-    
-    # Versuche, das Label aus dem Mapping zu finden
-    node_label = relation_to_label_map.get(rel_type, "Node")
+def fn_determine_node_label(data):
+    # Lese das Label direkt aus dem Request, wenn es existiert.
+    if "node_label" in data and isinstance(data["node_label"], str):
+        node_label = data["node_label"]
+    else:
+        # Fallback auf generisches Label, wenn es nicht übermittelt wird.
+        node_label = "Node"
     
     fn_debug_print("Determined node label", node_label)
     return node_label
@@ -739,58 +732,61 @@ def fn_clean_connect_ids(connect_ids):
     fn_debug_print("Cleaned connect IDs", cleaned)
     return cleaned
 
-def fn_create_relationships(new_node_id, connect_data, relation_data):
-    if not connect_data or not relation_data:
-        fn_debug_print("No relationships to create", {"connect_data": connect_data, "relation_data": relation_data})
+def fn_create_relationships(new_node_id, connect_data):
+    if not connect_data:
+        fn_debug_print("Keine Beziehungen zu erstellen", {})
         return
 
-    rel_type = relation_data.get("relation", "CONNECTED_TO")
-    
-    # Use the correct `id` and `relation` from the connect_data list of dictionaries
     for item in connect_data:
-        # Ensure the item has an `id` and `relation` key
-        if "id" in item and "relation" in item:
-            other_id = item["id"]
+        if "id" in item:
+            existing_node_id = item["id"]
             
-            # Use the relation from the `connectTo` item, not the top-level relation_data.
-            # This makes the function more flexible for multiple relationships.
-            specific_rel_type = item["relation"]
-
+            # Die gesamte Logik, um den Beziehungstyp zu bestimmen,
+            # wird direkt in die Cypher-Abfrage verschoben.
+            # Das Backend muss keine Annahmen mehr treffen.
             query_rel = f"""
-                MATCH (n),(m)
-                WHERE ID(n) = $from_id AND ID(m) = $to_id
-                MERGE (n)-[:{specific_rel_type}]->(m)
+                MATCH (from_node) WHERE ID(from_node) = $from_id
+                MATCH (to_node) WHERE ID(to_node) = $to_id
+                
+                MERGE (from_node)-[rel:TYPE]->(to_node)
+                
+                ON CREATE SET rel.type = CASE
+                    WHEN 'Person' IN labels(from_node) AND 'Buch' IN labels(to_node) THEN 'HAT_GESCHRIEBEN'
+                    WHEN 'Person' IN labels(from_node) AND 'Ort' IN labels(to_node) THEN 'WOHNT_IN'
+                    ELSE 'CONNECTED_TO'
+                END
+                RETURN rel
             """
-            fn_debug_print("Relationship creation query", f"{other_id} -[{specific_rel_type}]-> {new_node_id}")
-            graph.run(query_rel, from_id=other_id, to_id=new_node_id)
-            fn_debug_print("Relationship created", f"{other_id} -[{specific_rel_type}]-> {new_node_id}")
+            
+            fn_debug_print("Beziehungs-Erstellungs-Abfrage", f"{existing_node_id} --> {new_node_id}")
+            graph.run(query_rel, from_id=existing_node_id, to_id=new_node_id)
+            fn_debug_print("Beziehung erstellt", f"{existing_node_id} --> {new_node_id}")
 
 # ===============================
 # Flask Route
 # ===============================
-
 @app.route('/api/create_node', methods=['POST'])
 def api_create_node():
     try:
         data = request.get_json(silent=True)
         fn_debug_print("Incoming request data", data)
 
-        # Validate request
         is_valid, error_msg = fn_validate_request_body(data)
         if not is_valid:
             return jsonify({"status": "error", "message": error_msg}), 400
 
-        # Parse request data
-        prop_name, value, connect_data, relation_data = fn_parse_request_data(data)
-
-        # Determine node label
-        node_label = fn_determine_node_label(relation_data)
+        props = data.get("props", {})
+        node_label = data.get("node_label")
+        connect_data = data.get("connectTo", [])
         
-        # Create node
+        prop_name = next(iter(props), None)
+        value = props.get(prop_name)
+
         new_node_id = fn_create_node(node_label, prop_name, value)
         
-        # Create relationships
-        fn_create_relationships(new_node_id, connect_data, relation_data)
+        # Correct the function call here. 
+        # Pass only the two expected arguments.
+        fn_create_relationships(new_node_id, connect_data)
 
         fn_debug_print("Node creation process completed", new_node_id)
         return jsonify({
