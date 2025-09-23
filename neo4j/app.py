@@ -16,6 +16,7 @@ from api.delete_node import create_delete_node_bp
 from api.delete_nodes import create_delete_nodes_bp
 from api.create_node import create_create_node_bp
 from api.add_property_to_nodes import create_add_property_to_nodes_bp
+from api.delete_all import create_delete_all_bp
 
 from rich.console import Console
 
@@ -64,6 +65,7 @@ app.register_blueprint(create_delete_node_bp(graph), url_prefix='/api')
 app.register_blueprint(create_add_property_to_nodes_bp(graph), url_prefix='/api')
 app.register_blueprint(create_delete_nodes_bp(graph), url_prefix='/api')
 app.register_blueprint(create_create_node_bp(graph), url_prefix='/api')
+app.register_blueprint(create_delete_all_bp(graph), url_prefix='/api')
 
 # Definiere den Dateipfad
 SAVED_QUERIES_FILE = 'saved_queries.json'
@@ -79,20 +81,6 @@ def save_queries_to_file(queries):
     """Speichert die Abfragen in der Datei."""
     with open(SAVED_QUERIES_FILE, encoding="utf-8", mode='w') as f:
         json.dump(queries, f, indent=4)
-
-# TODO!!! DELETE AGAIN!!!
-@app.route('/api/delete_all')
-def delete_all():
-    """
-    Löscht alle Nodes und Relationships in der Datenbank.
-    Kann ohne Body oder Parameter aufgerufen werden.
-    """
-    try:
-        graph.run("MATCH (n) DETACH DELETE n")
-        return jsonify({"status": "success", "message": "Alle Knoten und Beziehungen wurden gelöscht"})
-    except Exception as e:
-        print("EXCEPTION:", str(e))
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/add_row', methods=['POST'])
 def add_row():
