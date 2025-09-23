@@ -5,8 +5,7 @@ import json
 from flask import session
 from py2neo import Graph, Node, Relationship
 from dotenv import load_dotenv
-from unittest.mock import patch
-
+from unittest.mock import patch, MagicMock
 from app import (
     get_all_nodes_and_relationships,
 )
@@ -3034,6 +3033,17 @@ class TestNeo4jApp(unittest.TestCase):
         resp = self.app.post("/api/save_query", json={"name": ""})
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(resp.get_json()["status"], "error")
+
+    def test_add_row_success(self):
+        resp = self.app.post("/api/add_row", json={
+            "label": "Person",
+            "properties": {"name": "Alice", "age": 30}
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data["status"], "success")
+        self.assertIn("Person", data["message"])
+        self.assertIn("id", data)
 
 if __name__ == '__main__':
     unittest.main()
