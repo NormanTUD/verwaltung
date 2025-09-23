@@ -21,6 +21,7 @@ from api.graph_data import create_graph_data_bp
 from api.update_node import create_update_node_bp
 from api.add_row import create_add_row_bp
 from api.add_column import create_add_column_bp
+from api.update_nodes import create_update_nodes_bp
 
 from rich.console import Console
 
@@ -74,6 +75,7 @@ app.register_blueprint(create_graph_data_bp(graph), url_prefix='/api')
 app.register_blueprint(create_update_node_bp(graph), url_prefix='/api')
 app.register_blueprint(create_add_row_bp(graph), url_prefix='/api')
 app.register_blueprint(create_add_column_bp(graph), url_prefix='/api')
+app.register_blueprint(create_update_nodes_bp(graph), url_prefix='/api')
 
 # Definiere den Dateipfad
 SAVED_QUERIES_FILE = 'saved_queries.json'
@@ -89,38 +91,6 @@ def save_queries_to_file(queries):
     """Speichert die Abfragen in der Datei."""
     with open(SAVED_QUERIES_FILE, encoding="utf-8", mode='w') as f:
         json.dump(queries, f, indent=4)
-
-@app.route('/api/update_nodes', methods=['PUT'])
-def update_nodes():
-    data = request.get_json(silent=True)
-
-    if not data:
-        return jsonify({"status": "error", "message": "Request-Body ist leer oder hat ein ungültiges Format."}), 400
-
-    node_ids = data.get('ids', [])
-    property_name = data.get('property')
-    new_value = data.get('value')
-
-    if not all([node_ids, property_name is not None, new_value is not None]):
-        return jsonify({"status": "error", "message": "Fehlende Daten im Request."}), 400
-
-    if not graph:
-        return jsonify({"status": "error", "message": "Datenbank nicht verbunden."}), 500
-
-    try:
-        # Dynamische Erstellung der Cypher-Abfrage
-        query = f"""
-            UNWIND $ids AS id
-            MATCH (n) WHERE ID(n) = id
-            SET n.{property_name} = $value
-        """
-
-        # Führe die Abfrage aus
-        graph.run(query, ids=node_ids, value=new_value)
-
-        return jsonify({"status": "success", "message": f"{len(node_ids)} Nodes wurden aktualisiert."})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/save_query', methods=['POST'])
 def save_query():
