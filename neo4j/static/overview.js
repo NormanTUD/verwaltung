@@ -560,9 +560,11 @@ function addColumnToNode(event) {
 				return response.json();
 			})
 			.then(data => {
-				console.log(data.message);
 				if (data.status === 'success') {
+					success(data.message);
 					fetchData();
+				} else {
+					error(data.message);
 				}
 			})
 			.catch(error => {
