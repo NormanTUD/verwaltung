@@ -3003,5 +3003,26 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertIn(b'<!DOCTYPE html', response.data)
             self.assertIn(b'<html', response.data)
 
+    def test_dump_database_returns_json(self):
+        with self.app as client:
+            response = client.get("/api/dump_database")
+            self.assertEqual(response.status_code, 200)
+            data = response.get_json()
+            self.assertIn("nodes", data)
+            self.assertIn("relationships", data)
+            self.assertIsInstance(data["nodes"], list)
+            self.assertIsInstance(data["relationships"], list)
+
+    def test_dump_database_contains_created_node(self):
+        node = Node("TestLabel", name="Testy")
+        self.graph.create(node)
+
+        with self.app as client:
+            response = client.get("/api/dump_database")
+            self.assertEqual(response.status_code, 200)
+            data = response.get_json()
+            node_ids = [n["id"] for n in data["nodes"]]
+            self.assertIn(node.identity, node_ids)
+
 if __name__ == '__main__':
     unittest.main()

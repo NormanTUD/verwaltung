@@ -7,8 +7,6 @@ def create_dump_database_bp(graph):
     @bp.route("/dump_database")
     def api_dump_database():
         try:
-            print("Start API", "Dumping database")
-
             query_nodes = """
                 MATCH (n)
                 RETURN id(n) AS id, labels(n) AS labels, properties(n) AS props
@@ -28,7 +26,6 @@ def create_dump_database_bp(graph):
                 "relationships": rels
             }
 
-            print("Finished API", f"Dumped {len(nodes)} nodes and {len(rels)} relationships")
             return jsonify(dump)
 
         except Exception as e:
