@@ -86,7 +86,6 @@ try:
                 )
             )
             graph.run("RETURN 1")  # Testabfrage
-            print("Neo4j ist bereit!")
             break
         except Exception as e:
             print(f"[{attempt+1}/15] Neo4j nicht bereit, warte 2 Sekunden... ({e})")

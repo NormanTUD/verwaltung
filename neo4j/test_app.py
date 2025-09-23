@@ -66,7 +66,6 @@ class TestNeo4jApp(unittest.TestCase):
                         )
                     )
                     cls.graph.run("RETURN 1")  # Testabfrage
-                    print("Neo4j ist bereit!")
                     break
                 except Exception as e:
                     print(f"[{attempt+1}/15] Neo4j nicht bereit, warte 2 Sekunden... ({e})")
@@ -79,8 +78,6 @@ class TestNeo4jApp(unittest.TestCase):
             print("You pressed CTRL-C")
             sys.exit(0)
 
-        print("Verbindung zu Test-Graph erfolgreich hergestellt!")
-    
     @classmethod
     def tearDownClass(cls):
         """
