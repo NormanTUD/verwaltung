@@ -14,6 +14,7 @@ from api.get_data_as_table import create_get_data_bp
 from api.dump_database import create_dump_database_bp
 from api.reset_and_load_data import create_reset_and_load_data_bp
 from api.delete_node import create_delete_node_bp
+from api.delete_nodes import create_delete_nodes_bp
 from api.add_property_to_nodes import create_add_property_to_nodes_bp
 
 from rich.console import Console
@@ -101,17 +102,12 @@ app.config['GRAPH'] = graph
 
 matcher = NodeMatcher(graph)
 
-get_data_bp = create_get_data_bp(graph)
-dump_database = create_dump_database_bp(graph)
-reset_and_load_data = create_reset_and_load_data_bp(graph)
-delete_node = create_delete_node_bp(graph)
-add_property_to_nodes = create_add_property_to_nodes_bp(graph)
-
-app.register_blueprint(get_data_bp, url_prefix='/api')
-app.register_blueprint(dump_database, url_prefix='/api')
-app.register_blueprint(reset_and_load_data, url_prefix='/api')
-app.register_blueprint(delete_node, url_prefix='/api')
-app.register_blueprint(add_property_to_nodes, url_prefix='/api')
+app.register_blueprint(create_get_data_bp(graph), url_prefix='/api')
+app.register_blueprint(create_dump_database_bp(graph), url_prefix='/api')
+app.register_blueprint(create_reset_and_load_data_bp(graph), url_prefix='/api')
+app.register_blueprint(create_delete_node_bp(graph), url_prefix='/api')
+app.register_blueprint(create_add_property_to_nodes_bp(graph), url_prefix='/api')
+app.register_blueprint(create_delete_nodes_bp(graph), url_prefix='/api')
 
 # Definiere den Dateipfad
 SAVED_QUERIES_FILE = 'saved_queries.json'
@@ -141,50 +137,6 @@ def delete_all():
         return jsonify({"status": "success", "message": "Alle Knoten und Beziehungen wurden gelöscht"})
     except Exception as e:
         print("EXCEPTION:", str(e))
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/delete_nodes', methods=['DELETE'])
-@test_if_deleted_db
-def delete_nodes():
-    """Löscht mehrere Nodes und ihre Beziehungen aus der Datenbank."""
-    if not graph:
-        return jsonify({"status": "error", "message": "Datenbank nicht verbunden."}), 500
-
-    # Check if 'ids' is in the URL query string
-    ids_param = request.args.get('ids')
-
-    if not ids_param:
-        return jsonify({"status": "error", "message": "Fehlende 'ids' im URL-Parameter."}), 400
-
-    try:
-        # Split the string by comma and convert each part to an integer
-        node_ids = []
-        if ids_param is not None:
-            for id_str in ids_param.split(','):
-                id_str = id_str.strip()
-                if id_str == "":
-                    continue
-                try:
-                    node_ids.append(int(id_str))
-                except ValueError:
-                    # Ungültiger Eintrag wird übersprungen oder man könnte hier loggen
-                    continue
-    except ValueError:
-        return jsonify({"status": "error", "message": "Ungültiges Format für 'ids'. Erwarte eine durch Kommas getrennte Liste von Zahlen."}), 400
-
-    if not node_ids:
-        return jsonify({"status": "success", "message": "Keine Nodes zum Löschen angegeben."})
-
-    query = """
-        UNWIND $ids AS id
-        MATCH (n) WHERE ID(n) = id
-        DETACH DELETE n
-    """
-    try:
-        graph.run(query, ids=node_ids)
-        return jsonify({"status": "success", "message": f"{len(node_ids)} Nodes und alle Beziehungen wurden gelöscht."})
-    except Exception as e:
-        print(f"Fehler beim Löschen der Nodes: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/add_row', methods=['POST'])
