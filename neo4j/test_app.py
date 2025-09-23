@@ -3045,5 +3045,18 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertIn("Person", data["message"])
         self.assertIn("id", data)
 
+    def test_add_row_missing_label(self):
+        resp = self.app.post("/api/add_row", json={"properties": {"foo": "bar"}})
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("label", resp.get_json()["message"])
+
+    def test_add_row_invalid_property_name(self):
+        resp = self.app.post("/api/add_row", json={
+            "label": "Person",
+            "properties": {"invalid-key!": "oops"}
+        })
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("Ungültiger Property-Name", resp.get_json()["message"])
+
 if __name__ == '__main__':
     unittest.main()
