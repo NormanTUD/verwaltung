@@ -266,8 +266,6 @@ def process_row(tx, row, mapping_data):
     for rel_data in mapping_data.get('relationships', []):
         create_relationship(tx, rel_data['from'], rel_data['to'], rel_data['type'], nodes_created)
 
-    return nodes_created
-
 def merge_node(tx, node_type, fields, row):
     """Merged einen Knoten vom Typ node_type mit gegebenen Properties."""
     node_var = safe_var_name(node_type)
