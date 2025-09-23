@@ -178,7 +178,7 @@ class TestNeo4jApp(unittest.TestCase):
         """Testet save_mapping ohne vorherigen Upload."""
         response = self.app.post('/save_mapping', data=json.dumps(SAMPLE_MAPPING), content_type='application/json')
         self.assertEqual(response.status_code, 500)
-        self.assertIn(b"Sitzungsdaten fehlen", response.data)
+        self.assertIn(b"raw_data not in session.", response.data)
 
     def test_save_mapping_no_nodes_or_rels(self):
         """Testet save_mapping mit einem leeren Mapping."""
@@ -412,7 +412,7 @@ class TestNeo4jApp(unittest.TestCase):
             content_type='application/json'
         )
         self.assertEqual(response.status_code, 500)
-        self.assertIn(b"Sitzungsdaten fehlen", response.data)
+        self.assertIn(b"raw_data not in session.", response.data)
 
     def test_overview_success(self):
         """Übersicht mit Datenbank-Verbindung."""
@@ -743,7 +743,7 @@ class TestNeo4jApp(unittest.TestCase):
             sess.clear()
         response = self.app.post('/save_mapping', data=json.dumps({"nodes": {}, "relationships": []}), content_type='application/json')
         self.assertEqual(response.status_code, 500)
-        self.assertIn(b"Sitzungsdaten fehlen", response.data)
+        self.assertIn(b"raw_data not in session", response.data)
 
     def test_graph_data_with_cyclic_relationship(self):
         """Zyklische Relation wird korrekt zurückgegeben."""
@@ -2119,7 +2119,7 @@ class TestNeo4jApp(unittest.TestCase):
                 sess.pop('raw_data', None)
             resp = client.post('/save_mapping', json={})
             self.assertEqual(resp.status_code, 500)
-            self.assertIn(b"Sitzungsdaten fehlen", resp.data)
+            self.assertIn(b"raw_data not in session", resp.data)
 
     def test_save_mapping_empty_csv(self):
         """Leere CSV-Daten werden korrekt abgefangen."""

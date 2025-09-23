@@ -456,9 +456,12 @@ def save_mapping():
     """Hauptfunktion: speichert die zugeordneten Daten in Neo4j."""
     mapping_data = request.get_json()
 
-    if 'raw_data' not in session or not graph:
-        print("Fehler: Sitzungsdaten fehlen oder Datenbank nicht verbunden.")
-        return jsonify({"status": "error", "message": "Sitzungsdaten fehlen oder Datenbank nicht verbunden."}), 500
+    if not graph:
+        print("Fehler: Datenbank nicht verbunden.")
+        return jsonify({"status": "error", "message": "Datenbank nicht verbunden."}), 500
+
+    if 'raw_data' not in session:
+        return jsonify({"status": "error", "message": "raw_data not in session."}), 500
 
     reader = parse_csv_from_session()
     if reader is None:
