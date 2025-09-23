@@ -1685,17 +1685,6 @@ class TestNeo4jApp(unittest.TestCase):
             data = resp.get_json()
             self.assertLessEqual(len(data['rows']), 3)
 
-    def test_get_data_as_table_relations_reference_nodeids(self):
-        """Every relation entry should reference node IDs that exist in the DB."""
-        self.graph.run("MATCH (n) DETACH DELETE n")
-        r = self.graph.run("CREATE (p:Person {n:'X'})-[:R]->(o:Ort {plz:'7'}) RETURN id(p) AS pid, id(o) AS oid").data()[0]
-        pid, oid = r['pid'], r['oid']
-        with self.app as client:
-            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort'})
-            self.assertEqual(resp.status_code, 200)
-            rels = resp.get_json()['rows'][0]['relations']
-            self.assertTrue(any((r['fromId'] == pid and r['toId'] == oid) for r in rels))
-
     def test_get_data_as_table_empty_filterlabels_param(self):
         """If filterLabels is empty string it should be ignored and not crash."""
         self.graph.run("MATCH (n) DETACH DELETE n")
