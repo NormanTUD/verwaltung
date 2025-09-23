@@ -77,11 +77,7 @@ def create_get_data_bp(graph):
             rows = assemble_table_rows(buckets, columns)
             return jsonify({"columns": columns, "rows": rows})
         except Exception as e:
-            return handle_api_error(e)
-
-    def handle_api_error(e):
-        print(f"!!! Fehler aufgetreten: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+            return jsonify({"status": "error", "message": str(e)}), 500
 
     # === Buckets bauen (arbeitet nur mit Dicts, nicht Neo4j direkt) ===
     def build_buckets(graph_api, params):
