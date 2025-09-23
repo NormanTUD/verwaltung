@@ -3058,5 +3058,31 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("Ungültiger Property-Name", resp.get_json()["message"])
 
+    def test_delete_all_success(self):
+        # Vorher ein Node anlegen, damit auch wirklich was gelöscht wird
+        self.graph.run("CREATE (:TestLabel {foo:'bar'})")
+
+        resp = self.app.get("/api/delete_all")
+        self.assertEqual(resp.status_code, 200)
+
+        data = resp.get_json()
+        self.assertEqual(data["status"], "success")
+        self.assertIn("Alle Knoten", data["message"])
+
+        # Sicherstellen, dass die DB jetzt leer ist
+        result = self.graph.run("MATCH (n) RETURN count(n) AS cnt").data()[0]["cnt"]
+        self.assertEqual(result, 0)
+
+    def test_delete_all_with_empty_db(self):
+        # Sicherstellen, dass die DB leer ist
+        self.graph.run("MATCH (n) DETACH DELETE n")
+
+        resp = self.app.get("/api/delete_all")
+        self.assertEqual(resp.status_code, 200)
+
+        data = resp.get_json()
+        self.assertEqual(data["status"], "success")
+        self.assertIn("Alle Knoten", data["message"])
+
 if __name__ == '__main__':
     unittest.main()
