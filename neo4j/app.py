@@ -14,6 +14,7 @@ from api.get_data_as_table import create_get_data_bp
 from api.dump_database import create_dump_database_bp
 from api.reset_and_load_data import create_reset_and_load_data_bp
 from api.delete_node import create_delete_node_bp
+from api.add_property_to_nodes import create_add_property_to_nodes_bp
 
 from rich.console import Console
 
@@ -104,10 +105,13 @@ get_data_bp = create_get_data_bp(graph)
 dump_database = create_dump_database_bp(graph)
 reset_and_load_data = create_reset_and_load_data_bp(graph)
 delete_node = create_delete_node_bp(graph)
+add_property_to_nodes = create_add_property_to_nodes_bp(graph)
+
 app.register_blueprint(get_data_bp, url_prefix='/api')
 app.register_blueprint(dump_database, url_prefix='/api')
 app.register_blueprint(reset_and_load_data, url_prefix='/api')
 app.register_blueprint(delete_node, url_prefix='/api')
+app.register_blueprint(add_property_to_nodes, url_prefix='/api')
 
 # Definiere den Dateipfad
 SAVED_QUERIES_FILE = 'saved_queries.json'
@@ -786,48 +790,6 @@ def update_node(node_id):
 # Hilfsfunktionen
 # ------------------------
 
-@app.route("/api/add_property_to_nodes", methods=["POST"])
-@test_if_deleted_db
-def add_property_to_nodes():
-    if not graph:
-        return jsonify({"error": "No database connection"}), 500
-
-    data = request.get_json(force=True)
-
-    label = data.get("label")
-    property_name = data.get("property")
-    value = data.get("value", None)
-    return_nodes = data.get("return_nodes", False)
-
-    if not label or not isinstance(label, str) or not label.isidentifier():
-        return jsonify({"error": f"Invalid label name: {label}"}), 400
-    if not property_name or not isinstance(property_name, str) or not property_name.isidentifier():
-        return jsonify({"error": f"Invalid property name: {property_name}"}), 400
-
-    query = f"""
-        MATCH (n:`{label}`)
-        WHERE n.{property_name} IS NULL
-        SET n.{property_name} = $value
-        RETURN id(n) AS id
-    """
-
-    try:
-        result = graph.run(query, value=value).data()
-        updated_ids = [r["id"] for r in result]
-        response = {"updated": len(updated_ids)}
-        if return_nodes:
-            response["nodes"] = updated_ids
-        return jsonify(response)
-    except Exception as e:
-        logging.error(f"Error adding property: {e}", exc_info=True)
-        return (
-            jsonify({
-                "error": str(e),
-                "query": query,
-                "params": {"value": value}
-            }),
-            500,
-        )
 
 if __name__ == '__main__':
     try:
