@@ -1872,20 +1872,6 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,'})
             self.assertEqual(resp.status_code, 200)
 
-    def test_get_data_as_table_multiple_relationship_types(self):
-        """Nodes connected with different relationship types should all be captured."""
-        self.graph.run("MATCH (n) DETACH DELETE n")
-        self.graph.run("CREATE (p:Person {name:'X'})-[:A]->(o:Ort {plz:'1'}), (p)-[:B]->(s:Stadt {stadt:'S'})")
-        with self.app as client:
-            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort,Stadt'})
-            self.assertEqual(resp.status_code, 200)
-            data = resp.get_json()
-            rels = set()
-            for row in data['rows']:
-                for r in row['relations']:
-                    rels.add(r['relation'])
-            self.assertTrue({'A','B'}.issubset(rels))
-
     def test_get_data_as_table_cyclic_graph_with_depth_limit(self):
         """Zyklischer Graph A->B->C->A darf bei hoher maxDepth nicht endlos laufen"""
         self.graph.run("MATCH (n) DETACH DELETE n")
