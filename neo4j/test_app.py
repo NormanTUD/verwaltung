@@ -3084,5 +3084,65 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(data["status"], "success")
         self.assertIn("Alle Knoten", data["message"])
 
+    def test_create_node_success(self):
+        resp = self.app.post(
+            "/api/create_node",
+            json={
+                "node_label": "Person",
+                "props": {"name": "Alice"}
+            }
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data["status"], "success")
+        self.assertIn("newNodeId", data)
+
+        # check node exists in DB
+        node_id = data["newNodeId"]
+        result = self.graph.run(f"MATCH (n) WHERE ID(n)={node_id} RETURN n").data()
+        self.assertTrue(result)
+        self.assertEqual(result[0]["n"]["name"], "Alice")
+
+    def test_create_node_invalid_props(self):
+        resp = self.app.post(
+            "/api/create_node",
+            json={"node_label": "Person", "props": {}}
+        )
+        self.assertEqual(resp.status_code, 400)
+        data = resp.get_json()
+        self.assertEqual(data["status"], "error")
+
+    def test_create_node_invalid_property_name(self):
+        resp = self.app.post(
+            "/api/create_node",
+            json={"node_label": "Person", "props": {"123bad": "oops"}}
+        )
+        self.assertEqual(resp.status_code, 400)
+        data = resp.get_json()
+        self.assertIn("Ungültiger Property-Name", data["message"])
+
+    def test_create_node_with_relationship(self):
+        # zuerst ein Zielnode
+        existing = self.graph.run("CREATE (p:Person {name:'Bob'}) RETURN ID(p) AS id").data()[0]["id"]
+
+        resp = self.app.post(
+            "/api/create_node",
+            json={
+                "node_label": "Buch",
+                "props": {"title": "Mein Buch"},
+                "connectTo": [{"id": existing}]
+            }
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data["status"], "success")
+
+        # check relationship created
+        new_id = data["newNodeId"]
+        rels = self.graph.run(
+            f"MATCH (a)-[r]->(b) WHERE ID(b)={new_id} RETURN type(r) AS t"
+        ).data()
+        self.assertTrue(rels)
+
 if __name__ == '__main__':
     unittest.main()
