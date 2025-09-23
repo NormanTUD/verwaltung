@@ -8,7 +8,6 @@ import inspect
 from flask import Flask, request, jsonify, render_template, session
 from py2neo import Graph, NodeMatcher
 from dotenv import load_dotenv
-import logging
 from api.get_data_as_table import create_get_data_bp
 from api.dump_database import create_dump_database_bp
 from api.reset_and_load_data import create_reset_and_load_data_bp
@@ -230,7 +229,7 @@ def save_mapping():
     try:
         for i, row in enumerate(reader):
             #print(f"\n--- Bearbeite Zeile {i+1} ---")
-            nodes_created = process_row(tx, row, mapping_data)
+            process_row(tx, row, mapping_data)
 
         graph.commit(tx)
         #print("\nGesamtvorgang erfolgreich: Daten wurden in die Neo4j-Datenbank importiert.")
