@@ -459,29 +459,6 @@ def safe_var_name(label):
     # Ersetzt alle nicht-alphanumerischen Zeichen durch "_"
     return "".join(ch if ch.isalnum() else "_" for ch in label.lower())
 
-# ===========================
-# Backend: Flask / Neo4j
-# ===========================
-def fn_debug_print(label, data):
-    print(f"DEBUG: {label}: {data}")
-
-def run_query(graph, query, labels, limit):
-    """Neo4j-Abfrage ausführen und Ergebnis zurückgeben"""
-    print("🔍 run_query: Start")
-    print(f"📊 Parameter: labels={labels}, limit={limit}")
-    try:
-        results = graph.run(query, labels=labels, limit=limit).data()
-    except Exception as e:
-        print(f"❌ Fehler bei der Neo4j-Abfrage: {e}")
-    print(f"✅ Abfrage erfolgreich, {len(results)} Ergebnisse erhalten")
-    return results
-
-
-
-# ------------------------
-# Hilfsfunktionen
-# ------------------------
-
 if __name__ == '__main__':
     try:
         app.run(debug=True)
