@@ -2960,5 +2960,41 @@ class TestNeo4jApp(unittest.TestCase):
                 for cell in row['cells']:
                     self.assertIn('value', cell)
 
+    def test_reset_and_load_data(self):
+        """Testet, ob die Datenbank wirklich geleert und mit Default-Daten befüllt wird."""
+        response = self.app.get('/api/reset_and_load_data')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertEqual(data["status"], "success")
+
+        # Check persons
+        persons = self.graph.run("MATCH (p:Person) RETURN p.vorname AS vorname, p.nachname AS nachname").data()
+        names = {(p["vorname"], p["nachname"]) for p in persons}
+        expected_names = {
+            ("Maria", "Müller"),
+            ("Hans", "Schmidt"),
+            ("Anna", "Fischer"),
+            ("Bob", "Johnson"),
+            ("Charlie", "Brown"),
+        }
+        self.assertTrue(expected_names.issubset(names))
+
+        # Check books
+        books = self.graph.run("MATCH (b:Buch) RETURN b.titel AS titel, b.erscheinungsjahr AS jahr").data()
+        titles = {b["titel"] for b in books}
+        expected_titles = {"The Cypher Key", "The Graph Odyssey", "Neo's Journey"}
+        self.assertTrue(expected_titles.issubset(titles))
+
+        # Check relations: Maria Müller HAT_GESCHRIEBEN The Cypher Key
+        rel = self.graph.run("""
+            MATCH (p:Person {vorname:'Maria', nachname:'Müller'})-[:HAT_GESCHRIEBEN]->(b:Buch {titel:'The Cypher Key'})
+            RETURN p,b
+        """).data()
+        self.assertEqual(len(rel), 1)
+
+        # Check at least one WOHNT_IN relation exists
+        rels = self.graph.run("MATCH (p:Person)-[:WOHNT_IN]->(o:Ort) RETURN p,o LIMIT 1").data()
+        self.assertTrue(len(rels) > 0)
+
 if __name__ == '__main__':
     unittest.main()
