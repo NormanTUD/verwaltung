@@ -978,17 +978,6 @@ def add_property_to_nodes():
 def fn_debug(label, data):
     print(f"DEBUG [reset_load]: {label}: {data}")
 
-def fn_create_city(stadt):
-    query = """
-        MERGE (s:Stadt {name:$stadt})
-        RETURN ID(s) AS id
-    """
-    fn_debug("Creating or merging city", stadt)
-    result = graph.run(query, stadt=stadt).data()
-    city_id = result[0]["id"]
-    fn_debug("City ID", city_id)
-    return city_id
-
 if __name__ == '__main__':
     try:
         app.run(debug=True)
