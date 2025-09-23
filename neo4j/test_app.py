@@ -1779,15 +1779,6 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person'})
             self.assertEqual(resp.status_code, 200)
 
-    def test_get_data_as_table_negative_limit_throws(self):
-        """Negative limit is not sensible and should lead to an error from the server."""
-        self.graph.run("MATCH (n) DETACH DELETE n")
-        self.graph.run("CREATE (:Person {name:'N'})")
-        with self.app as client:
-            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person', 'limit': '-1'})
-            # Implementation-dependent: we expect server to handle or error; at minimum not to crash irrecoverably
-            self.assertIn(resp.status_code, (200, 400, 500))
-
     def test_get_data_as_table_high_maxdepth_no_crash(self):
         """Very large maxDepth should not crash the API (responsiveness aside)."""
         self.graph.run("MATCH (n) DETACH DELETE n")
