@@ -48,7 +48,6 @@ def load_or_generate_secret_key(path):
     except FileNotFoundError:
         # Datei existiert nicht
         key = secrets.token_urlsafe(64)
-        print(f"Secret-Key-Datei {path} nicht gefunden. Temporärer Key wird verwendet: {key}")
         return key
     except Exception as e:
         # Andere Fehler beim Lesen

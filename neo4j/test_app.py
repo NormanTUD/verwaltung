@@ -3024,5 +3024,16 @@ class TestNeo4jApp(unittest.TestCase):
             node_ids = [n["id"] for n in data["nodes"]]
             self.assertIn(node.identity, node_ids)
 
+    def test_duplicate_query_name(self):
+        self.app.post("/api/save_query", json={"name": "Duplicate", "selectedLabels": ["X"]})
+        resp = self.app.post("/api/save_query", json={"name": "Duplicate", "selectedLabels": ["X"]})
+        self.assertEqual(resp.status_code, 409)
+        self.assertEqual(resp.get_json()["status"], "error")
+
+    def test_missing_fields(self):
+        resp = self.app.post("/api/save_query", json={"name": ""})
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.get_json()["status"], "error")
+
 if __name__ == '__main__':
     unittest.main()
