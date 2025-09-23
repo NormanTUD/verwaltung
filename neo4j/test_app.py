@@ -85,7 +85,6 @@ class TestNeo4jApp(unittest.TestCase):
         Reinigt die Datenbank wieder.
         """
         cls.graph.run("MATCH (n) DETACH DELETE n")
-        print("Testdatenbank wurde nach den Tests erfolgreich gereinigt.")
 
     def setUp(self):
         """
