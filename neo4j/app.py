@@ -410,7 +410,6 @@ def get_graph_data():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @app.route('/upload', methods=['POST'])
 @test_if_deleted_db
 def upload_data():
@@ -480,7 +479,6 @@ def save_mapping():
         print(f"\n❌ Fehler beim Speichern in der DB: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 def parse_csv_from_session():
     """Liest die CSV-Daten aus der Session und gibt einen DictReader zurück."""
     raw_data = session.pop('raw_data')
@@ -493,7 +491,6 @@ def parse_csv_from_session():
     except csv.Error as e:
         print(f"Fehler beim Analysieren der CSV-Daten: {e}")
         return None
-
 
 def process_row(tx, row, mapping_data):
     """Verarbeitet eine Zeile: Knoten mergen und Beziehungen erstellen."""
@@ -510,7 +507,6 @@ def process_row(tx, row, mapping_data):
         create_relationship(tx, rel_data['from'], rel_data['to'], rel_data['type'], nodes_created)
 
     return nodes_created
-
 
 def merge_node(tx, node_type, fields, row):
     """Merged einen Knoten vom Typ node_type mit gegebenen Properties."""
@@ -549,7 +545,6 @@ def merge_node(tx, node_type, fields, row):
     else:
         print(f"  ⚠️ MERGE-Vorgang für '{node_type}' hat nichts zurückgegeben.")
         return None
-
 
 def create_relationship(tx, from_node_type, to_node_type, rel_type, nodes_created):
     """Erstellt eine Beziehung zwischen zwei vorhandenen Knoten."""
@@ -632,7 +627,6 @@ def update_node(node_id):
 # ------------------------
 # Hilfsfunktionen
 # ------------------------
-
 
 if __name__ == '__main__':
     try:

@@ -1113,7 +1113,6 @@ class TestNeo4jApp(unittest.TestCase):
         val = graph.run("MATCH (p:Person {name:'Eva'}) RETURN p.score AS score").data()[0]["score"]
         self.assertEqual(val, 3.14)
 
-
     def test_create_node_basic(self):
         resp = self.app.post(
             '/api/create_node',
@@ -1861,7 +1860,6 @@ class TestNeo4jApp(unittest.TestCase):
             data = resp.get_json()
             self.assertGreaterEqual(len(data['rows']), 3)
 
-
     def test_get_data_as_table_multiple_labels_on_same_node(self):
         """Node mit Person+Autor Labels wird bei nodes=Person erfasst"""
         self.graph.run("MATCH (n) DETACH DELETE n")
@@ -2256,7 +2254,6 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
-
     def test_save_mapping_large_csv(self):
         """CSV mit vielen Zeilen wird verarbeitet."""
         csv_data = "name\n" + "\n".join(f"Person{i}" for i in range(50))
@@ -2328,7 +2325,6 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
-
     def test_save_mapping_complex_duplicate_rows(self):
         """Mehrere identische Zeilen erzeugen keine Duplikate."""
         csv_data = "person,city,country\nAlice,Berlin,Deutschland\nAlice,Berlin,Deutschland"
@@ -2361,7 +2357,6 @@ class TestNeo4jApp(unittest.TestCase):
                 sess['raw_data'] = csv_data
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
-
 
     def test_save_mapping_complex_mixed_types(self):
         """CSV mit gemischten Datentypen, alle Properties korrekt gesetzt."""
@@ -2440,7 +2435,6 @@ class TestNeo4jApp(unittest.TestCase):
                 sess['raw_data'] = csv_data
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
-
 
     def test_save_mapping_super_complex_large_graph_with_duplicates(self):
         """10 Zeilen, mehrere Knoten-Typen, viele Duplikate, verschachtelte Beziehungen, fehlende Felder teilweise."""
@@ -2793,7 +2787,6 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.post('/save_mapping', json=mapping)
             self.assertEqual(resp.status_code, 200)
 
-
     def test_create_node_basic_success(self):
         """Ein einfacher Node ohne Beziehung"""
         with patch("app.graph.run") as mock_run:
@@ -3031,7 +3024,6 @@ class TestNeo4jApp(unittest.TestCase):
             for row in data['rows']:
                 for cell in row['cells']:
                     self.assertIn('value', cell)
-
 
 if __name__ == '__main__':
     unittest.main()
