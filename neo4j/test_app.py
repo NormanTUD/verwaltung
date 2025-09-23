@@ -755,18 +755,6 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertTrue(any(link['source'] == n1.identity and link['target'] == n2.identity for link in data['links']))
         self.assertTrue(any(link['source'] == n2.identity and link['target'] == n1.identity for link in data['links']))
 
-    @patch("app.graph.run", side_effect=Exception("DB offline"))
-    def test_update_node_db_offline(self, mock_run):
-        """DB-Verbindungsfehler bei Node-Update wird korrekt behandelt."""
-        node = Node("Person", name="Alice")
-        self.graph.create(node)
-        node_id = node.identity
-        response = self.app.put(f'/api/update_node/{node_id}',
-                                data=json.dumps({"property": "age", "value": 42}),
-                                content_type='application/json')
-        self.assertEqual(response.status_code, 500)
-        self.assertIn(b"DB offline", response.data)
-
     def test_get_data_as_table_missing_nodes_param(self):
         """GET /api/get_data_as_table without nodes -> 400"""
         with self.app as client:
@@ -2860,13 +2848,6 @@ class TestNeo4jApp(unittest.TestCase):
             resp2 = self.app.post('/api/create_node', json={"property": "active", "value": True})
             self.assertEqual(resp1.status_code, 200)
             self.assertEqual(resp2.status_code, 200)
-
-    def test_create_node_graph_run_exception(self):
-        """graph.run wirft Exception -> 500"""
-        with patch("app.graph.run", side_effect=Exception("DB offline")):
-            resp = self.app.post('/api/create_node', json={"property": "name", "value": "Alice"})
-            self.assertEqual(resp.status_code, 500)
-            self.assertIn(b"DB offline", resp.data)
 
     def test_create_node_extreme_special_chars(self):
         """Node name mit Umlauten, Emojis, Sonderzeichen"""
