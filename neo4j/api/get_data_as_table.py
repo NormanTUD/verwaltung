@@ -27,11 +27,17 @@ def create_get_data_bp(graph):
             return result
 
         def fetch_paths(self, labels, max_depth, limit=None):
+            if max_depth < 0:
+                depth_str = "*"
+            else:
+                depth_str = f"*..{max_depth}"
+
             cypher = f"""
-            MATCH p=(start)-[*..{max_depth}]->(end)
+            MATCH p=(start)-[{depth_str}]->(end)
             WHERE ANY(n IN nodes(p) WHERE ANY(l IN labels(n) WHERE l IN $labels))
             RETURN p
             """ + (f" LIMIT {limit}" if limit else "")
+
             try:
                 records = self.driver.run(cypher, labels=labels).data()
             except Exception as e:
