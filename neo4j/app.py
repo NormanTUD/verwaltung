@@ -123,11 +123,6 @@ def get_saved_queries():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-def get_node_by_id(node_id):
-    """Hilfsfunktion, um einen Node anhand seiner ID zu finden."""
-    query = f"MATCH (n) WHERE ID(n) = {node_id} RETURN n"
-    return graph.run(query).data()[0]['n']
-
 def get_all_nodes_and_relationships():
     """Holt alle Node-Typen und Relationship-Typen aus der Datenbank."""
     node_labels = graph.run("CALL db.labels()").data()

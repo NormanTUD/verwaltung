@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 from unittest.mock import patch
 
 from app import (
-    get_node_by_id,
     get_all_nodes_and_relationships,
     serialize_properties,
     serialize_value
@@ -543,20 +542,6 @@ class TestNeo4jApp(unittest.TestCase):
         # Prüfen, dass keine Nodes existieren
         result = self.graph.run("MATCH (n:NonExistentLabel) RETURN n").data()
         self.assertEqual(len(result), 0)
-
-    def test_get_node_by_id_success(self):
-        """Node wird korrekt über ID zurückgegeben."""
-        node = Node("Person", name="Alice")
-        self.graph.create(node)
-        
-        result_node = get_node_by_id(node.identity)
-        self.assertEqual(result_node["name"], "Alice")
-        self.assertIn("Person", list(result_node.labels))
-
-    def test_get_node_by_id_nonexistent(self):
-        """Fehler beim Zugriff auf nicht existierende Node-ID."""
-        with self.assertRaises(IndexError):
-            get_node_by_id(999999)
 
     def test_get_all_nodes_and_relationships_success(self):
         """Holt Labels und Relationship-Typen korrekt."""
