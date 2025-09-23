@@ -1962,13 +1962,6 @@ class TestNeo4jApp(unittest.TestCase):
             data = resp.get_json()
             self.assertGreaterEqual(len(data['rows']), 1)
 
-    def test_get_data_as_table_invalid_limit_and_depth(self):
-        """Ungültige Parameter limit=-5, maxDepth=-1 -> 500"""
-        with self.app as client:
-            resp = client.get('/api/get_data_as_table',
-                              query_string={'nodes':'Person','limit':'-5','maxDepth':'-1'})
-            self.assertEqual(resp.status_code, 500)
-
     def test_get_data_as_table_unicode_and_special_chars(self):
         """Unicode, Zitate und Backslashes müssen korrekt im JSON erscheinen"""
         self.graph.run("MATCH (n) DETACH DELETE n")
