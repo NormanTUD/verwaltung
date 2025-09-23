@@ -4,6 +4,7 @@ import os
 import csv
 import io
 import json
+import secrets
 import inspect
 from flask import Flask, request, jsonify, render_template, session
 from py2neo import Graph, NodeMatcher
@@ -47,12 +48,12 @@ def load_or_generate_secret_key(path):
     except FileNotFoundError:
         # Datei existiert nicht
         key = secrets.token_urlsafe(64)
-        print(f"Secret-Key-Datei {path} nicht gefunden. Temporärer Key wird verwendet.")
+        print(f"Secret-Key-Datei {path} nicht gefunden. Temporärer Key wird verwendet: {key}")
         return key
     except Exception as e:
         # Andere Fehler beim Lesen
         key = secrets.token_urlsafe(64)
-        print(f"Fehler beim Laden des Secret-Keys ({e}). Temporärer Key wird verwendet.")
+        print(f"Fehler beim Laden des Secret-Keys ({e}). Temporärer Key wird verwendet: {key}")
         return key
 
 # Secret Key setzen
