@@ -81,26 +81,30 @@ function createNewNode(element, property, value) {
     }
 }
 
-// === Connected IDs für GESCHRIEBENVON sammeln ===
+// === Connected IDs dynamisch aus allen TDs sammeln ===
 function collectConnectedIds(tr) {
     console.group("Connected IDs sammeln");
-    const otherInputs = Array.from(tr.querySelectorAll('input[data-id][data-relation]'));
-    const connectedIds = otherInputs.map(inp => {
+    const connected = [];
+
+    tr.querySelectorAll('td[data-relations]').forEach(td => {
         try {
-            const relations = inp.getAttribute('data-relation')?.split(',') || [];
-            if (relations.includes('GESCHRIEBENVON')) {
-                const id = Number(inp.getAttribute('data-id'));
-                console.log("GESCHRIEBENVON ID gefunden:", id);
-                return id;
-            }
+            const relData = td.getAttribute('data-relations');
+            if (!relData) return;
+            const parsed = JSON.parse(decodeURIComponent(relData));
+            parsed.forEach(rel => {
+                // dynamisch alle fromId und Relation aufnehmen
+                if (rel.fromId) {
+                    connected.push({ id: rel.fromId, relation: rel.relation });
+                }
+            });
         } catch (err) {
-            error("Fehler beim Parsen der data-relation: " + err);
+            console.warn("Error parsing relations:", err);
         }
-        return null;
-    }).filter(id => id !== null && !isNaN(id));
-    console.log("Connected IDs:", connectedIds);
+    });
+
+    console.log("Connected IDs:", connected);
     console.groupEnd();
-    return connectedIds;
+    return connected;
 }
 
 // === Alle Relations in derselben Spalte sammeln ===
@@ -133,19 +137,21 @@ function collectUniqueRelations(element) {
     return uniqueRelations;
 }
 
-// === Node via API erstellen ===
+// === Node via API erstellen, komplett dynamisch ===
 function createNodeRequest(element, property, value, connectedIds, relType) {
     console.group("createNodeRequest");
     console.log("Property:", property, "Value:", value, "ConnectTo:", connectedIds, "Relation:", relType);
+
+    const props = {};
+    props[property] = value;
 
     fetch('/api/create_node', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            property: property,
-            value: value,
+            props: props,
             connectTo: connectedIds,
-            relation: relType ? { relation: relType, targetLabel: "Buch" } : { targetLabel: "Buch" }
+            relation: relType ? { relation: relType } : null
         })
     })
         .then(r => r.json())
