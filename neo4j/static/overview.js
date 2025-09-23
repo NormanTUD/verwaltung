@@ -106,13 +106,19 @@ function make_thead_from_columns(cols) {
 	for (var i = 0; i < cols.length; ++i) {
 		var c = cols[i];
 		var th = document.createElement('th');
-		th.textContent = multi_types ? (c.nodeType + ':' + c.property) : c.property;
+		th.textContent = c.nodeType + ':' + c.property;
 		tr.appendChild(th);
 	}
 
-	var thR = document.createElement('th'); thR.textContent = 'Beziehungen'; tr.appendChild(thR);
-	var thPlus = document.createElement('th'); thPlus.textContent = '+'; tr.appendChild(thPlus);
-	var thAct = document.createElement('th'); thAct.textContent = 'Aktion'; tr.appendChild(thAct);
+	var thR = document.createElement('th'); thR.textContent = 'Beziehungen';
+	tr.appendChild(thR);
+
+	var thPlus = document.createElement('th'); thPlus.textContent = '+';
+	tr.appendChild(thPlus);
+
+	var thAct = document.createElement('th'); thAct.textContent = 'Aktion';
+	tr.appendChild(thAct);
+
 	thead.appendChild(tr);
 	return thead;
 }
