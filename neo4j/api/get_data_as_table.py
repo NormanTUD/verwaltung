@@ -215,5 +215,4 @@ def create_get_data_bp(graph):
         bucket = buckets.setdefault(node_id, {"nodes": {}, "adjacent": set(), "relations": []})
         bucket["nodes"].setdefault(label, {})[node_id] = {"props": node["props"], "min_dist": 0}
 
-
     return bp
