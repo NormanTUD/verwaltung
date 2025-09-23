@@ -58,53 +58,96 @@ function updateExistingNodes(dataIdAttr, property, value) {
 
 // === Node erstellen, falls noch nicht vorhanden ===
 function createNewNode(element, property, value) {
-	const tr = element.closest('tr');
-	if (!tr) {
-		warning("Kein tr-Element gefunden");
-		return;
-	}
+    console.group("createNewNode: Start");
+    const tr = element.closest('tr');
+    if (!tr) {
+        warning("Abbruch: Kein tr-Element gefunden");
+        console.groupEnd();
+        return;
+    }
+    
+    // --- DEBUG: Prüfen des Elements und der umgebenden Struktur ---
+    console.log("DEBUG: Element:", element);
+    console.log("DEBUG: Eigenschaft:", property);
+    console.log("DEBUG: Neuer Wert:", value);
+    console.log("DEBUG: Übergeordnete Zeile (tr):", tr);
+    
+    // 1. Hole alle potenziell verbundenen IDs in der Zeile
+    const allConnectedIds = collectAllConnectedIds(tr);
+    console.log("DEBUG: Alle verbundenen IDs in der Zeile:", allConnectedIds);
 
-	const connectedIds = collectConnectedIds(tr);
-	const uniqueRelations = collectUniqueRelations(element);
+    // 2. Bestimme den Relationstyp basierend auf der Spalte
+    const tdIndex = Array.from(tr.children).indexOf(element.parentElement);
+    const tableHeader = element.closest('table').querySelector('thead tr');
+    const headerCell = tableHeader.children[tdIndex];
+    const headerText = headerCell.textContent.trim();
+    console.log("DEBUG: Spalten-Header-Text:", headerText);
 
-	if (uniqueRelations.length === 0) {
-		console.log("Keine Relation, Node ohne Relation erstellen");
-		createNodeRequest(element, property, value, connectedIds, null);
-	} else if (uniqueRelations.length === 1) {
-		console.log("Nur eine Relation, Node direkt erstellen");
-		createNodeRequest(element, property, value, connectedIds, uniqueRelations[0]);
-	} else {
-		console.log("Mehrere Relationen, Modal anzeigen");
-		showRelationModal(uniqueRelations, relType => {
-			createNodeRequest(element, property, value, connectedIds, relType);
-		});
-	}
+    let relType = null;
+    let connectToId = null;
+
+    // Logik zur Ableitung von `relType` und `connectToId`
+    if (headerText.startsWith('Buch:')) {
+        // Ein Buch wird erstellt, die Relation ist wahrscheinlich 'HAT_GESCHRIEBEN'
+        relType = 'HAT_GESCHRIEBEN';
+        // Finde die Person, die dieses Buch geschrieben hat.
+        // Die `fromId` der 'HAT_GESCHRIEBEN' Relation ist die Person.
+        const personRelation = allConnectedIds.find(item => item.relation === relType);
+        if (personRelation) {
+            connectToId = personRelation.fromId;
+        }
+    } else if (headerText.startsWith('Ort:')) {
+        // Ein Ort wird erstellt, die Relation ist wahrscheinlich 'WOHNT_IN'
+        relType = 'WOHNT_IN';
+        // Finde die Person, die an diesem Ort wohnt.
+        const personRelation = allConnectedIds.find(item => item.relation === relType);
+        if (personRelation) {
+            connectToId = personRelation.fromId;
+        }
+    }
+    
+    // Fallback: wenn keine spezifische Relation gefunden wird, versuche es über die erste verfügbare
+    if (!relType && allConnectedIds.length > 0) {
+        relType = allConnectedIds[0].relation;
+        connectToId = allConnectedIds[0].fromId || allConnectedIds[0].toId;
+        console.log("DEBUG: Fallback-Relation verwendet.");
+    }
+
+    // --- DEBUG: Endgültige Werte vor dem Senden ---
+    console.log("DEBUG: Abgeleiteter Relationstyp:", relType);
+    console.log("DEBUG: Abgeleitete verbundene ID:", connectToId);
+
+    // Aufruf der Request-Funktion mit den abgeleiteten Werten
+    createNodeRequest(element, property, value, connectToId, relType);
+
+    console.groupEnd();
 }
 
 // === Connected IDs dynamisch aus allen TDs sammeln ===
-function collectConnectedIds(tr) {
-	console.group("Connected IDs sammeln");
-	const connected = [];
-
-	tr.querySelectorAll('td[data-relations]').forEach(td => {
-		try {
-			const relData = td.getAttribute('data-relations');
-			if (!relData) return;
-			const parsed = JSON.parse(decodeURIComponent(relData));
-			parsed.forEach(rel => {
-				// dynamisch alle fromId und Relation aufnehmen
-				if (rel.fromId) {
-					connected.push({ id: rel.fromId, relation: rel.relation });
-				}
-			});
-		} catch (err) {
-			console.warn("Error parsing relations:", err);
-		}
-	});
-
-	console.log("Connected IDs:", connected);
-	console.groupEnd();
-	return connected;
+function collectAllConnectedIds(tr) {
+    const connected = new Map();
+    tr.querySelectorAll('td[data-relations]').forEach(td => {
+        try {
+            const relData = td.getAttribute('data-relations');
+            if (!relData) return;
+            const parsed = JSON.parse(decodeURIComponent(relData));
+            parsed.forEach(rel => {
+                if (rel.fromId) {
+                    if (!connected.has(rel.fromId)) {
+                        connected.set(rel.fromId, { id: rel.fromId, relation: rel.relation, isFrom: true, isTo: false });
+                    }
+                }
+                if (rel.toId) {
+                    if (!connected.has(rel.toId)) {
+                        connected.set(rel.toId, { id: rel.toId, relation: rel.relation, isFrom: false, isTo: true });
+                    }
+                }
+            });
+        } catch (err) {
+            console.warn("Error parsing relations:", err);
+        }
+    });
+    return Array.from(connected.values());
 }
 
 // === Alle Relations in derselben Spalte sammeln ===
@@ -138,32 +181,45 @@ function collectUniqueRelations(element) {
 }
 
 // === Node via API erstellen, komplett dynamisch ===
-function createNodeRequest(element, property, value, connectedIds, relType) {
-	console.group("createNodeRequest");
-	console.log("Property:", property, "Value:", value, "ConnectTo:", connectedIds, "Relation:", relType);
+function createNodeRequest(element, property, value, connectToId, relType) {
+    console.group("createNodeRequest: Start");
 
-	const props = {};
-	props[property] = value;
+    const props = {};
+    props[property] = value;
+    
+    const requestBody = { props };
 
-	fetch('/api/create_node', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			props: props,
-			connectTo: connectedIds,
-			relation: relType ? { relation: relType } : null
-		})
-	})
-		.then(r => r.json())
-		.then(data => {
-			console.log("create_node response:", data);
-			if (data.status === 'success') {
-				element.setAttribute('data-id', data.newNodeId);
-				success("Node erfolgreich erstellt, ID: " + data.newNodeId);
-			} else {
-				error("create_node fehlgeschlagen: " + data.message);
-			}
-		})
-		.catch(err => error("create_node fetch error: " + err))
-		.finally(() => console.groupEnd());
+    if (connectToId && relType) {
+        requestBody.connectTo = [{ id: connectToId, relation: relType }];
+        requestBody.relation = { relation: relType };
+    }
+    
+    // --- DEBUG: Endgültiger Request-Body ---
+    console.log("DEBUG: Sende Request mit Body:", JSON.stringify(requestBody, null, 2));
+
+    fetch('/api/create_node', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+    })
+    .then(r => {
+        console.log("DEBUG: Empfange Response mit Status:", r.status);
+        return r.json();
+    })
+    .then(data => {
+        console.log("DEBUG: Response-Daten:", data);
+        if (data.status === 'success') {
+            element.setAttribute('data-id', data.newNodeId);
+            success("Node erfolgreich erstellt, ID: " + data.newNodeId);
+        } else {
+            error("create_node fehlgeschlagen: " + data.message);
+        }
+    })
+    .catch(err => {
+        console.error("DEBUG: Fetch-Fehler:", err);
+        error("create_node fetch error: " + err);
+    })
+    .finally(() => {
+        console.groupEnd();
+    });
 }
