@@ -87,27 +87,6 @@ def get_all_nodes_and_relationships():
         "types": [rel['relationshipType'] for rel in relationship_types]
     }
 
-def serialize_properties(props):
-    """
-    Ensures all property values are JSON-serializable.
-    Converts functions and other non-standard objects to strings.
-    """
-    clean_props = {}
-    for key, value in props.items():
-        # Check if the value is a function or method.
-        if inspect.isfunction(value) or inspect.ismethod(value):
-            clean_props[key] = f"FUNCTION_OBJECT: {value.__name__}"
-        # If it's a list or dict, recursively clean it.
-        elif isinstance(value, (list, dict)):
-            clean_props[key] = serialize_properties(value)
-        # Otherwise, if it's not a primitive type, convert it to a string.
-        elif not isinstance(value, (str, int, float, bool, type(None))):
-            clean_props[key] = str(value)
-        # If all checks pass, it's a safe value.
-        else:
-            clean_props[key] = value
-    return clean_props
-
 def serialize_value(value):
     """Recursively serializes a value, handling functions and complex types."""
     if inspect.isfunction(value) or inspect.ismethod(value):

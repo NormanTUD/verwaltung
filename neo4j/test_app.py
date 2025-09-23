@@ -9,7 +9,6 @@ from unittest.mock import patch
 
 from app import (
     get_all_nodes_and_relationships,
-    serialize_properties,
     serialize_value
 )
 
@@ -561,28 +560,6 @@ class TestNeo4jApp(unittest.TestCase):
         result = get_all_nodes_and_relationships()
         self.assertEqual(result["labels"], [])
         self.assertEqual(result["types"], [])
-
-    def test_serialize_properties_basic(self):
-        """Serialisiert einfache Properties unverändert."""
-        props = {"name": "Alice", "age": 30, "active": True}
-        result = serialize_properties(props)
-        self.assertEqual(result, props)
-
-    def test_serialize_properties_with_function(self):
-        """Funktion wird in String konvertiert."""
-        def dummy_func(): pass
-        props = {"callback": dummy_func}
-        result = serialize_properties(props)
-        self.assertEqual(result["callback"], f"FUNCTION_OBJECT: {dummy_func.__name__}")
-
-    def test_serialize_properties_nonstandard_object(self):
-        """Nicht-standard Objekte werden in Strings konvertiert."""
-        class Custom:
-            def __str__(self):
-                return "custom_obj"
-        props = {"obj": Custom()}
-        result = serialize_properties(props)
-        self.assertEqual(result["obj"], "custom_obj")
 
     def test_serialize_value_basic(self):
         """Primitive Werte bleiben unverändert."""
