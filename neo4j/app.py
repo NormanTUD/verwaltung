@@ -32,7 +32,31 @@ load_dotenv()
 
 # Konfiguration und Initialisierung
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'replace_this_with_a_long_random_secret') # TODO: Remove hardcoded
+
+secret_file_path = "/etc/oasis/secret_key"
+
+def load_or_generate_secret_key(path):
+    try:
+        # Datei existiert
+        with open(path, "r") as f:
+            key = f.read().strip()
+            if not key:
+                raise ValueError("Secret-Key-Datei ist leer")
+            print(f"Secret-Key geladen aus {path}")
+            return key
+    except FileNotFoundError:
+        # Datei existiert nicht
+        key = secrets.token_urlsafe(64)
+        print(f"Secret-Key-Datei {path} nicht gefunden. Temporärer Key wird verwendet.")
+        return key
+    except Exception as e:
+        # Andere Fehler beim Lesen
+        key = secrets.token_urlsafe(64)
+        print(f"Fehler beim Laden des Secret-Keys ({e}). Temporärer Key wird verwendet.")
+        return key
+
+# Secret Key setzen
+app.secret_key = load_or_generate_secret_key(secret_file_path)
 
 try:
     # Neo4j-Verbindung
