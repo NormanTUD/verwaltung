@@ -13,6 +13,7 @@ import logging
 from api.get_data_as_table import create_get_data_bp
 from api.dump_database import create_dump_database_bp
 from api.reset_and_load_data import create_reset_and_load_data_bp
+from api.delete_node import create_delete_node_bp
 
 from rich.console import Console
 
@@ -102,9 +103,11 @@ matcher = NodeMatcher(graph)
 get_data_bp = create_get_data_bp(graph)
 dump_database = create_dump_database_bp(graph)
 reset_and_load_data = create_reset_and_load_data_bp(graph)
+delete_node = create_delete_node_bp(graph)
 app.register_blueprint(get_data_bp, url_prefix='/api')
 app.register_blueprint(dump_database, url_prefix='/api')
 app.register_blueprint(reset_and_load_data, url_prefix='/api')
+app.register_blueprint(delete_node, url_prefix='/api')
 
 # Definiere den Dateipfad
 SAVED_QUERIES_FILE = 'saved_queries.json'
@@ -907,25 +910,6 @@ def update_node(node_id):
         return jsonify({"status": "success", "message": f"Node {node_id} wurde aktualisiert."})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/delete_node/<int:node_id>', methods=['DELETE'])
-@test_if_deleted_db
-def delete_node(node_id):
-    """Löscht einen Node und seine Beziehungen aus der Datenbank."""
-    if not graph:
-        return jsonify({"status": "error", "message": "Datenbank nicht verbunden."}), 500
-
-    query = f"""
-        MATCH (n) WHERE ID(n) = {node_id}
-        DETACH DELETE n
-    """
-    try:
-        graph.run(query)
-        return jsonify({"status": "success", "message": f"Node mit ID {node_id} und alle Beziehungen wurden gelöscht."})
-    except Exception as e:
-        print(f"Fehler beim Löschen des Nodes: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
 
 # ------------------------
 # Hilfsfunktionen
