@@ -1,3 +1,4 @@
+const log = console.log;
 const querySelection = document.getElementById('querySelection');
 const resultsContainer = document.getElementById('resultsContainer');
 
@@ -55,6 +56,7 @@ function renderTable(data) {
 			var td_id = td.querySelector('input')?.getAttribute('data-id');
 			if (td_id) {
 				// Filter relations für diese Node
+				log(row);
 				var relevantRelations = (row.relations || []).filter(r => r.fromId == td_id || r.toId == td_id);
 				td.setAttribute('data-relations', encodeURIComponent(JSON.stringify(relevantRelations)));
 			}
