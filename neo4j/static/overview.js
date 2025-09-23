@@ -488,10 +488,12 @@ function saveQuery() {
 	})
 		.then(response => response.json())
 		.then(data => {
-			error(data.message);
 			if (data.status === 'success') {
+				success(data.message);
 				document.getElementById('queryNameInput').value = '';
 				loadSavedQueriesFromAPI();
+			} else {
+				error(data.message);
 			}
 		})
 		.catch(error => error('Fehler beim Speichern der Abfrage:', error));
