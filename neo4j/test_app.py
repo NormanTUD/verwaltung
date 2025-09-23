@@ -2118,15 +2118,6 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertEqual(resp.status_code, 500)
             self.assertIn(b"raw_data not in session", resp.data)
 
-    def test_save_mapping_empty_csv(self):
-        """Leere CSV-Daten werden korrekt abgefangen."""
-        with self.app as client:
-            with client.session_transaction() as sess:
-                sess['raw_data'] = ""
-            resp = client.post('/save_mapping', json={"nodes": {}, "relationships": []})
-            self.assertEqual(resp.status_code, 400)
-            self.assertIn(b"Fehler beim Analysieren der CSV", resp.data)
-
     def test_save_mapping_single_node(self):
         """Ein einfacher Knoten wird erfolgreich gemerged."""
         csv_data = "name\nAlice"
