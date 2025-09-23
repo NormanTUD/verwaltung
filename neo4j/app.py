@@ -1102,8 +1102,6 @@ def api_reset_and_load_data():
         fn_debug("Exception in reset_and_load_data", e)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
-
 if __name__ == '__main__':
     try:
         app.run(debug=True)
