@@ -65,7 +65,6 @@ def create_get_data_bp(graph):
     @bp.route("/get_data_as_table", methods=["GET"])
     def get_data_as_table():
         try:
-            log_api_start()
             params = parse_request_params(request)
             buckets = build_buckets(graph_api, params)
             columns = extract_table_columns(buckets)
@@ -73,10 +72,6 @@ def create_get_data_bp(graph):
             return jsonify({"columns": columns, "rows": rows})
         except Exception as e:
             return handle_api_error(e)
-
-    # === Logging & Fehlerbehandlung ===
-    def log_api_start():
-        print("\n=== API get_data_as_table gestartet ===")
 
     def handle_api_error(e):
         print(f"!!! Fehler aufgetreten: {e}")

@@ -103,8 +103,6 @@ class TestNeo4jApp(unittest.TestCase):
         # Leere die Datenbank vor jedem Test für saubere, isolierte Bedingungen
         self.graph.run("MATCH (n) DETACH DELETE n")
 
-        print("Testdatenbank wurde erfolgreich geleert für einen neuen Test.")
-
     def test_index_page(self):
         """Testet, ob die Startseite erreichbar ist."""
         response = self.app.get('/')
