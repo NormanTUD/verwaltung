@@ -2996,5 +2996,12 @@ class TestNeo4jApp(unittest.TestCase):
         rels = self.graph.run("MATCH (p:Person)-[:WOHNT_IN]->(o:Ort) RETURN p,o LIMIT 1").data()
         self.assertTrue(len(rels) > 0)
 
+    def test_show_graph_returns_html(self):
+        with self.app as client:
+            response = client.get('/graph')
+            self.assertEqual(response.status_code, 200)
+            self.assertIn(b'<!DOCTYPE html', response.data)
+            self.assertIn(b'<html', response.data)
+
 if __name__ == '__main__':
     unittest.main()
