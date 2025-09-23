@@ -28,8 +28,6 @@ def create_create_node_bp(graph):
         return False, "Unbekannter Request-Typ. Weder 'props' noch 'property' und 'value' gefunden."
 
     def fn_create_node(node_label, prop_name, value):
-        print(f"Determined node label: {node_label}")
-        
         # 1. Backticks für den Node-Label hinzufügen
         # Dies ist erforderlich, um Leerzeichen oder Sonderzeichen im Label zu behandeln.
         safe_node_label = f"`{node_label}`"
@@ -75,7 +73,6 @@ def create_create_node_bp(graph):
     def api_create_node():
         try:
             data = request.get_json(silent=True)
-            print(f"Incoming request data: {data}")
 
             is_valid, error_msg = fn_validate_request_body(data)
             if not is_valid:
@@ -94,7 +91,6 @@ def create_create_node_bp(graph):
             # Pass only the two expected arguments.
             fn_create_relationships(new_node_id, connect_data)
 
-            print(f"Node creation process completed: {new_node_id}")
             return jsonify({
                 "status": "success",
                 "message": f"Neuer Node erstellt mit ID {new_node_id}",
