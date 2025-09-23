@@ -716,15 +716,25 @@ def fn_determine_node_label(data):
     return node_label
 
 def fn_create_node(node_label, prop_name, value):
-    query = f"CREATE (n:{node_label}) SET n.{prop_name}=$value RETURN ID(n) AS id"
+    fn_debug_print("Determined node label", node_label)
+    
+    # 1. Backticks für den Node-Label hinzufügen
+    # Dies ist erforderlich, um Leerzeichen oder Sonderzeichen im Label zu behandeln.
+    safe_node_label = f"`{node_label}`"
+    
+    # 2. Die Cypher-Abfrage anpassen, um den sicheren Label zu verwenden
+    query = f"CREATE (n:{safe_node_label}) SET n.{prop_name}=$value RETURN ID(n) AS id"
+    
     fn_debug_print("Node creation query", query)
+    
     result = graph.run(query, value=value).data()
+    
     fn_debug_print("Node creation result", result)
-    if not result:
-        raise Exception("Node konnte nicht erstellt werden.")
-    new_node_id = result[0]["id"]
-    fn_debug_print("New node ID", new_node_id)
-    return new_node_id
+    
+    if result and result[0]['id'] is not None:
+        return result[0]['id']
+    else:
+        raise Exception("Failed to create new node in the database.")
 
 def fn_clean_connect_ids(connect_ids):
     cleaned = [int(i) for i in connect_ids if isinstance(i, (int, float))]
