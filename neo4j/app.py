@@ -11,6 +11,7 @@ from py2neo import Graph, NodeMatcher
 from dotenv import load_dotenv
 import logging
 from api.get_data_as_table import create_get_data_bp
+from api.dump_database import create_dump_database_bp
 
 from rich.console import Console
 
@@ -98,7 +99,9 @@ app.config['GRAPH'] = graph
 matcher = NodeMatcher(graph)
 
 get_data_bp = create_get_data_bp(graph)
+dump_database = create_dump_database_bp(graph)
 app.register_blueprint(get_data_bp, url_prefix='/api')
+app.register_blueprint(dump_database, url_prefix='/api')
 
 # Definiere den Dateipfad
 SAVED_QUERIES_FILE = 'saved_queries.json'
@@ -1099,36 +1102,6 @@ def api_reset_and_load_data():
         fn_debug("Exception in reset_and_load_data", e)
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route("/api/dump_database")
-def api_dump_database():
-    try:
-        fn_debug("Start API", "Dumping database")
-
-        query_nodes = """
-            MATCH (n)
-            RETURN id(n) AS id, labels(n) AS labels, properties(n) AS props
-        """
-        query_rels = """
-            MATCH (a)-[r]->(b)
-            RETURN id(r) AS id, type(r) AS type,
-                   id(a) AS start_id, id(b) AS end_id,
-                   properties(r) AS props
-        """
-
-        nodes = graph.run(query_nodes).data()
-        rels = graph.run(query_rels).data()
-
-        dump = {
-            "nodes": nodes,
-            "relationships": rels
-        }
-
-        fn_debug("Finished API", f"Dumped {len(nodes)} nodes and {len(rels)} relationships")
-        return jsonify(dump)
-
-    except Exception as e:
-        logging.error(f"Error dumping database: {e}", exc_info=True)
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 if __name__ == '__main__':

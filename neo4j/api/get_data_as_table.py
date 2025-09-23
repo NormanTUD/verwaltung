@@ -1,6 +1,5 @@
 from flask import Blueprint, request, jsonify
 
-
 def create_get_data_bp(graph):
     bp = Blueprint("get_data_bp", __name__)
 
