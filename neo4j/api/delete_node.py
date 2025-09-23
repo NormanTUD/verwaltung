@@ -4,7 +4,7 @@ from flask import Blueprint, request, jsonify
 def create_delete_node_bp(graph):
     bp = Blueprint("delete_node", __name__)
 
-    @bp.route('/api/delete_node/<int:node_id>', methods=['DELETE'])
+    @bp.route('/delete_node/<int:node_id>', methods=['DELETE'])
     def delete_node(node_id):
         """Löscht einen Node und seine Beziehungen aus der Datenbank."""
         if not graph:
