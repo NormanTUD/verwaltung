@@ -522,6 +522,70 @@ function loadSavedQuery() {
 	fetchData();
 }
 
+async function addRowToTable() {
+	const tbody = document.querySelector(".query-results-table tbody");
+	if (!tbody) return;
+
+	// Header lesen
+	const headers = Array.from(document.querySelectorAll(".query-results-table thead th"))
+		.map(th => th.textContent.trim())
+		.filter(h => !['+', 'Aktion', 'Beziehungen'].includes(h));
+
+	// Nodes pro Label sammeln
+	const nodesPerLabel = {};
+	for (let header of headers) {
+		const [label, property] = header.split(":");
+		if (!nodesPerLabel[label]) nodesPerLabel[label] = {};
+		nodesPerLabel[label][property] = "";
+	}
+
+	// Nodes erstellen und IDs sammeln
+	const nodeIds = {};
+	for (let label in nodesPerLabel) {
+		const res = await fetch("/api/add_row", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ label: label, properties: nodesPerLabel[label] })
+		});
+		const data = await res.json();
+		nodeIds[label] = data.id;
+	}
+
+	// <tr> erstellen
+	const tr = document.createElement("tr");
+	headers.forEach(header => {
+		const [label, property] = header.split(":");
+		const td = document.createElement("td");
+		const input = document.createElement("input");
+		input.type = "text";
+		input.dataset.label = label;
+		input.dataset.property = property;
+		input.dataset.id = nodeIds[label];
+		input.onblur = function() { updateValue(this); };
+		td.appendChild(input);
+		tr.appendChild(td);
+	});
+
+	// Beziehungen-Zelle
+	const relTd = document.createElement("td");
+	tr.appendChild(relTd);
+
+	// "+" Button
+	const plusTd = document.createElement("td");
+	const plusBtn = document.createElement("button");
+	plusBtn.type = "button";
+	plusBtn.textContent = "+";
+	plusBtn.onclick = addColumnToNode;
+	plusTd.appendChild(plusBtn);
+	tr.appendChild(plusTd);
+
+	// Aktion-Zelle
+	const actionTd = document.createElement("td");
+	tr.appendChild(actionTd);
+
+	tbody.appendChild(tr);
+}
+
 // Initial beim Laden der Seite
 document.addEventListener('DOMContentLoaded', () => {
 	loadSavedQueriesFromAPI();
