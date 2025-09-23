@@ -974,10 +974,6 @@ def add_property_to_nodes():
             500,
         )
 
-
-def fn_debug(label, data):
-    print(f"DEBUG [reset_load]: {label}: {data}")
-
 if __name__ == '__main__':
     try:
         app.run(debug=True)
