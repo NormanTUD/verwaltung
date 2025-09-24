@@ -3,6 +3,7 @@ import sys
 import unittest
 import os
 import json
+from uuid import uuid4
 from flask import session
 from py2neo import Graph, Node, Relationship
 from dotenv import load_dotenv
@@ -1943,25 +1944,48 @@ class TestNeo4jApp(unittest.TestCase):
             value = data['rows'][0]['cells'][col_idx]['value']
             self.assertEqual(value, 'Bob')
 
-    def test_get_data_as_table_deep_hierarchy(self):
-        """Tiefer verschachtelter Pfad: Person->Ort->Stadt->Land->Kontinent"""
-        self.graph.run("MATCH (n) DETACH DELETE n")
-        self.graph.run(
-            "CREATE (p:Person {vorname:'C'}) "
-            "CREATE (o:Ort {name:'O'}) "
-            "CREATE (s:Stadt {name:'S'}) "
-            "CREATE (l:Land {name:'L'}) "
-            "CREATE (k:Kontinent {name:'K'}) "
-            "CREATE (p)-[:WOHNT_IN]->(o) "
-            "CREATE (o)-[:LIEGT_IN]->(s) "
-            "CREATE (s)-[:LIEGT_IN]->(l) "
-            "CREATE (l)-[:LIEGT_IN]->(k)"
-        )
-        with self.app as client:
-            resp = client.get('/api/get_data_as_table', query_string={'nodes':'Person,Ort,Stadt,Land,Kontinent','maxDepth':5})
-            self.assertEqual(resp.status_code, 200)
-            data = resp.get_json()
-            self.assertEqual(len(data['rows']), 1)
+        def test_get_data_as_table_deep_hierarchy(self):
+            """Tiefer verschachtelter Pfad: Person->Ort->Stadt->Land->Kontinent"""
+
+            # DB sauber leeren
+            self.graph.run("MATCH (n) DETACH DELETE n")
+
+            # UUID-Suffix für eindeutige Namen
+            suffix = str(uuid4())
+
+            # Nodes und Relationships in einer Transaktion erstellen
+            tx = self.graph.begin()
+            p = Node("Person", vorname=f"C_{suffix}")
+            o = Node("Ort", name=f"O_{suffix}")
+            s = Node("Stadt", name=f"S_{suffix}")
+            l = Node("Land", name=f"L_{suffix}")
+            k = Node("Kontinent", name=f"K_{suffix}")
+            tx.create(p)
+            tx.create(o)
+            tx.create(s)
+            tx.create(l)
+            tx.create(k)
+            tx.create(Relationship(p, "WOHNT_IN", o))
+            tx.create(Relationship(o, "LIEGT_IN", s))
+            tx.create(Relationship(s, "LIEGT_IN", l))
+            tx.create(Relationship(l, "LIEGT_IN", k))
+            # Commit über graph.commit()
+            self.graph.commit(tx)
+
+            # API-Aufruf
+            with self.app as client:
+                resp = client.get(
+                    '/api/get_data_as_table',
+                    query_string={
+                        'nodes': 'Person,Ort,Stadt,Land,Kontinent',
+                        'maxDepth': 5
+                    }
+                )
+                self.assertEqual(resp.status_code, 200)
+                data = resp.get_json()
+
+                # Prüfen, dass genau ein Pfad zurückkommt
+                self.assertEqual(len(data['rows']), 1)
 
     def test_get_data_as_table_parallel_paths(self):
         """Node mit mehreren parallelen Pfaden zu verschiedenen Nodes"""
@@ -3180,11 +3204,24 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(node["validName"], "ok")
 
     def test_add_relationship_success(self):
-        alice = Node("Person", name="Alice")
-        self.graph.create(alice)
-        berlin = Node("Ort", name="Berlin")
-        self.graph.create(berlin)
+        # eindeutige Namen für CI-Stabilität
+        alice_name = f"Alice_{uuid4()}"
+        berlin_name = f"Berlin_{uuid4()}"
 
+        # Nodes innerhalb einer Transaktion erstellen
+        tx = self.graph.begin()
+        alice = Node("Person", name=alice_name)
+        berlin = Node("Ort", name=berlin_name)
+        tx.create(alice)
+        tx.create(berlin)
+        # Commit über graph.commit()
+        self.graph.commit(tx)
+
+        # IDs sind jetzt garantiert gesetzt
+        self.assertIsNotNone(alice.identity)
+        self.assertIsNotNone(berlin.identity)
+
+        # API-Call
         data = {
             "start_id": alice.identity,
             "end_id": berlin.identity,
@@ -3199,11 +3236,13 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertIn("id", result)
             self.assertIn("WOHNT_IN", result["message"])
 
+        # Überprüfung, dass die Beziehung tatsächlich existiert
         rel = self.graph.run(
             f"MATCH (a)-[r]->(b) "
             f"WHERE ID(a)={alice.identity} AND ID(b)={berlin.identity} "
             f"RETURN type(r) AS t, r.since AS since"
         ).data()
+
         self.assertTrue(rel)
         self.assertEqual(rel[0]["t"], "WOHNT_IN")
         self.assertEqual(rel[0]["since"], 2020)
