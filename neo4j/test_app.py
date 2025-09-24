@@ -3375,6 +3375,26 @@ class TestNeo4jApp(unittest.TestCase):
         data = resp.get_json()
         self.assertEqual(data, [])
 
+    def test_get_relationships(self):
+        """Testet den API-Endpoint, der alle Relationship-Typen zurückgibt."""
+        # Erstelle ein paar Test-Beziehungen
+        person = Node("Person", name="Alice")
+        ort = Node("Ort", name="Berlin")
+        rel1 = Relationship(person, "HAT_WOHNSITZ", ort)
+        rel2 = Relationship(person, "ARBEITET_IN", ort)
+        self.graph.create(rel1 | rel2)
+
+        response = self.app.get('/api/relationships')
+        self.assertEqual(response.status_code, 200)
+
+        data = json.loads(response.data)
+        self.assertIsInstance(data, list)
+        self.assertIn("HAT_WOHNSITZ", data)
+        self.assertIn("ARBEITET_IN", data)
+
+        # Optional: prüfen, dass keine Duplikate enthalten sind
+        self.assertEqual(len(data), len(set(data)))
+
 if __name__ == '__main__':
     try:
         unittest.main()

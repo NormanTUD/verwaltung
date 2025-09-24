@@ -23,6 +23,7 @@ from api.add_relationship import create_add_relationship_bp
 from api.reset_and_load_complex_data import create_complex_data_bp
 from api.labels import create_labels_bp
 from api.properties import create_properties_bp
+from api.relationships import create_relationships_bp
 
 from index_manager import create_index_bp
 
@@ -52,6 +53,7 @@ app.register_blueprint(create_add_relationship_bp(graph), url_prefix='/api')
 app.register_blueprint(create_complex_data_bp(graph), url_prefix='/api')
 app.register_blueprint(create_labels_bp(graph), url_prefix='/api')
 app.register_blueprint(create_properties_bp(graph), url_prefix='/api')
+app.register_blueprint(create_relationships_bp(graph), url_prefix='/api')
 
 app.register_blueprint(create_index_bp(graph), url_prefix='/')
 
