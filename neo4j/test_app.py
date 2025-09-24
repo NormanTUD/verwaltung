@@ -6,8 +6,10 @@ import json
 from uuid import uuid4
 from flask import session
 from py2neo import Graph, Node, Relationship
+from unittest import mock
 from dotenv import load_dotenv
 from unittest.mock import patch, MagicMock
+from oasis_helper import load_or_generate_secret_key, get_graph_db_connection
 from app import (
     get_all_nodes_and_relationships,
 )
@@ -3284,6 +3286,33 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertEqual(resp.status_code, 400)
             self.assertEqual(resp.get_json()["status"], "error")
             self.assertIn("leer", resp.get_json()["message"])
+
+    def test_load_secret_key_file_exists(self):
+        # Mock open, damit eine Datei existiert mit Inhalt
+        with mock.patch("builtins.open", mock.mock_open(read_data="mysecretkey")):
+            key = load_or_generate_secret_key()
+            self.assertEqual(key, "mysecretkey")
+
+    def test_load_secret_key_file_empty(self):
+        # Datei existiert, aber leer → Fehlerpfad
+        with mock.patch("builtins.open", mock.mock_open(read_data="")):
+            with mock.patch("secrets.token_urlsafe", return_value="generatedkey") as m:
+                key = load_or_generate_secret_key()
+                self.assertEqual(key, "generatedkey")
+
+    def test_load_secret_key_file_not_found(self):
+        # Datei existiert nicht → neues Key wird generiert
+        with mock.patch("builtins.open", side_effect=FileNotFoundError):
+            with mock.patch("secrets.token_urlsafe", return_value="newkey"):
+                key = load_or_generate_secret_key()
+                self.assertEqual(key, "newkey")
+
+    def test_load_secret_key_other_error(self):
+        # anderes Lesen-Fehler
+        with mock.patch("builtins.open", side_effect=OSError("oh no")):
+            with mock.patch("secrets.token_urlsafe", return_value="tempkey"):
+                key = load_or_generate_secret_key()
+                self.assertEqual(key, "tempkey")
 
 if __name__ == '__main__':
     try:
