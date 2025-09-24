@@ -3160,4 +3160,8 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(node["validName"], "ok")
 
 if __name__ == '__main__':
-    unittest.main()
+    try:
+        unittest.main()
+    except KeyboardInterrupt:
+        print("You pressed CTRL-C")
+        sys.exit(0)
