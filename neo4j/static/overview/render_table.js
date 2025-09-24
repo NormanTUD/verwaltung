@@ -137,8 +137,6 @@ function handleFetchResponse(res) {
 }
 
 function handleServerData(data) {
-    console.log("handleServerData aufgerufen:", data);
-
     if (data && data.status === 'error') {
         error(data.message || 'Fehler vom Server');
         return;
@@ -173,8 +171,6 @@ function collectGlobalRelations(data) {
             });
         }
     });
-
-    console.log("NodeId->Type Map:", nodeIdToType);
 
     // Relations mit Typ-Info aufbauen
     data.rows.forEach(function (row) {
