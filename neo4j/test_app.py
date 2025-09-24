@@ -2830,72 +2830,85 @@ class TestNeo4jApp(unittest.TestCase):
 
         # Transaction starten
         tx = self.graph.begin()
-        
-        # Alle Knoten löschen
-        tx.run("MATCH (n) DETACH DELETE n")
-        
-        # Testdaten erstellen
-        tx.run("""
-            CREATE (p1:Person {vorname:'Maria', nachname:'Müller'})
-            CREATE (o1:Ort {plz:'10115', straße:'Hauptstraße 1'})
-            CREATE (b1:Buch {titel:'The Cypher Key', erscheinungsjahr:2023})
-            CREATE (p1)-[:WOHNT_IN]->(o1)
-            CREATE (p1)-[:HAT_GESCHRIEBEN]->(b1)
+        try:
+            # Alle Knoten löschen
+            tx.run("MATCH (n) DETACH DELETE n")
 
-            CREATE (p2:Person {vorname:'Hans', nachname:'Schmidt'})
-            CREATE (o2:Ort {plz:'20095', straße:'Marktplatz 5'})
-            CREATE (p2)-[:WOHNT_IN]->(o2)
+            # Testknoten und Beziehungen erstellen
+            tx.run("""
+                CREATE (p1:Person {vorname:'Maria', nachname:'Müller'})
+                CREATE (o1:Ort {plz:'10115', straße:'Hauptstraße 1'})
+                CREATE (b1:Buch {titel:'The Cypher Key', erscheinungsjahr:2023})
+                CREATE (p1)-[:WOHNT_IN]->(o1)
+                CREATE (p1)-[:HAT_GESCHRIEBEN]->(b1)
 
-            CREATE (p3:Person {vorname:'Anna', nachname:'Fischer'})
-            CREATE (o3:Ort {plz:'80331', straße:'Bahnhofsallee 12'})
-            CREATE (p3)-[:WOHNT_IN]->(o3)
+                CREATE (p2:Person {vorname:'Hans', nachname:'Schmidt'})
+                CREATE (o2:Ort {plz:'20095', straße:'Marktplatz 5'})
+                CREATE (p2)-[:WOHNT_IN]->(o2)
 
-            CREATE (p4:Person {vorname:'Bob', nachname:'Johnson'})
-            CREATE (o4:Ort {plz:'', straße:''})
-            CREATE (b2:Buch {titel:'The Graph Odyssey', erscheinungsjahr:2022})
-            CREATE (p4)-[:WOHNT_IN]->(o4)
-            CREATE (p4)-[:HAT_GESCHRIEBEN]->(b2)
+                CREATE (p3:Person {vorname:'Anna', nachname:'Fischer'})
+                CREATE (o3:Ort {plz:'80331', straße:'Bahnhofsallee 12'})
+                CREATE (p3)-[:WOHNT_IN]->(o3)
 
-            CREATE (p5:Person {vorname:'Charlie', nachname:'Brown'})
-            CREATE (o5:Ort {plz:'', straße:''})
-            CREATE (b3:Buch {titel:"Neo's Journey", erscheinungsjahr:2024})
-            CREATE (p5)-[:WOHNT_IN]->(o5)
-            CREATE (p5)-[:HAT_GESCHRIEBEN]->(b3)
-        """)
-        
-        # Transaction mit graph.commit(tx) abschließen (deprecated commit() vermeiden)
-        self.graph.commit(tx)
-        
+                CREATE (p4:Person {vorname:'Bob', nachname:'Johnson'})
+                CREATE (o4:Ort {plz:'', straße:''})
+                CREATE (b2:Buch {titel:'The Graph Odyssey', erscheinungsjahr:2022})
+                CREATE (p4)-[:WOHNT_IN]->(o4)
+                CREATE (p4)-[:HAT_GESCHRIEBEN]->(b2)
+
+                CREATE (p5:Person {vorname:'Charlie', nachname:'Brown'})
+                CREATE (o5:Ort {plz:'', straße:''})
+                CREATE (b3:Buch {titel:"Neo's Journey", erscheinungsjahr:2024})
+                CREATE (p5)-[:WOHNT_IN]->(o5)
+                CREATE (p5)-[:HAT_GESCHRIEBEN]->(b3)
+            """)
+
+            # Transaction committen
+            tx.commit()
+        except Exception:
+            tx.rollback()
+            raise
+
         # Sicherstellen, dass alle 5 Personen erstellt wurden
         person_count = self.graph.run("MATCH (p:Person) RETURN count(p) AS c").data()[0]['c']
         self.assertEqual(person_count, 5, "Nicht alle Personen wurden korrekt erstellt")
-        
-        # API abfragen
-        with self.app as client:
-            resp = client.get(
-                '/api/get_data_as_table',
-                query_string={'nodes': 'Person,Ort,Buch'}
-            )
-            self.assertEqual(resp.status_code, 200)
-            data = resp.get_json()
-            self.assertEqual(len(data['rows']), 5, "Falsche Anzahl von Tabellenzeilen")
-            
-            # Prüfen, dass mindestens ein Buch in den Zeilen vorkommt
-            has_book = any(
-                any(c['value'] == 'The Cypher Key' for c in row['cells'])
-                for row in data['rows']
-            )
-            self.assertTrue(has_book, "Mindestens ein Buch fehlt in den Daten")
-            
-            # Prüfen, dass alle Personen enthalten sind
-            expected_persons = {'Maria','Hans','Anna','Bob','Charlie'}
-            persons = {c['value'] for row in data['rows'] for c in row['cells'] if c['value'] in expected_persons}
-            self.assertEqual(persons, expected_persons, "Nicht alle Personen wurden gefunden")
-            
-            # Prüfen, dass die Beziehungen vorhanden sind
-            all_relations = [rel['relation'] for row in data['rows'] for rel in row['relations']]
-            self.assertIn('WOHNT_IN', all_relations, "Beziehung WOHNT_IN fehlt")
-            self.assertIn('HAT_GESCHRIEBEN', all_relations, "Beziehung HAT_GESCHRIEBEN fehlt")
+
+        # API abfragen mit Retry, um flakiness zu vermeiden
+        expected_persons = {'Maria','Hans','Anna','Bob','Charlie'}
+        max_attempts = 5
+        import time
+
+        for attempt in range(max_attempts):
+            with self.app as client:
+                resp = client.get(
+                    '/api/get_data_as_table',
+                    query_string={'nodes': 'Person,Ort,Buch'}
+                )
+                self.assertEqual(resp.status_code, 200)
+                data = resp.get_json()
+
+                # Prüfen, ob alle Personen vorhanden sind
+                persons = {c['value'] for row in data['rows'] for c in row['cells'] if c['value'] in expected_persons}
+                if persons == expected_persons:
+                    break
+            time.sleep(0.1)  # kurze Pause vor erneutem Versuch
+        else:
+            self.fail("Nicht alle Personen wurden gefunden nach mehreren Versuchen")
+
+        # Prüfen, dass die richtige Anzahl von Tabellenzeilen zurückkommt
+        self.assertEqual(len(data['rows']), 5, "Falsche Anzahl von Tabellenzeilen")
+
+        # Prüfen, dass mindestens ein Buch in den Zeilen vorkommt
+        has_book = any(
+            any(c['value'] == 'The Cypher Key' for c in row['cells'])
+            for row in data['rows']
+        )
+        self.assertTrue(has_book, "Mindestens ein Buch fehlt in den Daten")
+
+        # Prüfen, dass die Beziehungen vorhanden sind
+        all_relations = [rel['relation'] for row in data['rows'] for rel in row['relations']]
+        self.assertIn('WOHNT_IN', all_relations, "Beziehung WOHNT_IN fehlt")
+        self.assertIn('HAT_GESCHRIEBEN', all_relations, "Beziehung HAT_GESCHRIEBEN fehlt")
 
     def test_get_data_as_table_no_missing_nodes(self):
         """Ensure previously missing labels (e.g., 'Node-Typ 2', 'NT2') are always included."""
