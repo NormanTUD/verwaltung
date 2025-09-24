@@ -3222,13 +3222,15 @@ class TestNeo4jApp(unittest.TestCase):
         alice_name = f"Alice_{uuid4()}"
         berlin_name = f"Berlin_{uuid4()}"
 
-        # Nodes erstellen und committen
+        # Nodes erstellen
         tx = self.graph.begin()
         alice = Node("Person", name=alice_name)
         berlin = Node("Ort", name=berlin_name)
         tx.create(alice)
         tx.create(berlin)
-        tx.commit()  # commit auf Transaction-Objekt
+
+        # Commit über graph.commit(tx)
+        self.graph.commit(tx)
 
         # IDs sind jetzt garantiert gesetzt
         self.assertIsNotNone(alice.identity)
@@ -3249,7 +3251,7 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertIn("id", result)
             self.assertIn("WOHNT_IN", result["message"])
 
-        # Überprüfung, dass die Beziehung existiert (mit Retry für CI-Stabilität)
+        # Überprüfung, dass die Beziehung tatsächlich existiert (mit Retry für CI-Stabilität)
         import time
         rel = []
         for _ in range(5):
@@ -3262,7 +3264,7 @@ class TestNeo4jApp(unittest.TestCase):
             ).data()
             if rel:
                 break
-            time.sleep(0.1)
+            time.sleep(0.1)  # kurz warten, falls die Transaktion noch nicht sichtbar ist
 
         self.assertTrue(rel)
         self.assertEqual(rel[0]["t"], "WOHNT_IN")
