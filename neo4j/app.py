@@ -1,12 +1,10 @@
 import time
 import sys
-import os
 import csv
 import io
 import json
 import inspect
 from flask import Flask, request, jsonify, render_template, session
-from py2neo import Graph, NodeMatcher
 from dotenv import load_dotenv
 import oasis_helper
 from api.get_data_as_table import create_get_data_bp
@@ -28,34 +26,9 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = oasis_helper.load_or_generate_secret_key()
 
-try:
-    # Neo4j-Verbindung
-    graph = None
-    for attempt in range(15):  # max 15 Versuche
-        try:
-            graph = Graph(
-                os.getenv("NEO4J_URI", "bolt://localhost:7687"),
-                auth=(
-                    os.getenv("NEO4J_USER", "neo4j"),
-                    os.getenv("NEO4J_PASS", "testTEST12345678")
-                )
-            )
-            graph.run("RETURN 1")  # Testabfrage
-            break
-        except Exception as e:
-            print(f"[{attempt+1}/15] Neo4j nicht bereit, warte 2 Sekunden... ({e})")
-            time.sleep(2)
-
-    if graph is None:
-        print("Neo4j konnte nicht erreicht werden!")
-        sys.exit(1)
-except KeyboardInterrupt:
-    print("You pressed CTRL-C")
-    sys.exit(0)
+graph = oasis_helper.get_graph_db_connection()
 
 app.config['GRAPH'] = graph
-
-matcher = NodeMatcher(graph)
 
 app.register_blueprint(create_get_data_bp(graph), url_prefix='/api')
 app.register_blueprint(create_dump_database_bp(graph), url_prefix='/api')
