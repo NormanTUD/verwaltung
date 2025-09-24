@@ -3,13 +3,13 @@ from flask import Blueprint, request, jsonify
 def create_get_data_bp(graph):
     bp = Blueprint("get_data_bp", __name__)
 
-    # === Data Access Layer ===
     class GraphAPI:
         def __init__(self, driver):
             self.driver = driver
 
-        def fetch_nodes(self, label, limit=None):
-            query = f"MATCH (n:`{label}`) RETURN n" + (f" LIMIT {limit}" if limit else "")
+        def fetch_nodes(self, label, limit=None, where=None):
+            where_clause = f"WHERE {where}" if where else ""
+            query = f"MATCH (n:`{label}`) {where_clause} RETURN n" + (f" LIMIT {limit}" if limit else "")
             try:
                 records = self.driver.run(query).data()
             except Exception as e:
@@ -20,23 +20,27 @@ def create_get_data_bp(graph):
                 if n is None:
                     continue
                 node_dict = self._node_to_dict(n)
-                # sicherstellen, dass props immer existieren
                 if node_dict["props"] is None:
                     node_dict["props"] = {}
                 result.append(node_dict)
             return result
 
-        def fetch_paths(self, labels, max_depth, limit=None):
+        def fetch_paths(self, labels, max_depth, limit=None, where=None, rel_filter=None):
             if max_depth < 0:
                 depth_str = "*"
             else:
                 depth_str = f"*..{max_depth}"
 
+            rel_match = "" if not rel_filter else f"[r:{'|'.join(rel_filter)}{depth_str}]"
+            normal_match = f"[{depth_str}]"
+
             cypher = f"""
-            MATCH p=(start)-[{depth_str}]->(end)
+            MATCH p=(start)-{rel_match if rel_filter else normal_match}->(end)
             WHERE ANY(n IN nodes(p) WHERE ANY(l IN labels(n) WHERE l IN $labels))
-            RETURN p
-            """ + (f" LIMIT {limit}" if limit else "")
+            """
+            if where:
+                cypher += f" AND {where}"
+            cypher += f" RETURN p" + (f" LIMIT {limit}" if limit else "")
 
             try:
                 records = self.driver.run(cypher, labels=labels).data()
@@ -47,7 +51,7 @@ def create_get_data_bp(graph):
             for r in records:
                 p = r["p"]
                 nodes = [self._node_to_dict(n) for n in p.nodes]
-                rels = [self._rel_to_dict(rel) for rel in p.relationships]
+                rels = [self._rel_to_dict(rel) for rel in p.relationships if not rel_filter or type(rel).__name__ in rel_filter]
                 paths.append({"nodes": nodes, "rels": rels})
             return paths
 
@@ -67,7 +71,6 @@ def create_get_data_bp(graph):
 
     graph_api = GraphAPI(graph)
 
-    # === API Route ===
     @bp.route("/get_data_as_table", methods=["GET"])
     def get_data_as_table():
         try:
@@ -79,27 +82,25 @@ def create_get_data_bp(graph):
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
 
-    # === Buckets bauen (arbeitet nur mit Dicts, nicht Neo4j direkt) ===
     def build_buckets(graph_api, params):
-        selected_labels, main_label, max_depth, limit, filter_labels = params
-        paths = graph_api.fetch_paths(selected_labels, max_depth, limit)
+        selected_labels, main_label, max_depth, limit, filter_labels, where, rel_filter = params
+        paths = graph_api.fetch_paths(selected_labels, max_depth, limit, where, rel_filter)
         if paths:
             buckets = extract_nodes_from_paths(paths, main_label, selected_labels, filter_labels)
         else:
             buckets = {}
-            for node in graph_api.fetch_nodes(main_label, limit):
+            for node in graph_api.fetch_nodes(main_label, limit, where):
                 add_node_to_bucket(buckets, node, main_label)
-        return ensure_all_labels_present(graph_api, buckets, selected_labels, filter_labels, limit)
+        return ensure_all_labels_present(graph_api, buckets, selected_labels, filter_labels, limit, where)
 
-    def ensure_all_labels_present(graph_api, buckets, selected_labels, filter_labels, limit):
+    def ensure_all_labels_present(graph_api, buckets, selected_labels, filter_labels, limit, where):
         existing_labels = {lbl for bucket in buckets.values() for lbl in bucket.get("nodes", {})}
         required_labels = [lbl for lbl in selected_labels if not filter_labels or lbl in filter_labels]
         for lbl in [l for l in required_labels if l not in existing_labels]:
-            for node in graph_api.fetch_nodes(lbl, limit):
+            for node in graph_api.fetch_nodes(lbl, limit, where):
                 add_node_to_bucket(buckets, node, lbl)
         return buckets
 
-    # === Tabellenaufbau ===
     def assemble_table_rows(buckets, columns):
         return [
             {"cells": build_cells_for_bucket(bucket, columns), "relations": bucket.get("relations", [])}
@@ -114,7 +115,6 @@ def create_get_data_bp(graph):
             for node_data in node_map.values()
             for prop in node_data.get("props", {})
         }
-        # falls keine Properties existieren, trotzdem Dummy-Spalte je Label
         if not label_property_pairs and selected_labels:
             label_property_pairs = {(label, None) for label in selected_labels}
         return [
@@ -122,7 +122,6 @@ def create_get_data_bp(graph):
             for label, prop in sorted(label_property_pairs, key=lambda x: (x[0], str(x[1])))
         ]
 
-    # === Request-Parameter ===
     def parse_request_params(req):
         nodes_param = req.args.get("nodes")
         if not nodes_param:
@@ -134,9 +133,10 @@ def create_get_data_bp(graph):
         filter_labels = (
             [l.strip() for l in req.args["filterLabels"].split(",")] if req.args.get("filterLabels") else None
         )
-        return selected_labels, main_label, max_depth, limit, filter_labels
+        where = req.args.get("where")  # optional
+        rel_filter = [r.strip() for r in req.args["relationships"].split(",")] if req.args.get("relationships") else None
+        return selected_labels, main_label, max_depth, limit, filter_labels, where, rel_filter
 
-    # === Pfad-Verarbeitung (arbeitet nur mit Dicts) ===
     def extract_nodes_from_paths(paths, main_label, selected_labels, filter_labels=None):
         buckets = {}
         for p in paths:
@@ -174,7 +174,6 @@ def create_get_data_bp(graph):
         if to_id == main_id:
             bucket["adjacent"].add(from_id)
 
-    # === Zellen für Tabelle ===
     def build_cells_for_bucket(bucket, columns):
         return [build_cell(bucket, col) for col in columns]
 
@@ -197,7 +196,6 @@ def create_get_data_bp(graph):
             key=lambda x: x[1].get("min_dist", 1e9),
         )
 
-    # === Hilfsfunktionen ===
     def store_or_update_node(bucket_nodes, node_id, label, props, distance):
         node_map = bucket_nodes.setdefault(label, {})
         existing = node_map.get(node_id)
@@ -206,7 +204,7 @@ def create_get_data_bp(graph):
 
     def add_node_to_bucket(buckets, node, label):
         node_id = node["id"]
-        if node_id is None:  # nur None ausschließen, nicht 0
+        if node_id is None:
             return
         bucket = buckets.setdefault(node_id, {"nodes": {}, "adjacent": set(), "relations": []})
         bucket["nodes"].setdefault(label, {})[node_id] = {"props": node["props"], "min_dist": 0}
