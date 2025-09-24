@@ -3394,7 +3394,8 @@ class TestNeo4jApp(unittest.TestCase):
 
         # Optional: prüfen, dass keine Duplikate enthalten sind
         self.assertEqual(len(data), len(set(data)))
-def test_get_data_as_table_with_where_condition(self):
+
+    def test_get_data_as_table_with_where_condition(self):
     """Test the 'where' parameter filters nodes correctly."""
     self.graph.run("MATCH (n) DETACH DELETE n")
     self.graph.run("""
