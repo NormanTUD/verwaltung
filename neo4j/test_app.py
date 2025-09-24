@@ -2863,8 +2863,8 @@ class TestNeo4jApp(unittest.TestCase):
                 CREATE (p5)-[:HAT_GESCHRIEBEN]->(b3)
             """)
 
-            # Transaction committen
-            tx.commit()
+            # Transaction committen über graph.commit(tx) (deprecated tx.commit() vermeiden)
+            self.graph.commit(tx)
         except Exception:
             tx.rollback()
             raise
