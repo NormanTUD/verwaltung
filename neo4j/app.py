@@ -24,17 +24,8 @@ from api.add_column import create_add_column_bp
 from api.update_nodes import create_update_nodes_bp
 from api.save_queries import create_save_queries
 
-from rich.console import Console
-
-console = Console()
-
-# Lade Umgebungsvariablen aus der .env-Datei
 load_dotenv()
-
-# Konfiguration und Initialisierung
 app = Flask(__name__)
-
-# Secret Key setzen
 app.secret_key = oasis_helper.load_or_generate_secret_key()
 
 try:
