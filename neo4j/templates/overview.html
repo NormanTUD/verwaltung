@@ -25,6 +25,90 @@
         </div>
     </div>
 
+    <div style="margin-top:30px;">
+    <h3>Erweiterte Abfrage (QueryBuilder)</h3>
+    <div id="querybuilder"></div>
+    <button onclick="runQueryBuilder()">Ausführen</button>
+    </div>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jQuery-QueryBuilder/dist/css/query-builder.default.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jQuery-QueryBuilder/dist/js/query-builder.standalone.min.js"></script>
+
+    <!-- jQuery laden -->
+    <script src="static/jquery-3.6.4.min.js"></script>
+
+    <!-- Bootstrap (optional, für QueryBuilder-Styles) -->
+    <link rel="stylesheet" href="static/bootstrap.min.css">
+    <script src="static/bootstrap.bundle.min.js"></script>
+
+    <!-- QueryBuilder -->
+    <link rel="stylesheet" href="static/query-builder.default.min.css">
+    <script src="static/query-builder.standalone.min.js"></script>
+
+    <script>
+    function initQueryBuilder() {
+        // Labels laden
+        fetch('/api/labels')
+            .then(r => r.json())
+            .then(labels => {
+                // Für jedes Label Properties + Relationen nachladen
+                return Promise.all(labels.map(lbl =>
+                    fetch('/api/properties?label=' + encodeURIComponent(lbl))
+                        .then(r => r.json())
+                        .then(props => ({label: lbl, props: props}))
+                ));
+            })
+            .then(labelInfos => {
+                // Fields für QueryBuilder generieren
+                const fields = {};
+                labelInfos.forEach(info => {
+                    info.props.forEach(p => {
+                        fields[info.label + '.' + p.name] = {
+                            label: info.label + '.' + p.name,
+                            type: mapNeoTypeToQB(p.type)
+                        };
+                    });
+                });
+
+                $('#querybuilder').queryBuilder({
+                    plugins: ['bt-tooltip-errors'],
+                    filters: Object.values(fields)
+                });
+            });
+    }
+
+    function runQueryBuilder() {
+        const rules = $('#querybuilder').queryBuilder('getRules');
+        if (!rules) {
+            alert('Ungültige Query');
+            return;
+        }
+
+        const url = '/api/get_data_as_table?nodes=' + encodeURIComponent(getSelectedLabels(document.getElementById('querySelection')).join(','));
+        fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json','Accept':'application/json'},
+            body: JSON.stringify({queryBuilderRules: rules})
+        })
+        .then(handleFetchResponse)
+        .then(handleServerData)
+        .catch(err => error('Fehler bei QueryBuilder: ' + (err.message || err)));
+    }
+
+    function mapNeoTypeToQB(neoType) {
+        switch(neoType) {
+            case 'String': return 'string';
+            case 'Integer': return 'integer';
+            case 'Float': return 'double';
+            case 'Boolean': return 'boolean';
+            default: return 'string';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', initQueryBuilder);
+    </script>
+
+
     <div>
         <h3>Abfrage speichern</h3>
         <input type="text" id="queryNameInput" placeholder="Name der Abfrage" style="width: 100%; margin-bottom: 5px;">
