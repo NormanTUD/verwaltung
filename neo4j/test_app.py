@@ -2801,8 +2801,15 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_get_data_as_table_person_ort_buch_with_relations(self):
         """Persons with living places and optionally books should return joined rows with relations."""
-        self.graph.run("MATCH (n) DETACH DELETE n")
-        self.graph.run("""
+
+        # Transaction nutzen, um sicherzustellen, dass alles committed wird
+        tx = self.graph.begin()
+        
+        # Alle Knoten löschen
+        tx.run("MATCH (n) DETACH DELETE n")
+        
+        # Testdaten erstellen
+        tx.run("""
             CREATE (p1:Person {vorname:'Maria', nachname:'Müller'})
             CREATE (o1:Ort {plz:'10115', straße:'Hauptstraße 1'})
             CREATE (b1:Buch {titel:'The Cypher Key', erscheinungsjahr:2023})
@@ -2829,28 +2836,40 @@ class TestNeo4jApp(unittest.TestCase):
             CREATE (p5)-[:WOHNT_IN]->(o5)
             CREATE (p5)-[:HAT_GESCHRIEBEN]->(b3)
         """)
+        
+        # Commit ausführen
+        tx.commit()
+        
+        # Sicherstellen, dass alle 5 Personen erstellt wurden
+        person_count = self.graph.run("MATCH (p:Person) RETURN count(p) AS c").data()[0]['c']
+        self.assertEqual(person_count, 5, "Nicht alle Personen wurden korrekt erstellt")
+        
+        # API abfragen
         with self.app as client:
-            resp = client.get('/api/get_data_as_table',
-                              query_string={'nodes': 'Person,Ort,Buch'})
+            resp = client.get(
+                '/api/get_data_as_table',
+                query_string={'nodes': 'Person,Ort,Buch'}
+            )
             self.assertEqual(resp.status_code, 200)
             data = resp.get_json()
-            self.assertEqual(len(data['rows']), 5)
-
-            # check that at least one row has both Person and Buch values
+            self.assertEqual(len(data['rows']), 5, "Falsche Anzahl von Tabellenzeilen")
+            
+            # Prüfen, dass mindestens ein Buch in den Zeilen vorkommt
             has_book = any(
                 any(c['value'] == 'The Cypher Key' for c in row['cells'])
                 for row in data['rows']
             )
-            self.assertTrue(has_book)
-
-            # check that each person is present
-            persons = {c['value'] for row in data['rows'] for c in row['cells'] if c['value'] in ['Maria','Hans','Anna','Bob','Charlie']}
-            self.assertEqual(persons, {'Maria','Hans','Anna','Bob','Charlie'})
-
-            # check that relations are included
+            self.assertTrue(has_book, "Mindestens ein Buch fehlt in den Daten")
+            
+            # Prüfen, dass alle Personen enthalten sind
+            expected_persons = {'Maria','Hans','Anna','Bob','Charlie'}
+            persons = {c['value'] for row in data['rows'] for c in row['cells'] if c['value'] in expected_persons}
+            self.assertEqual(persons, expected_persons, "Nicht alle Personen wurden gefunden")
+            
+            # Prüfen, dass die Beziehungen vorhanden sind
             all_relations = [rel['relation'] for row in data['rows'] for rel in row['relations']]
-            self.assertIn('WOHNT_IN', all_relations)
-            self.assertIn('HAT_GESCHRIEBEN', all_relations)
+            self.assertIn('WOHNT_IN', all_relations, "Beziehung WOHNT_IN fehlt")
+            self.assertIn('HAT_GESCHRIEBEN', all_relations, "Beziehung HAT_GESCHRIEBEN fehlt")
 
     def test_get_data_as_table_no_missing_nodes(self):
         """Ensure previously missing labels (e.g., 'Node-Typ 2', 'NT2') are always included."""
