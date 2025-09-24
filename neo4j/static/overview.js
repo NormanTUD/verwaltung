@@ -445,6 +445,31 @@ function loadSavedQuery() {
 	fetchData();
 }
 
+function fetchRelationships() {
+    fetch('/api/relationships')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('relationshipSelection');
+            container.innerHTML = ''; // vorherige Inhalte löschen
+            data.forEach(rel => {
+                const label = document.createElement('label');
+                label.style.display = 'block';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = 'relationship';
+                checkbox.value = rel;
+                checkbox.checked = true; // standardmäßig ausgewählt
+
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(' ' + rel));
+
+                container.appendChild(label);
+            });
+        })
+        .catch(err => console.error('Fehler beim Laden der Relationships:', err));
+}
+
 // Initial beim Laden der Seite
 document.addEventListener('DOMContentLoaded', () => {
 	loadSavedQueriesFromAPI();
@@ -458,4 +483,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Füge den Button direkt vor der Tabelle ein
     resultsContainer.parentNode.insertBefore(insertBtn, resultsContainer);
+
+	fetchRelationships();
 });
