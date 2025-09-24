@@ -7,54 +7,6 @@ def create_get_data_bp(graph):
         def __init__(self, driver):
             self.driver = driver
 
-        def fetch_nodes(self, label, limit=None, where=None):
-            where_clause = f"WHERE {where}" if where else ""
-            query = f"MATCH (n:`{label}`) {where_clause} RETURN n" + (f" LIMIT {limit}" if limit else "")
-            try:
-                records = self.driver.run(query).data()
-            except Exception as e:
-                raise RuntimeError(f"Neo4j-Fehler bei fetch_nodes({label}): {e}")
-            result = []
-            for r in records:
-                n = r.get("n")
-                if n is None:
-                    continue
-                node_dict = self._node_to_dict(n)
-                if node_dict["props"] is None:
-                    node_dict["props"] = {}
-                result.append(node_dict)
-            return result
-
-        def fetch_paths(self, labels, max_depth, limit=None, where=None, rel_filter=None):
-            if max_depth < 0:
-                depth_str = "*"
-            else:
-                depth_str = f"*..{max_depth}"
-
-            rel_match = "" if not rel_filter else f"[r:{'|'.join(rel_filter)}{depth_str}]"
-            normal_match = f"[{depth_str}]"
-
-            cypher = f"""
-            MATCH p=(start)-{rel_match if rel_filter else normal_match}->(end)
-            WHERE ANY(n IN nodes(p) WHERE ANY(l IN labels(n) WHERE l IN $labels))
-            """
-            if where:
-                cypher += f" AND {where}"
-            cypher += f" RETURN p" + (f" LIMIT {limit}" if limit else "")
-
-            try:
-                records = self.driver.run(cypher, labels=labels).data()
-            except Exception as e:
-                raise RuntimeError(f"Neo4j-Fehler bei fetch_paths: {e}")
-
-            paths = []
-            for r in records:
-                p = r["p"]
-                nodes = [self._node_to_dict(n) for n in p.nodes]
-                rels = [self._rel_to_dict(rel) for rel in p.relationships if not rel_filter or type(rel).__name__ in rel_filter]
-                paths.append({"nodes": nodes, "rels": rels})
-            return paths
-
         def _node_to_dict(self, node):
             return {
                 "id": getattr(node, "identity", None),
@@ -69,6 +21,61 @@ def create_get_data_bp(graph):
                 "type": type(rel).__name__,
             }
 
+        def fetch_nodes(self, label, limit=None, where=None):
+            base_query = f"MATCH (n:`{label}`)"
+            if where:
+                base_query += f" WHERE {where}"
+            base_query += " RETURN n"
+            if limit:
+                base_query += f" LIMIT {limit}"
+            try:
+                records = self.driver.run(base_query).data()
+            except Exception as e:
+                # nur Fehler, die wirklich kritisch sind
+                raise RuntimeError(f"Neo4j-Fehler bei fetch_nodes({label}): {e}")
+            result = []
+            for r in records:
+                n = r.get("n")
+                if n is None:
+                    continue
+                node_dict = self._node_to_dict(n)
+                node_dict["props"] = node_dict.get("props") or {}
+                result.append(node_dict)
+            return result
+
+        def fetch_paths(self, labels, max_depth, limit=None, where=None, rel_filter=None):
+            depth_str = f"*..{max_depth}" if max_depth >= 0 else "*"
+            rel_match = f"[r:{'|'.join(rel_filter)}{depth_str}]" if rel_filter else f"[{depth_str}]"
+
+            cypher = f"""
+                MATCH p=(start)-{rel_match}->(end)
+                WHERE ANY(n IN nodes(p) WHERE ANY(l IN labels(n) WHERE l IN $labels))
+            """
+
+            if where:
+                # sicherstellen, dass wir 'n' benutzen
+                cypher += f" AND ANY(n IN nodes(p) WHERE {where})"
+
+            cypher += " RETURN p"
+            if limit:
+                cypher += f" LIMIT {limit}"
+
+            try:
+                records = self.driver.run(cypher, labels=labels).data()
+            except Exception as e:
+                raise RuntimeError(f"Neo4j-Fehler bei fetch_paths: {e}")
+
+            paths = []
+            for r in records:
+                p = r["p"]
+                nodes = [self._node_to_dict(n) for n in p.nodes]
+                rels = [self._rel_to_dict(rel) for rel in p.relationships
+                        if not rel_filter or type(rel).__name__ in rel_filter]
+                paths.append({"nodes": nodes, "rels": rels})
+            return paths
+
+
+
     graph_api = GraphAPI(graph)
 
     @bp.route("/get_data_as_table", methods=["GET"])
@@ -80,6 +87,9 @@ def create_get_data_bp(graph):
             rows = assemble_table_rows(buckets, columns)
             return jsonify({"columns": columns, "rows": rows})
         except Exception as e:
+            import traceback
+            print("Exception in get_data_as_table:", str(e))
+            traceback.print_exc()
             return jsonify({"status": "error", "message": str(e)}), 500
 
     def build_buckets(graph_api, params):
@@ -127,14 +137,24 @@ def create_get_data_bp(graph):
         if not nodes_param:
             raise ValueError("Parameter 'nodes' erforderlich")
         selected_labels = [n.strip() for n in nodes_param.split(",") if n.strip()]
+        if not selected_labels:
+            raise ValueError("Parameter 'nodes' darf nicht leer sein")
         main_label = selected_labels[0]
-        max_depth = int(req.args.get("maxDepth", 3))
-        limit = int(req.args["limit"]) if req.args.get("limit") else None
-        filter_labels = (
-            [l.strip() for l in req.args["filterLabels"].split(",")] if req.args.get("filterLabels") else None
-        )
+
+        max_depth_raw = req.args.get("maxDepth", "3")
+        max_depth = int(max_depth_raw)  # Python wirft automatisch ValueError bei ungültigem Wert
+
+        limit_raw = req.args.get("limit")
+        limit = int(limit_raw) if limit_raw is not None else None  # idem
+
+        filter_labels_raw = req.args.get("filterLabels")
+        filter_labels = [l.strip() for l in filter_labels_raw.split(",")] if filter_labels_raw else None
+
         where = req.args.get("where")  # optional
-        rel_filter = [r.strip() for r in req.args["relationships"].split(",")] if req.args.get("relationships") else None
+
+        relationships_raw = req.args.get("relationships")
+        rel_filter = [r.strip() for r in relationships_raw.split(",")] if relationships_raw else None
+
         return selected_labels, main_label, max_depth, limit, filter_labels, where, rel_filter
 
     def extract_nodes_from_paths(paths, main_label, selected_labels, filter_labels=None):
