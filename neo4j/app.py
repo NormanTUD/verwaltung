@@ -19,6 +19,7 @@ from api.add_row import create_add_row_bp
 from api.add_column import create_add_column_bp
 from api.update_nodes import create_update_nodes_bp
 from api.save_queries import create_save_queries
+from api.add_relationship import create_add_relationship_bp
 
 load_dotenv()
 app = Flask(__name__)
@@ -42,6 +43,7 @@ app.register_blueprint(create_add_row_bp(graph), url_prefix='/api')
 app.register_blueprint(create_add_column_bp(graph), url_prefix='/api')
 app.register_blueprint(create_save_queries(graph), url_prefix='/api')
 app.register_blueprint(create_update_nodes_bp(graph), url_prefix='/api')
+app.register_blueprint(create_add_relationship_bp(graph), url_prefix='/api')
 
 @app.route('/')
 def index():
