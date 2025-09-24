@@ -87,9 +87,6 @@ def create_get_data_bp(graph):
             rows = assemble_table_rows(buckets, columns)
             return jsonify({"columns": columns, "rows": rows})
         except Exception as e:
-            import traceback
-            print("Exception in get_data_as_table:", str(e))
-            traceback.print_exc()
             return jsonify({"status": "error", "message": str(e)}), 500
 
     def build_buckets(graph_api, params):
