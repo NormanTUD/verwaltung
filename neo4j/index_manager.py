@@ -42,14 +42,23 @@ def create_index_bp(graph):
             try:
                 query = f"CREATE INDEX IF NOT EXISTS FOR (n:`{label}`) ON (n.`{prop}`)"
                 self.driver.run(query)
-                # kurz warten bis Index bei SHOW INDEXES sichtbar wird
-                for _ in range(5):
-                    existing = self.get_existing_indexes()
-                    if any(label in idx["labels"] and prop in idx["properties"] for idx in existing):
-                        break
-                    time.sleep(0.5)
-            except Exception as e:
-                raise RuntimeError(f"Neo4j-Fehler beim Erstellen des Index für {label}.{prop}: {e}")
+
+                # systematisch prüfen, bis der Index ONLINE ist
+                while True:
+                    indexes = self.driver.run("SHOW INDEXES").data()
+                    found = False
+                    for idx in indexes:
+                        labels = idx.get("labelsOrTypes") or idx.get("entityType") or []
+                        props = idx.get("properties") or []
+                        state = idx.get("state") or ""
+                        if label in labels and prop in props:
+                            found = True
+                            if state.upper() == "ONLINE":
+                                return  # Index ist fertig
+                            else:
+                                break  # Index existiert, aber nicht ONLINE
+                    if not found:
+                        raise RuntimeError(f"Index für {label}.{prop} wurde nicht gefunden")
 
     api = GraphAPI(graph)
 
