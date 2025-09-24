@@ -137,9 +137,62 @@ function handleFetchResponse(res) {
 }
 
 function handleServerData(data) {
+    console.log("handleServerData aufgerufen:", data);
+
     if (data && data.status === 'error') {
         error(data.message || 'Fehler vom Server');
         return;
     }
+
+    collectGlobalRelations(data);
     renderTable(data);
 }
+
+function collectGlobalRelations(data) {
+    console.log("collectGlobalRelations aufgerufen mit:", data);
+
+    if (!data || !Array.isArray(data.rows)) {
+        warning('Keine gültigen Rows für Relations');
+        return;
+    }
+
+    window.globalRelations = [];
+
+    // Mapping nodeId -> nodeType
+    var nodeIdToType = {};
+
+    data.rows.forEach(function (row) {
+        if (Array.isArray(row.cells)) {
+            row.cells.forEach(function (cell, idx) {
+                if (cell && cell.nodeId !== null && cell.nodeId !== undefined) {
+                    var col = data.columns[idx];
+                    if (col && col.nodeType) {
+                        nodeIdToType[cell.nodeId] = col.nodeType;
+                    }
+                }
+            });
+        }
+    });
+
+    console.log("NodeId->Type Map:", nodeIdToType);
+
+    // Relations mit Typ-Info aufbauen
+    data.rows.forEach(function (row) {
+        if (Array.isArray(row.relations)) {
+            row.relations.forEach(function (rel) {
+                if (rel && rel.fromId !== undefined && rel.toId !== undefined) {
+                    window.globalRelations.push({
+                        fromId: rel.fromId,
+                        fromType: nodeIdToType[rel.fromId] || null,
+                        toId: rel.toId,
+                        toType: nodeIdToType[rel.toId] || null,
+                        relation: rel.relation
+                    });
+                }
+            });
+        }
+    });
+
+    console.log("Global Relations (fertig):", window.globalRelations);
+}
+
