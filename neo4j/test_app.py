@@ -10,9 +10,10 @@ from unittest import mock
 from dotenv import load_dotenv
 from unittest.mock import patch, MagicMock
 from oasis_helper import load_or_generate_secret_key, get_graph_db_connection
-from app import (
-    get_all_nodes_and_relationships,
-)
+from app import get_all_nodes_and_relationships
+
+import warnings
+warnings.filterwarnings("ignore", category=ResourceWarning)
 
 # Lade Umgebungsvariablen aus der .env.test-Datei für die Tests
 load_dotenv('.env.test')
