@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Index Manager</title>
+<style>
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #ccc; padding: 5px; text-align: left; }
+th { background: #eee; }
+button { margin-top: 10px; padding: 5px 10px; }
+</style>
+</head>
+<body>
+<h1>Neo4j Index Manager</h1>
+<form id="indexForm">
+<table>
+<thead>
+<tr>
+  <th>Node Type</th>
+  <th>Property</th>
+  <th>Existing Index</th>
+  <th>Create Index?</th>
+</tr>
+</thead>
+<tbody>
+{% for label in labels %}
+  {% for prop in label_props[label] %}
+  <tr>
+    <td>{{ label }}</td>
+    <td>{{ prop }}</td>
+    <td>
+      {% set exists = false %}
+      {% for idx in existing_indexes %}
+        {% if label in idx.labels and prop in idx.properties %}
+          {% set exists = true %}
+        {% endif %}
+      {% endfor %}
+      {{ "✅" if exists else "" }}
+    </td>
+    <td>
+      {% if not exists %}
+        <input type="checkbox" name="index" value="{{ label }}|{{ prop }}">
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+{% endfor %}
+</tbody>
+</table>
+<button type="submit">Create Selected Indices</button>
+</form>
+
+<script>
+document.getElementById('indexForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    const checkboxes = Array.from(document.querySelectorAll('input[name="index"]:checked'));
+    const indices = checkboxes.map(cb => {
+        const [label, prop] = cb.value.split('|');
+        return {label, property: prop};
+    });
+    if(indices.length === 0) {
+        alert("No indices selected!");
+        return;
+    }
+    const res = await fetch("/api/create_indices", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({indices})
+    });
+    const data = await res.json();
+    if(data.status === "success") {
+        alert("Indices created:\n" + data.created.map(i=>i.label+"."+i.property).join("\n"));
+        window.location.reload();
+    } else {
+        alert("Error: " + data.message);
+    }
+});
+</script>
+</body>
+</html>
