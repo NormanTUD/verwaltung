@@ -43,15 +43,6 @@ app.register_blueprint(create_add_column_bp(graph), url_prefix='/api')
 app.register_blueprint(create_save_queries(graph), url_prefix='/api')
 app.register_blueprint(create_update_nodes_bp(graph), url_prefix='/api')
 
-def get_all_nodes_and_relationships():
-    """Holt alle Node-Typen und Relationship-Typen aus der Datenbank."""
-    node_labels = graph.run("CALL db.labels()").data()
-    relationship_types = graph.run("CALL db.relationshipTypes()").data()
-    return {
-        "labels": [label['label'] for label in node_labels],
-        "types": [rel['relationshipType'] for rel in relationship_types]
-    }
-
 @app.route('/')
 def index():
     return render_template('import.html')
@@ -214,6 +205,15 @@ def create_relationship(tx, from_node_type, to_node_type, rel_type, nodes_create
         #print(f"  ✅ Beziehung '{clean_rel_type}' zwischen '{from_node_type}' und '{to_node_type}' erstellt.")
     #else:
         #print(f"  ❌ Beziehung konnte nicht erstellt werden, Knoten fehlen: '{from_node_type}' (vorhanden: {from_node_type in nodes_created}), '{to_node_type}' (vorhanden: {to_node_type in nodes_created}).")
+
+def get_all_nodes_and_relationships():
+    """Holt alle Node-Typen und Relationship-Typen aus der Datenbank."""
+    node_labels = graph.run("CALL db.labels()").data()
+    relationship_types = graph.run("CALL db.relationshipTypes()").data()
+    return {
+        "labels": [label['label'] for label in node_labels],
+        "types": [rel['relationshipType'] for rel in relationship_types]
+    }
 
 @app.route('/overview')
 def overview():
