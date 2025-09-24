@@ -3394,6 +3394,110 @@ class TestNeo4jApp(unittest.TestCase):
 
         # Optional: prüfen, dass keine Duplikate enthalten sind
         self.assertEqual(len(data), len(set(data)))
+def test_get_data_as_table_with_where_condition(self):
+    """Test the 'where' parameter filters nodes correctly."""
+    self.graph.run("MATCH (n) DETACH DELETE n")
+    self.graph.run("""
+        CREATE (p:Person {vorname:'Alice', nachname:'Meier', alter:30})
+        CREATE (p2:Person {vorname:'Bob', nachname:'Schulz', alter:40})
+        CREATE (s:Stadt {stadt:'Berlin'})
+        CREATE (p)-[:WOHNT_IN]->(s)
+        CREATE (p2)-[:WOHNT_IN]->(s)
+    """)
+    with self.app as client:
+        resp = client.get(
+            '/api/get_data_as_table',
+            query_string={
+                'nodes': 'Person,Stadt',
+                'where': "n.alter < 35"  # only Alice should match
+            }
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(len(data['rows']), 1)
+        row = data['rows'][0]
+        col_list = data['columns']
+        cell_values = {(col_list[i]['nodeType'], col_list[i]['property']): row['cells'][i]['value']
+                       for i in range(len(col_list))}
+        self.assertEqual(cell_values.get(('Person', 'vorname')), 'Alice')
+        self.assertEqual(cell_values.get(('Person', 'nachname')), 'Meier')
+
+    def test_get_data_as_table_with_relationship_filter(self):
+        """Test the 'relationships' parameter only includes specified relationships."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("""
+            CREATE (p:Person {vorname:'Alice'})
+            CREATE (s:Stadt {stadt:'Berlin'})
+            CREATE (c:Company {name:'Siemens'})
+            CREATE (p)-[:WOHNT_IN]->(s)
+            CREATE (p)-[:ARBEITET_BEI]->(c)
+        """)
+        with self.app as client:
+            # only consider WOHNT_IN
+            resp = client.get(
+                '/api/get_data_as_table',
+                query_string={
+                    'nodes': 'Person,Stadt,Company',
+                    'relationships': 'WOHNT_IN'
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            # relations should only include WOHNT_IN
+            for row in data['rows']:
+                for rel in row.get('relations', []):
+                    self.assertEqual(rel['relation'], 'WOHNT_IN')
+
+
+    def test_get_data_as_table_with_where_and_relationships_combined(self):
+        """Test both 'where' and 'relationships' together."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("""
+            CREATE (p:Person {vorname:'Alice', alter:30})
+            CREATE (p2:Person {vorname:'Bob', alter:40})
+            CREATE (s:Stadt {stadt:'Berlin'})
+            CREATE (c:Company {name:'Siemens'})
+            CREATE (p)-[:WOHNT_IN]->(s)
+            CREATE (p)-[:ARBEITET_BEI]->(c)
+            CREATE (p2)-[:WOHNT_IN]->(s)
+            CREATE (p2)-[:ARBEITET_BEI]->(c)
+        """)
+        with self.app as client:
+            resp = client.get(
+                '/api/get_data_as_table',
+                query_string={
+                    'nodes': 'Person,Stadt,Company',
+                    'where': 'n.alter < 35',
+                    'relationships': 'WOHNT_IN'
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertEqual(len(data['rows']), 1)
+            row = data['rows'][0]
+            col_list = data['columns']
+            cell_values = {(col_list[i]['nodeType'], col_list[i]['property']): row['cells'][i]['value']
+                        for i in range(len(col_list))}
+            self.assertEqual(cell_values.get(('Person', 'vorname')), 'Alice')
+            # relations only WOHNT_IN
+            for rel in row.get('relations', []):
+                self.assertEqual(rel['relation'], 'WOHNT_IN')
+
+
+    def test_get_data_as_table_where_no_match_returns_empty(self):
+        """If 'where' condition matches no nodes, result is empty but structure intact."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("CREATE (p:Person {vorname:'Alice', alter:30})")
+        with self.app as client:
+            resp = client.get(
+                '/api/get_data_as_table',
+                query_string={'nodes': 'Person', 'where': 'n.alter > 100'}
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertEqual(data['columns'], [])
+            self.assertEqual(data['rows'], [])
+
 
 if __name__ == '__main__':
     try:
