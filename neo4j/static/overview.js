@@ -450,4 +450,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	loadSavedQueriesFromAPI();
 
 	document.getElementById('querySelection').addEventListener('change', fetchData);
+	
+	const insertBtn = document.createElement('button');
+    insertBtn.textContent = 'Neue Zeile hinzufügen';
+    insertBtn.style.marginBottom = '10px';
+    insertBtn.onclick = addRowToTable;
+
+    // Füge den Button direkt vor der Tabelle ein
+    resultsContainer.parentNode.insertBefore(insertBtn, resultsContainer);
 });
