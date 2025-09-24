@@ -47,6 +47,14 @@
     <script src="static/overview/jqueryquerybuilder.js"></script>
 
     <div>
+        <h3>Beziehungen</h3>
+        <p>Wähle die Relationship-Typen aus:</p>
+        <div id="relationshipSelection" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 5px;">
+            <!-- Checkboxen werden hier dynamisch eingefügt -->
+        </div>
+    </div>
+
+    <div>
         <h3>Abfrage speichern</h3>
         <input type="text" id="queryNameInput" placeholder="Name der Abfrage" style="width: 100%; margin-bottom: 5px;">
         <button onclick="saveQuery()">Speichern</button>
@@ -56,15 +64,6 @@
             <option value="">-- Wähle eine gespeicherte Abfrage --</option>
         </select>
         <button onclick="loadSavedQuery()">Laden</button>
-    </div>
-
-
-    <div>
-        <h3>Beziehungen</h3>
-        <p>Wähle die Relationship-Typen aus:</p>
-        <div id="relationshipSelection" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 5px;">
-            <!-- Checkboxen werden hier dynamisch eingefügt -->
-        </div>
     </div>
 </div>
 
