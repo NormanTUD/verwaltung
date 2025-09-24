@@ -39,26 +39,25 @@ def create_index_bp(graph):
                 return []  # niemals None zurückgeben
 
         def create_index(self, label, prop):
-            try:
-                query = f"CREATE INDEX IF NOT EXISTS FOR (n:`{label}`) ON (n.`{prop}`)"
-                self.driver.run(query)
+            query = f"CREATE INDEX IF NOT EXISTS FOR (n:`{label}`) ON (n.`{prop}`)"
+            self.driver.run(query)
 
-                # systematisch prüfen, bis der Index ONLINE ist
-                while True:
-                    indexes = self.driver.run("SHOW INDEXES").data()
-                    found = False
-                    for idx in indexes:
-                        labels = idx.get("labelsOrTypes") or idx.get("entityType") or []
-                        props = idx.get("properties") or []
-                        state = idx.get("state") or ""
-                        if label in labels and prop in props:
-                            found = True
-                            if state.upper() == "ONLINE":
-                                return  # Index ist fertig
-                            else:
-                                break  # Index existiert, aber nicht ONLINE
-                    if not found:
-                        raise RuntimeError(f"Index für {label}.{prop} wurde nicht gefunden")
+            # systematisch prüfen, bis der Index ONLINE ist
+            while True:
+                indexes = self.driver.run("SHOW INDEXES").data()
+                found = False
+                for idx in indexes:
+                    labels = idx.get("labelsOrTypes") or idx.get("entityType") or []
+                    props = idx.get("properties") or []
+                    state = idx.get("state") or ""
+                    if label in labels and prop in props:
+                        found = True
+                        if state.upper() == "ONLINE":
+                            return  # Index ist fertig
+                        else:
+                            break  # Index existiert, aber nicht ONLINE
+                if not found:
+                    raise RuntimeError(f"Index für {label}.{prop} wurde nicht gefunden")
 
     api = GraphAPI(graph)
 
