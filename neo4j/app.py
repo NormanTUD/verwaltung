@@ -4,11 +4,11 @@ import os
 import csv
 import io
 import json
-import secrets
 import inspect
 from flask import Flask, request, jsonify, render_template, session
 from py2neo import Graph, NodeMatcher
 from dotenv import load_dotenv
+import oasis_helper
 from api.get_data_as_table import create_get_data_bp
 from api.dump_database import create_dump_database_bp
 from api.reset_and_load_data import create_reset_and_load_data_bp
@@ -34,29 +34,8 @@ load_dotenv()
 # Konfiguration und Initialisierung
 app = Flask(__name__)
 
-secret_file_path = "/etc/oasis/secret_key"
-
-def load_or_generate_secret_key(path):
-    try:
-        # Datei existiert
-        with open(path, "r") as f:
-            key = f.read().strip()
-            if not key:
-                raise ValueError("Secret-Key-Datei ist leer")
-            print(f"Secret-Key geladen aus {path}")
-            return key
-    except FileNotFoundError:
-        # Datei existiert nicht
-        key = secrets.token_urlsafe(64)
-        return key
-    except Exception as e:
-        # Andere Fehler beim Lesen
-        key = secrets.token_urlsafe(64)
-        print(f"Fehler beim Laden des Secret-Keys ({e}). Temporärer Key wird verwendet: {key}")
-        return key
-
 # Secret Key setzen
-app.secret_key = load_or_generate_secret_key(secret_file_path)
+app.secret_key = oasis_helper.load_or_generate_secret_key()
 
 try:
     # Neo4j-Verbindung
