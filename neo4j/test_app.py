@@ -3160,6 +3160,35 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertNotIn("123invalid", node)
         self.assertEqual(node["validName"], "ok")
 
+    def test_add_relationship_success(self):
+        alice = Node("Person", name="Alice")
+        self.graph.create(alice)
+        berlin = Node("Ort", name="Berlin")
+        self.graph.create(berlin)
+
+        data = {
+            "start_id": alice.identity,
+            "end_id": berlin.identity,
+            "type": "WOHNT_IN",
+            "props": {"since": 2020}
+        }
+        with self.app as client:
+            resp = client.post("/api/add_relationship", json=data)
+            self.assertEqual(resp.status_code, 200)
+            result = resp.get_json()
+            self.assertEqual(result["status"], "success")
+            self.assertIn("id", result)
+            self.assertIn("WOHNT_IN", result["message"])
+
+        rel = self.graph.run(
+            f"MATCH (a)-[r]->(b) "
+            f"WHERE ID(a)={alice.identity} AND ID(b)={berlin.identity} "
+            f"RETURN type(r) AS t, r.since AS since"
+        ).data()
+        self.assertTrue(rel)
+        self.assertEqual(rel[0]["t"], "WOHNT_IN")
+        self.assertEqual(rel[0]["since"], 2020)
+
 if __name__ == '__main__':
     try:
         unittest.main()
