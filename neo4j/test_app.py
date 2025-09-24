@@ -2802,7 +2802,7 @@ class TestNeo4jApp(unittest.TestCase):
     def test_get_data_as_table_person_ort_buch_with_relations(self):
         """Persons with living places and optionally books should return joined rows with relations."""
 
-        # Transaction nutzen, um sicherzustellen, dass alles committed wird
+        # Transaction starten
         tx = self.graph.begin()
         
         # Alle Knoten löschen
@@ -2837,8 +2837,8 @@ class TestNeo4jApp(unittest.TestCase):
             CREATE (p5)-[:HAT_GESCHRIEBEN]->(b3)
         """)
         
-        # Commit ausführen
-        tx.commit()
+        # Transaction mit graph.commit(tx) abschließen (deprecated commit() vermeiden)
+        self.graph.commit(tx)
         
         # Sicherstellen, dass alle 5 Personen erstellt wurden
         person_count = self.graph.run("MATCH (p:Person) RETURN count(p) AS c").data()[0]['c']
