@@ -8,7 +8,6 @@ def load_or_generate_secret_key():
             key = f.read().strip()
             if not key:
                 raise ValueError("Secret-Key-Datei ist leer")
-            print(f"Secret-Key geladen aus {path}")
             return key
     except FileNotFoundError:
         # Datei existiert nicht
