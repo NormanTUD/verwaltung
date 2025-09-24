@@ -3189,6 +3189,44 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(rel[0]["t"], "WOHNT_IN")
         self.assertEqual(rel[0]["since"], 2020)
 
+    def test_add_relationship_invalid_property_names(self):
+        alice = Node("Person", name="Alice")
+        self.graph.create(alice)
+        berlin = Node("Ort", name="Berlin")
+        self.graph.create(berlin)
+
+        data = {
+            "start_id": alice.identity,
+            "end_id": berlin.identity,
+            "type": "WOHNT_IN",
+            "props": {"123invalid": "oops", "validProp": "ok"}
+        }
+        with self.app as client:
+            resp = client.post("/api/add_relationship", json=data)
+            self.assertEqual(resp.status_code, 200)
+
+        rel = self.graph.run(
+            f"MATCH (a)-[r]->(b) "
+            f"WHERE ID(a)={alice.identity} AND ID(b)={berlin.identity} "
+            f"RETURN r"
+        ).data()[0]["r"]
+        self.assertNotIn("123invalid", rel)
+        self.assertEqual(rel["validProp"], "ok")
+
+    def test_add_relationship_nonexistent_nodes(self):
+        data = {"start_id": 9999, "end_id": 8888, "type": "WOHNT_IN"}
+        with self.app as client:
+            resp = client.post("/api/add_relationship", json=data)
+            self.assertEqual(resp.status_code, 500)
+            self.assertEqual(resp.get_json()["status"], "error")
+
+    def test_add_relationship_empty_request_body(self):
+        with self.app as client:
+            resp = client.post("/api/add_relationship", data="")
+            self.assertEqual(resp.status_code, 400)
+            self.assertEqual(resp.get_json()["status"], "error")
+            self.assertIn("leer", resp.get_json()["message"])
+
 if __name__ == '__main__':
     try:
         unittest.main()
