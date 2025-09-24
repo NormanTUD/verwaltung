@@ -5,40 +5,26 @@ function fetchData() {
         return;
     }
 
-    var labels = [].slice.call(sel.querySelectorAll('input:checked'))
-        .map(function (i) {
-            return i.value;
-        });
-
+    var labels = getSelectedLabels(sel);
     if (!labels.length) {
         warning('Bitte mindestens ein Label auswählen');
         return;
     }
 
-    var qs = 'nodes=' + encodeURIComponent(labels.join(','));
-    var url = '/api/get_data_as_table?' + qs;
+    var url = buildQueryUrl(labels);
 
     fetch(url, {
         method: 'GET',
         headers: { 'Accept': 'application/json' }
     })
-        .then(function (res) {
-            if (!res.ok) {
-                throw new Error('Server antwortete mit ' + res.status);
-            }
-            return res.json();
-        })
-        .then(function (data) {
-            if (data && data.status === 'error') {
-                error(data.message || 'Fehler vom Server');
-                return;
-            }
-            renderTable(data);
-        })
+        .then(handleFetchResponse)
+        .then(handleServerData)
         .catch(function (err) {
             error('Fehler beim Laden: ' + (err.message || err));
         });
 }
+
+// ----------------- Table Rendering -----------------
 
 function renderTable(data) {
     var container = document.getElementById('resultsContainer');
@@ -56,52 +42,104 @@ function renderTable(data) {
     table.className = 'query-results-table';
 
     table.appendChild(make_thead_from_columns(cols));
+    table.appendChild(makeTableBody(cols, rows));
 
+    container.appendChild(table);
+}
+
+function makeTableBody(cols, rows) {
     var tbody = document.createElement('tbody');
 
     rows.forEach(function (row) {
-        var node_map = build_node_map_from_row(cols, row.cells || []);
-        var tr = document.createElement('tr');
-
-        // Jede Zelle in der Zeile erhält ein data-Attribut mit ALLEN Relationen der Zeile
-        var rowRelationsData = encodeURIComponent(JSON.stringify(row.relations || []));
-
-        for (var i = 0; i < cols.length; ++i) {
-            var col = cols[i];
-            var cell = (row.cells && row.cells[i]) ? row.cells[i] : null;
-            var td = make_input_td(cell, col);
-            td.setAttribute('data-relations', rowRelationsData); // Das ist der Schlüssel!
-            tr.appendChild(td);
-        }
-
-        var td_rel = document.createElement('td');
-        td_rel.innerHTML = format_relations_html(row.relations || [], node_map);
-        tr.appendChild(td_rel);
-
-        var td_plus = document.createElement('td');
-        var btn_plus = document.createElement('button');
-        btn_plus.type = 'button';
-        btn_plus.setAttribute('onclick', 'addColumnToNode(event)');
-        btn_plus.textContent = '+';
-        td_plus.appendChild(btn_plus);
-        tr.appendChild(td_plus);
-
-        var td_act = document.createElement('td');
-        var btn_del = document.createElement('button');
-        btn_del.type = 'button';
-        btn_del.className = 'delete-btn';
-        btn_del.setAttribute('data-id', first_node_id_from_row(row));
-        btn_del.textContent = 'Löschen';
-        btn_del.addEventListener('click', function (ev) {
-            var id = ev.currentTarget.getAttribute('data-id');
-            handle_delete_node_by_id(id, ev.currentTarget, ev);
-        });
-        td_act.appendChild(btn_del);
-        tr.appendChild(td_act);
-
-        tbody.appendChild(tr);
+        tbody.appendChild(makeRow(cols, row));
     });
 
-    table.appendChild(tbody);
-    container.appendChild(table);
+    return tbody;
+}
+
+function makeRow(cols, row) {
+    var tr = document.createElement('tr');
+    var node_map = build_node_map_from_row(cols, row.cells || []);
+    var rowRelationsData = encodeURIComponent(JSON.stringify(row.relations || []));
+
+    cols.forEach(function (col, i) {
+        tr.appendChild(makeCell(col, row, i, rowRelationsData));
+    });
+
+    tr.appendChild(makeRelationsCell(row, node_map));
+    tr.appendChild(makePlusCell());
+    tr.appendChild(makeDeleteCell(row));
+
+    return tr;
+}
+
+function makeCell(col, row, i, rowRelationsData) {
+    var cell = (row.cells && row.cells[i]) ? row.cells[i] : null;
+    var td = make_input_td(cell, col);
+    td.setAttribute('data-relations', rowRelationsData);
+    return td;
+}
+
+function makeRelationsCell(row, node_map) {
+    var td = document.createElement('td');
+    td.innerHTML = format_relations_html(row.relations || [], node_map);
+    return td;
+}
+
+function makePlusCell() {
+    var td = document.createElement('td');
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = '+';
+    btn.addEventListener('click', addColumnToNode);
+    td.appendChild(btn);
+    return td;
+}
+
+function makeDeleteCell(row) {
+    var td = document.createElement('td');
+    td.appendChild(makeDeleteButton(first_node_id_from_row(row)));
+    return td;
+}
+
+function makeDeleteButton(id) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'delete-btn';
+    btn.textContent = 'Löschen';
+    btn.setAttribute('data-id', id);
+    btn.addEventListener('click', function (ev) {
+        var targetId = ev.currentTarget.getAttribute('data-id');
+        handle_delete_node_by_id(targetId, ev.currentTarget, ev);
+    });
+    return btn;
+}
+
+// ----------------- Fetch Helpers -----------------
+
+function getSelectedLabels(sel) {
+    return [].slice.call(sel.querySelectorAll('input:checked'))
+        .map(function (i) {
+            return i.value;
+        });
+}
+
+function buildQueryUrl(labels) {
+    var qs = 'nodes=' + encodeURIComponent(labels.join(','));
+    return '/api/get_data_as_table?' + qs;
+}
+
+function handleFetchResponse(res) {
+    if (!res.ok) {
+        throw new Error('Server antwortete mit ' + res.status);
+    }
+    return res.json();
+}
+
+function handleServerData(data) {
+    if (data && data.status === 'error') {
+        error(data.message || 'Fehler vom Server');
+        return;
+    }
+    renderTable(data);
 }
