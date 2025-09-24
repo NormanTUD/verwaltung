@@ -62,7 +62,7 @@ document.getElementById('indexForm').addEventListener('submit', async function(e
         alert("No indices selected!");
         return;
     }
-    const res = await fetch("/api/create_indices", {
+    const res = await fetch("/create_indices", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({indices})
