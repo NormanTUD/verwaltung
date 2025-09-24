@@ -3349,6 +3349,24 @@ class TestNeo4jApp(unittest.TestCase):
         data = resp.get_json()
         self.assertEqual(data, [])
 
+    def test_get_labels_success(self):
+        # Erstelle ein paar Test-Nodes mit Labels
+        self.graph.run("CREATE (:Person {name:'Alice'})")
+        self.graph.run("CREATE (:Ort {name:'Berlin'})")
+
+        resp = self.app.get("/api/labels")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertIn("Person", data)
+        self.assertIn("Ort", data)
+
+    def test_get_labels_no_nodes(self):
+        # DB ist leer
+        resp = self.app.get("/api/labels")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data, [])
+
 if __name__ == '__main__':
     try:
         unittest.main()
