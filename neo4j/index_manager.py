@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify, render_template
+import time
 
 def create_index_bp(graph):
     bp = Blueprint("index_bp", __name__)
@@ -28,18 +29,25 @@ def create_index_bp(graph):
                 result = self.driver.run("SHOW INDEXES").data()
                 indexes = []
                 for r in result:
-                    labels = r.get("labelsOrTypes") or []
+                    # labelsOrTypes existiert in Neo4j 4.x/5.x, fallback falls Key fehlt
+                    labels = r.get("labelsOrTypes") or r.get("entityType") or []
                     props = r.get("properties") or []
                     indexes.append({"labels": labels, "properties": props})
                 return indexes
             except Exception as e:
                 print(f"Warnung: Fehler beim Abrufen der Indizes: {e}")
-                return []  # <-- niemals None zurückgeben
+                return []  # niemals None zurückgeben
 
         def create_index(self, label, prop):
             try:
                 query = f"CREATE INDEX IF NOT EXISTS FOR (n:`{label}`) ON (n.`{prop}`)"
                 self.driver.run(query)
+                # kurz warten bis Index bei SHOW INDEXES sichtbar wird
+                for _ in range(5):
+                    existing = self.get_existing_indexes()
+                    if any(label in idx["labels"] and prop in idx["properties"] for idx in existing):
+                        break
+                    time.sleep(0.5)
             except Exception as e:
                 raise RuntimeError(f"Neo4j-Fehler beim Erstellen des Index für {label}.{prop}: {e}")
 
