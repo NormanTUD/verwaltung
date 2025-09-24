@@ -20,7 +20,6 @@ def load_or_generate_secret_key():
     except Exception as e:
         # Andere Fehler beim Lesen
         key = secrets.token_urlsafe(64)
-        print(f"Fehler beim Laden des Secret-Keys ({e}). Temporärer Key wird verwendet: {key}")
         return key
 
 def get_graph_db_connection():
