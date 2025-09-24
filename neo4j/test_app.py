@@ -3219,18 +3219,16 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(node["validName"], "ok")
 
     def test_add_relationship_success(self):
-        # eindeutige Namen für CI-Stabilität
         alice_name = f"Alice_{uuid4()}"
         berlin_name = f"Berlin_{uuid4()}"
 
-        # Nodes innerhalb einer Transaktion erstellen
+        # Nodes erstellen und committen
         tx = self.graph.begin()
         alice = Node("Person", name=alice_name)
         berlin = Node("Ort", name=berlin_name)
         tx.create(alice)
         tx.create(berlin)
-        # Commit über graph.commit()
-        self.graph.commit(tx)
+        tx.commit()  # commit auf Transaction-Objekt
 
         # IDs sind jetzt garantiert gesetzt
         self.assertIsNotNone(alice.identity)
@@ -3251,12 +3249,20 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertIn("id", result)
             self.assertIn("WOHNT_IN", result["message"])
 
-        # Überprüfung, dass die Beziehung tatsächlich existiert
-        rel = self.graph.run(
-            f"MATCH (a)-[r]->(b) "
-            f"WHERE ID(a)={alice.identity} AND ID(b)={berlin.identity} "
-            f"RETURN type(r) AS t, r.since AS since"
-        ).data()
+        # Überprüfung, dass die Beziehung existiert (mit Retry für CI-Stabilität)
+        import time
+        rel = []
+        for _ in range(5):
+            rel = self.graph.run(
+                "MATCH (a)-[r]->(b) "
+                "WHERE ID(a)=$alice_id AND ID(b)=$berlin_id "
+                "RETURN type(r) AS t, r.since AS since",
+                alice_id=alice.identity,
+                berlin_id=berlin.identity
+            ).data()
+            if rel:
+                break
+            time.sleep(0.1)
 
         self.assertTrue(rel)
         self.assertEqual(rel[0]["t"], "WOHNT_IN")
