@@ -76,7 +76,7 @@ class TestNeo4jApp(unittest.TestCase):
                 sys.exit(1)
         except KeyboardInterrupt:
             print("You pressed CTRL-C")
-            sys.exit(0)
+            sys.exit(1)
 
     @classmethod
     def tearDownClass(cls):
@@ -3505,4 +3505,4 @@ if __name__ == '__main__':
         unittest.main()
     except KeyboardInterrupt:
         print("You pressed CTRL-C")
-        sys.exit(0)
+        sys.exit(1)

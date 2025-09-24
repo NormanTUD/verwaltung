@@ -135,27 +135,40 @@ def create_get_data_bp(graph):
     def parse_request_params(req):
         nodes_param = req.args.get("nodes")
         if not nodes_param:
-            raise ValueError("Parameter 'nodes' erforderlich")
+            raise ValueError("Parameter 'nodes' required")
         selected_labels = [n.strip() for n in nodes_param.split(",") if n.strip()]
         if not selected_labels:
-            raise ValueError("Parameter 'nodes' darf nicht leer sein")
+            raise ValueError("Parameter 'nodes' must not be empty")
         main_label = selected_labels[0]
 
         max_depth_raw = req.args.get("maxDepth", "3")
-        max_depth = int(max_depth_raw)  # Python wirft automatisch ValueError bei ungültigem Wert
+        try:
+            # wirft ValueError mit "invalid literal ..." falls ungültig
+            max_depth = int(max_depth_raw)
+        except Exception:
+            int(max_depth_raw)  # nur fürs exakt gleiche traceback
+            raise
 
         limit_raw = req.args.get("limit")
-        limit = int(limit_raw) if limit_raw is not None else None  # idem
+        if limit_raw is not None:
+            try:
+                limit = int(limit_raw)
+            except Exception:
+                int(limit_raw)  # hier auch das alte Verhalten
+                raise
+        else:
+            limit = None
 
         filter_labels_raw = req.args.get("filterLabels")
         filter_labels = [l.strip() for l in filter_labels_raw.split(",")] if filter_labels_raw else None
 
-        where = req.args.get("where")  # optional
-
+        where = req.args.get("where")
         relationships_raw = req.args.get("relationships")
         rel_filter = [r.strip() for r in relationships_raw.split(",")] if relationships_raw else None
 
         return selected_labels, main_label, max_depth, limit, filter_labels, where, rel_filter
+
+
 
     def extract_nodes_from_paths(paths, main_label, selected_labels, filter_labels=None):
         buckets = {}
