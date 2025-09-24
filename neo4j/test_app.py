@@ -3327,6 +3327,28 @@ class TestNeo4jApp(unittest.TestCase):
                 key = load_or_generate_secret_key()
                 self.assertEqual(key, "tempkey")
 
+    def test_get_properties_success(self):
+        self.graph.run("CREATE (:Person {name:'Alice', age:30})")
+        resp = self.app.get("/api/properties?label=Person")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        props = [p["property"] for p in data]
+        self.assertIn("name", props)
+        self.assertIn("age", props)
+
+    def test_get_properties_empty_label(self):
+        resp = self.app.get("/api/properties")
+        self.assertEqual(resp.status_code, 500)
+        data = resp.get_json()
+        self.assertEqual(data["status"], "error")
+        self.assertIn("Missing label", data["message"])
+
+    def test_get_properties_no_nodes(self):
+        resp = self.app.get("/api/properties?label=UnknownLabel")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data, [])
+
 if __name__ == '__main__':
     try:
         unittest.main()
