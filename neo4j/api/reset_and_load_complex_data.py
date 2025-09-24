@@ -1,5 +1,9 @@
 import logging
-from flask import Blueprint, request, jsonify
+import random
+from flask import Blueprint, jsonify
+from faker import Faker
+
+fake = Faker()
 
 def create_complex_data_bp(graph):
     bp = Blueprint("complex_data", __name__)
@@ -9,73 +13,100 @@ def create_complex_data_bp(graph):
         query = "MATCH (n) DETACH DELETE n"
         graph.run(query)
 
-    def fn_create_person(vorname, nachname, geburtsjahr=None, email=None):
+    def fn_create_person(vorname, nachname, geburtsjahr=None, email=None, telefon=None, geschlecht=None):
         query = """
-            CREATE (p:Person {vorname:$vorname, nachname:$nachname, geburtsjahr:$geburtsjahr, email:$email})
+            CREATE (p:Person {
+                vorname:$vorname,
+                nachname:$nachname,
+                geburtsjahr:$geburtsjahr,
+                email:$email,
+                telefon:$telefon,
+                geschlecht:$geschlecht
+            })
             RETURN ID(p) AS id
         """
-        result = graph.run(query, vorname=vorname, nachname=nachname, geburtsjahr=geburtsjahr, email=email).data()
+        result = graph.run(query, vorname=vorname, nachname=nachname, geburtsjahr=geburtsjahr, email=email, telefon=telefon, geschlecht=geschlecht).data()
         return result[0]["id"]
 
-    def fn_create_address(street, plz, land="Deutschland"):
+    def fn_create_address(street, plz, stadt, land="Deutschland"):
         query = """
-            CREATE (a:Ort {straße:$street, plz:$plz, land:$land})
+            CREATE (a:Ort {
+                strasse:$street,
+                plz:$plz,
+                stadt:$stadt,
+                land:$land
+            })
             RETURN ID(a) AS id
         """
-        result = graph.run(query, street=street, plz=plz, land=land).data()
+        result = graph.run(query, street=street, plz=plz, stadt=stadt, land=land).data()
         return result[0]["id"]
 
-    def fn_create_organization(name, typ):
+    def fn_create_organization(name, typ, branche=None, mitarbeiterzahl=None):
         query = """
-            CREATE (o:Organisation {name:$name, typ:$typ})
+            CREATE (o:Organisation {
+                name:$name,
+                typ:$typ,
+                branche:$branche,
+                mitarbeiterzahl:$mitarbeiterzahl
+            })
             RETURN ID(o) AS id
         """
-        result = graph.run(query, name=name, typ=typ).data()
+        result = graph.run(query, name=name, typ=typ, branche=branche, mitarbeiterzahl=mitarbeiterzahl).data()
         return result[0]["id"]
 
-    def fn_create_book(title, year, genre=None):
+    def fn_create_book(title, year, genre=None, seiten=None, isbn=None):
         query = """
-            CREATE (b:Buch {titel:$title, erscheinungsjahr:$year, genre:$genre})
+            CREATE (b:Buch {
+                titel:$title,
+                erscheinungsjahr:$year,
+                genre:$genre,
+                seiten:$seiten,
+                isbn:$isbn
+            })
             RETURN ID(b) AS id
         """
-        result = graph.run(query, title=title, year=year, genre=genre).data()
+        result = graph.run(query, title=title, year=year, genre=genre, seiten=seiten, isbn=isbn).data()
         return result[0]["id"]
 
-    def fn_create_event(name, datum, ort_id=None):
+    def fn_create_event(name, datum, ort_id=None, thema=None, dauer=None):
         query = """
-            CREATE (e:Event {name:$name, datum:$datum})
+            CREATE (e:Event {
+                name:$name,
+                datum:$datum,
+                thema:$thema,
+                dauer:$dauer
+            })
             RETURN ID(e) AS id
         """
-        result = graph.run(query, name=name, datum=datum).data()
+        result = graph.run(query, name=name, datum=datum, thema=thema, dauer=dauer).data()
         event_id = result[0]["id"]
         if ort_id:
-            graph.run("MATCH (e:Event) WHERE ID(e)=$eid MATCH (o:Ort) WHERE ID(o)=$oid MERGE (e)-[:FINDET_STATT_IN]->(o)",
-                      eid=event_id, oid=ort_id)
+            graph.run(
+                "MATCH (e:Event) WHERE ID(e)=$eid MATCH (o:Ort) WHERE ID(o)=$oid MERGE (e)-[:FINDET_STATT_IN]->(o)",
+                eid=event_id, oid=ort_id
+            )
         return event_id
 
-    def fn_create_rel_person_organization(person_vorname, person_nachname, org_name, rolle):
-        query = """
-            MATCH (p:Person {vorname:$vorname, nachname:$nachname})
-            MATCH (o:Organisation {name:$org_name})
-            MERGE (p)-[:ARBEITET_FÜR {rolle:$rolle}]->(o)
+    def fn_create_rel(person_id=None, target_label=None, target_props=None, rel_type=None, rel_props=None):
         """
-        graph.run(query, vorname=person_vorname, nachname=person_nachname, org_name=org_name, rolle=rolle)
-
-    def fn_create_rel_person_book(person_vorname, person_nachname, book_title, rolle="Autor"):
-        query = """
-            MATCH (p:Person {vorname:$vorname, nachname:$nachname})
-            MATCH (b:Buch {titel:$title})
-            MERGE (p)-[:HAT_GESCHRIEBEN {rolle:$rolle}]->(b)
+        Generic relationship creator.
         """
-        graph.run(query, vorname=person_vorname, nachname=person_nachname, title=book_title, rolle=rolle)
-
-    def fn_create_rel_event_person(event_name, person_vorname, person_nachname, rolle):
-        query = """
-            MATCH (e:Event {name:$event_name})
-            MATCH (p:Person {vorname:$vorname, nachname:$nachname})
-            MERGE (p)-[:NIMMT_TEIL_AN {rolle:$rolle}]->(e)
+        if person_id is None or target_label is None or rel_type is None:
+            return
+        props_str = ""
+        if rel_props:
+            props_str = " {" + ", ".join(f"{k}: ${k}" for k in rel_props.keys()) + "}"
+        query = f"""
+            MATCH (p) WHERE ID(p)=$pid
+            MATCH (t:{target_label} {{{', '.join(f'{k}: ${k}' for k in target_props.keys())}}})
+            MERGE (p)-[r:{rel_type}{props_str}]->(t)
         """
-        graph.run(query, event_name=event_name, vorname=person_vorname, nachname=person_nachname, rolle=rolle)
+        params = {"pid": person_id}
+        if target_props:
+            params.update(target_props)
+        if rel_props:
+            params.update(rel_props)
+        graph.run(query, **params)
 
     @bp.route('/reset_and_load_complex_data')
     def api_reset_and_load_complex_data():
@@ -83,82 +114,70 @@ def create_complex_data_bp(graph):
             fn_clear_database()
 
             # --- Personen ---
-            personen = [
-                {"vorname": "Alice", "nachname": "Meyer", "geburtsjahr": 1985, "email": "alice@example.com"},
-                {"vorname": "Bob", "nachname": "Schneider", "geburtsjahr": 1990},
-                {"vorname": "Charlie", "nachname": "Fischer", "geburtsjahr": 1975, "email": "charlie@example.net"},
-                {"vorname": "Dana", "nachname": "Klein"},
-                {"vorname": "Eva", "nachname": "Wolf", "geburtsjahr": 1988}
-            ]
-
             person_ids = {}
-            for p in personen:
-                pid = fn_create_person(p["vorname"], p["nachname"], p.get("geburtsjahr"), p.get("email"))
-                person_ids[f"{p['vorname']}_{p['nachname']}"] = pid
+            for _ in range(1000):
+                vorname = fake.first_name()
+                nachname = fake.last_name()
+                geburtsjahr = random.randint(1950, 2005)
+                email = fake.email()
+                telefon = fake.phone_number()
+                geschlecht = random.choice(["männlich", "weiblich", "divers"])
+                pid = fn_create_person(vorname, nachname, geburtsjahr, email, telefon, geschlecht)
+                person_ids[f"{vorname}_{nachname}"] = pid
 
             # --- Adressen ---
-            adressen = [
-                {"straße": "Hauptstraße 1", "plz": "10115"},
-                {"straße": "Marktplatz 5", "plz": "20095"},
-                {"straße": "Bahnhofstraße 12", "plz": "80331"},
-                {"straße": "Kirchweg 3", "plz": "50667"}
-            ]
-
             ort_ids = {}
-            for i, addr in enumerate(adressen):
-                oid = fn_create_address(addr["straße"], addr["plz"])
-                ort_ids[f"Ort_{i}"] = oid
+            for _ in range(500):
+                street = fake.street_address()
+                plz = fake.postcode()
+                stadt = fake.city()
+                oid = fn_create_address(street, plz, stadt)
+                ort_ids[f"{stadt}_{plz}"] = oid
 
             # --- Organisationen ---
-            orgs = [
-                {"name": "TechCorp", "typ": "Firma"},
-                {"name": "UniBerlin", "typ": "Universität"},
-                {"name": "BookPublishers GmbH", "typ": "Verlag"}
-            ]
-
             org_ids = {}
-            for org in orgs:
-                oid = fn_create_organization(org["name"], org["typ"])
-                org_ids[org["name"]] = oid
+            for _ in range(200):
+                name = fake.company()
+                typ = random.choice(["Firma", "Universität", "Verlag", "Startup"])
+                branche = fake.bs()
+                mitarbeiterzahl = random.randint(10, 5000)
+                oid = fn_create_organization(name, typ, branche, mitarbeiterzahl)
+                org_ids[name] = oid
 
             # --- Bücher ---
-            books = [
-                {"titel": "Advanced Graphs", "erscheinungsjahr": 2021, "genre": "Technik", "autor": "Alice Meyer"},
-                {"titel": "Neo4j Deep Dive", "erscheinungsjahr": 2022, "genre": "Technik", "autor": "Bob Schneider"},
-                {"titel": "Mystery in Berlin", "erscheinungsjahr": 2023, "genre": "Roman", "autor": "Charlie Fischer"},
-                {"titel": "Data Science 101", "erscheinungsjahr": 2020, "genre": "Lehrbuch", "autor": "Dana Klein"},
-            ]
-
-            for book in books:
-                fn_create_book(book["titel"], book["erscheinungsjahr"], book.get("genre"))
-                autor_vorname, autor_nachname = book["autor"].split(" ")
-                fn_create_rel_person_book(autor_vorname, autor_nachname, book["titel"])
-
-            # --- Beziehungen Person -> Organisation ---
-            fn_create_rel_person_organization("Alice", "Meyer", "TechCorp", "Entwicklerin")
-            fn_create_rel_person_organization("Bob", "Schneider", "UniBerlin", "Dozent")
-            fn_create_rel_person_organization("Charlie", "Fischer", "BookPublishers GmbH", "Autor")
-            fn_create_rel_person_organization("Dana", "Klein", "TechCorp", "Data Scientist")
-            fn_create_rel_person_organization("Eva", "Wolf", "UniBerlin", "Studentin")
+            book_ids = {}
+            genres = ["Technik", "Roman", "Lehrbuch", "Science-Fiction", "Biografie", "Historisch"]
+            for _ in range(500):
+                title = fake.sentence(nb_words=4)
+                year = random.randint(1990, 2025)
+                genre = random.choice(genres)
+                seiten = random.randint(50, 1500)
+                isbn = fake.isbn13()
+                bid = fn_create_book(title, year, genre, seiten, isbn)
+                book_ids[title] = bid
+                # zufälliger Autor
+                autor_key = random.choice(list(person_ids.keys()))
+                autor_vorname, autor_nachname = autor_key.split("_")
+                fn_create_rel(person_ids[autor_key], "Buch", {"titel": title}, "HAT_GESCHRIEBEN", {"rolle": "Autor"})
 
             # --- Events ---
-            events = [
-                {"name": "GraphConf 2025", "datum": "2025-10-01", "ort_id": ort_ids["Ort_0"]},
-                {"name": "Data Science Meetup", "datum": "2025-11-15", "ort_id": ort_ids["Ort_1"]},
-                {"name": "Book Fair Berlin", "datum": "2025-12-05", "ort_id": ort_ids["Ort_2"]}
-            ]
+            event_ids = {}
+            themen = ["Tech", "Data Science", "Literatur", "Kunst", "Forschung"]
+            for _ in range(200):
+                name = fake.catch_phrase()
+                datum = fake.date_between(start_date='-1y', end_date='+1y').isoformat()
+                ort_key = random.choice(list(ort_ids.keys()))
+                ort_id = ort_ids[ort_key]
+                thema = random.choice(themen)
+                dauer = random.randint(1, 5)  # Tage
+                eid = fn_create_event(name, datum, ort_id, thema, dauer)
+                event_ids[name] = eid
+                # zufällige Teilnehmer
+                for _ in range(random.randint(5, 50)):
+                    person_key = random.choice(list(person_ids.keys()))
+                    fn_create_rel(person_ids[person_key], "Event", {"name": name}, "NIMMT_TEIL_AN", {"rolle": random.choice(["Speaker", "Attendee", "Organizer", "Visitor"])})
 
-            for event in events:
-                fn_create_event(event["name"], event["datum"], event.get("ort_id"))
-
-            # --- Beziehungen Person -> Event ---
-            fn_create_rel_event_person("GraphConf 2025", "Alice", "Meyer", "Speaker")
-            fn_create_rel_event_person("GraphConf 2025", "Bob", "Schneider", "Attendee")
-            fn_create_rel_event_person("Data Science Meetup", "Dana", "Klein", "Organizer")
-            fn_create_rel_event_person("Book Fair Berlin", "Charlie", "Fischer", "Exhibitor")
-            fn_create_rel_event_person("Book Fair Berlin", "Eva", "Wolf", "Visitor")
-
-            return jsonify({"status": "success", "message": "Complex database cleared and data loaded successfully"})
+            return jsonify({"status": "success", "message": "Mega komplexer Datensatz erstellt: 1000+ Personen, hunderte Events, Bücher, Organisationen"})
 
         except Exception as e:
             logging.exception("Error loading complex data")
