@@ -39,10 +39,3 @@ function restoreStateFromUrl() {
         }
     }
 }
-
-// === direkt beim Laden aufrufen ===
-document.addEventListener('DOMContentLoaded', function() {
-    restoreStateFromUrl();
-    fetchData(false); // lädt Daten ohne URL erneut zu ändern
-});
-

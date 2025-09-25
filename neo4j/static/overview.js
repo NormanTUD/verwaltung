@@ -498,20 +498,42 @@ function getQueryBuilderRules() {
     return null;
 }
 
+function createButtonWithHandler(container, text, onClick) {
+    const btn = document.createElement('button');
+    btn.textContent = text;
+    btn.style.marginBottom = '10px';
+    btn.onclick = onClick;
+    container.parentNode.insertBefore(btn, container);
+    return btn;
+}
+
+function createButton(text, onClick) {
+    const btn = document.createElement('button');
+    btn.textContent = text;
+    btn.style.marginBottom = '10px';
+    btn.onclick = onClick;
+    return btn;
+}
+
+function insertBefore(container, element) {
+    container.parentNode.insertBefore(element, container);
+}
+
 
 // Initial beim Laden der Seite
 document.addEventListener('DOMContentLoaded', () => {
+	initQueryBuilder();
+
 	loadSavedQueriesFromAPI();
+	
+	restoreStateFromUrl();
 
-	document.getElementById('querySelection').addEventListener('change', fetchData);
+	createButtonWithHandler(resultsContainer, 'Neue Zeile hinzufügen', addRowToTable);
 
-	const insertBtn = document.createElement('button');
-	insertBtn.textContent = 'Neue Zeile hinzufügen';
-	insertBtn.style.marginBottom = '10px';
-	insertBtn.onclick = addRowToTable;
-
-	// Füge den Button direkt vor der Tabelle ein
-	resultsContainer.parentNode.insertBefore(insertBtn, resultsContainer);
+	const insertBtn = createButton('Neue Zeile hinzufügen', addRowToTable);
+	insertBefore(resultsContainer, insertBtn);
 
 	fetchRelationships();
+	
+	fetchData(false);
 });
