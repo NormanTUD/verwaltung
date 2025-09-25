@@ -1,10 +1,12 @@
 import sys
 import csv
 import io
-import json
+
 from flask import Flask, request, jsonify, render_template, session
 from dotenv import load_dotenv
+
 import oasis_helper
+
 from api.get_data_as_table import create_get_data_bp
 from api.dump_database import create_dump_database_bp
 from api.reset_and_load_data import create_reset_and_load_data_bp
@@ -119,8 +121,7 @@ def save_mapping():
 
     tx = graph.begin()
     try:
-        for i, row in enumerate(reader):
-            #print(f"\n--- Bearbeite Zeile {i+1} ---")
+        for _, row in enumerate(reader):
             process_row(tx, row, mapping_data)
 
         graph.commit(tx)
@@ -190,11 +191,10 @@ def merge_node(tx, node_type, fields, row):
     result = graph.run(cypher_query, **params).data()
 
     if result:
-        #print(f"  ✅ Knoten '{node_type}' erfolgreich gemerged.")
         return result[0][node_var]
-    else:
-        print(f"  ⚠️ MERGE-Vorgang für '{node_type}' hat nichts zurückgegeben.")
-        return None
+
+    print(f"  ⚠️ MERGE-Vorgang für '{node_type}' hat nichts zurückgegeben.")
+    return None
 
 def create_relationship(tx, from_node_type, to_node_type, rel_type, nodes_created):
     """Erstellt eine Beziehung zwischen zwei vorhandenen Knoten."""
