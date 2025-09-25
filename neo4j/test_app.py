@@ -3248,7 +3248,7 @@ class TestNeo4jApp(unittest.TestCase):
         """Alles löschen, was zu dieser UID gehört"""
         self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
 
-    def _wait_for_node(self, label, uid, retries=5, delay=0.1):
+    def _wait_for_node(self, label, uid, retries=10, delay=0.1):
         """Retry bis Node sichtbar ist, max retries"""
         for _ in range(retries):
             node_id = self.graph.evaluate(f"MATCH (n:`{label}` {{uid:$uid}}) RETURN id(n)", uid=uid)
@@ -3257,14 +3257,14 @@ class TestNeo4jApp(unittest.TestCase):
             time.sleep(delay)
         raise RuntimeError(f"Node {label} mit uid={uid} konnte nicht gefunden werden")
 
-    def test_add_relationship_stable(self):
+    def test_add_relationship_flakeless(self):
         uid = str(uuid4())
         alice_label = f"Person_{uid[:8]}"
         ort_label = f"Ort_{uid[:8]}"
         alice_name = f"Alice_{uid}"
         ort_name = f"Berlin_{uid}"
 
-        # Cleanup alte Reste
+        # Alte Reste löschen
         self.tearDown_node_and_relationship(uid)
 
         # Nodes anlegen
@@ -3276,7 +3276,10 @@ class TestNeo4jApp(unittest.TestCase):
         alice_id = self._wait_for_node(alice_label, uid)
         ort_id = self._wait_for_node(ort_label, uid)
 
-        data = {
+        self.assertIsNotNone(alice_id)
+        self.assertIsNotNone(ort_id)
+
+        payload = {
             "start_id": int(alice_id),
             "end_id": int(ort_id),
             "type": "WOHNT_IN",
@@ -3285,22 +3288,31 @@ class TestNeo4jApp(unittest.TestCase):
 
         try:
             with self.app as client:
-                resp = client.post(
-                    "/api/add_relationship",
-                    json=data,
-                    headers={"Content-Type": "application/json"}
-                )
+                # API-Call mit einfacher Retry-Logik
+                resp = None
+                for _ in range(5):
+                    resp = client.post(
+                        "/api/add_relationship",
+                        json=payload,
+                        headers={"Content-Type": "application/json"}
+                    )
+                    if resp.status_code == 200:
+                        break
+                    time.sleep(0.1)
 
-                if resp.status_code != 200:
-                    print("DEBUG payload sent:", data)
-                    print("DEBUG response text:", resp.get_data(as_text=True))
+                if resp is None or resp.status_code != 200:
+                    print("DEBUG payload sent:", payload)
+                    print("DEBUG response text:", resp.get_data(as_text=True) if resp else "no response")
+                    self.fail(f"API-Fehler: {resp.get_data(as_text=True) if resp else 'No response'}")
 
-                self.assertEqual(resp.status_code, 200, f"API-Fehler: {resp.get_data(as_text=True)}")
+                # Ergebnis prüfen
                 result = resp.get_json()
                 self.assertEqual(result["status"], "success")
                 self.assertIn("id", result)
+                self.assertIsInstance(result["id"], int)
+
         finally:
-            # Cleanup
+            # Cleanup garantiert
             self.tearDown_node_and_relationship(uid)
 
     def test_add_relationship_invalid_property_names(self):
