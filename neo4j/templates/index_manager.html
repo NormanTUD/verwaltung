@@ -21,19 +21,13 @@
     <td>{{ label }}</td>
     <td>{{ prop }}</td>
     <td>
-      {% set exists = false %}
-      {% for idx in existing_indexes %}
-        {% if label in idx.labels and prop in idx.properties %}
-          {% set exists = true %}
+      {{ "✅" if (label, prop) in indexed_pairs else "" }}
+    </td>
+      <td>
+        {% if (label, prop) not in indexed_pairs %}
+          <input type="checkbox" name="index" value="{{ label }}|{{ prop }}">
         {% endif %}
-      {% endfor %}
-      {{ "✅" if exists else "" }}
-    </td>
-    <td>
-      {% if not exists %}
-        <input type="checkbox" name="index" value="{{ label }}|{{ prop }}">
-      {% endif %}
-    </td>
+      </td>
   </tr>
   {% endfor %}
 {% endfor %}
@@ -70,4 +64,3 @@ document.getElementById('indexForm').addEventListener('submit', async function(e
 </script>
 
 {% endblock %}
-

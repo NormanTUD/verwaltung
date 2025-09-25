@@ -29,14 +29,18 @@ def create_index_bp(graph):
                 result = self.driver.run("SHOW INDEXES").data()
                 indexes = []
                 for r in result:
-                    # labelsOrTypes existiert in Neo4j 4.x/5.x, fallback falls Key fehlt
-                    labels = r.get("labelsOrTypes") or r.get("entityType") or []
+                    labels = r.get("labelsOrTypes") or []
+                    if isinstance(labels, str):
+                        labels = [labels]
                     props = r.get("properties") or []
-                    indexes.append({"labels": labels, "properties": props})
+                    if isinstance(props, str):
+                        props = [props]
+                    if labels and props:  # nur echte Label-Property-Indizes
+                        indexes.append({"labels": labels, "properties": props})
                 return indexes
             except Exception as e:
                 print(f"Warnung: Fehler beim Abrufen der Indizes: {e}")
-                return []  # niemals None zurückgeben
+                return []
 
         def create_index(self, label, prop):
             query = f"CREATE INDEX IF NOT EXISTS FOR (n:`{label}`) ON (n.`{prop}`)"
@@ -68,12 +72,15 @@ def create_index_bp(graph):
             node_labels = api.get_node_labels()
             label_props = {label: api.get_properties_for_label(label) for label in node_labels}
             existing_indexes = api.get_existing_indexes()
+            indexed_pairs = {(l, p) for idx in existing_indexes for l in idx["labels"] for p in idx["properties"]}
             return render_template(
                 "index_manager.html",
                 labels=node_labels,
                 label_props=label_props,
                 existing_indexes=existing_indexes,
+                indexed_pairs=indexed_pairs,
             )
+
         except Exception as e:
             return f"Fehler beim Laden der Index-Seite: {e}", 500
 
