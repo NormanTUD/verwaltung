@@ -3245,32 +3245,40 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(node["validName"], "ok")
 
     def tearDown_node_and_relationship(self, uid):
-        # Knoten + Relationships löschen
+        """Alles löschen, was zu dieser UID gehört"""
         self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
 
-    def test_add_relationship_success(self):
+    def _wait_for_node(self, label, uid, retries=5, delay=0.1):
+        """Retry bis Node sichtbar ist, max retries"""
+        for _ in range(retries):
+            node_id = self.graph.evaluate(f"MATCH (n:`{label}` {{uid:$uid}}) RETURN id(n)", uid=uid)
+            if node_id is not None:
+                return node_id
+            time.sleep(delay)
+        raise RuntimeError(f"Node {label} mit uid={uid} konnte nicht gefunden werden")
+
+    def test_add_relationship_stable(self):
         uid = str(uuid4())
+        alice_label = f"Person_{uid[:8]}"
+        ort_label = f"Ort_{uid[:8]}"
         alice_name = f"Alice_{uid}"
-        berlin_name = f"Berlin_{uid}"
+        ort_name = f"Berlin_{uid}"
+
+        # Cleanup alte Reste
+        self.tearDown_node_and_relationship(uid)
 
         # Nodes anlegen
-        alice = Node("Person", name=alice_name, uid=uid)
-        berlin = Node("Ort", name=berlin_name, uid=uid)
-        self.graph.create(alice | berlin)  # atomic create
+        alice = Node(alice_label, name=alice_name, uid=uid)
+        ort = Node(ort_label, name=ort_name, uid=uid)
+        self.graph.create(alice | ort)
 
-        # Pull sicherstellen, dass IDs gesetzt sind
-        self.graph.pull(alice)
-        self.graph.pull(berlin)
-
-        alice_id = int(alice.identity) if alice.identity is not None else self.graph.evaluate("MATCH (n:Person {uid:$uid}) RETURN id(n)", uid=uid)
-        berlin_id = int(berlin.identity) if berlin.identity is not None else self.graph.evaluate("MATCH (n:Ort {uid:$uid}) RETURN id(n)", uid=uid)
-
-        self.assertIsNotNone(alice_id)
-        self.assertIsNotNone(berlin_id)
+        # Pull + Retry für Sichtbarkeit
+        alice_id = self._wait_for_node(alice_label, uid)
+        ort_id = self._wait_for_node(ort_label, uid)
 
         data = {
-            "start_id": alice_id,
-            "end_id": berlin_id,
+            "start_id": int(alice_id),
+            "end_id": int(ort_id),
             "type": "WOHNT_IN",
             "props": {"since": 2020}
         }
@@ -3283,13 +3291,11 @@ class TestNeo4jApp(unittest.TestCase):
                     headers={"Content-Type": "application/json"}
                 )
 
-                # Debug bei Fehler
                 if resp.status_code != 200:
                     print("DEBUG payload sent:", data)
                     print("DEBUG response text:", resp.get_data(as_text=True))
 
                 self.assertEqual(resp.status_code, 200, f"API-Fehler: {resp.get_data(as_text=True)}")
-
                 result = resp.get_json()
                 self.assertEqual(result["status"], "success")
                 self.assertIn("id", result)
