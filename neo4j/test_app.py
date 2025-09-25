@@ -3391,10 +3391,6 @@ class TestNeo4jApp(unittest.TestCase):
                 headers={"Content-Type": "application/json"}
             )
 
-            # Debug-Log für CI
-            print("Response status:", resp.status_code)
-            print("Response data:", resp.get_data(as_text=True))
-
             self.assertEqual(resp.status_code, 200, f"API-Fehler: {resp.get_data(as_text=True)}")
 
         # Relationship direkt aus der DB prüfen
