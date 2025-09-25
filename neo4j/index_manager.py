@@ -12,7 +12,7 @@ def create_index_bp(graph):
                 result = self.driver.run("CALL db.labels()").data()
                 return [r["label"] for r in result]
             except Exception as e:
-                raise RuntimeError(f"Neo4j-Fehler bei get_node_labels: {e}")
+                raise RuntimeError(f"Neo4j-Fehler bei get_node_labels: {e}") from e
 
         def get_properties_for_label(self, label):
             try:
@@ -21,7 +21,7 @@ def create_index_bp(graph):
                 ).data()
                 return [r["prop"] for r in result]
             except Exception as e:
-                raise RuntimeError(f"Neo4j-Fehler bei get_properties_for_label({label}): {e}")
+                raise RuntimeError(f"Neo4j-Fehler bei get_properties_for_label({label}): {e}") from e
 
         def get_existing_indexes(self):
             try:
@@ -57,8 +57,8 @@ def create_index_bp(graph):
                         found = True
                         if state.upper() == "ONLINE":
                             return  # Index ist fertig
-                        else:
-                            break  # Index existiert, aber nicht ONLINE
+
+                        break  # Index existiert, aber nicht ONLINE
                 if not found:
                     raise RuntimeError(f"Index für {label}.{prop} wurde nicht gefunden")
 

@@ -25,7 +25,7 @@ def create_relationships_bp(graph):
                     rels = [r["rel_type"] for r in records if r.get("rel_type")]
                     return sorted(set(rels))
                 except Exception as e:
-                    raise RuntimeError(f"Neo4j error fetching relationships: {e2}") from e
+                    raise RuntimeError(f"Neo4j error fetching relationships: {e}") from e
 
             return []
 
