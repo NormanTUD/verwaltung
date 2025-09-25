@@ -1582,16 +1582,45 @@ class TestNeo4jApp(unittest.TestCase):
             # Stadt may or may not be present depending on implementation; we allow both but ensure no crash
             self.assertIsInstance(data['rows'], list)
 
+    def wait_for_relation(self, rel_type, retries=5, delay=0.1):
+        with self.driver.session() as session:
+            for _ in range(retries):
+                result = session.run(
+                    f"MATCH (p:Person:{self.test_label})-[r]->(o:Ort:{self.test_label}) RETURN r"
+                ).data()
+                if any(r['r'].type == rel_type for r in result):
+                    return True
+                time.sleep(delay)
+        return False
+
     def test_get_data_as_table_relation_types_captured(self):
         """Different relationship types should appear in the relations list."""
+        # 1. Alte Testdaten löschen
         self.graph.run("MATCH (n) DETACH DELETE n")
+        
+        # 2. Testdaten anlegen
         self.graph.run("CREATE (p:Person {name:'R'})-[:FOO]->(o:Ort {plz:'22'})")
+        
+        # 3. API aufrufen
         with self.app as client:
-            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort'})
-            self.assertEqual(resp.status_code, 200)
-            data = resp.get_json()
-            rels = data['rows'][0]['relations']
-            self.assertTrue(any(r['relation'] == 'FOO' for r in rels))
+            # Retry-Mechanismus, falls CI die Relation noch nicht sieht
+            rel_found = False
+            for _ in range(5):  # max 5 Versuche
+                resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort'})
+                self.assertEqual(resp.status_code, 200)
+                data = resp.get_json()
+                rows = data.get('rows', [])
+                if rows and 'relations' in rows[0]:
+                    rels = rows[0]['relations']
+                    if any(r['relation'] == 'FOO' for r in rels):
+                        rel_found = True
+                        break
+                # Falls Relation noch nicht sichtbar, kurz warten
+                import time
+                time.sleep(0.1)
+            
+            # 4. Assertion
+            self.assertTrue(rel_found, "FOO-Relation wurde nicht in der API-Ausgabe gefunden")
 
     def test_get_data_as_table_duplicate_relationships_deduped(self):
         """If identical relationships are created twice, the relations list should not contain duplicates."""
