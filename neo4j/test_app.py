@@ -818,7 +818,7 @@ class TestNeo4jApp(unittest.TestCase):
 
         self.graph.run("MATCH (n) DETACH DELETE n")
 
-    def test_get_data_as_table_invalid_limit_param(self):
+    def test_get_data_as_table_invalid_limit_param_two_nodes(self):
         """Non-integer limit should return 500 (current impl casts int and fails)."""
         with self.app as client:
             resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort', 'limit': 'nope'})
