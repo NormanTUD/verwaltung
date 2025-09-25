@@ -39,8 +39,8 @@ def create_create_node_bp(graph):
 
         if result and result[0]['id'] is not None:
             return result[0]['id']
-        else:
-            raise Exception("Failed to create new node in the database.")
+
+        raise Exception("Failed to create new node in the database.")
 
     def fn_create_relationships(new_node_id, connect_data):
         if not connect_data:
@@ -53,7 +53,7 @@ def create_create_node_bp(graph):
                 # Die gesamte Logik, um den Beziehungstyp zu bestimmen,
                 # wird direkt in die Cypher-Abfrage verschoben.
                 # Das Backend muss keine Annahmen mehr treffen.
-                query_rel = f"""
+                query_rel = """
                     MATCH (from_node) WHERE ID(from_node) = $from_id
                     MATCH (to_node) WHERE ID(to_node) = $to_id
 

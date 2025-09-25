@@ -17,7 +17,7 @@ def create_labels_bp(graph):
                 """).data()
                 return [r["lbl"] for r in records]
             except Exception as e:
-                raise RuntimeError(f"Neo4j error fetching labels: {e}")
+                raise RuntimeError(f"Neo4j error fetching labels: {e}") from e
 
     graph_api = GraphAPI(graph)
 
