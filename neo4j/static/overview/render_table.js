@@ -1,28 +1,31 @@
 function fetchData() {
-	var sel = document.getElementById('querySelection');
-	if (!sel) {
-		error('Kein #querySelection im DOM');
-		return;
-	}
+    var sel = document.getElementById('querySelection');
+    if (!sel) { error('Kein #querySelection im DOM'); return; }
 
-	var labels = getSelectedLabels(sel);
-	if (!labels.length) {
-		warning('Bitte mindestens ein Label auswählen');
-		return;
-	}
+    var labels = getSelectedLabels(sel);
+    if (!labels.length) { warning('Bitte mindestens ein Label auswählen'); return; }
 
-	var url = buildQueryUrl(labels);
+    var relationships = getSelectedRelationships();
+    var qbRules = getQueryBuilderRules();
 
-	fetch(url, {
-		method: 'GET',
-		headers: { 'Accept': 'application/json' }
-	})
-		.then(handleFetchResponse)
-		.then(handleServerData)
-		.catch(function (err) {
-			error('Fehler beim Laden: ' + (err.message || err));
-		});
+    // QueryBuilder-Regeln als JSON-String in URL-Parameter
+    var qs = 'nodes=' + encodeURIComponent(labels.join(','))
+           + '&relationships=' + encodeURIComponent(relationships.join(','))
+           + '&qb=' + encodeURIComponent(JSON.stringify(qbRules));
+
+    var url = '/api/get_data_as_table?' + qs;
+
+    fetch(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+    })
+        .then(handleFetchResponse)
+        .then(handleServerData)
+        .catch(function (err) {
+            error('Fehler beim Laden: ' + (err.message || err));
+        });
 }
+
 
 // ----------------- Table Rendering -----------------
 
@@ -188,3 +191,5 @@ function collectGlobalRelations(data) {
 	});
 }
 
+document.getElementById('querySelection').addEventListener('change', fetchData);
+document.getElementById('relationshipSelection').addEventListener('change', fetchData);

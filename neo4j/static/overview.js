@@ -470,9 +470,27 @@ function fetchRelationships() {
         .catch(err => console.error('Fehler beim Laden der Relationships:', err));
 }
 
+function getSelectedLabels(container) {
+    return Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(cb => cb.value);
+}
+
+// === Utility: gewählte Relationships ===
 function getSelectedRelationships() {
-	return Array.from(document.querySelectorAll('#relationshipSelection input[type="checkbox"]:checked'))
-		.map(cb => cb.value);
+    return Array.from(document.querySelectorAll('#relationshipSelection input[type="checkbox"]:checked'))
+        .map(cb => cb.value);
+}
+
+function getQueryBuilderRules() {
+    try {
+        if ($('#querybuilder').length && $('#querybuilder').queryBuilder('getRules')) {
+            const rules = $('#querybuilder').queryBuilder('getRules');
+            return rules && rules.rules && rules.rules.length > 0 ? rules : null;
+        }
+    } catch (e) {
+        console.warn('QueryBuilder getRules Fehler:', e);
+    }
+    return null;
 }
 
 // Initial beim Laden der Seite
