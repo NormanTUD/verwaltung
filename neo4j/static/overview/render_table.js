@@ -1,4 +1,5 @@
-function fetchData() {
+// === Fetch-Daten + URL-State ===
+function fetchData(updateUrl = true) {
     var sel = document.getElementById('querySelection');
     if (!sel) { error('Kein #querySelection im DOM'); return; }
 
@@ -8,12 +9,23 @@ function fetchData() {
     var relationships = getSelectedRelationships();
     var qbRules = getQueryBuilderRules();
 
-    // QueryBuilder-Regeln als JSON-String in URL-Parameter
-    var qs = 'nodes=' + encodeURIComponent(labels.join(','))
-           + '&relationships=' + encodeURIComponent(relationships.join(','))
-           + '&qb=' + encodeURIComponent(JSON.stringify(qbRules));
+    // QueryBuilder-Regeln als JSON-String
+    var qbJson = qbRules ? JSON.stringify(qbRules) : '';
 
-    var url = '/api/get_data_as_table?' + qs;
+    // URL-Parameter bauen
+    var params = new URLSearchParams();
+    if (labels.length) params.set('nodes', labels.join(','));
+    if (relationships.length) params.set('relationships', relationships.join(','));
+    if (qbJson) params.set('qb', qbJson);
+
+    // URL aktualisieren
+    if (updateUrl) {
+        var newUrl = window.location.pathname + '?' + params.toString();
+        history.replaceState(null, '', newUrl); // ersetzt aktuelle URL ohne Reload
+    }
+
+    // API-Call
+    var url = '/api/get_data_as_table?' + params.toString();
 
     fetch(url, {
         method: 'GET',
@@ -25,7 +37,6 @@ function fetchData() {
             error('Fehler beim Laden: ' + (err.message || err));
         });
 }
-
 
 // ----------------- Table Rendering -----------------
 
