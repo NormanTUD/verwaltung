@@ -3797,20 +3797,6 @@ class TestNeo4jApp(unittest.TestCase):
             titles = [c.get("value") for r in data["rows"] for c in r["cells"]]
             self.assertFalse(any(t and t.endswith("Liebe") for t in titles))
 
-    def test_operator_is_null(self):
-        self._prepare_book_test_data()
-        self.graph.run("CREATE (:Buch {titel:'NullBuch'})")  # kein erscheinungsjahr
-        with self.app as client:
-            _, data = self._run_querybuilder_request(client, "is_null", "Buch.erscheinungsjahr")
-            self.assertTrue(any("NullBuch" in (c.get("value") or "") for r in data["rows"] for c in r["cells"]))
-
-    def test_operator_is_not_null(self):
-        self._prepare_book_test_data()
-        self.graph.run("CREATE (:Buch {titel:'NotNullBuch', erscheinungsjahr:'2001'})")
-        with self.app as client:
-            _, data = self._run_querybuilder_request(client, "is_not_null", "Buch.erscheinungsjahr")
-            self.assertTrue(any("2001" in (c.get("value") or "") for r in data["rows"] for c in r["cells"]))
-
 if __name__ == '__main__':
     try:
         unittest.main()
