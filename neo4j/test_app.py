@@ -4,7 +4,6 @@ import unittest
 import os
 import uuid
 import json
-import time
 from uuid import uuid4
 from flask import session
 from py2neo import Graph, Node, Relationship, Subgraph
