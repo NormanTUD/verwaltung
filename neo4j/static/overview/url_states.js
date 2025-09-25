@@ -1,43 +1,3 @@
-// === Fetch-Daten + URL-State ===
-function fetchData(updateUrl = true) {
-    var sel = document.getElementById('querySelection');
-    if (!sel) { error('Kein #querySelection im DOM'); return; }
-
-    var labels = getSelectedLabels(sel);
-    if (!labels.length) { warning('Bitte mindestens ein Label auswählen'); return; }
-
-    var relationships = getSelectedRelationships();
-    var qbRules = getQueryBuilderRules();
-
-    // QueryBuilder-Regeln als JSON-String
-    var qbJson = qbRules ? JSON.stringify(qbRules) : '';
-
-    // URL-Parameter bauen
-    var params = new URLSearchParams();
-    if (labels.length) params.set('nodes', labels.join(','));
-    if (relationships.length) params.set('relationships', relationships.join(','));
-    if (qbJson) params.set('qb', qbJson);
-
-    // URL aktualisieren
-    if (updateUrl) {
-        var newUrl = window.location.pathname + '?' + params.toString();
-        history.replaceState(null, '', newUrl); // ersetzt aktuelle URL ohne Reload
-    }
-
-    // API-Call
-    var url = '/api/get_data_as_table?' + params.toString();
-
-    fetch(url, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
-    })
-        .then(handleFetchResponse)
-        .then(handleServerData)
-        .catch(function (err) {
-            error('Fehler beim Laden: ' + (err.message || err));
-        });
-}
-
 // === State beim Laden wiederherstellen ===
 function restoreStateFromUrl() {
     var params = new URLSearchParams(window.location.search);
@@ -79,3 +39,10 @@ function restoreStateFromUrl() {
         }
     }
 }
+
+// === direkt beim Laden aufrufen ===
+document.addEventListener('DOMContentLoaded', function() {
+    restoreStateFromUrl();
+    fetchData(false); // lädt Daten ohne URL erneut zu ändern
+});
+
