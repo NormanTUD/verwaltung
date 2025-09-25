@@ -29,7 +29,7 @@ ensure_venv() {
 
 install_requirements() {
 	log "Installing requirements"
-	pip install -r requirements.txt || fail "pip install failed"
+	pip install -q -r requirements.txt || fail "pip install failed"
 }
 
 run_step() {
@@ -44,8 +44,6 @@ main() {
 	install_requirements
 	cleanup
 	run_step "Running tests with coverage" coverage run test_app.py
-	run_step "Combining coverage data" coverage combine
-	run_step "Generating coverage.xml" coverage xml
 	run_step "Generating HTML report" coverage html -i
 	log "All steps completed successfully"
 }
