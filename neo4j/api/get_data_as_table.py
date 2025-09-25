@@ -257,7 +257,7 @@ def create_get_data_bp(graph):
     def add_path_nodes_to_bucket(bucket, node_list, main_index, selected_labels, filter_labels=None):
         for idx, node in enumerate(node_list):
             node_id = node["id"]
-            if not node_id:
+            if node_id is None:
                 continue
             labels = [l for l in node["labels"] if l in selected_labels]
             labels = [l for l in labels if not filter_labels or l in filter_labels]
@@ -267,7 +267,7 @@ def create_get_data_bp(graph):
     def add_path_relations_to_bucket(bucket, main_id, relationships):
         for rel in relationships:
             from_id, to_id = rel["fromId"], rel["toId"]
-            if not from_id or not to_id:
+            if from_id is None or to_id is None:
                 continue
             add_relation(bucket, main_id, from_id, to_id, rel["type"])
 
@@ -296,11 +296,9 @@ def create_get_data_bp(graph):
     def select_best_node(nodes_map, adjacent_nodes):
         if not nodes_map:
             return None
-        candidates = {nid: data for nid, data in nodes_map.items() if nid in adjacent_nodes}
-        return min(
-            candidates.items() if candidates else nodes_map.items(),
-            key=lambda x: x[1].get("min_dist", 1e9),
-        )
+        # Alle Nodes verwenden, Adjacent optional
+        candidates = {nid: data for nid, data in nodes_map.items() if nid in adjacent_nodes} or nodes_map
+        return min(candidates.items(), key=lambda x: x[1].get("min_dist", 1e9))
 
     def store_or_update_node(bucket_nodes, node_id, label, props, distance):
         node_map = bucket_nodes.setdefault(label, {})
@@ -313,6 +311,7 @@ def create_get_data_bp(graph):
         if node_id is None:
             return
         bucket = buckets.setdefault(node_id, {"nodes": {}, "adjacent": set(), "relations": []})
-        bucket["nodes"].setdefault(label, {})[node_id] = {"props": node["props"], "min_dist": 0}
+        # Node korrekt speichern
+        bucket["nodes"].setdefault(label, {})[node_id] = {"props": node.get("props", {}), "min_dist": 0}
 
     return bp
