@@ -1,3 +1,4 @@
+import json
 from flask import Blueprint, request, jsonify
 
 def create_get_data_bp(graph):
@@ -31,7 +32,6 @@ def create_get_data_bp(graph):
             try:
                 records = self.driver.run(base_query).data()
             except Exception as e:
-                # nur Fehler, die wirklich kritisch sind
                 raise RuntimeError(f"Neo4j-Fehler bei fetch_nodes({label}): {e}")
             result = []
             for r in records:
@@ -53,8 +53,11 @@ def create_get_data_bp(graph):
             """
 
             if where:
-                # sicherstellen, dass wir 'n' benutzen
-                cypher += f" AND ANY(n IN nodes(p) WHERE {where})"
+                # Filter nur auf relevante Labels anwenden
+                label_conditions = []
+                for lbl in labels:
+                    label_conditions.append(f"ANY(n IN nodes(p) WHERE '{lbl}' IN labels(n) AND ({where}))")
+                cypher += " AND (" + " OR ".join(label_conditions) + ")"
 
             cypher += " RETURN p"
             if limit:
@@ -69,12 +72,13 @@ def create_get_data_bp(graph):
             for r in records:
                 p = r["p"]
                 nodes = [self._node_to_dict(n) for n in p.nodes]
-                rels = [self._rel_to_dict(rel) for rel in p.relationships
-                        if not rel_filter or type(rel).__name__ in rel_filter]
+                rels = [
+                    self._rel_to_dict(rel)
+                    for rel in p.relationships
+                    if not rel_filter or type(rel).__name__ in rel_filter
+                ]
                 paths.append({"nodes": nodes, "rels": rels})
             return paths
-
-
 
     graph_api = GraphAPI(graph)
 
@@ -115,6 +119,8 @@ def create_get_data_bp(graph):
         ]
 
     def extract_table_columns(buckets, selected_labels=None):
+        if not buckets:
+            return []
         label_property_pairs = {
             (label, prop)
             for bucket in buckets.values()
@@ -122,50 +128,74 @@ def create_get_data_bp(graph):
             for node_data in node_map.values()
             for prop in node_data.get("props", {})
         }
-        if not label_property_pairs and selected_labels:
-            label_property_pairs = {(label, None) for label in selected_labels}
+        if not label_property_pairs:
+            return []
         return [
             {"nodeType": label, "property": prop}
             for label, prop in sorted(label_property_pairs, key=lambda x: (x[0], str(x[1])))
         ]
+
+    def qb_to_cypher(qb):
+        if not qb.get("valid"):
+            return None
+
+        def parse_rule(rule):
+            field = rule["field"]
+            op = rule["operator"]
+            value = rule["value"]
+            op_map = {
+                "equal": "=",
+                "not_equal": "<>",
+                "less": "<",
+                "less_or_equal": "<=",
+                "greater": ">",
+                "greater_or_equal": ">=",
+                "contains": "CONTAINS",
+                "begins_with": "STARTS WITH",
+                "ends_with": "ENDS WITH"
+            }
+            cypher_op = op_map.get(op)
+            if not cypher_op:
+                raise ValueError(f"Unsupported operator: {op}")
+            value_str = f"'{value}'" if isinstance(value, str) else str(value)
+            return f"n.`{field.split('.')[-1]}` {cypher_op} {value_str}"
+
+        if "rules" in qb and qb["rules"]:
+            parsed_rules = [parse_rule(r) for r in qb["rules"]]
+            condition = qb.get("condition", "AND").upper()
+            return f" {condition} ".join(parsed_rules)
+        return None
 
     def parse_request_params(req):
         nodes_param = req.args.get("nodes")
         if not nodes_param:
             raise ValueError("Parameter 'nodes' required")
         selected_labels = [n.strip() for n in nodes_param.split(",") if n.strip()]
-        if not selected_labels:
-            raise ValueError("Parameter 'nodes' must not be empty")
         main_label = selected_labels[0]
 
-        max_depth_raw = req.args.get("maxDepth", "3")
-        try:
-            # wirft ValueError mit "invalid literal ..." falls ungültig
-            max_depth = int(max_depth_raw)
-        except Exception:
-            int(max_depth_raw)  # nur fürs exakt gleiche traceback
-            raise
-
+        max_depth = int(req.args.get("maxDepth", "3"))
         limit_raw = req.args.get("limit")
-        if limit_raw is not None:
-            try:
-                limit = int(limit_raw)
-            except Exception:
-                int(limit_raw)  # hier auch das alte Verhalten
-                raise
-        else:
-            limit = None
+        limit = int(limit_raw) if limit_raw else None
 
         filter_labels_raw = req.args.get("filterLabels")
         filter_labels = [l.strip() for l in filter_labels_raw.split(",")] if filter_labels_raw else None
 
-        where = req.args.get("where")
         relationships_raw = req.args.get("relationships")
         rel_filter = [r.strip() for r in relationships_raw.split(",")] if relationships_raw else None
 
+        qb_raw = req.args.get("qb")
+        where = None
+        if qb_raw and qb_raw.lower() != "null":
+            qb_json = json.loads(qb_raw)
+            if qb_json:  # prüfen, dass es nicht None ist
+                where = qb_to_cypher(qb_json)
+
+        # allow manual where override
+        manual_where = req.args.get("where")
+        if manual_where:
+            where = manual_where
+
         return selected_labels, main_label, max_depth, limit, filter_labels, where, rel_filter
-
-
 
     def extract_nodes_from_paths(paths, main_label, selected_labels, filter_labels=None):
         buckets = {}
