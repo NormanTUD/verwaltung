@@ -120,9 +120,10 @@ def save_mapping():
         return jsonify({"status": "error", "message": "Fehler beim Analysieren der CSV-Daten."}), 400
 
     tx = graph.begin()
+
     try:
         for _, row in enumerate(reader):
-            process_row(tx, row, mapping_data)
+            process_row(row, mapping_data)
 
         graph.commit(tx)
         #print("\nGesamtvorgang erfolgreich: Daten wurden in die Neo4j-Datenbank importiert.")
@@ -145,21 +146,21 @@ def parse_csv_from_session():
         print(f"Fehler beim Analysieren der CSV-Daten: {e}")
         return None
 
-def process_row(tx, row, mapping_data):
+def process_row(row, mapping_data):
     """Verarbeitet eine Zeile: Knoten mergen und Beziehungen erstellen."""
     nodes_created = {}
 
     # Knoten erstellen/mergen
     for node_type, fields in mapping_data.get('nodes', {}).items():
-        node = merge_node(tx, node_type, fields, row)
+        node = merge_node(node_type, fields, row)
         if node:
             nodes_created[node_type] = node
 
     # Beziehungen erstellen
     for rel_data in mapping_data.get('relationships', []):
-        create_relationship(tx, rel_data['from'], rel_data['to'], rel_data['type'], nodes_created)
+        create_relationship(rel_data['from'], rel_data['to'], rel_data['type'], nodes_created)
 
-def merge_node(tx, node_type, fields, row):
+def merge_node(node_type, fields, row):
     """Merged einen Knoten vom Typ node_type mit gegebenen Properties."""
     node_var = safe_var_name(node_type)
     node_label = f"`{node_type}`"
@@ -196,7 +197,7 @@ def merge_node(tx, node_type, fields, row):
     print(f"  ⚠️ MERGE-Vorgang für '{node_type}' hat nichts zurückgegeben.")
     return None
 
-def create_relationship(tx, from_node_type, to_node_type, rel_type, nodes_created):
+def create_relationship(from_node_type, to_node_type, rel_type, nodes_created):
     """Erstellt eine Beziehung zwischen zwei vorhandenen Knoten."""
     clean_rel_type = rel_type.replace(' ', '_').upper()
     rel_label = f"`{clean_rel_type}`"
