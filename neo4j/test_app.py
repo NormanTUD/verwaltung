@@ -3240,19 +3240,22 @@ class TestNeo4jApp(unittest.TestCase):
         alice_name = f"Alice_{uid}"
         berlin_name = f"Berlin_{uid}"
 
-        # Nodes erstellen und direkt committen
+        # Transaction nutzen, Nodes + Commit
+        tx = self.graph.begin()
         alice = Node("Person", name=alice_name, uid=uid)
         berlin = Node("Ort", name=berlin_name, uid=uid)
-        self.graph.create(alice)
-        self.graph.create(berlin)
+        tx.create(alice)
+        tx.create(berlin)
+        self.graph.commit(tx)
 
+        # IDs garantiert gesetzt
         self.assertIsNotNone(alice.identity)
         self.assertIsNotNone(berlin.identity)
 
-        # API-Call zum Hinzufügen der Beziehung
+        # API-Call
         data = {
-            "start_id": alice.identity,
-            "end_id": berlin.identity,
+            "start_id": int(alice.identity),
+            "end_id": int(berlin.identity),
             "type": "WOHNT_IN",
             "props": {"since": 2020}
         }
