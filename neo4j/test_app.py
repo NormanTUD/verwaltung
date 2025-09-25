@@ -3533,6 +3533,79 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertEqual(data['columns'], [])
             self.assertEqual(data['rows'], [])
 
+    def tearDown_node_and_index(self, label):
+        # Löscht alle Knoten und Indexe für das Label
+        self.graph.run(f"MATCH (n:`{label}`) DETACH DELETE n")
+        indexes = self.graph.run("SHOW INDEXES").data()
+        for idx in indexes:
+            labels = idx.get("labelsOrTypes") or []
+            props = idx.get("properties") or []
+            if label in labels:
+                name = idx.get("name")
+                if name:
+                    self.graph.run(f"DROP INDEX {name}")
+
+    def test_index_manager_page_loads_with_new_node(self):
+        # Test-Knoten erzeugen
+        label = f"TestLabel_{uuid.uuid4().hex[:8]}"
+        uid = str(uuid.uuid4())
+        node = Node(label, name="Alice", uid=uid)
+        self.graph.create(node)
+
+        try:
+            with self.app as client:
+                resp = client.get("/index_manager")
+                self.assertEqual(resp.status_code, 200)
+                body = resp.get_data(as_text=True)
+                self.assertIn(label, body)
+        finally:
+            self.tearDown_node_and_index(label)
+
+    def test_create_indices_success(self):
+        # Test-Knoten erzeugen
+        label = f"TestLabel_{uuid.uuid4().hex[:8]}"
+        uid = str(uuid.uuid4())
+        node = Node(label, name="Alice", uid=uid)
+        self.graph.create(node)
+
+        try:
+            payload = {"indices": [{"label": label, "property": "uid"}]}
+            with self.app as client:
+                resp = client.post(
+                    "/create_indices",
+                    data=json.dumps(payload),
+                    content_type="application/json"
+                )
+                self.assertEqual(resp.status_code, 200)
+                result = resp.get_json()
+                self.assertEqual(result["status"], "success")
+                self.assertIn({"label": label, "property": "uid"}, result["created"])
+
+            # Prüfen, dass Index online ist
+            indexes = self.graph.run("SHOW INDEXES").data()
+            match = [
+                idx for idx in indexes
+                if label in (idx.get("labelsOrTypes") or [])
+                and "uid" in (idx.get("properties") or [])
+                and idx.get("state", "").upper() == "ONLINE"
+            ]
+            self.assertTrue(match)
+        finally:
+            self.tearDown_node_and_index(label)
+
+    def test_create_indices_invalid_payload(self):
+        # Einfacher Test, kein Knoten nötig
+        payload = {"wrong": "format"}
+        with self.app as client:
+            resp = client.post(
+                "/create_indices",
+                data=json.dumps(payload),
+                content_type="application/json"
+            )
+            self.assertEqual(resp.status_code, 200)
+            result = resp.get_json()
+            self.assertEqual(result["status"], "success")
+            self.assertEqual(result["created"], [])
 
 if __name__ == '__main__':
     try:
