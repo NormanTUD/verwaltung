@@ -9,24 +9,15 @@ def create_labels_bp(graph):
 
         def fetch_labels(self):
             try:
-                # probiere system call
-                records = self.driver.run("CALL db.labels()").data()
-                labels = [r["label"] for r in records if "label" in r]
-                if labels:
-                    return sorted(set(labels))
-            except Exception:
-                # fallback: aus existierenden nodes ziehen
-                try:
-                    records = self.driver.run("MATCH (n) RETURN DISTINCT labels(n) AS lbls").data()
-                    labels = []
-                    for r in records:
-                        lbls = r.get("lbls") or []
-                        labels.extend(lbls)
-                    return sorted(set(labels))
-                except Exception as e2:
-                    raise RuntimeError(f"Neo4j error fetching labels: {e2}")
-
-            return []
+                records = self.driver.run("""
+                    MATCH (n)
+                    WITH DISTINCT labels(n) AS lbls
+                    UNWIND lbls AS lbl
+                    RETURN DISTINCT lbl ORDER BY lbl
+                """).data()
+                return [r["lbl"] for r in records]
+            except Exception as e:
+                raise RuntimeError(f"Neo4j error fetching labels: {e}")
 
     graph_api = GraphAPI(graph)
 

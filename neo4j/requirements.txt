@@ -4,3 +4,4 @@ python-dotenv
 mypy
 pylint
 faker
+coverage

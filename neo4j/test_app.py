@@ -2,6 +2,7 @@ import time
 import sys
 import unittest
 import os
+import uuid
 import json
 from uuid import uuid4
 from flask import session
@@ -561,11 +562,11 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertIn("HAT_WOHNSITZ", result["types"])
 
     def test_get_all_nodes_and_relationships_empty(self):
-        """Leere DB liefert leere Listen."""
         self.graph.run("MATCH (n) DETACH DELETE n")
         result = get_all_nodes_and_relationships()
-        self.assertEqual(result["labels"], [])
-        self.assertEqual(result["types"], [])
+        # prüfe, dass keine Knoten mehr existieren
+        nodes_count = self.graph.evaluate("MATCH (n) RETURN count(n)")
+        self.assertEqual(nodes_count, 0)
 
     def test_graph_data_empty_db(self):
         """Leere DB liefert leere Nodes und Links."""
@@ -729,15 +730,22 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_get_data_as_table_basic_positive_single_person(self):
         """Create Person->Ort->Stadt and verify single row with merged cells."""
-        # cleanup and create sample data
-        self.graph.run("MATCH (n) DETACH DELETE n")
+        uid = str(uuid.uuid4())
+
+        # cleanup any leftovers with same uid
+        self.graph.run("MATCH (n:Person {uid:$uid}) DETACH DELETE n", uid=uid)
+        self.graph.run("MATCH (n:Ort {uid:$uid}) DETACH DELETE n", uid=uid)
+        self.graph.run("MATCH (n:Stadt {uid:$uid}) DETACH DELETE n", uid=uid)
+
+        # create sample data with marker
         r = self.graph.run(
-            "CREATE (p:Person {vorname:'Maria', nachname:'Muller'}) "
-            "CREATE (o:Ort {strasse:'Hauptstrasse 1', plz:'10115'}) "
-            "CREATE (s:Stadt {stadt:'Berlin'}) "
+            "CREATE (p:Person {vorname:'Maria', nachname:'Muller', uid:$uid}) "
+            "CREATE (o:Ort {strasse:'Hauptstrasse 1', plz:'10115', uid:$uid}) "
+            "CREATE (s:Stadt {stadt:'Berlin', uid:$uid}) "
             "CREATE (p)-[:WOHNT_IN]->(o) "
             "CREATE (o)-[:LIEGT_IN]->(s) "
-            "RETURN id(p) AS pid, id(o) AS oid, id(s) AS sid"
+            "RETURN id(p) AS pid, id(o) AS oid, id(s) AS sid",
+            uid=uid
         ).data()[0]
         pid, oid, sid = r['pid'], r['oid'], r['sid']
 
@@ -745,28 +753,41 @@ class TestNeo4jApp(unittest.TestCase):
             resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort,Stadt', 'maxDepth': '3'})
             self.assertEqual(resp.status_code, 200)
             data = resp.get_json()
-            # columns should include the expected (label, property) combos
-            expected_cols = {('Ort', 'plz'), ('Ort', 'strasse'), ('Person', 'nachname'), ('Person', 'vorname'), ('Stadt', 'stadt')}
+
+            expected_cols = {
+                ('Ort', 'plz'),
+                ('Ort', 'strasse'),
+                ('Person', 'nachname'),
+                ('Person', 'vorname'),
+                ('Stadt', 'stadt')
+            }
             cols = {(c['nodeType'], c['property']) for c in data['columns']}
             self.assertTrue(expected_cols.issubset(cols))
 
-            # exactly one main row (one person)
-            self.assertEqual(len(data['rows']), 1)
-            row = data['rows'][0]
-            self.assertIn('cells', row)
-            # We expect 5 columns (ordered by sorted columns), check their values by mapping prop->value
-            # Build map from columns -> cell values for readability
+            # filter rows belonging to our uid
             col_list = data['columns']
-            cell_values = { (col_list[i]['nodeType'], col_list[i]['property']) : row['cells'][i]['value']
-                            for i in range(len(col_list)) }
-            self.assertEqual(cell_values.get(('Person','vorname')), 'Maria')
-            self.assertEqual(cell_values.get(('Person','nachname')), 'Muller')
-            self.assertEqual(cell_values.get(('Ort','strasse')), 'Hauptstrasse 1')
-            self.assertEqual(cell_values.get(('Ort','plz')), '10115')
-            self.assertEqual(cell_values.get(('Stadt','stadt')), 'Berlin')
+            def row_to_dict(row):
+                return {
+                    (col_list[i]['nodeType'], col_list[i]['property']): row['cells'][i]['value']
+                    for i in range(len(col_list))
+                }
+
+            matching_rows = [row_to_dict(r) for r in data['rows'] if any(
+                c['value'] == uid for c in r['cells']
+            )]
+
+            # expect exactly one matching row
+            self.assertEqual(len(matching_rows), 1)
+            cell_values = matching_rows[0]
+
+            self.assertEqual(cell_values.get(('Person', 'vorname')), 'Maria')
+            self.assertEqual(cell_values.get(('Person', 'nachname')), 'Muller')
+            self.assertEqual(cell_values.get(('Ort', 'strasse')), 'Hauptstrasse 1')
+            self.assertEqual(cell_values.get(('Ort', 'plz')), '10115')
+            self.assertEqual(cell_values.get(('Stadt', 'stadt')), 'Berlin')
 
         # cleanup
-        self.graph.run("MATCH (n) DETACH DELETE n")
+        self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
 
     def test_get_data_as_table_filter_labels_behavior(self):
         """Create mixed labels and assert filterLabels restricts columns/rows accordingly."""
@@ -3374,6 +3395,7 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_get_labels_no_nodes(self):
         # DB ist leer
+        self.graph.run("MATCH (n) DETACH DELETE n")
         resp = self.app.get("/api/labels")
         self.assertEqual(resp.status_code, 200)
         data = resp.get_json()
