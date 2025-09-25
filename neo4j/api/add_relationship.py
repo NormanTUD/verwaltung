@@ -24,7 +24,7 @@ def create_add_relationship_bp(graph):
         rel_type = data.get("type")
         props = data.get("props", {})
 
-        if not start_id or not end_id or not rel_type:
+        if start_id is None or end_id is None or not rel_type:
             return jsonify({
                 "status": "error",
                 "message": "start_id, end_id und type müssen angegeben werden."
