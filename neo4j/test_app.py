@@ -3682,6 +3682,135 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertEqual(result["status"], "success")
             self.assertEqual(result["created"], [])
 
+    def _prepare_book_test_data(self):
+        """Datenbank zurücksetzen und Beispiel-Bücher + Autoren erstellen."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+        books = [
+            ("Goethe", "Faust", "1808"),
+            ("Schiller", "Kabale und Liebe", "1784"),
+            ("Kafka", "Der Process", "1925"),
+        ]
+        for author, title, year in books:
+            self.graph.run("""
+                CREATE (p:Person {name:$author})
+                CREATE (b:Buch {titel:$title, erscheinungsjahr:$year})
+                CREATE (p)-[:HAT_GESCHRIEBEN]->(b)
+            """, author=author, title=title, year=year)
+
+    def _run_querybuilder_request(self, client, operator, field, value=None):
+        """Hilfsmethode: Request an /api/get_data_as_table mit Operator."""
+        rule = {
+            "id": field,
+            "field": field,
+            "type": "string",
+            "input": "text",
+            "operator": operator,
+        }
+        if value is not None:
+            rule["value"] = value
+
+        qb = {"condition": "AND", "rules": [rule], "valid": True}
+
+        resp = client.get(
+            "/api/get_data_as_table",
+            query_string={
+                "nodes": "Person,Buch",
+                "relationships": "HAT_GESCHRIEBEN",
+                "qb": json.dumps(qb),
+            },
+        )
+        data = resp.get_json()
+
+        if "rows" not in data:
+            self.fail(f"Operator {operator} not implemented or invalid response: {data}")
+
+        return resp, data
+
+    def test_operator_equal(self):
+        self._prepare_book_test_data()
+        with self.app as client:
+            _, data = self._run_querybuilder_request(client, "equal", "Buch.erscheinungsjahr", "1808")
+            values = [c.get("value") for r in data["rows"] for c in r["cells"]]
+            self.assertIn("1808", values)
+
+    def test_operator_not_equal(self):
+        self._prepare_book_test_data()
+        with self.app as client:
+            _, data = self._run_querybuilder_request(client, "not_equal", "Buch.erscheinungsjahr", "1808")
+            values = [c.get("value") for r in data["rows"] for c in r["cells"]]
+            self.assertNotIn("1808", values)
+
+    def test_operator_in(self):
+        self._prepare_book_test_data()
+        with self.app as client:
+            _, data = self._run_querybuilder_request(client, "in", "Buch.erscheinungsjahr", ["1808", "1925"])
+            values = [c.get("value") for r in data["rows"] for c in r["cells"]]
+            self.assertIn("1808", values)
+            self.assertIn("1925", values)
+
+    def test_operator_not_in(self):
+        self._prepare_book_test_data()
+        with self.app as client:
+            _, data = self._run_querybuilder_request(client, "not_in", "Buch.erscheinungsjahr", ["1808"])
+            values = [c.get("value") for r in data["rows"] for c in r["cells"]]
+            self.assertNotIn("1808", values)
+
+    def test_operator_begins_with(self):
+        self._prepare_book_test_data()
+        with self.app as client:
+            _, data = self._run_querybuilder_request(client, "begins_with", "Buch.titel", "Fau")
+            titles = [c.get("value") for r in data["rows"] for c in r["cells"]]
+            self.assertTrue(any("Faust" in t for t in titles if t))
+
+    def test_operator_not_begins_with(self):
+        self._prepare_book_test_data()
+        with self.app as client:
+            _, data = self._run_querybuilder_request(client, "not_begins_with", "Buch.titel", "Fau")
+            titles = [c.get("value") for r in data["rows"] for c in r["cells"]]
+            self.assertFalse(any(t and t.startswith("Fau") for t in titles))
+
+    def test_operator_contains(self):
+        self._prepare_book_test_data()
+        with self.app as client:
+            _, data = self._run_querybuilder_request(client, "contains", "Buch.titel", "Process")
+            titles = [c.get("value") for r in data["rows"] for c in r["cells"]]
+            self.assertTrue(any("Process" in (t or "") for t in titles))
+
+    def test_operator_not_contains(self):
+        self._prepare_book_test_data()
+        with self.app as client:
+            _, data = self._run_querybuilder_request(client, "not_contains", "Buch.titel", "Process")
+            titles = [c.get("value") for r in data["rows"] for c in r["cells"]]
+            self.assertFalse(any("Process" in (t or "") for t in titles))
+
+    def test_operator_ends_with(self):
+        self._prepare_book_test_data()
+        with self.app as client:
+            _, data = self._run_querybuilder_request(client, "ends_with", "Buch.titel", "Liebe")
+            titles = [c.get("value") for r in data["rows"] for c in r["cells"]]
+            self.assertTrue(any(t and t.endswith("Liebe") for t in titles))
+
+    def test_operator_not_ends_with(self):
+        self._prepare_book_test_data()
+        with self.app as client:
+            _, data = self._run_querybuilder_request(client, "not_ends_with", "Buch.titel", "Liebe")
+            titles = [c.get("value") for r in data["rows"] for c in r["cells"]]
+            self.assertFalse(any(t and t.endswith("Liebe") for t in titles))
+
+    def test_operator_is_null(self):
+        self._prepare_book_test_data()
+        self.graph.run("CREATE (:Buch {titel:'NullBuch'})")  # kein erscheinungsjahr
+        with self.app as client:
+            _, data = self._run_querybuilder_request(client, "is_null", "Buch.erscheinungsjahr")
+            self.assertTrue(any("NullBuch" in (c.get("value") or "") for r in data["rows"] for c in r["cells"]))
+
+    def test_operator_is_not_null(self):
+        self._prepare_book_test_data()
+        self.graph.run("CREATE (:Buch {titel:'NotNullBuch', erscheinungsjahr:'2001'})")
+        with self.app as client:
+            _, data = self._run_querybuilder_request(client, "is_not_null", "Buch.erscheinungsjahr")
+            self.assertTrue(any("2001" in (c.get("value") or "") for r in data["rows"] for c in r["cells"]))
+
 if __name__ == '__main__':
     try:
         unittest.main()
