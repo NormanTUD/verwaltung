@@ -5,7 +5,7 @@ from flask import Blueprint, request, jsonify
 
 SAVED_QUERIES_FILE = 'saved_queries.json'
 
-def create_save_queries(graph):
+def create_save_queries():
     bp = Blueprint("save_queries", __name__)
 
     def load_saved_queries():

@@ -17,7 +17,7 @@ def load_or_generate_secret_key():
         # Datei existiert nicht
         key = secrets.token_urlsafe(64)
         return key
-    except Exception as e:
+    except Exception:
         # Andere Fehler beim Lesen
         key = secrets.token_urlsafe(64)
         return key
