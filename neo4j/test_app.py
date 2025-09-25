@@ -4,6 +4,7 @@ import unittest
 import os
 import uuid
 import json
+import time
 from uuid import uuid4
 from flask import session
 from py2neo import Graph, Node, Relationship
@@ -3247,21 +3248,16 @@ class TestNeo4jApp(unittest.TestCase):
         alice_name = f"Alice_{uuid4()}"
         berlin_name = f"Berlin_{uuid4()}"
 
-        # Nodes erstellen
-        tx = self.graph.begin()
+        # Nodes direkt erstellen und committen
         alice = Node("Person", name=alice_name)
         berlin = Node("Ort", name=berlin_name)
-        tx.create(alice)
-        tx.create(berlin)
+        self.graph.create(alice | berlin)  # create merged Nodes in one call
 
-        # Commit über graph.commit(tx)
-        self.graph.commit(tx)
-
-        # IDs sind jetzt garantiert gesetzt
+        # IDs sollten jetzt gesetzt sein
         self.assertIsNotNone(alice.identity)
         self.assertIsNotNone(berlin.identity)
 
-        # API-Call
+        # API-Call zum Hinzufügen der Beziehung
         data = {
             "start_id": alice.identity,
             "end_id": berlin.identity,
@@ -3276,10 +3272,9 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertIn("id", result)
             self.assertIn("WOHNT_IN", result["message"])
 
-        # Überprüfung, dass die Beziehung tatsächlich existiert (mit Retry für CI-Stabilität)
-        import time
+        # Robust prüfen, dass die Beziehung existiert (Retry)
         rel = []
-        for _ in range(5):
+        for _ in range(10):  # mehr Versuche für CI
             rel = self.graph.run(
                 "MATCH (a)-[r]->(b) "
                 "WHERE ID(a)=$alice_id AND ID(b)=$berlin_id "
@@ -3289,9 +3284,9 @@ class TestNeo4jApp(unittest.TestCase):
             ).data()
             if rel:
                 break
-            time.sleep(0.1)  # kurz warten, falls die Transaktion noch nicht sichtbar ist
+            time.sleep(0.1)
 
-        self.assertTrue(rel)
+        self.assertTrue(rel, "Beziehung wurde nicht gefunden")
         self.assertEqual(rel[0]["t"], "WOHNT_IN")
         self.assertEqual(rel[0]["since"], 2020)
 
