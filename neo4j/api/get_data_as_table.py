@@ -142,28 +142,65 @@ def create_get_data_bp(graph):
         def parse_rule(rule):
             field = rule["field"]
             op = rule["operator"]
-            value = rule["value"]
-            op_map = {
-                "equal": "=",
-                "not_equal": "<>",
-                "less": "<",
-                "less_or_equal": "<=",
-                "greater": ">",
-                "greater_or_equal": ">=",
-                "contains": "CONTAINS",
-                "begins_with": "STARTS WITH",
-                "ends_with": "ENDS WITH"
-            }
-            cypher_op = op_map.get(op)
-            if not cypher_op:
+            value = rule.get("value")
+            field_name = field.split('.')[-1]
+
+            if op in {"equal", "not_equal", "less", "less_or_equal", "greater", "greater_or_equal"}:
+                op_map = {
+                    "equal": "=",
+                    "not_equal": "<>",
+                    "less": "<",
+                    "less_or_equal": "<=",
+                    "greater": ">",
+                    "greater_or_equal": ">="
+                }
+                cypher_op = op_map[op]
+                value_str = f"'{value}'" if isinstance(value, str) else str(value)
+                return f"n.`{field_name}` {cypher_op} {value_str}"
+
+            elif op == "contains":
+                return f"n.`{field_name}` CONTAINS '{value}'"
+            elif op == "begins_with":
+                return f"n.`{field_name}` STARTS WITH '{value}'"
+            elif op == "ends_with":
+                return f"n.`{field_name}` ENDS WITH '{value}'"
+
+            elif op == "not_contains":
+                return f"NOT n.`{field_name}` CONTAINS '{value}'"
+            elif op == "not_begins_with":
+                return f"NOT n.`{field_name}` STARTS WITH '{value}'"
+            elif op == "not_ends_with":
+                return f"NOT n.`{field_name}` ENDS WITH '{value}'"
+
+            elif op == "in":
+                if not isinstance(value, (list, tuple)):
+                    raise ValueError(f"Operator 'in' requires a list of values")
+                value_list = ', '.join(f"'{v}'" for v in value)
+                return f"n.`{field_name}` IN [{value_list}]"
+            elif op == "not_in":
+                if not isinstance(value, (list, tuple)):
+                    raise ValueError(f"Operator 'not_in' requires a list of values")
+                value_list = ', '.join(f"'{v}'" for v in value)
+                return f"NOT n.`{field_name}` IN [{value_list}]"
+
+            elif op == "is_empty":
+                return f"n.`{field_name}` = ''"
+            elif op == "is_not_empty":
+                return f"n.`{field_name}` <> ''"
+
+            elif op == "is_null":
+                return f"n.`{field_name}` IS NULL"
+            elif op == "is_not_null":
+                return f"n.`{field_name}` IS NOT NULL"
+
+            else:
                 raise ValueError(f"Unsupported operator: {op}")
-            value_str = f"'{value}'" if isinstance(value, str) else str(value)
-            return f"n.`{field.split('.')[-1]}` {cypher_op} {value_str}"
 
         if "rules" in qb and qb["rules"]:
             parsed_rules = [parse_rule(r) for r in qb["rules"]]
             condition = qb.get("condition", "AND").upper()
             return f" {condition} ".join(parsed_rules)
+
         return None
 
     def parse_request_params(req):
