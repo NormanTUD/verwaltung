@@ -448,77 +448,77 @@ function loadSavedQuery() {
 }
 
 function fetchRelationships() {
-    fetch('/api/relationships')
-        .then(response => response.json())
-        .then(data => {
-            const container = document.getElementById('relationshipSelection');
-            container.innerHTML = ''; // vorherige Inhalte löschen
-            data.forEach(rel => {
-                const label = document.createElement('label');
-                label.style.display = 'block';
+	fetch('/api/relationships')
+		.then(response => response.json())
+		.then(data => {
+			const container = document.getElementById('relationshipSelection');
+			container.innerHTML = ''; // vorherige Inhalte löschen
+			data.forEach(rel => {
+				const label = document.createElement('label');
+				label.style.display = 'block';
 
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.name = 'relationship';
-                checkbox.value = rel;
-                checkbox.checked = true; // standardmäßig ausgewählt
+				const checkbox = document.createElement('input');
+				checkbox.type = 'checkbox';
+				checkbox.name = 'relationship';
+				checkbox.value = rel;
+				checkbox.checked = true; // standardmäßig ausgewählt
 
-                label.appendChild(checkbox);
-                label.appendChild(document.createTextNode(' ' + rel));
+				label.appendChild(checkbox);
+				label.appendChild(document.createTextNode(' ' + rel));
 
-                container.appendChild(label);
-            });
-        })
-        .catch(err => console.error('Fehler beim Laden der Relationships:', err));
+				container.appendChild(label);
+			});
+		})
+		.catch(err => console.error('Fehler beim Laden der Relationships:', err));
 }
 
 function getSelectedLabels(container) {
-    return Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
-        .map(cb => cb.value);
+	return Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
+		.map(cb => cb.value);
 }
 
 // === Utility: gewählte Relationships ===
 function getSelectedRelationships() {
-    return Array.from(document.querySelectorAll('#relationshipSelection input[type="checkbox"]:checked'))
-        .map(cb => cb.value);
+	return Array.from(document.querySelectorAll('#relationshipSelection input[type="checkbox"]:checked'))
+		.map(cb => cb.value);
 }
 
 function getQueryBuilderRules() {
-    try {
-        if ($('#querybuilder').length && $('#querybuilder').queryBuilder) {
-            const rules = $('#querybuilder').queryBuilder('getRules');
-            // rules kann null oder leer sein
-            if (!rules || !rules.rules || rules.rules.length === 0) {
-                return null;
-            }
-            return rules;
-        }
-    } catch (e) {
-        // Ignoriere Fehler, z. B. wenn QueryBuilder noch nicht initiiert ist
-        console.warn('QueryBuilder noch nicht initialisiert oder keine Regeln vorhanden.');
-    }
-    return null;
+	try {
+		if ($('#querybuilder').length && $('#querybuilder').queryBuilder) {
+			const rules = $('#querybuilder').queryBuilder('getRules');
+			// rules kann null oder leer sein
+			if (!rules || !rules.rules || rules.rules.length === 0) {
+				return null;
+			}
+			return rules;
+		}
+	} catch (e) {
+		// Ignoriere Fehler, z. B. wenn QueryBuilder noch nicht initiiert ist
+		console.warn('QueryBuilder noch nicht initialisiert oder keine Regeln vorhanden.');
+	}
+	return null;
 }
 
 function createButtonWithHandler(container, text, onClick) {
-    const btn = document.createElement('button');
-    btn.textContent = text;
-    btn.style.marginBottom = '10px';
-    btn.onclick = onClick;
-    container.parentNode.insertBefore(btn, container);
-    return btn;
+	const btn = document.createElement('button');
+	btn.textContent = text;
+	btn.style.marginBottom = '10px';
+	btn.onclick = onClick;
+	container.parentNode.insertBefore(btn, container);
+	return btn;
 }
 
 function createButton(text, onClick) {
-    const btn = document.createElement('button');
-    btn.textContent = text;
-    btn.style.marginBottom = '10px';
-    btn.onclick = onClick;
-    return btn;
+	const btn = document.createElement('button');
+	btn.textContent = text;
+	btn.style.marginBottom = '10px';
+	btn.onclick = onClick;
+	return btn;
 }
 
 function insertBefore(container, element) {
-    container.parentNode.insertBefore(element, container);
+	container.parentNode.insertBefore(element, container);
 }
 
 
@@ -527,7 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	initQueryBuilder();
 
 	loadSavedQueriesFromAPI();
-	
+
 	restoreStateFromUrl();
 
 	createButtonWithHandler(resultsContainer, 'Neue Zeile hinzufügen', addRowToTable);
@@ -536,6 +536,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	insertBefore(resultsContainer, insertBtn);
 
 	fetchRelationships();
-	
+
 	fetchData(false);
 });
