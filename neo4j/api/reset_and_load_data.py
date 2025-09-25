@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify
 
 def create_reset_and_load_data_bp(graph):
     bp = Blueprint("reset_and_load_data", __name__)
