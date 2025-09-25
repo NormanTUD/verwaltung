@@ -3353,37 +3353,44 @@ class TestNeo4jApp(unittest.TestCase):
         # Cleanup garantiert
         self.tearDown_node_and_relationship(uid)
 
-
     def test_add_relationship_invalid_property_names(self):
         """Ungültige Property-Namen sollen ignoriert, gültige übernommen werden."""
-        # Testknoten erstellen
+        # Nodes erstellen synchron
         alice = Node("Person", name="Alice")
-        self.graph.create(alice)
         berlin = Node("Ort", name="Berlin")
+        self.graph.create(alice)
         self.graph.create(berlin)
 
-        # Relationship-Daten mit einem ungültigen und einem gültigen Property-Namen
+        # IDs direkt aus den Node-Objekten
+        alice_id = alice.identity
+        berlin_id = berlin.identity
+        self.assertIsNotNone(alice_id, "Alice Node-ID konnte nicht ermittelt werden")
+        self.assertIsNotNone(berlin_id, "Berlin Node-ID konnte nicht ermittelt werden")
+
+        # Relationship-Daten
         data = {
-            "start_id": alice.identity,
-            "end_id": berlin.identity,
+            "start_id": int(alice_id),
+            "end_id": int(berlin_id),
             "type": "WOHNT_IN",
             "props": {"123invalid": "oops", "validProp": "ok"}
         }
 
-        # API aufrufen
+        # API synchron aufrufen
         with self.app as client:
-            resp = client.post("/api/add_relationship", json=data)
-            # Statuscode prüfen (200, weil API gültige Props erstellt)
-            self.assertEqual(resp.status_code, 200)
+            resp = client.post(
+                "/api/add_relationship",
+                json=data,
+                headers={"Content-Type": "application/json"}
+            )
+            self.assertEqual(resp.status_code, 200, f"API-Fehler: {resp.get_data(as_text=True)}")
 
-        # Relationship aus der DB prüfen
+        # Relationship direkt aus der DB prüfen
         result = self.graph.run(
             f"MATCH (a)-[r]->(b) "
-            f"WHERE ID(a)={alice.identity} AND ID(b)={berlin.identity} "
+            f"WHERE ID(a)={alice_id} AND ID(b)={berlin_id} "
             f"RETURN r"
         ).data()
 
-        # Sicherstellen, dass Relationship existiert
         self.assertTrue(len(result) > 0, "Relationship wurde nicht erstellt")
 
         rel = result[0]["r"]
