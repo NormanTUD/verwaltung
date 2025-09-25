@@ -3347,28 +3347,44 @@ class TestNeo4jApp(unittest.TestCase):
             self.tearDown_node_and_relationship(uid)
 
     def test_add_relationship_invalid_property_names(self):
+        """Ungültige Property-Namen sollen ignoriert, gültige übernommen werden."""
+        # Testknoten erstellen
         alice = Node("Person", name="Alice")
         self.graph.create(alice)
         berlin = Node("Ort", name="Berlin")
         self.graph.create(berlin)
 
+        # Relationship-Daten mit einem ungültigen und einem gültigen Property-Namen
         data = {
             "start_id": alice.identity,
             "end_id": berlin.identity,
             "type": "WOHNT_IN",
             "props": {"123invalid": "oops", "validProp": "ok"}
         }
+
+        # API aufrufen
         with self.app as client:
             resp = client.post("/api/add_relationship", json=data)
+            # Statuscode prüfen (200, weil API gültige Props erstellt)
             self.assertEqual(resp.status_code, 200)
 
-        rel = self.graph.run(
+        # Relationship aus der DB prüfen
+        result = self.graph.run(
             f"MATCH (a)-[r]->(b) "
             f"WHERE ID(a)={alice.identity} AND ID(b)={berlin.identity} "
             f"RETURN r"
-        ).data()[0]["r"]
+        ).data()
+
+        # Sicherstellen, dass Relationship existiert
+        self.assertTrue(len(result) > 0, "Relationship wurde nicht erstellt")
+
+        rel = result[0]["r"]
+
+        # Ungültiges Property darf nicht vorhanden sein
         self.assertNotIn("123invalid", rel)
-        self.assertEqual(rel["validProp"], "ok")
+
+        # Gültiges Property muss übernommen werden
+        self.assertEqual(rel.get("validProp"), "ok")
 
     def test_add_relationship_nonexistent_nodes(self):
         data = {"start_id": 9999, "end_id": 8888, "type": "WOHNT_IN"}
