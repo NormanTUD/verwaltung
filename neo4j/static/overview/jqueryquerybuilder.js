@@ -1,4 +1,6 @@
 function initQueryBuilder() {
+    const allowedOperators = ['equal', 'not_equal', 'in', 'not_in', 'less', 'less_or_equal', 'greater', 'greater_or_equal', 'contains', 'begins_with', 'ends_with'];
+
 	fetch('/api/labels')
 		.then(r => r.json())
 		.then(labels => {
@@ -21,7 +23,8 @@ function initQueryBuilder() {
 					fields[key] = {
 						id: key,
 						label: key,
-						type: mapNeoTypeToQB(p.type)
+						type: mapNeoTypeToQB(p.type),
+                        operators: allowedOperators
 					};
 				});
 			});
