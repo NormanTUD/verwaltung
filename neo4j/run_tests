@@ -1,13 +1,55 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-venv_dir="$HOME/.neo4jtest/"
+venv_dir="$HOME/.neo4jtest"
 
-if [[ ! -d $venv_dir ]]; then
-	python3 -mvenv $venv_dir
-fi
+log() {
+	echo -e "\033[1;34m[INFO]\033[0m $*"
+}
 
-source "$venv_dir/bin/activate"
+fail() {
+	echo -e "\033[1;31m[ERROR]\033[0m $*"
+	exit 1
+}
 
-pip install -r requirements.txt
+cleanup() {
+	log "Cleaning old coverage artifacts"
+	rm -rf htmlcov .coverage coverage.xml || true
+}
 
-python3 test_app.py
+ensure_venv() {
+	if [[ ! -d $venv_dir ]]; then
+		log "Creating virtual environment in $venv_dir"
+		python3 -m venv "$venv_dir"
+	fi
+	log "Activating virtual environment"
+	# shellcheck disable=SC1090
+	source "$venv_dir/bin/activate"
+}
+
+install_requirements() {
+	log "Installing requirements"
+	pip install -r requirements.txt || fail "pip install failed"
+}
+
+run_step() {
+	local desc="$1"
+	shift
+	log "$desc"
+	"$@" || fail "$desc failed"
+}
+
+main() {
+	ensure_venv
+	install_requirements
+	cleanup
+	run_step "Running tests with coverage" coverage run test_app.py
+	run_step "Git commit" git commit -av
+	run_step "Git push" gp
+	run_step "Combining coverage data" coverage combine
+	run_step "Generating coverage.xml" coverage xml
+	run_step "Generating HTML report" coverage html -i
+	log "All steps completed successfully"
+}
+
+main "$@"
