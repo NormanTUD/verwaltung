@@ -1,3 +1,5 @@
+"use strict";
+
 // === Fetch-Daten + URL-State ===
 function fetchData(updateUrl = true) {
     var sel = document.getElementById('querySelection');

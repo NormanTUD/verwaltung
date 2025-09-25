@@ -1,3 +1,5 @@
+"use strict";
+
 // ---------- Utilities ----------
 function selectTbody(selector = ".query-results-table tbody") {
     return document.querySelector(selector);

@@ -1,3 +1,5 @@
+"use strict";
+
 // === State beim Laden wiederherstellen ===
 function restoreStateFromUrl() {
     var params = new URLSearchParams(window.location.search);

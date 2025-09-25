@@ -1,3 +1,5 @@
+"use strict";
+
 const querySelection = document.getElementById('querySelection');
 const resultsContainer = document.getElementById('resultsContainer');
 
