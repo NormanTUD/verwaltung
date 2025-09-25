@@ -1067,11 +1067,13 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_add_property_idempotent(self):
         graph.run("CREATE (:Person {name:'Frank'})")
-        resp1 = self.app.post(
+
+        self.app.post(
             '/api/add_property_to_nodes',
             data=json.dumps({"label": "Person", "property": "flag", "value": True}),
             content_type="application/json"
         )
+
         resp2 = self.app.post(
             '/api/add_property_to_nodes',
             data=json.dumps({"label": "Person", "property": "flag", "value": False}),
