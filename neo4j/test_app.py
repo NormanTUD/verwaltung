@@ -83,9 +83,6 @@ class TestNeo4jApp(unittest.TestCase):
         """
         cls.graph.run("MATCH (n) DETACH DELETE n")
 
-        if hasattr(cls, "driver") and cls.driver:
-            cls.driver.close()
-
     def setUp(self):
         """
         Wird vor jedem Test ausgeführt.
