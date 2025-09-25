@@ -2,17 +2,16 @@ import time
 import sys
 import unittest
 import os
-import uuid
-import json
-from app import get_all_nodes_and_relationships, app, graph
 from uuid import uuid4
+import json
+import warnings
+from app import get_all_nodes_and_relationships, app, graph
 from py2neo import Graph, Node, Relationship, Subgraph
 from unittest import mock
 from dotenv import load_dotenv
 from unittest.mock import patch
 from oasis_helper import load_or_generate_secret_key
 
-import warnings
 warnings.filterwarnings("ignore", category=ResourceWarning)
 
 # Lade Umgebungsvariablen aus der .env.test-Datei für die Tests
@@ -725,7 +724,7 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_get_data_as_table_basic_positive_single_person(self):
         """Create Person->Ort->Stadt and verify single row with merged cells."""
-        uid = str(uuid.uuid4())
+        uid = str(uuid4())
 
         # Cleanup vorab: alles wegräumen, was denselben uid hat
         self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
@@ -2021,7 +2020,6 @@ class TestNeo4jApp(unittest.TestCase):
         # DB sauber leeren
         self.graph.run("MATCH (n) DETACH DELETE n")
 
-        # UUID-Suffix für eindeutige Namen
         suffix = str(uuid4())
 
         # Nodes und Relationships in einer Transaktion erstellen
@@ -3627,8 +3625,8 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_index_manager_page_loads_with_new_node(self):
         # Test-Knoten erzeugen
-        label = f"TestLabel_{uuid.uuid4().hex[:8]}"
-        uid = str(uuid.uuid4())
+        label = f"TestLabel_{uuid4().hex[:8]}"
+        uid = str(uuid4())
         node = Node(label, name="Alice", uid=uid)
         self.graph.create(node)
 
@@ -3643,8 +3641,8 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_create_indices_success(self):
         # Test-Knoten erzeugen
-        label = f"TestLabel_{uuid.uuid4().hex[:8]}"
-        uid = str(uuid.uuid4())
+        label = f"TestLabel_{uuid4().hex[:8]}"
+        uid = str(uuid4())
         node = Node(label, name="Alice", uid=uid)
         self.graph.create(node)
 

@@ -118,7 +118,7 @@ def create_get_data_bp(graph):
             for bucket in buckets.values()
         ]
 
-    def extract_table_columns(buckets, selected_labels=None):
+    def extract_table_columns(buckets):
         if not buckets:
             return []
         label_property_pairs = {
@@ -149,6 +149,7 @@ def create_get_data_bp(graph):
             def ci_value(v):
                 if isinstance(v, str):
                     return f"'{v.lower()}'"
+
                 return str(v)
 
             if op in {"equal", "not_equal", "less", "less_or_equal", "greater", "greater_or_equal"}:
