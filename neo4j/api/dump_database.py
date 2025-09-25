@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify
 
 def create_dump_database_bp(graph):
     bp = Blueprint("dump_database", __name__)

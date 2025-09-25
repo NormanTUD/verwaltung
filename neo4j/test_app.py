@@ -4,13 +4,13 @@ import unittest
 import os
 import uuid
 import json
+from app import get_all_nodes_and_relationships, app, graph
 from uuid import uuid4
 from py2neo import Graph, Node, Relationship, Subgraph
 from unittest import mock
 from dotenv import load_dotenv
 from unittest.mock import patch, MagicMock
 from oasis_helper import load_or_generate_secret_key, get_graph_db_connection
-from app import get_all_nodes_and_relationships
 
 import warnings
 warnings.filterwarnings("ignore", category=ResourceWarning)
@@ -19,7 +19,6 @@ warnings.filterwarnings("ignore", category=ResourceWarning)
 load_dotenv('.env.test')
 
 # Wichtig: Importieren Sie die App-Instanz aus Ihrer Hauptdatei
-from app import app, graph
 
 # Beispiel-Daten für die Tests
 SAMPLE_CSV_DATA = """id,name,city,country
@@ -157,7 +156,7 @@ class TestNeo4jApp(unittest.TestCase):
         self.graph.create(node2)
         node_ids = [node1.identity, node2.identity]
 
-        response = self.app.put(f'/api/update_nodes', data=json.dumps({
+        response = self.app.put('/api/update_nodes', data=json.dumps({
             "ids": node_ids,
             "property": "status",
             "value": "updated"
@@ -206,7 +205,7 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_update_nodes_with_invalid_data(self):
         """Testet Massenaktualisierung mit fehlenden JSON-Daten."""
-        response = self.app.put(f'/api/update_nodes', data=json.dumps({
+        response = self.app.put('/api/update_nodes', data=json.dumps({
             "ids": [1],
             "property": "status"
         }), content_type='application/json')
@@ -1619,7 +1618,6 @@ class TestNeo4jApp(unittest.TestCase):
                         rel_found = True
                         break
                 # Falls Relation noch nicht sichtbar, kurz warten
-                import time
                 time.sleep(0.1)
 
             # 4. Assertion
@@ -3293,7 +3291,6 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_add_relationship_flakeless(self):
         """Relationship-Erstellung ohne Flakiness und ohne Sleep/Retry."""
-        from uuid import uuid4
 
         uid = str(uuid4())
         alice_label = f"Person_{uid[:8]}"
