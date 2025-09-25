@@ -3294,26 +3294,31 @@ class TestNeo4jApp(unittest.TestCase):
         raise RuntimeError(f"Node {label} mit uid={uid} konnte nicht gefunden werden")
 
     def test_add_relationship_flakeless(self):
+        """Relationship-Erstellung ohne Flakiness und ohne Sleep/Retry."""
+        from uuid import uuid4
+
         uid = str(uuid4())
         alice_label = f"Person_{uid[:8]}"
         ort_label = f"Ort_{uid[:8]}"
         alice_name = f"Alice_{uid}"
         ort_name = f"Berlin_{uid}"
 
-        # Alte Reste löschen
+        # Alte Testdaten löschen
         self.tearDown_node_and_relationship(uid)
 
-        # Nodes anlegen
+        # Nodes anlegen synchron
         alice = Node(alice_label, name=alice_name, uid=uid)
         ort = Node(ort_label, name=ort_name, uid=uid)
-        self.graph.create(alice | ort)
+        self.graph.create(alice)
+        self.graph.create(ort)
 
-        # Pull + Retry für Sichtbarkeit
-        alice_id = self._wait_for_node(alice_label, uid)
-        ort_id = self._wait_for_node(ort_label, uid)
+        # IDs direkt aus den Neo4j-Node-Objekten
+        alice_id = alice.identity
+        ort_id = ort.identity
 
-        self.assertIsNotNone(alice_id)
-        self.assertIsNotNone(ort_id)
+        # Defensive Checks
+        self.assertIsNotNone(alice_id, "Alice Node-ID konnte nicht ermittelt werden")
+        self.assertIsNotNone(ort_id, "Ort Node-ID konnte nicht ermittelt werden")
 
         payload = {
             "start_id": int(alice_id),
@@ -3322,34 +3327,31 @@ class TestNeo4jApp(unittest.TestCase):
             "props": {"since": 2020}
         }
 
-        try:
-            with self.app as client:
-                # API-Call mit einfacher Retry-Logik
-                resp = None
-                for _ in range(5):
-                    resp = client.post(
-                        "/api/add_relationship",
-                        json=payload,
-                        headers={"Content-Type": "application/json"}
-                    )
-                    if resp.status_code == 200:
-                        break
-                    time.sleep(0.1)
+        # API synchron aufrufen
+        with self.app as client:
+            resp = client.post(
+                "/api/add_relationship",
+                json=payload,
+                headers={"Content-Type": "application/json"}
+            )
+            self.assertEqual(resp.status_code, 200, f"API-Fehler: {resp.get_data(as_text=True)}")
 
-                if resp is None or resp.status_code != 200:
-                    print("DEBUG payload sent:", payload)
-                    print("DEBUG response text:", resp.get_data(as_text=True) if resp else "no response")
-                    self.fail(f"API-Fehler: {resp.get_data(as_text=True) if resp else 'No response'}")
+            result = resp.get_json()
+            self.assertEqual(result["status"], "success")
+            self.assertIn("id", result)
+            self.assertIsInstance(result["id"], int)
 
-                # Ergebnis prüfen
-                result = resp.get_json()
-                self.assertEqual(result["status"], "success")
-                self.assertIn("id", result)
-                self.assertIsInstance(result["id"], int)
+        # Relationship synchron in DB prüfen
+        rel = self.graph.run(
+            f"MATCH (a)-[r]->(b) "
+            f"WHERE ID(a)={alice_id} AND ID(b)={ort_id} "
+            f"RETURN r"
+        ).data()
+        self.assertTrue(len(rel) > 0, "Relationship wurde nicht erstellt")
+        self.assertEqual(rel[0]["r"]["since"], 2020)
 
-        finally:
-            # Cleanup garantiert
-            self.tearDown_node_and_relationship(uid)
+        # Cleanup garantiert
+        self.tearDown_node_and_relationship(uid)
 
     def test_add_relationship_invalid_property_names(self):
         """Ungültige Property-Namen sollen ignoriert, gültige übernommen werden."""
