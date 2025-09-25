@@ -54,8 +54,6 @@ class TestNeo4jApp(unittest.TestCase):
         """
         cls.graph = None
         try:
-            # Neo4j-Verbindung
-            graph = None
             for attempt in range(15):  # max 15 Versuche
                 try:
                     cls.graph = Graph(
@@ -741,11 +739,11 @@ class TestNeo4jApp(unittest.TestCase):
             CREATE (s:Stadt {stadt:'Berlin', uid:$uid})
             CREATE (p)-[:WOHNT_IN]->(o)
             CREATE (o)-[:LIEGT_IN]->(s)
-            RETURN id(p) AS pid, id(o) AS oid, id(s) AS sid
+            RETURN id(p) AS pid, id(s) AS sid
             """,
             uid=uid
         ).data()[0]
-        pid, oid, sid = r['pid'], r['oid'], r['sid']
+        pid, sid = r['pid'], r['sid']
 
         # Query API
         with self.app as client:
@@ -945,7 +943,6 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_add_property_basic_with_value(self):
         r = graph.run("CREATE (p:Person {name:'Alice'}) RETURN id(p) AS id").data()[0]
-        node_id = r['id']
 
         resp = self.app.post(
             '/api/add_property_to_nodes',
@@ -2935,7 +2932,6 @@ class TestNeo4jApp(unittest.TestCase):
                 vorname=p['vorname'], uid=uid
             )
             if i < len(buch_nodes):
-                b = buch_nodes[i]
                 self.graph.run(
                     "MATCH (p:Person {vorname:$vorname, uid:$uid}), (b:Buch {uid:$uid}) "
                     "CREATE (p)-[:HAT_GESCHRIEBEN]->(b)",

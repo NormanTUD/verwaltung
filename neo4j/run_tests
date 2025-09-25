@@ -43,7 +43,7 @@ run_step() {
 find_missing_use_strict () {
 	log "Finding missing 'use strict' in JS files"
 	dir="${1:-.}"
-	missing=$(find "$dir" -type f -name "*.js" -exec grep -L -E "\"use strict\"|'use strict'" {} +)
+	missing=$(find "$dir" -type d -name htmlcov -prune -o -type f -name "*.js" -exec grep -L -E "\"use strict\"|'use strict'" {} +)
 
 	if [ -n "$missing" ]; then
 		echo "Missing use strict in files:"
