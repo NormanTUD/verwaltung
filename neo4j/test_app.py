@@ -3783,6 +3783,35 @@ class TestNeo4jApp(unittest.TestCase):
             titles = [c.get("value") for r in data["rows"] for c in r["cells"]]
             self.assertFalse(any(t and t.endswith("Liebe") for t in titles))
 
+    def test_reset_and_load_complex_data(self):
+        """Testet, ob die komplexen Datenbankdaten korrekt erstellt werden."""
+        response = self.app.get('/api/reset_and_load_complex_data')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertEqual(data["status"], "success")
+
+        # Check persons (mindestens 1 Person existiert)
+        persons = self.graph.run("MATCH (p:Person) RETURN p.vorname AS vorname, p.nachname AS nachname LIMIT 1").data()
+        self.assertTrue(len(persons) > 0)
+
+        # Check books (mindestens 1 Buch existiert)
+        books = self.graph.run("MATCH (b:Buch) RETURN b.titel AS titel LIMIT 1").data()
+        self.assertTrue(len(books) > 0)
+
+        # Check at least one HAT_GESCHRIEBEN relation exists
+        rels = self.graph.run("""
+            MATCH (p:Person)-[:HAT_GESCHRIEBEN]->(b:Buch)
+            RETURN p,b LIMIT 1
+        """).data()
+        self.assertTrue(len(rels) > 0)
+
+        # Check at least one WOHNT_IN or Standort-relation exists
+        rels2 = self.graph.run("""
+            MATCH (p:Person)-[:WOHNT_IN|:NIMMT_TEIL_AN|:FINDET_STATT_IN]->(o)
+            RETURN p,o LIMIT 1
+        """).data()
+        self.assertTrue(len(rels2) > 0)
+
 if __name__ == '__main__':
     try:
         unittest.main()
