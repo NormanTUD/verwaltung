@@ -559,7 +559,6 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_get_all_nodes_and_relationships_empty(self):
         self.graph.run("MATCH (n) DETACH DELETE n")
-        result = get_all_nodes_and_relationships()
         # prüfe, dass keine Knoten mehr existieren
         nodes_count = self.graph.evaluate("MATCH (n) RETURN count(n)")
         self.assertEqual(nodes_count, 0)
@@ -744,6 +743,9 @@ class TestNeo4jApp(unittest.TestCase):
             uid=uid
         ).data()[0]
         pid, sid = r['pid'], r['sid']
+
+        self.assertIsInstance(pid, int)
+        self.assertIsInstance(sid, int)
 
         # Query API
         with self.app as client:
