@@ -3401,6 +3401,7 @@ class TestNeo4jApp(unittest.TestCase):
         # Gültiges Property muss übernommen werden
         self.assertEqual(rel.get("validProp"), "ok")
 
+
     def test_add_relationship_nonexistent_nodes(self):
         data = {"start_id": 9999, "end_id": 8888, "type": "WOHNT_IN"}
         with self.app as client:
