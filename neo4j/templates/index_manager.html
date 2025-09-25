@@ -1,16 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Index Manager</title>
-<style>
-table { border-collapse: collapse; width: 100%; }
-th, td { border: 1px solid #ccc; padding: 5px; text-align: left; }
-th { background: #eee; }
-button { margin-top: 10px; padding: 5px 10px; }
-</style>
-</head>
-<body>
+{% extends "base.html" %}
+
+{% block title %}Graph{% endblock %}
+
+{% block content %}
 <h1>Neo4j Index Manager</h1>
 <form id="indexForm">
 <table>
@@ -76,5 +68,6 @@ document.getElementById('indexForm').addEventListener('submit', async function(e
     }
 });
 </script>
-</body>
-</html>
+
+{% endblock %}
+
