@@ -1,5 +1,5 @@
 function initQueryBuilder() {
-    const allowedOperators = ['equal', 'not_equal', 'in', 'not_in', 'less', 'less_or_equal', 'greater', 'greater_or_equal', 'contains', 'begins_with', 'ends_with'];
+	const allowedOperators = ['equal', 'not_equal', 'in', 'not_in', 'less', 'less_or_equal', 'greater', 'greater_or_equal', 'contains', 'begins_with', 'ends_with'];
 
 	fetch('/api/labels')
 		.then(r => r.json())
@@ -16,7 +16,7 @@ function initQueryBuilder() {
 				info.props.forEach(p => {
 					const propName = p.name || p.property;
 					if (!propName) {
-						error("Kein Property-Name für", p, "bei Label", info.label);
+						console.error("Kein Property-Name für", p, "bei Label", info.label);
 						return;
 					}
 					const key = info.label + '.' + propName;
@@ -24,7 +24,7 @@ function initQueryBuilder() {
 						id: key,
 						label: key,
 						type: mapNeoTypeToQB(p.type),
-                        operators: allowedOperators
+						operators: allowedOperators
 					};
 				});
 			});
@@ -39,13 +39,26 @@ function initQueryBuilder() {
 				// --- URL-State direkt nach Init wiederherstellen ---
 				restoreQueryBuilderFromUrl();
 
+				// --- ENTER-Event zum Abschicken registrieren ---
+				addEnterKeyListener();
+
 			} catch (e) {
-				error("Fehler beim Init von QueryBuilder:", e);
+				console.error("Fehler beim Init von QueryBuilder:", e);
 			}
 		})
 		.catch(err => {
-			error("Fehler in initQueryBuilder:", err);
+			console.error("Fehler in initQueryBuilder:", err);
 		});
+}
+
+function addEnterKeyListener() {
+	// EventListener auf das gesamte Dokument, kann auch nur auf QueryBuilder gesetzt werden
+	$(document).on('keydown', function(e) {
+		if (e.key === 'Enter') {
+			e.preventDefault(); // verhindert Default-Verhalten (z.B. Formularsubmit)
+			runQueryBuilder();
+		}
+	});
 }
 
 function restoreQueryBuilderFromUrl() {
