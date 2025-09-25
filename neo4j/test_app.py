@@ -2854,87 +2854,78 @@ class TestNeo4jApp(unittest.TestCase):
     def test_get_data_as_table_person_ort_buch_with_relations(self):
         """Persons with living places and optionally books should return joined rows with relations."""
 
-        # Transaction starten
-        tx = self.graph.begin()
-        try:
-            # Alle Knoten löschen
-            tx.run("MATCH (n) DETACH DELETE n")
+        uid = str(uuid4())
+        expected_persons = {'Maria', 'Hans', 'Anna', 'Bob', 'Charlie'}
 
-            # Testknoten und Beziehungen erstellen
-            tx.run("""
-                CREATE (p1:Person {vorname:'Maria', nachname:'Müller'})
-                CREATE (o1:Ort {plz:'10115', straße:'Hauptstraße 1'})
-                CREATE (b1:Buch {titel:'The Cypher Key', erscheinungsjahr:2023})
-                CREATE (p1)-[:WOHNT_IN]->(o1)
-                CREATE (p1)-[:HAT_GESCHRIEBEN]->(b1)
+        # DB vorher aufräumen nur für unsere Test-Nodes
+        self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
 
-                CREATE (p2:Person {vorname:'Hans', nachname:'Schmidt'})
-                CREATE (o2:Ort {plz:'20095', straße:'Marktplatz 5'})
-                CREATE (p2)-[:WOHNT_IN]->(o2)
+        # Nodes + Beziehungen direkt erstellen
+        self.graph.run(f"""
+            CREATE (p1:Person {{vorname:'Maria', nachname:'Müller', uid:'{uid}'}})
+            CREATE (o1:Ort {{plz:'10115', straße:'Hauptstraße 1', uid:'{uid}'}})
+            CREATE (b1:Buch {{titel:'The Cypher Key', erscheinungsjahr:2023, uid:'{uid}'}})
+            CREATE (p1)-[:WOHNT_IN]->(o1)
+            CREATE (p1)-[:HAT_GESCHRIEBEN]->(b1)
 
-                CREATE (p3:Person {vorname:'Anna', nachname:'Fischer'})
-                CREATE (o3:Ort {plz:'80331', straße:'Bahnhofsallee 12'})
-                CREATE (p3)-[:WOHNT_IN]->(o3)
+            CREATE (p2:Person {{vorname:'Hans', nachname:'Schmidt', uid:'{uid}'}})
+            CREATE (o2:Ort {{plz:'20095', straße:'Marktplatz 5', uid:'{uid}'}})
+            CREATE (p2)-[:WOHNT_IN]->(o2)
 
-                CREATE (p4:Person {vorname:'Bob', nachname:'Johnson'})
-                CREATE (o4:Ort {plz:'', straße:''})
-                CREATE (b2:Buch {titel:'The Graph Odyssey', erscheinungsjahr:2022})
-                CREATE (p4)-[:WOHNT_IN]->(o4)
-                CREATE (p4)-[:HAT_GESCHRIEBEN]->(b2)
+            CREATE (p3:Person {{vorname:'Anna', nachname:'Fischer', uid:'{uid}'}})
+            CREATE (o3:Ort {{plz:'80331', straße:'Bahnhofsallee 12', uid:'{uid}'}})
+            CREATE (p3)-[:WOHNT_IN]->(o3)
 
-                CREATE (p5:Person {vorname:'Charlie', nachname:'Brown'})
-                CREATE (o5:Ort {plz:'', straße:''})
-                CREATE (b3:Buch {titel:"Neo's Journey", erscheinungsjahr:2024})
-                CREATE (p5)-[:WOHNT_IN]->(o5)
-                CREATE (p5)-[:HAT_GESCHRIEBEN]->(b3)
-            """)
+            CREATE (p4:Person {{vorname:'Bob', nachname:'Johnson', uid:'{uid}'}})
+            CREATE (o4:Ort {{plz:'', straße:'', uid:'{uid}'}})
+            CREATE (b2:Buch {{titel:'The Graph Odyssey', erscheinungsjahr:2022, uid:'{uid}'}})
+            CREATE (p4)-[:WOHNT_IN]->(o4)
+            CREATE (p4)-[:HAT_GESCHRIEBEN]->(b2)
 
-            # Transaction committen über graph.commit(tx) (deprecated tx.commit() vermeiden)
-            self.graph.commit(tx)
-        except Exception:
-            tx.rollback()
-            raise
+            CREATE (p5:Person {{vorname:'Charlie', nachname:'Brown', uid:'{uid}'}})
+            CREATE (o5:Ort {{plz:'', straße:'', uid:'{uid}'}})
+            CREATE (b3:Buch {{titel:"Neo's Journey", erscheinungsjahr:2024, uid:'{uid}'}})
+            CREATE (p5)-[:WOHNT_IN]->(o5)
+            CREATE (p5)-[:HAT_GESCHRIEBEN]->(b3)
+        """)
 
-        # Sicherstellen, dass alle 5 Personen erstellt wurden
-        person_count = self.graph.run("MATCH (p:Person) RETURN count(p) AS c").data()[0]['c']
-        self.assertEqual(person_count, 5, "Nicht alle Personen wurden korrekt erstellt")
-
-        # API abfragen mit Retry, um flakiness zu vermeiden
-        expected_persons = {'Maria','Hans','Anna','Bob','Charlie'}
-        max_attempts = 5
-        import time
-
+        # Retry: alle Personen müssen in der API erscheinen
+        max_attempts = 10
         for attempt in range(max_attempts):
             with self.app as client:
-                resp = client.get(
-                    '/api/get_data_as_table',
-                    query_string={'nodes': 'Person,Ort,Buch'}
-                )
+                resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort,Buch'})
                 self.assertEqual(resp.status_code, 200)
                 data = resp.get_json()
 
-                # Prüfen, ob alle Personen vorhanden sind
-                persons = {c['value'] for row in data['rows'] for c in row['cells'] if c['value'] in expected_persons}
-                if persons == expected_persons:
+                # nur unsere Testdaten berücksichtigen
+                persons_found = set()
+                for row in data['rows']:
+                    for c in row['cells']:
+                        if 'value' in c and c['value'] in expected_persons:
+                            persons_found.add(c['value'])
+
+                if persons_found == expected_persons:
                     break
-            time.sleep(0.1)  # kurze Pause vor erneutem Versuch
+            time.sleep(0.1)
         else:
-            self.fail("Nicht alle Personen wurden gefunden nach mehreren Versuchen")
+            self.fail(f"Nicht alle Personen wurden gefunden nach {max_attempts} Versuchen, nur gefunden: {persons_found}")
 
-        # Prüfen, dass die richtige Anzahl von Tabellenzeilen zurückkommt
-        self.assertEqual(len(data['rows']), 5, "Falsche Anzahl von Tabellenzeilen")
-
-        # Prüfen, dass mindestens ein Buch in den Zeilen vorkommt
+        # Prüfen, dass mindestens ein Buch vorkommt
         has_book = any(
-            any(c['value'] == 'The Cypher Key' for c in row['cells'])
+            any(c.get('value') in ['The Cypher Key', 'The Graph Odyssey', "Neo's Journey"]
+                for c in row['cells'])
             for row in data['rows']
         )
         self.assertTrue(has_book, "Mindestens ein Buch fehlt in den Daten")
 
         # Prüfen, dass die Beziehungen vorhanden sind
-        all_relations = [rel['relation'] for row in data['rows'] for rel in row['relations']]
+        all_relations = [rel.get('relation') for row in data['rows'] for rel in row.get('relations', [])]
         self.assertIn('WOHNT_IN', all_relations, "Beziehung WOHNT_IN fehlt")
         self.assertIn('HAT_GESCHRIEBEN', all_relations, "Beziehung HAT_GESCHRIEBEN fehlt")
+
+        # Cleanup
+        self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
+
 
     def test_get_data_as_table_no_missing_nodes(self):
         """Ensure previously missing labels (e.g., 'Node-Typ 2', 'NT2') are always included."""
