@@ -3236,15 +3236,16 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(node["validName"], "ok")
 
     def test_add_relationship_success(self):
-        alice_name = f"Alice_{uuid4()}"
-        berlin_name = f"Berlin_{uuid4()}"
+        uid = str(uuid4())
+        alice_name = f"Alice_{uid}"
+        berlin_name = f"Berlin_{uid}"
 
-        # Nodes direkt erstellen und committen
-        alice = Node("Person", name=alice_name)
-        berlin = Node("Ort", name=berlin_name)
-        self.graph.create(alice | berlin)  # create merged Nodes in one call
+        # Nodes erstellen und direkt committen
+        alice = Node("Person", name=alice_name, uid=uid)
+        berlin = Node("Ort", name=berlin_name, uid=uid)
+        self.graph.create(alice)
+        self.graph.create(berlin)
 
-        # IDs sollten jetzt gesetzt sein
         self.assertIsNotNone(alice.identity)
         self.assertIsNotNone(berlin.identity)
 
@@ -3255,17 +3256,18 @@ class TestNeo4jApp(unittest.TestCase):
             "type": "WOHNT_IN",
             "props": {"since": 2020}
         }
+
         with self.app as client:
             resp = client.post("/api/add_relationship", json=data)
-            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.status_code, 200, f"API-Fehler: {resp.get_data(as_text=True)}")
             result = resp.get_json()
             self.assertEqual(result["status"], "success")
             self.assertIn("id", result)
             self.assertIn("WOHNT_IN", result["message"])
 
-        # Robust prüfen, dass die Beziehung existiert (Retry)
+        # Retry: sicherstellen, dass Beziehung existiert
         rel = []
-        for _ in range(10):  # mehr Versuche für CI
+        for _ in range(10):
             rel = self.graph.run(
                 "MATCH (a)-[r]->(b) "
                 "WHERE ID(a)=$alice_id AND ID(b)=$berlin_id "
@@ -3280,6 +3282,9 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertTrue(rel, "Beziehung wurde nicht gefunden")
         self.assertEqual(rel[0]["t"], "WOHNT_IN")
         self.assertEqual(rel[0]["since"], 2020)
+
+        # Cleanup
+        self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
 
     def test_add_relationship_invalid_property_names(self):
         alice = Node("Person", name="Alice")
