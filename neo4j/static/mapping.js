@@ -182,84 +182,142 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function saveMapping() {
+	console.log("=== saveMapping gestartet ===");
+
 	const mapping = { nodes: {}, relationships: [] };
 	let hasError = false;
-	let relationshipErrors = [];
 
-	// Nodes sammeln
-	document.querySelectorAll('.node-group').forEach(group => {
+	// 1. Nodes sammeln
+	const nodeResult = collectNodes();
+	mapping.nodes = nodeResult.nodes;
+	if (!nodeResult.valid) hasError = true;
+
+	// 2. Relationships sammeln
+	const relResult = collectRelationships();
+	mapping.relationships = relResult.relationships;
+	if (!relResult.valid) hasError = true;
+
+	// 3. Prüfen, ob bei mehreren Node-Typen mindestens eine Relationship existiert
+	if (!checkRelationshipCount(mapping.nodes, mapping.relationships)) {
+		console.log("Fehler: Mindestens eine gültige Relationship erforderlich.");
+		hasError = true;
+	}
+
+	if (hasError) {
+		console.log("saveMapping abgebrochen wegen Fehlern.");
+		return;
+	}
+
+	// 4. Mapping speichern
+	sendMapping(mapping);
+}
+
+function collectNodes() {
+	console.log("collectNodes gestartet...");
+	const nodes = {};
+	let valid = true;
+
+	document.querySelectorAll('.node-group').forEach((group, idx) => {
 		const label = group.querySelector('.node-label-input').textContent.trim();
 		const fields = [...group.querySelectorAll('.column-item.selected')].map(item => {
 			const original = item.dataset.column;
 			const renamed = item.querySelector('.property-input').value.trim();
 			return { original, renamed: renamed || original };
 		});
+		console.log(`Node ${idx + 1}: label='${label}', fields=`, fields);
+
 		if (label && fields.length > 0) {
-			mapping.nodes[label] = fields;
+			nodes[label] = fields;
 		}
 	});
 
-	const assignedHeadersCount = Object.values(mapping.nodes).flat().length;
+	const assignedHeadersCount = Object.values(nodes).flat().length;
+	console.log("Assigned headers count:", assignedHeadersCount, "Expected:", headers.length);
 	if (assignedHeadersCount !== headers.length) {
+		console.error("Fehler: Nicht alle Spalten zugeordnet!");
 		alert('Fehler: Alle Spalten müssen einem Node-Typen zugeordnet werden.');
-		hasError = true;
+		valid = false;
 	}
 
-	// Relationships sammeln und prüfen
+	return { nodes, valid };
+}
+
+function collectRelationships() {
+	console.log("collectRelationships gestartet...");
+	const relationships = [];
+	let valid = true;
+	const relationshipErrors = [];
 	let validRelationshipsCount = 0;
 
 	document.querySelectorAll('.relationship-group').forEach((group, idx) => {
 		const from = group.querySelector('.from-node-select').value;
 		const to = group.querySelector('.to-node-select').value;
-		const typeInput = group.querySelector('.rel-type-input').value.trim();
+		let typeInput = group.querySelector('.rel-type-input').value.trim();
+		const selectEl = group.querySelector('.rel-type-select');
+		if (!typeInput && selectEl.value !== '__new__') {
+			typeInput = selectEl.value;
+		}
 
-		// Vorher evtl. rote Markierungen zurücksetzen
+		console.log(`Relationship ${idx + 1}: from='${from}', to='${to}', type='${typeInput}'`);
+
 		group.style.borderColor = '#eee';
 
-		// Nur wenn from & to gesetzt sind, prüfen wir typeInput
 		if (from && to) {
 			if (!typeInput) {
-				hasError = true;
+				console.error(`Relationship ${idx + 1}: Relationship-Typ fehlt`);
 				relationshipErrors.push(`Relationship ${idx + 1}: Relationship-Typ fehlt`);
 				group.style.borderColor = 'red';
+				valid = false;
 			} else {
-				mapping.relationships.push({ from, to, type: typeInput });
+				relationships.push({ from, to, type: typeInput });
 				validRelationshipsCount++;
 			}
 		} else if (from || to || typeInput) {
-			// Teilweise ausgefüllte Relationship
-			hasError = true;
+			valid = false;
 			let missing = [];
 			if (!from) missing.push("Von-Node");
 			if (!to) missing.push("Nach-Node");
 			if (!typeInput) missing.push("Relationship-Typ");
+			console.error(`Relationship ${idx + 1} unvollständig: fehlt ${missing.join(', ')}`);
 			relationshipErrors.push(`Relationship ${idx + 1}: fehlt ${missing.join(', ')}`);
 			group.style.borderColor = 'red';
 		}
 	});
 
-	// Prüfen, ob bei mehreren Node-Typen mindestens eine gültige Relationship existiert
-	if (Object.keys(mapping.nodes).length > 1 && validRelationshipsCount === 0) {
-		alert('Fehler: Bei mehreren Node-Typen muss mindestens eine gültige Relationship definiert werden.');
-		hasError = true;
-	}
-
 	if (relationshipErrors.length > 0) {
 		alert("Fehlerhafte Relationships:\n" + relationshipErrors.join("\n"));
 	}
 
-	if (hasError) return;
+	console.log(`Valid relationships: ${validRelationshipsCount}`);
+	return { relationships, valid };
+}
 
-	// Alles OK, Mapping speichern
+
+function checkRelationshipCount(nodes, relationships) {
+	if (Object.keys(nodes).length > 1 && relationships.length === 0) {
+		alert('Fehler: Bei mehreren Node-Typen muss mindestens eine gültige Relationship definiert werden.');
+		console.error("checkRelationshipCount: Keine gültige Relationship bei mehreren Node-Typen!");
+		return false;
+	}
+	console.log("checkRelationshipCount: OK");
+	return true;
+}
+
+function sendMapping(mapping) {
+	console.log("sendMapping gestartet, Mapping:", mapping);
 	fetch('/save_mapping', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(mapping)
 	}).then(response => response.json())
 		.then(data => {
+			console.log("Antwort vom Server:", data);
 			alert(data.message);
 			if (data.status === 'success') {
 				window.location.href = '/overview';
 			}
+		}).catch(err => {
+			console.error("Fehler beim Speichern des Mappings:", err);
 		});
 }
+
