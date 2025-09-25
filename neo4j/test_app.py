@@ -3358,14 +3358,19 @@ class TestNeo4jApp(unittest.TestCase):
         # Nodes erstellen synchron
         alice = Node("Person", name="Alice")
         berlin = Node("Ort", name="Berlin")
-        self.graph.create(alice)
-        self.graph.create(berlin)
 
-        # IDs direkt aus den Node-Objekten
-        alice_id = alice.identity
-        berlin_id = berlin.identity
-        self.assertIsNotNone(alice_id, "Alice Node-ID konnte nicht ermittelt werden")
-        self.assertIsNotNone(berlin_id, "Berlin Node-ID konnte nicht ermittelt werden")
+        try:
+            self.graph.create(alice)
+            self.graph.create(berlin)
+        except Exception as e:
+            self.fail(f"Fehler beim Erstellen der Nodes: {e}")
+
+        # IDs direkt aus den Node-Objekten prüfen
+        alice_id = getattr(alice, 'identity', None)
+        berlin_id = getattr(berlin, 'identity', None)
+
+        self.assertIsNotNone(alice_id, f"Alice Node-ID konnte nicht ermittelt werden. Node: {alice}")
+        self.assertIsNotNone(berlin_id, f"Berlin Node-ID konnte nicht ermittelt werden. Node: {berlin}")
 
         # Relationship-Daten
         data = {
@@ -3375,6 +3380,9 @@ class TestNeo4jApp(unittest.TestCase):
             "props": {"123invalid": "oops", "validProp": "ok"}
         }
 
+        # Debug-Log für CI
+        print("Request payload:", data)
+
         # API synchron aufrufen
         with self.app as client:
             resp = client.post(
@@ -3382,14 +3390,23 @@ class TestNeo4jApp(unittest.TestCase):
                 json=data,
                 headers={"Content-Type": "application/json"}
             )
+
+            # Debug-Log für CI
+            print("Response status:", resp.status_code)
+            print("Response data:", resp.get_data(as_text=True))
+
             self.assertEqual(resp.status_code, 200, f"API-Fehler: {resp.get_data(as_text=True)}")
 
         # Relationship direkt aus der DB prüfen
-        result = self.graph.run(
-            f"MATCH (a)-[r]->(b) "
-            f"WHERE ID(a)={alice_id} AND ID(b)={berlin_id} "
-            f"RETURN r"
-        ).data()
+        try:
+            result = self.graph.run(
+                "MATCH (a)-[r]->(b) "
+                "WHERE ID(a)=$alice_id AND ID(b)=$berlin_id "
+                "RETURN r",
+                alice_id=alice_id, berlin_id=berlin_id
+            ).data()
+        except Exception as e:
+            self.fail(f"Fehler beim Abrufen der Relationship aus der DB: {e}")
 
         self.assertTrue(len(result) > 0, "Relationship wurde nicht erstellt")
 
@@ -3400,7 +3417,6 @@ class TestNeo4jApp(unittest.TestCase):
 
         # Gültiges Property muss übernommen werden
         self.assertEqual(rel.get("validProp"), "ok")
-
 
     def test_add_relationship_nonexistent_nodes(self):
         data = {"start_id": 9999, "end_id": 8888, "type": "WOHNT_IN"}
