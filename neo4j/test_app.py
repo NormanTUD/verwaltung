@@ -5,7 +5,6 @@ import os
 import uuid
 import json
 from uuid import uuid4
-from flask import session
 from py2neo import Graph, Node, Relationship, Subgraph
 from unittest import mock
 from dotenv import load_dotenv
