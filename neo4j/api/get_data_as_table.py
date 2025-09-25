@@ -145,6 +145,12 @@ def create_get_data_bp(graph):
             value = rule.get("value")
             field_name = field.split('.')[-1]
 
+            # Helper für string comparison case-insensitive
+            def ci_value(v):
+                if isinstance(v, str):
+                    return f"'{v.lower()}'"
+                return str(v)
+
             if op in {"equal", "not_equal", "less", "less_or_equal", "greater", "greater_or_equal"}:
                 op_map = {
                     "equal": "=",
@@ -155,33 +161,36 @@ def create_get_data_bp(graph):
                     "greater_or_equal": ">="
                 }
                 cypher_op = op_map[op]
-                value_str = f"'{value}'" if isinstance(value, str) else str(value)
-                return f"n.`{field_name}` {cypher_op} {value_str}"
+                # nur Strings case-insensitive machen
+                if isinstance(value, str):
+                    return f"TOLOWER(n.`{field_name}`) {cypher_op} {ci_value(value)}"
+                else:
+                    return f"n.`{field_name}` {cypher_op} {ci_value(value)}"
 
             elif op == "contains":
-                return f"n.`{field_name}` CONTAINS '{value}'"
+                return f"TOLOWER(n.`{field_name}`) CONTAINS '{value.lower()}'"
             elif op == "begins_with":
-                return f"n.`{field_name}` STARTS WITH '{value}'"
+                return f"TOLOWER(n.`{field_name}`) STARTS WITH '{value.lower()}'"
             elif op == "ends_with":
-                return f"n.`{field_name}` ENDS WITH '{value}'"
+                return f"TOLOWER(n.`{field_name}`) ENDS WITH '{value.lower()}'"
 
             elif op == "not_contains":
-                return f"NOT n.`{field_name}` CONTAINS '{value}'"
+                return f"NOT TOLOWER(n.`{field_name}`) CONTAINS '{value.lower()}'"
             elif op == "not_begins_with":
-                return f"NOT n.`{field_name}` STARTS WITH '{value}'"
+                return f"NOT TOLOWER(n.`{field_name}`) STARTS WITH '{value.lower()}'"
             elif op == "not_ends_with":
-                return f"NOT n.`{field_name}` ENDS WITH '{value}'"
+                return f"NOT TOLOWER(n.`{field_name}`) ENDS WITH '{value.lower()}'"
 
             elif op == "in":
                 if not isinstance(value, (list, tuple)):
                     raise ValueError(f"Operator 'in' requires a list of values")
-                value_list = ', '.join(f"'{v}'" for v in value)
-                return f"n.`{field_name}` IN [{value_list}]"
+                value_list = ', '.join(f"'{v.lower()}'" for v in value)
+                return f"TOLOWER(n.`{field_name}`) IN [{value_list}]"
             elif op == "not_in":
                 if not isinstance(value, (list, tuple)):
                     raise ValueError(f"Operator 'not_in' requires a list of values")
-                value_list = ', '.join(f"'{v}'" for v in value)
-                return f"NOT n.`{field_name}` IN [{value_list}]"
+                value_list = ', '.join(f"'{v.lower()}'" for v in value)
+                return f"NOT TOLOWER(n.`{field_name}`) IN [{value_list}]"
 
             elif op == "is_empty":
                 return f"n.`{field_name}` = ''"
