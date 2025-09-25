@@ -186,6 +186,7 @@ function saveMapping() {
 	let hasError = false;
 	let relationshipErrors = [];
 
+	// Nodes sammeln
 	document.querySelectorAll('.node-group').forEach(group => {
 		const label = group.querySelector('.node-label-input').textContent.trim();
 		const fields = [...group.querySelectorAll('.column-item.selected')].map(item => {
@@ -204,6 +205,9 @@ function saveMapping() {
 		hasError = true;
 	}
 
+	// Relationships sammeln und prüfen
+	let validRelationshipsCount = 0;
+
 	document.querySelectorAll('.relationship-group').forEach((group, idx) => {
 		const from = group.querySelector('.from-node-select').value;
 		const to = group.querySelector('.to-node-select').value;
@@ -212,25 +216,31 @@ function saveMapping() {
 		// Vorher evtl. rote Markierungen zurücksetzen
 		group.style.borderColor = '#eee';
 
-		if (from && to && typeInput) {
-			mapping.relationships.push({ from, to, type: typeInput });
+		// Nur wenn from & to gesetzt sind, prüfen wir typeInput
+		if (from && to) {
+			if (!typeInput) {
+				hasError = true;
+				relationshipErrors.push(`Relationship ${idx + 1}: Relationship-Typ fehlt`);
+				group.style.borderColor = 'red';
+			} else {
+				mapping.relationships.push({ from, to, type: typeInput });
+				validRelationshipsCount++;
+			}
 		} else if (from || to || typeInput) {
+			// Teilweise ausgefüllte Relationship
 			hasError = true;
 			let missing = [];
 			if (!from) missing.push("Von-Node");
 			if (!to) missing.push("Nach-Node");
 			if (!typeInput) missing.push("Relationship-Typ");
-
 			relationshipErrors.push(`Relationship ${idx + 1}: fehlt ${missing.join(', ')}`);
-
-			// visuelles Feedback
 			group.style.borderColor = 'red';
 		}
 	});
 
-	const numNodeTypes = Object.keys(mapping.nodes).length;
-	if (numNodeTypes > 1 && mapping.relationships.length === 0) {
-		alert('Fehler: Bei mehreren Node-Typen muss mindestens eine Relationship definiert werden.');
+	// Prüfen, ob bei mehreren Node-Typen mindestens eine gültige Relationship existiert
+	if (Object.keys(mapping.nodes).length > 1 && validRelationshipsCount === 0) {
+		alert('Fehler: Bei mehreren Node-Typen muss mindestens eine gültige Relationship definiert werden.');
 		hasError = true;
 	}
 
@@ -238,10 +248,9 @@ function saveMapping() {
 		alert("Fehlerhafte Relationships:\n" + relationshipErrors.join("\n"));
 	}
 
-	if (hasError) {
-		return;
-	}
+	if (hasError) return;
 
+	// Alles OK, Mapping speichern
 	fetch('/save_mapping', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
