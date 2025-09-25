@@ -52,11 +52,20 @@ function initQueryBuilder() {
 }
 
 function addEnterKeyListener() {
-	// EventListener auf das gesamte Dokument, kann auch nur auf QueryBuilder gesetzt werden
-	$(document).on('keydown', function(e) {
+	$('#querybuilder').on('keydown', 'input, select', function(e) {
+
 		if (e.key === 'Enter') {
-			e.preventDefault(); // verhindert Default-Verhalten (z.B. Formularsubmit)
-			runQueryBuilder();
+			$(e.currentTarget).blur();
+
+			e.preventDefault();
+
+			const rules = $('#querybuilder').queryBuilder('getRules');
+			if (!rules || !rules.rules || rules.rules.length === 0) {
+				console.warn('Keine gültigen Regeln zum Abschicken.');
+				return;
+			}
+
+			fetchData();
 		}
 	});
 }
