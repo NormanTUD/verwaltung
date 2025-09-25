@@ -483,15 +483,21 @@ function getSelectedRelationships() {
 
 function getQueryBuilderRules() {
     try {
-        if ($('#querybuilder').length && $('#querybuilder').queryBuilder('getRules')) {
+        if ($('#querybuilder').length && $('#querybuilder').queryBuilder) {
             const rules = $('#querybuilder').queryBuilder('getRules');
-            return rules && rules.rules && rules.rules.length > 0 ? rules : null;
+            // rules kann null oder leer sein
+            if (!rules || !rules.rules || rules.rules.length === 0) {
+                return null;
+            }
+            return rules;
         }
     } catch (e) {
-        console.warn('QueryBuilder getRules Fehler:', e);
+        // Ignoriere Fehler, z. B. wenn QueryBuilder noch nicht initiiert ist
+        console.warn('QueryBuilder noch nicht initialisiert oder keine Regeln vorhanden.');
     }
     return null;
 }
+
 
 // Initial beim Laden der Seite
 document.addEventListener('DOMContentLoaded', () => {
