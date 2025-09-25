@@ -5,11 +5,11 @@ import os
 from uuid import uuid4
 import json
 import warnings
-from app import get_all_nodes_and_relationships, app, graph
+from unittest.mock import patch
 from py2neo import Graph, Node, Relationship, Subgraph
 from unittest import mock
 from dotenv import load_dotenv
-from unittest.mock import patch
+from app import get_all_nodes_and_relationships, app, graph
 from oasis_helper import load_or_generate_secret_key
 
 warnings.filterwarnings("ignore", category=ResourceWarning)
