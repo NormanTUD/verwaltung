@@ -871,7 +871,8 @@ class TestNeo4jApp(unittest.TestCase):
             col_names = [c['property'] for c in data['columns']]
             actual_rows = []
             for row in data['rows']:
-                values = {col_names[i]: cell['value'] for i, cell in enumerate(row['cells'])}
+                values = {col_names[i]: cell.get('value') for i, cell in enumerate(row['cells'])}
+                # Fülle fehlende Spalten mit None
                 tup = (
                     values.get('vorname'),
                     values.get('nachname'),
@@ -887,8 +888,12 @@ class TestNeo4jApp(unittest.TestCase):
                 ("Anna", "Fischer", "Bahnhofsallee 12", "München", "80331"),
             ]
 
-            self.assertEqual(sorted(actual_rows), sorted(expected_rows))
-            self.assertEqual(len(actual_rows), len(expected_rows))
+            # Sortieren nach Stringwerten, None als leeren String behandeln
+            def safe_sort_key(t):
+                return tuple(s if s is not None else "" for s in t)
+
+            self.assertEqual(sorted(actual_rows, key=safe_sort_key),
+                            sorted(expected_rows, key=safe_sort_key))
 
     def test_get_data_as_table_complex(self):
         """Test with 10 persons connected to cities, companies and hobbies."""
