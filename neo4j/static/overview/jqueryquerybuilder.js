@@ -1,95 +1,95 @@
 function initQueryBuilder() {
-    fetch('/api/labels')
-        .then(r => r.json())
-        .then(labels => {
-            return Promise.all(labels.map(lbl =>
-                fetch('/api/properties?label=' + encodeURIComponent(lbl))
-                    .then(r => r.json())
-                    .then(props => ({ label: lbl, props: props }))
-            ));
-        })
-        .then(labelInfos => {
-            const fields = {};
-            labelInfos.forEach(info => {
-                info.props.forEach(p => {
-                    const propName = p.name || p.property;
-                    if (!propName) {
-                        error("Kein Property-Name für", p, "bei Label", info.label);
-                        return;
-                    }
-                    const key = info.label + '.' + propName;
-                    fields[key] = {
-                        id: key,
-                        label: key,
-                        type: mapNeoTypeToQB(p.type)
-                    };
-                });
-            });
+	fetch('/api/labels')
+		.then(r => r.json())
+		.then(labels => {
+			return Promise.all(labels.map(lbl =>
+				fetch('/api/properties?label=' + encodeURIComponent(lbl))
+				.then(r => r.json())
+				.then(props => ({ label: lbl, props: props }))
+			));
+		})
+		.then(labelInfos => {
+			const fields = {};
+			labelInfos.forEach(info => {
+				info.props.forEach(p => {
+					const propName = p.name || p.property;
+					if (!propName) {
+						error("Kein Property-Name für", p, "bei Label", info.label);
+						return;
+					}
+					const key = info.label + '.' + propName;
+					fields[key] = {
+						id: key,
+						label: key,
+						type: mapNeoTypeToQB(p.type)
+					};
+				});
+			});
 
-            const filters = Object.values(fields);
+			const filters = Object.values(fields);
 
-            try {
-                $('#querybuilder').queryBuilder({
-                    filters: filters
-                });
+			try {
+				$('#querybuilder').queryBuilder({
+					filters: filters
+				});
 
-                // --- URL-State direkt nach Init wiederherstellen ---
-                restoreQueryBuilderFromUrl();
+				// --- URL-State direkt nach Init wiederherstellen ---
+				restoreQueryBuilderFromUrl();
 
-            } catch (e) {
-                error("Fehler beim Init von QueryBuilder:", e);
-            }
-        })
-        .catch(err => {
-            error("Fehler in initQueryBuilder:", err);
-        });
+			} catch (e) {
+				error("Fehler beim Init von QueryBuilder:", e);
+			}
+		})
+		.catch(err => {
+			error("Fehler in initQueryBuilder:", err);
+		});
 }
 
 function restoreQueryBuilderFromUrl() {
-    var params = new URLSearchParams(window.location.search);
-    var qbJson = params.get('qb');
-    if (!qbJson) return;
+	var params = new URLSearchParams(window.location.search);
+	var qbJson = params.get('qb');
+	if (!qbJson) return;
 
-    try {
-        var rules = JSON.parse(qbJson);
-        var qb = $('#querybuilder');
-        if (qb.length && qb.queryBuilder) {
-            try {
-                qb.queryBuilder('setRules', rules);
-            } catch (e) {
-                console.warn('Fehler beim Wiederherstellen der QueryBuilder-Regeln', e);
-            }
-        }
-    } catch (e) {
-        console.warn('Fehler beim Parsen der QueryBuilder-Regeln aus URL', e);
-    }
+	try {
+		var rules = JSON.parse(qbJson);
+		var qb = $('#querybuilder');
+		if (qb.length && qb.queryBuilder) {
+			try {
+				qb.queryBuilder('setRules', rules);
+			} catch (e) {
+				console.warn('Fehler beim Wiederherstellen der QueryBuilder-Regeln', e);
+			}
+		}
+	} catch (e) {
+		console.warn('Fehler beim Parsen der QueryBuilder-Regeln aus URL', e);
+	}
 }
 
 
 function getQueryBuilderRules() {
-    try {
-        var qb = $('#querybuilder');
-        if (qb.length && qb.queryBuilder) {
-            var rules = qb.queryBuilder('getRules');
-            if (!rules || !rules.rules || rules.rules.length === 0) return null;
-            return rules;
-        }
-    } catch (e) {
-        console.warn('QueryBuilder noch nicht initialisiert oder keine Regeln vorhanden.');
-    }
-    return null;
+	try {
+		var qb = $('#querybuilder');
+		if (qb.length && qb.queryBuilder) {
+			var rules = qb.queryBuilder('getRules');
+			if (!rules || !rules.rules || rules.rules.length === 0) return null;
+			return rules;
+		}
+	} catch (e) {
+		console.warn('QueryBuilder noch nicht initialisiert oder keine Regeln vorhanden.');
+	}
+	return null;
 }
 
 function restoreQueryBuilderFromRules(rules) {
-    if (!rules) return;
-    var qb = $('#querybuilder');
-    if (!qb.length || !qb.queryBuilder) return;
+	if (!rules) return;
+	var qb = $('#querybuilder');
+	if (!qb.length || !qb.queryBuilder) return;
 
-    try {
-        qb.queryBuilder('setRules', rules);
-    } catch (e) {
-        console.warn('Fehler beim Wiederherstellen der QueryBuilder-Regeln', e);
-    }
+	try {
+		qb.queryBuilder('setRules', rules);
+	} catch (e) {
+		console.warn('Fehler beim Wiederherstellen der QueryBuilder-Regeln', e);
+	}
 }
 
 function runQueryBuilder() {
