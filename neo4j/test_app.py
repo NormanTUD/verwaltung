@@ -1097,7 +1097,7 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("property", resp.get_json()["message"])
 
-    def test_create_node_invalid_property_name(self):
+    def test_create_node_invalid_property_name_123_invalid(self):
         resp = self.app.post(
             '/api/create_node',
             data=json.dumps({"property": "123invalid", "value": "Test"}),
@@ -3207,7 +3207,7 @@ class TestNeo4jApp(unittest.TestCase):
         data = resp.get_json()
         self.assertEqual(data["status"], "error")
 
-    def test_create_node_invalid_property_name(self):
+    def test_create_node_invalid_property_name_123_bad(self):
         resp = self.app.post(
             "/api/create_node",
             json={"node_label": "Person", "props": {"123bad": "oops"}}
