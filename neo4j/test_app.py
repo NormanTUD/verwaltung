@@ -3254,15 +3254,26 @@ class TestNeo4jApp(unittest.TestCase):
         berlin = Node("Ort", name=berlin_name, uid=uid)
         self.graph.create(alice | berlin)  # atomic create
 
-        # sicherstellen, dass IDs wirklich da sind
+        # sicherstellen, dass IDs gesetzt sind
         self.graph.pull(alice)
         self.graph.pull(berlin)
-        self.assertIsNotNone(alice.identity)
-        self.assertIsNotNone(berlin.identity)
+
+        if alice.identity is None:
+            alice_id = self.graph.evaluate("MATCH (n:Person {uid:$uid}) RETURN id(n)", uid=uid)
+        else:
+            alice_id = int(alice.identity)
+
+        if berlin.identity is None:
+            berlin_id = self.graph.evaluate("MATCH (n:Ort {uid:$uid}) RETURN id(n)", uid=uid)
+        else:
+            berlin_id = int(berlin.identity)
+
+        self.assertIsNotNone(alice_id)
+        self.assertIsNotNone(berlin_id)
 
         data = {
-            "start_id": int(alice.identity),
-            "end_id": int(berlin.identity),
+            "start_id": alice_id,
+            "end_id": berlin_id,
             "type": "WOHNT_IN",
             "props": {"since": 2020}
         }
@@ -3273,10 +3284,24 @@ class TestNeo4jApp(unittest.TestCase):
                 json=data,
                 headers={"Content-Type": "application/json"}
             )
+
+            # Debug-Ausgabe falls es wieder kracht
+            if resp.status_code != 200:
+                print("DEBUG payload sent:", data)
+                print("DEBUG response text:", resp.get_data(as_text=True))
+
             self.assertEqual(
                 resp.status_code, 200,
                 f"API-Fehler: {resp.get_data(as_text=True)}"
             )
+
+            result_json = resp.get_json()
+            self.assertEqual(result_json["status"], "success")
+            self.assertIn("id", result_json)
+            self.assertEqual(result_json["message"], "Relationship 'WOHNT_IN' erstellt.")
+
+        # Cleanup: alle Knoten mit uid löschen
+        self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
 
     def test_add_relationship_invalid_property_names(self):
         alice = Node("Person", name="Alice")
