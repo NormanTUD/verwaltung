@@ -59,24 +59,7 @@ function runQueryBuilder() {
 		return;
 	}
 
-	const selected = getSelectedLabels(document.getElementById('querySelection'));
-
-	const url = '/api/get_data_as_table?nodes=' + encodeURIComponent(selected.join(','));
-
-	fetch(url, {
-		method: 'POST',
-		headers: {'Content-Type':'application/json','Accept':'application/json'},
-		body: JSON.stringify({queryBuilderRules: rules})
-	})
-		.then(r => {
-			return handleFetchResponse(r);
-		})
-		.then(data => {
-			handleServerData(data);
-		})
-		.catch(err => {
-			error('Fehler bei QueryBuilder: ' + (err.message || err));
-		});
+	fetchData();
 }
 
 function mapNeoTypeToQB(neoType) {
