@@ -183,7 +183,7 @@ def create_get_data_bp(graph):
 
             elif op == "in":
                 if not isinstance(value, (list, tuple)):
-                    raise ValueError(f"Operator 'in' requires a list of values")
+                    raise ValueError("Operator 'in' requires a list of values")
                 value_list = ', '.join(f"'{v.lower()}'" for v in value)
                 return f"TOLOWER(n.`{field_name}`) IN [{value_list}]"
             elif op == "not_in":

@@ -1,4 +1,3 @@
-import logging
 from flask import Blueprint, request, jsonify
 
 def create_reset_and_load_data_bp(graph):

@@ -99,7 +99,7 @@ class TestNeo4jApp(unittest.TestCase):
         """
         self.app = app.test_client()
         self.app.testing = True
-        
+
         self.graph = self.__class__.graph
 
         # Leere die Datenbank vor jedem Test für saubere, isolierte Bedingungen
@@ -114,7 +114,7 @@ class TestNeo4jApp(unittest.TestCase):
         """Testet den Upload von gültigen CSV-Daten."""
         response = self.app.post('/upload', data={'data': SAMPLE_CSV_DATA}, content_type='multipart/form-data')
         self.assertEqual(response.status_code, 200)
-        
+
         with self.app as client:
             with client.session_transaction() as sess:
                 self.assertIn('headers', sess)
@@ -132,10 +132,10 @@ class TestNeo4jApp(unittest.TestCase):
         node = Node("UpdateNode", status="old")
         self.graph.create(node)
         node_id = node.identity
-        
+
         response = self.app.put(f'/api/update_node/{node_id}', data=json.dumps({"property": "status", "value": "new"}), content_type='application/json')
         self.assertEqual(response.status_code, 200)
-        
+
         updated_node = self.graph.run(f"MATCH (n) WHERE ID(n) = {node_id} RETURN n").data()[0]['n']
         self.assertEqual(updated_node['status'], "new")
 
@@ -144,7 +144,7 @@ class TestNeo4jApp(unittest.TestCase):
         node = Node("DeleteNode", name="Temp")
         self.graph.create(node)
         node_id = node.identity
-        
+
         response = self.app.delete(f'/api/delete_node/{node_id}')
         self.assertEqual(response.status_code, 200)
 
@@ -158,14 +158,14 @@ class TestNeo4jApp(unittest.TestCase):
         self.graph.create(node1)
         self.graph.create(node2)
         node_ids = [node1.identity, node2.identity]
-        
+
         response = self.app.put(f'/api/update_nodes', data=json.dumps({
             "ids": node_ids,
             "property": "status",
             "value": "updated"
         }), content_type='application/json')
         self.assertEqual(response.status_code, 200)
-        
+
         results = self.graph.run(f"MATCH (n) WHERE ID(n) IN {node_ids} RETURN n.status AS status").data()
         for res in results:
             self.assertEqual(res['status'], "updated")
@@ -556,7 +556,7 @@ class TestNeo4jApp(unittest.TestCase):
         city = Node("Ort", name="Berlin")
         rel = Relationship(node, "HAT_WOHNSITZ", city)
         self.graph.create(node | city | rel)
-        
+
         result = get_all_nodes_and_relationships()
         self.assertIn("Person", result["labels"])
         self.assertIn("Ort", result["labels"])
@@ -676,7 +676,7 @@ class TestNeo4jApp(unittest.TestCase):
         with self.app.session_transaction() as sess:
             self.assertIn('headers', sess)
             self.assertEqual(sess['headers'], ['id', 'name', 'extra'])
-        
+
     def test_save_mapping_with_expired_session(self):
         """Session enthält keine raw_data, save_mapping schlägt fehl."""
         with self.app.session_transaction() as sess:
@@ -1602,10 +1602,10 @@ class TestNeo4jApp(unittest.TestCase):
         """Different relationship types should appear in the relations list."""
         # 1. Alte Testdaten löschen
         self.graph.run("MATCH (n) DETACH DELETE n")
-        
+
         # 2. Testdaten anlegen
         self.graph.run("CREATE (p:Person {name:'R'})-[:FOO]->(o:Ort {plz:'22'})")
-        
+
         # 3. API aufrufen
         with self.app as client:
             # Retry-Mechanismus, falls CI die Relation noch nicht sieht
@@ -1623,7 +1623,7 @@ class TestNeo4jApp(unittest.TestCase):
                 # Falls Relation noch nicht sichtbar, kurz warten
                 import time
                 time.sleep(0.1)
-            
+
             # 4. Assertion
             self.assertTrue(rel_found, "FOO-Relation wurde nicht in der API-Ausgabe gefunden")
 
@@ -1892,7 +1892,7 @@ class TestNeo4jApp(unittest.TestCase):
             data = resp.get_json()
             self.assertTrue(any(cell['value'] in ("", None, 0, False, long_str)
                                 for row in data['rows'] for cell in row['cells']))
-            
+
     def test_get_data_as_table_array_and_map_properties(self):
         """Listen- und Map-Properties müssen als String serialisierbar sein"""
         self.graph.run("MATCH (n) DETACH DELETE n")
@@ -2896,7 +2896,7 @@ class TestNeo4jApp(unittest.TestCase):
 
     def tearDown_nodes_by_uid(self, uid):
         self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
-        
+
     def tearDown_nodes_by_uid(self, uid):
         self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
 

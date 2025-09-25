@@ -1,7 +1,7 @@
-from flask import Blueprint, request, jsonify
-
 import json
 import os
+
+from flask import Blueprint, request, jsonify
 
 SAVED_QUERIES_FILE = 'saved_queries.json'
 

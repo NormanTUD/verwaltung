@@ -1,5 +1,4 @@
 from flask import Blueprint, request, jsonify, render_template
-import time
 
 def create_index_bp(graph):
     bp = Blueprint("index_bp", __name__)
