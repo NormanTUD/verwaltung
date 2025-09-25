@@ -164,8 +164,8 @@ def create_get_data_bp(graph):
                 # nur Strings case-insensitive machen
                 if isinstance(value, str):
                     return f"TOLOWER(n.`{field_name}`) {cypher_op} {ci_value(value)}"
-                else:
-                    return f"n.`{field_name}` {cypher_op} {ci_value(value)}"
+
+                return f"n.`{field_name}` {cypher_op} {ci_value(value)}"
 
             elif op == "contains":
                 return f"TOLOWER(n.`{field_name}`) CONTAINS '{value.lower()}'"
