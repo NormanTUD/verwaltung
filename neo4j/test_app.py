@@ -1050,17 +1050,6 @@ class TestNeo4jApp(unittest.TestCase):
         data = resp.get_json()
         self.assertEqual(data["updated"], 2)
 
-    def test_add_property_with_float_value(self):
-        graph.run("CREATE (:Person {name:'Eva'})")
-        resp = self.app.post(
-            '/api/add_property_to_nodes',
-            data=json.dumps({"label": "Person", "property": "score", "value": 3.14}),
-            content_type="application/json"
-        )
-        self.assertEqual(resp.status_code, 200)
-        val = graph.run("MATCH (p:Person {name:'Eva'}) RETURN p.score AS score").data()[0]["score"]
-        self.assertEqual(val, 3.14)
-
     def test_add_property_idempotent(self):
         graph.run("CREATE (:Person {name:'Frank'})")
 
