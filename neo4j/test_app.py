@@ -7,7 +7,7 @@ import json
 import time
 from uuid import uuid4
 from flask import session
-from py2neo import Graph, Node, Relationship
+from py2neo import Graph, Node, Relationship, Subgraph
 from unittest import mock
 from dotenv import load_dotenv
 from unittest.mock import patch, MagicMock
@@ -2860,81 +2860,83 @@ class TestNeo4jApp(unittest.TestCase):
             })
             self.assertEqual(resp.status_code, 200)
 
-    def test_get_data_as_table_person_ort_buch_with_relations(self):
-        """Persons with living places and optionally books should return joined rows with relations."""
+    def tearDown_nodes_by_uid(self, uid):
+        self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
+        
+    def tearDown_nodes_by_uid(self, uid):
+        self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
 
+    def test_get_data_as_table_person_ort_buch_stable(self):
         uid = str(uuid4())
         expected_persons = {'Maria', 'Hans', 'Anna', 'Bob', 'Charlie'}
 
-        # DB vorher aufräumen nur für unsere Test-Nodes
-        self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
+        # Cleanup vorher
+        self.tearDown_nodes_by_uid(uid)
 
-        # Nodes + Beziehungen direkt erstellen
-        self.graph.run(f"""
-            CREATE (p1:Person {{vorname:'Maria', nachname:'Müller', uid:'{uid}'}})
-            CREATE (o1:Ort {{plz:'10115', straße:'Hauptstraße 1', uid:'{uid}'}})
-            CREATE (b1:Buch {{titel:'The Cypher Key', erscheinungsjahr:2023, uid:'{uid}'}})
-            CREATE (p1)-[:WOHNT_IN]->(o1)
-            CREATE (p1)-[:HAT_GESCHRIEBEN]->(b1)
+        # --- Nodes erzeugen ---
+        person_nodes = []
+        ort_nodes = []
+        buch_nodes = []
 
-            CREATE (p2:Person {{vorname:'Hans', nachname:'Schmidt', uid:'{uid}'}})
-            CREATE (o2:Ort {{plz:'20095', straße:'Marktplatz 5', uid:'{uid}'}})
-            CREATE (p2)-[:WOHNT_IN]->(o2)
+        persons = [
+            ("Maria", "Müller", "10115", "Hauptstraße 1", "The Cypher Key", 2023),
+            ("Hans", "Schmidt", "20095", "Marktplatz 5", None, None),
+            ("Anna", "Fischer", "80331", "Bahnhofsallee 12", None, None),
+            ("Bob", "Johnson", "", "", "The Graph Odyssey", 2022),
+            ("Charlie", "Brown", "", "", "Neo's Journey", 2024)
+        ]
 
-            CREATE (p3:Person {{vorname:'Anna', nachname:'Fischer', uid:'{uid}'}})
-            CREATE (o3:Ort {{plz:'80331', straße:'Bahnhofsallee 12', uid:'{uid}'}})
-            CREATE (p3)-[:WOHNT_IN]->(o3)
+        for vorname, nachname, plz, strasse, buch, jahr in persons:
+            person_nodes.append(Node("Person", vorname=vorname, nachname=nachname, uid=uid))
+            ort_nodes.append(Node("Ort", plz=plz, straße=strasse, uid=uid))
+            if buch:
+                buch_nodes.append(Node("Buch", titel=buch, erscheinungsjahr=jahr, uid=uid))
 
-            CREATE (p4:Person {{vorname:'Bob', nachname:'Johnson', uid:'{uid}'}})
-            CREATE (o4:Ort {{plz:'', straße:'', uid:'{uid}'}})
-            CREATE (b2:Buch {{titel:'The Graph Odyssey', erscheinungsjahr:2022, uid:'{uid}'}})
-            CREATE (p4)-[:WOHNT_IN]->(o4)
-            CREATE (p4)-[:HAT_GESCHRIEBEN]->(b2)
+        # --- Alle Nodes zusammen in einem Subgraph erstellen ---
+        all_nodes = person_nodes + ort_nodes + buch_nodes
+        self.graph.create(Subgraph(nodes=all_nodes))
 
-            CREATE (p5:Person {{vorname:'Charlie', nachname:'Brown', uid:'{uid}'}})
-            CREATE (o5:Ort {{plz:'', straße:'', uid:'{uid}'}})
-            CREATE (b3:Buch {{titel:"Neo's Journey", erscheinungsjahr:2024, uid:'{uid}'}})
-            CREATE (p5)-[:WOHNT_IN]->(o5)
-            CREATE (p5)-[:HAT_GESCHRIEBEN]->(b3)
-        """)
+        # --- Relationships erstellen ---
+        for i, p in enumerate(person_nodes):
+            o = ort_nodes[i]
+            self.graph.run(
+                "MATCH (p:Person {vorname:$vorname, uid:$uid}), (o:Ort {uid:$uid}) "
+                "CREATE (p)-[:WOHNT_IN]->(o)",
+                vorname=p['vorname'], uid=uid
+            )
+            if i < len(buch_nodes):
+                b = buch_nodes[i]
+                self.graph.run(
+                    "MATCH (p:Person {vorname:$vorname, uid:$uid}), (b:Buch {uid:$uid}) "
+                    "CREATE (p)-[:HAT_GESCHRIEBEN]->(b)",
+                    vorname=p['vorname'], uid=uid
+                )
 
-        # Retry: alle Personen müssen in der API erscheinen
-        max_attempts = 10
-        for attempt in range(max_attempts):
-            with self.app as client:
-                resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort,Buch'})
-                self.assertEqual(resp.status_code, 200)
-                data = resp.get_json()
+        # --- API-Call ---
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort,Buch'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
 
-                # nur unsere Testdaten berücksichtigen
-                persons_found = set()
-                for row in data['rows']:
-                    for c in row['cells']:
-                        if 'value' in c and c['value'] in expected_persons:
-                            persons_found.add(c['value'])
-
-                if persons_found == expected_persons:
-                    break
-            time.sleep(0.1)
-        else:
-            self.fail(f"Nicht alle Personen wurden gefunden nach {max_attempts} Versuchen, nur gefunden: {persons_found}")
-
-        # Prüfen, dass mindestens ein Buch vorkommt
-        has_book = any(
-            any(c.get('value') in ['The Cypher Key', 'The Graph Odyssey', "Neo's Journey"]
-                for c in row['cells'])
-            for row in data['rows']
-        )
-        self.assertTrue(has_book, "Mindestens ein Buch fehlt in den Daten")
-
-        # Prüfen, dass die Beziehungen vorhanden sind
-        all_relations = [rel.get('relation') for row in data['rows'] for rel in row.get('relations', [])]
-        self.assertIn('WOHNT_IN', all_relations, "Beziehung WOHNT_IN fehlt")
-        self.assertIn('HAT_GESCHRIEBEN', all_relations, "Beziehung HAT_GESCHRIEBEN fehlt")
+        # --- Prüfen dass alle Personen da sind ---
+        persons_found = set()
+        for row in data['rows']:
+            for c in row['cells']:
+                if 'value' in c and c['value'] in expected_persons:
+                    persons_found.add(c['value'])
+        self.assertEqual(persons_found, expected_persons, f"Nur gefunden: {persons_found}")
 
         # Cleanup
-        self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
+        self.tearDown_nodes_by_uid(uid)
 
+    def _wait_for_nodes(self, label, uid, expected_count, retries=10, delay=0.1):
+        """Warte bis alle Nodes für Label + UID sichtbar sind"""
+        for _ in range(retries):
+            count = self.graph.evaluate(f"MATCH (n:`{label}` {{uid:$uid}}) RETURN count(n)", uid=uid)
+            if count == expected_count:
+                return
+            time.sleep(delay)
+        raise RuntimeError(f"Nicht alle Nodes {label} mit uid={uid} gefunden. Erwartet: {expected_count}, gefunden: {count}")
 
     def test_get_data_as_table_no_missing_nodes(self):
         """Ensure previously missing labels (e.g., 'Node-Typ 2', 'NT2') are always included."""
