@@ -1,3 +1,5 @@
+"use strict";
+
 document.addEventListener('DOMContentLoaded', () => {
 	const width = window.innerWidth;
 	const height = window.innerHeight;
