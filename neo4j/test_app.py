@@ -9,8 +9,8 @@ from uuid import uuid4
 from py2neo import Graph, Node, Relationship, Subgraph
 from unittest import mock
 from dotenv import load_dotenv
-from unittest.mock import patch, MagicMock
-from oasis_helper import load_or_generate_secret_key, get_graph_db_connection
+from unittest.mock import patch
+from oasis_helper import load_or_generate_secret_key
 
 import warnings
 warnings.filterwarnings("ignore", category=ResourceWarning)
@@ -2925,7 +2925,6 @@ class TestNeo4jApp(unittest.TestCase):
 
         # --- Relationships erstellen ---
         for i, p in enumerate(person_nodes):
-            o = ort_nodes[i]
             self.graph.run(
                 "MATCH (p:Person {vorname:$vorname, uid:$uid}), (o:Ort {uid:$uid}) "
                 "CREATE (p)-[:WOHNT_IN]->(o)",
@@ -3425,7 +3424,7 @@ class TestNeo4jApp(unittest.TestCase):
     def test_load_secret_key_file_empty(self):
         # Datei existiert, aber leer → Fehlerpfad
         with mock.patch("builtins.open", mock.mock_open(read_data="")):
-            with mock.patch("secrets.token_urlsafe", return_value="generatedkey") as m:
+            with mock.patch("secrets.token_urlsafe", return_value="generatedkey"):
                 key = load_or_generate_secret_key()
                 self.assertEqual(key, "generatedkey")
 
@@ -3614,7 +3613,6 @@ class TestNeo4jApp(unittest.TestCase):
         indexes = self.graph.run("SHOW INDEXES").data()
         for idx in indexes:
             labels = idx.get("labelsOrTypes") or []
-            props = idx.get("properties") or []
             if label in labels:
                 name = idx.get("name")
                 if name:
