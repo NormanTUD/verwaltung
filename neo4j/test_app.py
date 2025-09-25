@@ -3380,9 +3380,6 @@ class TestNeo4jApp(unittest.TestCase):
             "props": {"123invalid": "oops", "validProp": "ok"}
         }
 
-        # Debug-Log für CI
-        print("Request payload:", data)
-
         # API synchron aufrufen
         with self.app as client:
             resp = client.post(
