@@ -44,8 +44,6 @@ main() {
 	install_requirements
 	cleanup
 	run_step "Running tests with coverage" coverage run test_app.py
-	run_step "Git commit" git commit -av
-	run_step "Git push" gp
 	run_step "Combining coverage data" coverage combine
 	run_step "Generating coverage.xml" coverage xml
 	run_step "Generating HTML report" coverage html -i
