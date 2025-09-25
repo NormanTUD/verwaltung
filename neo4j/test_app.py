@@ -2010,48 +2010,48 @@ class TestNeo4jApp(unittest.TestCase):
             value = data['rows'][0]['cells'][col_idx]['value']
             self.assertEqual(value, 'Bob')
 
-        def test_get_data_as_table_deep_hierarchy(self):
-            """Tiefer verschachtelter Pfad: Person->Ort->Stadt->Land->Kontinent"""
+    def test_get_data_as_table_deep_hierarchy(self):
+        """Tiefer verschachtelter Pfad: Person->Ort->Stadt->Land->Kontinent"""
 
-            # DB sauber leeren
-            self.graph.run("MATCH (n) DETACH DELETE n")
+        # DB sauber leeren
+        self.graph.run("MATCH (n) DETACH DELETE n")
 
-            # UUID-Suffix für eindeutige Namen
-            suffix = str(uuid4())
+        # UUID-Suffix für eindeutige Namen
+        suffix = str(uuid4())
 
-            # Nodes und Relationships in einer Transaktion erstellen
-            tx = self.graph.begin()
-            p = Node("Person", vorname=f"C_{suffix}")
-            o = Node("Ort", name=f"O_{suffix}")
-            s = Node("Stadt", name=f"S_{suffix}")
-            l = Node("Land", name=f"L_{suffix}")
-            k = Node("Kontinent", name=f"K_{suffix}")
-            tx.create(p)
-            tx.create(o)
-            tx.create(s)
-            tx.create(l)
-            tx.create(k)
-            tx.create(Relationship(p, "WOHNT_IN", o))
-            tx.create(Relationship(o, "LIEGT_IN", s))
-            tx.create(Relationship(s, "LIEGT_IN", l))
-            tx.create(Relationship(l, "LIEGT_IN", k))
-            # Commit über graph.commit()
-            self.graph.commit(tx)
+        # Nodes und Relationships in einer Transaktion erstellen
+        tx = self.graph.begin()
+        p = Node("Person", vorname=f"C_{suffix}")
+        o = Node("Ort", name=f"O_{suffix}")
+        s = Node("Stadt", name=f"S_{suffix}")
+        l = Node("Land", name=f"L_{suffix}")
+        k = Node("Kontinent", name=f"K_{suffix}")
+        tx.create(p)
+        tx.create(o)
+        tx.create(s)
+        tx.create(l)
+        tx.create(k)
+        tx.create(Relationship(p, "WOHNT_IN", o))
+        tx.create(Relationship(o, "LIEGT_IN", s))
+        tx.create(Relationship(s, "LIEGT_IN", l))
+        tx.create(Relationship(l, "LIEGT_IN", k))
+        # Commit über graph.commit()
+        self.graph.commit(tx)
 
-            # API-Aufruf
-            with self.app as client:
-                resp = client.get(
-                    '/api/get_data_as_table',
-                    query_string={
-                        'nodes': 'Person,Ort,Stadt,Land,Kontinent',
-                        'maxDepth': 5
-                    }
-                )
-                self.assertEqual(resp.status_code, 200)
-                data = resp.get_json()
+        # API-Aufruf
+        with self.app as client:
+            resp = client.get(
+                '/api/get_data_as_table',
+                query_string={
+                    'nodes': 'Person,Ort,Stadt,Land,Kontinent',
+                    'maxDepth': 5
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
 
-                # Prüfen, dass genau ein Pfad zurückkommt
-                self.assertEqual(len(data['rows']), 1)
+            # Prüfen, dass genau ein Pfad zurückkommt
+            self.assertEqual(len(data['rows']), 1)
 
     def test_get_data_as_table_parallel_paths(self):
         """Node mit mehreren parallelen Pfaden zu verschiedenen Nodes"""
