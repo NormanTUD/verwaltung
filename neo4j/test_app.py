@@ -946,6 +946,9 @@ class TestNeo4jApp(unittest.TestCase):
     def test_add_property_basic_with_value(self):
         r = graph.run("CREATE (p:Person {name:'Alice'}) RETURN id(p) AS id").data()[0]
 
+        self.assertIsInstance(r, dict)
+        self.assertIsInstance(r["id"], int)
+
         resp = self.app.post(
             '/api/add_property_to_nodes',
             data=json.dumps({"label": "Person", "property": "age", "value": 30}),
