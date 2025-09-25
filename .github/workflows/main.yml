@@ -21,6 +21,7 @@ jobs:
       # Docker installieren
       - name: Install Docker
         run: |
+          sudo apt-get remove --purge man-db -y
           sudo apt-get update
           docker --version
 
