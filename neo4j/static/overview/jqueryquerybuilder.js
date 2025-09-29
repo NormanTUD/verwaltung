@@ -75,7 +75,10 @@ function addEnterKeyListener() {
 function restoreQueryBuilderFromUrl() {
 	var params = new URLSearchParams(window.location.search);
 	var qbJson = params.get('qb');
-	if (!qbJson) return;
+	if (!qbJson) {
+		log("qbJson falsy");
+		return;
+	}
 
 	try {
 		var rules = JSON.parse(qbJson);
