@@ -32,7 +32,6 @@ function fetchData(updateUrl = true) {
 	}
 
 	if (qbJson) {
-		log(`Setting qb=${qbJson}`);
 		params.set('qb', qbJson);
 	}
 
