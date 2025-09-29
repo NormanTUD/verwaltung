@@ -35,11 +35,15 @@ function restoreStateFromUrl() {
 			var rules = JSON.parse(qb);
 			if ($('#querybuilder').length && $('#querybuilder').data('queryBuilder')) {
 				$('#querybuilder').queryBuilder('setRules', rules);
+
+				fetchData();
 			} else {
 				console.warn('QueryBuilder noch nicht initialisiert.');
 			}
 		} catch (e) {
 			console.warn('Fehler beim Wiederherstellen der QueryBuilder-Regeln', e);
 		}
+	} else {
+		log("qb falsy (url_states.js)")
 	}
 }

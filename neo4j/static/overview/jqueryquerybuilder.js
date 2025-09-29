@@ -76,7 +76,8 @@ function restoreQueryBuilderFromUrl() {
 	var params = new URLSearchParams(window.location.search);
 	var qbJson = params.get('qb');
 	if (!qbJson) {
-		log("qbJson falsy");
+		log("qbJson falsy (jqueryquerybuilder.js)");
+		log(qbJson)
 		return;
 	}
 
