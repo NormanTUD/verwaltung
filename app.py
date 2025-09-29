@@ -22,10 +22,10 @@ from pathlib import Path
 from datetime import datetime
 from urllib.parse import urlparse, urlunparse
 
+
 parser = argparse.ArgumentParser(description="Starte die Flask-App mit konfigurierbaren Optionen.")
 parser.add_argument('--debug', action='store_true', help='Aktiviere den Debug-Modus')
 parser.add_argument('--port', type=int, default=5000, help='Port für die App (Standard: 5000)')
-parser.add_argument('--secret', type=str, default='geheim', help='SECRET_KEY für Flask (Standard: "geheim")')
 parser.add_argument('--engine-db', type=str, default='sqlite:///instance/database.db', help='URI für create_engine()')
 args = parser.parse_args()
 
@@ -196,6 +196,31 @@ try:
     from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
 
     from mypydie import dier
+
+    from dotenv import load_dotenv
+    import oasis_helper
+
+    from api.get_data_as_table import create_get_data_bp
+    from api.dump_database import create_dump_database_bp
+    from api.reset_and_load_data import create_reset_and_load_data_bp
+    from api.delete_node import create_delete_node_bp
+    from api.delete_nodes import create_delete_nodes_bp
+    from api.create_node import create_create_node_bp
+    from api.add_property_to_nodes import create_add_property_to_nodes_bp
+    from api.delete_all import create_delete_all_bp
+    from api.graph_data import create_graph_data_bp
+    from api.update_node import create_update_node_bp
+    from api.add_row import create_add_row_bp
+    from api.add_column import create_add_column_bp
+    from api.update_nodes import create_update_nodes_bp
+    from api.save_queries import create_save_queries
+    from api.add_relationship import create_add_relationship_bp
+    from api.reset_and_load_complex_data import create_complex_data_bp
+    from api.labels import create_labels_bp
+    from api.properties import create_properties_bp
+    from api.relationships import create_relationships_bp
+
+    from index_manager import create_index_bp
 except ModuleNotFoundError as e:
     if not VENV_PATH.exists():
         create_and_setup_venv()
@@ -216,8 +241,6 @@ except ModuleNotFoundError as e:
 
 app = Flask(__name__)
 app.register_blueprint(importers_bp)
-
-app.config['SECRET_KEY'] = args.secret
 app.config['SQLALCHEMY_DATABASE_URI'] = args.engine_db
 
 login_manager = LoginManager()
@@ -225,6 +248,34 @@ login_manager.init_app(app)
 
 login_manager.login_view = 'login'
 login_manager.login_message = "Bitte melde dich an, um fortzufahren."
+
+app.secret_key = oasis_helper.load_or_generate_secret_key()
+
+graph = oasis_helper.get_graph_db_connection()
+
+app.config['GRAPH'] = graph
+
+app.register_blueprint(create_get_data_bp(graph), url_prefix='/api')
+app.register_blueprint(create_dump_database_bp(graph), url_prefix='/api')
+app.register_blueprint(create_reset_and_load_data_bp(graph), url_prefix='/api')
+app.register_blueprint(create_delete_node_bp(graph), url_prefix='/api')
+app.register_blueprint(create_add_property_to_nodes_bp(graph), url_prefix='/api')
+app.register_blueprint(create_delete_nodes_bp(graph), url_prefix='/api')
+app.register_blueprint(create_create_node_bp(graph), url_prefix='/api')
+app.register_blueprint(create_delete_all_bp(graph), url_prefix='/api')
+app.register_blueprint(create_graph_data_bp(graph), url_prefix='/api')
+app.register_blueprint(create_update_node_bp(graph), url_prefix='/api')
+app.register_blueprint(create_add_row_bp(graph), url_prefix='/api')
+app.register_blueprint(create_add_column_bp(graph), url_prefix='/api')
+app.register_blueprint(create_save_queries(), url_prefix='/api')
+app.register_blueprint(create_update_nodes_bp(graph), url_prefix='/api')
+app.register_blueprint(create_add_relationship_bp(graph), url_prefix='/api')
+app.register_blueprint(create_complex_data_bp(graph), url_prefix='/api')
+app.register_blueprint(create_labels_bp(graph), url_prefix='/api')
+app.register_blueprint(create_properties_bp(graph), url_prefix='/api')
+app.register_blueprint(create_relationships_bp(graph), url_prefix='/api')
+
+app.register_blueprint(create_index_bp(graph), url_prefix='/')
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -353,19 +404,6 @@ def search():
     query = request.args.get('q', '').lower().strip()
     results = []
 
-    wizard_routes = [f"/wizard/{key}" for key in WIZARDS.keys()]
-    wizard_routes.append("/wizard/person")
-    wizard_routes = sorted(set(wizard_routes))
-
-    for route in wizard_routes:
-        label = route.replace('/wizard/', '').capitalize()
-        if query in label.lower():
-            results.append({
-                'label': f'🧙 {label}',
-                'url': route
-            })
-
-
     for key, config in AGGREGATE_VIEWS.items():
         title = config.get("title", key).strip()
         if key.startswith(query) or title.lower().startswith(query):
@@ -375,48 +413,9 @@ def search():
                     'url': url_for('aggregate_view', aggregate_name=key)  # ✅ Korrekt
                 })
 
-    # 🔍 Personensuche nach Name, Email, Telefon, Fax
-    people = session.query(Person).options(joinedload(Person.contacts)).all()
-    for person in people:
-        full_name = f"{person.title or ''} {person.vorname} {person.nachname}".strip().lower()
-        matched = False
-
-        if query in full_name:
-            matched = True
-        else:
-            for contact in person.contacts:
-                if any(query in (getattr(contact, attr) or '').lower() for attr in ['email', 'phone', 'fax']):
-                    matched = True
-                    break
-
-        if matched:
-            results.append({
-                'label': f'👤 {person.vorname} {person.nachname}',
-                'url': url_for('aggregate_view', aggregate_name="person", person_id=person.id)
-            })
-
-    # Admin-Zeug
     if is_admin_user(session):
-        tables = [
-            cls.__name__.lower()
-            for cls in Base.__subclasses__()
-            if hasattr(cls, '__tablename__') and cls.__tablename__ not in ["role", "user"]
-        ]
-
         if 'admin' in query:
             results.append({'label': '🛠️ Admin', 'url': '/admin'})
-
-        for table in tables:
-            if query in table.lower():
-                results.append({
-                    'label': f'📋 {table.capitalize()}',
-                    'url': f'/admin/{table}'
-                })
-        if 'map-editor'.startswith(query):
-            results.append({'label': '🗺️ Map-Editor', 'url': '/map-editor'})
-
-    if 'etageplan'.startswith(query):
-        results.append({'label': '🗺️ etageplan', 'url': '/etageplan'})
 
     session.close()
 
@@ -445,6 +444,238 @@ def get_versions():
         return jsonify([]), 500
     finally:
         session.close()
+
+@app.route('/')
+@login_required
+def index():
+    return render_template("index.html", user=current_user)
+
+@app.route('/import')
+def _import():
+    return render_template('import.html')
+
+@app.route('/graph')
+def show_graph():
+    return render_template('graph.html')
+
+@app.route('/upload', methods=['POST'])
+def upload_data():
+    """Verarbeitet den CSV/TSV-Upload und zeigt die Header für die Zuordnung an."""
+    if 'data' not in request.form:
+        return "Keine Daten hochgeladen", 400
+
+    data = request.form['data']
+    session['raw_data'] = data
+
+    try:
+        f = io.StringIO(data)
+        dialect = csv.Sniffer().sniff(f.read(1024))
+        f.seek(0)
+        reader = csv.reader(f, dialect)
+        headers = next(reader)
+
+        # Lege Header in der Session ab
+        session['headers'] = headers
+
+        return render_template('mapping.html', headers=headers)
+    except csv.Error as e:
+        return f"Fehler beim Parsen der Daten: {e}", 400
+
+@app.route('/get_rel_types', methods=['GET'])
+def get_rel_types():
+    """Gibt eine Liste aller existierenden Relationship-Typen in der DB zurück."""
+    try:
+        # Führe eine Cypher-Abfrage aus, um alle eindeutigen Relationship-Typen zu finden
+        query = "MATCH ()-[r]->() RETURN DISTINCT type(r) AS type"
+        result = graph.run(query).data()
+        types = [d['type'] for d in result]
+        return jsonify(types)
+    except Exception as e:
+        print(f"Fehler beim Abrufen der Relationship-Typen: {e}")
+        return jsonify([]), 500
+
+@app.route('/save_mapping', methods=['POST'])
+def save_mapping():
+    """Hauptfunktion: speichert die zugeordneten Daten in Neo4j."""
+    mapping_data = request.get_json()
+
+    if not graph:
+        print("Fehler: Datenbank nicht verbunden.")
+        return jsonify({"status": "error", "message": "Datenbank nicht verbunden."}), 500
+
+    if 'raw_data' not in session:
+        return jsonify({"status": "error", "message": "raw_data not in session."}), 500
+
+    reader = parse_csv_from_session()
+    if reader is None:
+        return jsonify({"status": "error", "message": "Fehler beim Analysieren der CSV-Daten."}), 400
+
+    tx = graph.begin()
+
+    try:
+        for _, row in enumerate(reader):
+            process_row(row, mapping_data)
+
+        graph.commit(tx)
+        #print("\nGesamtvorgang erfolgreich: Daten wurden in die Neo4j-Datenbank importiert.")
+        return jsonify({"status": "success", "message": "Daten erfolgreich in Neo4j importiert."})
+    except Exception as e:
+        tx.rollback()
+        print(f"\n❌ Fehler beim Speichern in der DB: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+def parse_csv_from_session():
+    """Liest die CSV-Daten aus der Session und gibt einen DictReader zurück."""
+    raw_data = session.pop('raw_data')
+    f = io.StringIO(raw_data)
+    try:
+        dialect = csv.Sniffer().sniff(f.read(1024))
+        f.seek(0)
+        reader = csv.DictReader(f, dialect=dialect)
+        return reader
+    except csv.Error as e:
+        print(f"Fehler beim Analysieren der CSV-Daten: {e}")
+        return None
+
+def process_row(row, mapping_data):
+    """Verarbeitet eine Zeile: Knoten mergen und Beziehungen erstellen."""
+    nodes_created = {}
+
+    # Knoten erstellen/mergen
+    for node_type, fields in mapping_data.get('nodes', {}).items():
+        node = merge_node(node_type, fields, row)
+        if node:
+            nodes_created[node_type] = node
+
+    # Beziehungen erstellen
+    for rel_data in mapping_data.get('relationships', []):
+        create_relationship(rel_data['from'], rel_data['to'], rel_data['type'], nodes_created)
+
+def merge_node(node_type, fields, row):
+    """Merged einen Knoten vom Typ node_type mit gegebenen Properties."""
+    node_var = safe_var_name(node_type)
+    node_label = f"`{node_type}`"
+
+    all_props = {}
+    for field_map in fields:
+        original_name = field_map['original']
+        renamed_name = field_map['renamed']
+        value = row.get(original_name)
+        if value:
+            all_props[renamed_name] = value
+
+    if not all_props:
+        #print(f"  ❌ Keine Daten für den Knoten-Typ '{node_type}' in dieser Zeile. Überspringe.")
+        return None
+
+    identifier_key, identifier_value = next(iter(all_props.items()))
+    #print(f"  ➡️ Versuche, einen Knoten vom Typ '{node_type}' zu mergen.")
+    #print(f"     Identifikator: '{identifier_key}' = '{identifier_value}'")
+    #print(f"     Alle Properties: {all_props}")
+
+    cypher_query = f"""
+    MERGE ({node_var}:{node_label} {{`{identifier_key}`: $identifier_value}})
+    ON CREATE SET {node_var} = $all_props
+    RETURN {node_var}
+    """
+
+    params = {"identifier_value": identifier_value, "all_props": all_props}
+    result = graph.run(cypher_query, **params).data()
+
+    if result:
+        return result[0][node_var]
+
+    print(f"  ⚠️ MERGE-Vorgang für '{node_type}' hat nichts zurückgegeben.")
+    return None
+
+def create_relationship(from_node_type, to_node_type, rel_type, nodes_created):
+    """Erstellt eine Beziehung zwischen zwei vorhandenen Knoten."""
+    clean_rel_type = rel_type.replace(' ', '_').upper()
+    rel_label = f"`{clean_rel_type}`"
+
+    from_var = safe_var_name(from_node_type)
+    to_var = safe_var_name(to_node_type)
+
+    #print(f"  ➡️ Versuche, eine Beziehung '{rel_type}' zu erstellen.")
+
+    if from_node_type in nodes_created and to_node_type in nodes_created:
+        from_node = nodes_created[from_node_type]
+        to_node = nodes_created[to_node_type]
+
+        rel_query = f"""
+        MATCH ({from_var}:`{from_node_type}`) WHERE id({from_var}) = {from_node.identity}
+        MATCH ({to_var}:`{to_node_type}`) WHERE id({to_var}) = {to_node.identity}
+        MERGE ({from_var})-[rel:{rel_label}]->({to_var})
+        """
+        graph.run(rel_query)
+        #print(f"  ✅ Beziehung '{clean_rel_type}' zwischen '{from_node_type}' und '{to_node_type}' erstellt.")
+    #else:
+        #print(f"  ❌ Beziehung konnte nicht erstellt werden, Knoten fehlen: '{from_node_type}' (vorhanden: {from_node_type in nodes_created}), '{to_node_type}' (vorhanden: {to_node_type in nodes_created}).")
+
+def get_all_nodes_and_relationships():
+    """Holt alle Node-Typen und Relationship-Typen aus der Datenbank."""
+    node_labels = graph.run("CALL db.labels()").data()
+    relationship_types = graph.run("CALL db.relationshipTypes()").data()
+    return {
+        "labels": [label['label'] for label in node_labels],
+        "types": [rel['relationshipType'] for rel in relationship_types]
+    }
+
+@app.route('/overview')
+def overview():
+    """Zeigt die Übersichtsseite mit allen Node-Typen an."""
+    if not graph:
+        # Fehler-Meldung ins Template geben
+        return render_template('overview.html', db_info=None, error="Datenbank nicht verbunden."), 500
+
+    db_info = get_all_nodes_and_relationships()
+    return render_template('overview.html', db_info=db_info, error=None)
+
+def safe_var_name(label):
+    # Ersetzt alle nicht-alphanumerischen Zeichen durch "_"
+    return "".join(ch if ch.isalnum() else "_" for ch in label.lower())
+
+@app.context_processor
+def inject_sidebar_data():
+    session = Session()
+
+    tables = [
+            cls.__name__.lower()
+            for cls in Base.__subclasses__()
+            if hasattr(cls, '__tablename__') and cls.__tablename__ not in IGNORED_TABLES
+            ]
+
+    is_authenticated = current_user.is_authenticated
+    is_admin = False
+
+    if is_authenticated:
+        try:
+            # User nochmal frisch aus DB laden mit Rollen eager
+            user = session.query(User).options(
+                    joinedload(User.roles)
+                    ).filter(User.id == current_user.id).one_or_none()
+
+            if user is not None:
+                is_admin = any(role.name == 'admin' for role in user.roles)
+            else:
+                print(f"User mit ID {current_user.id} nicht in DB gefunden")
+        except DetachedInstanceError:
+            print("DetachedInstanceError: current_user is not bound to session")
+        except Exception as e:
+            print(f"Unbekannter Fehler beim Laden des Users: {e}")
+
+    theme_cookie = request.cookies.get('theme')
+    theme = theme_cookie if theme_cookie in ['dark', 'light'] else 'light'
+
+    session.close()
+
+    return dict(
+            tables=tables,
+            is_authenticated=is_authenticated,
+            is_admin=is_admin,
+            theme=theme
+            )
+
 
 if __name__ == "__main__":
     with app.app_context():

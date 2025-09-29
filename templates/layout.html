@@ -267,45 +267,6 @@
 
 				<ul class="space-y-2">
 					<li class="text-sm text-gray-400 uppercase">🧙 Wizards</li>
-					{% for route in wizard_routes %}
-					<li>
-						<a href="{{ route }}" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == route %}bg-gray-700{% endif %}">
-							{{ route.replace('/wizard/', '').capitalize() }}
-						</a>
-					</li>
-					{% endfor %}
-
-					<li class="mt-4 text-sm text-gray-400 uppercase">📦 Aggregate</li>
-					{% set aggregates = [
-						('person', 'Personen'),
-						('inventar', 'Inventar'),
-						('transponder', 'Transponder'),
-						('abteilung', 'Abteilung'),
-						('kostenstelle', 'Kostenstelle'),
-						('raum', 'Raum'),
-						('lager', 'Lager')
-					] %}
-
-					{% for name, label in aggregates %}
-					<li>
-						<a href="{{ url_for('aggregate_view', aggregate_name=name) }}"
-						class="block px-4 py-2 rounded transition hover:bg-gray-700
-								{% if request.path == url_for('aggregate_view', aggregate_name=name) %}bg-gray-700{% endif %}">
-						{{ label }}
-						</a>
-					</li>
-					{% endfor %}
-
-					{% if is_admin %}
-						<li class="mt-4 text-sm text-gray-400 uppercase">📋 Tabellen</li>
-						{% for table in tables %}
-						<li>
-							<a href="/admin/{{ table }}/" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == '/admin/' ~ table %}bg-gray-700{% endif %}">
-								{{ table.capitalize() }}
-							</a>
-						</li>
-						{% endfor %}
-					{% endif %}
 
 					<li class="mt-4 text-sm text-gray-400 uppercase">🗺️ Karten</li>
 					{% if is_admin %}
@@ -360,6 +321,8 @@
 					Keine Versionen gefunden.
 				</div>
 			</nav>
+		{% else %}
+			NA
 		{% endif %}
 
 		<!-- Main Content -->

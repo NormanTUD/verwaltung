@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Übersicht{% endblock %}
+
+{% block content %}
+<h1>Daten-Übersicht</h1>
+
+{% if error %}
+<div class="error" style="color: red; font-weight: bold;">
+    {{ error }}
+</div>
+{% else %}
+
+<div style="display: flex; gap: 30px; align-items: flex-start; margin-bottom: 20px;">
+
+    <div>
+        <h3>Abfrage</h3>
+        <p>Wähle die Node-Typen aus:</p>
+        <div id="querySelection" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 5px;">
+            {% for label in db_info.labels %}
+                <label style="display: block;">
+                    <input type="checkbox" name="label" value="{{ label }}"> {{ label }}
+                </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- jQuery laden -->
+    <script src="static/jquery-3.6.4.min.js"></script>
+
+    <script src="static/jquery-extendext.min.js"></script>
+
+    <!-- Bootstrap (optional, für QueryBuilder-Styles) -->
+    <link rel="stylesheet" href="static/bootstrap.min.css">
+    <script src="static/bootstrap.bundle.min.js"></script>
+
+    <!-- QueryBuilder -->
+    <link rel="stylesheet" href="static/query-builder.default.min.css">
+    <script src="static/query-builder.standalone.min.js"></script>
+
+    <script src="static/overview/jqueryquerybuilder.js"></script>
+
+    <div>
+        <h3>Beziehungen</h3>
+        <p>Wähle die Relationship-Typen aus:</p>
+        <div id="relationshipSelection" style="max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 5px;">
+            <!-- Checkboxen werden hier dynamisch eingefügt -->
+        </div>
+    </div>
+    
+    <div style="width: 100%">
+        <h3>Erweiterte Abfrage</h3>
+        <div id="querybuilder"></div>
+        <button onclick="fetchData()">Ausführen</button>
+    </div>
+
+    <div>
+        <h3>Abfrage speichern</h3>
+        <input type="text" id="queryNameInput" placeholder="Name der Abfrage" style="width: 100%; margin-bottom: 5px;">
+        <button onclick="saveQuery()">Speichern</button>
+
+        <h3 style="margin-top: 20px;">Gespeicherte Abfragen laden</h3>
+        <select id="savedQueriesSelect" style="width: 100%; margin-bottom: 5px;">
+            <option value="">-- Wähle eine gespeicherte Abfrage --</option>
+        </select>
+        <button onclick="loadSavedQuery()">Laden</button>
+    </div>
+</div>
+
+<hr>
+
+<div id="resultsContainer" style="margin-top: 20px;">
+    <h3>Ergebnisse</h3>
+    <!-- Ergebnisse werden hier eingefügt -->
+</div>
+
+{% endif %}
+
+<script src="static/overview/add_row.js"></script>
+<script src="static/overview/render_table.js"></script>
+<script src="static/overview.js"></script>
+<script src="static/overview/update_value.js"></script>
+{% endblock %}
