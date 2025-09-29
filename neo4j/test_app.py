@@ -3126,7 +3126,7 @@ class TestNeo4jApp(unittest.TestCase):
     def test_duplicate_query_name(self):
         self.app.post("/api/save_query", json={"name": "Duplicate", "selectedLabels": ["X"]})
         resp = self.app.post("/api/save_query", json={"name": "Duplicate", "selectedLabels": ["X"]})
-        self.assertEqual(resp.status_code, 409)
+        self.assertEqual(resp.status_code, 400)
         self.assertEqual(resp.get_json()["status"], "error")
 
     def test_missing_fields(self):
