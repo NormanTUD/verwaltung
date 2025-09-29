@@ -368,3 +368,17 @@ ul {
 .relationship-group {
 	color: black;
 }
+
+body { font-family: sans-serif; margin: 2em; }
+nav { margin-bottom: 2em; }
+nav a { margin-right: 1em; }
+table { width: 100%; border-collapse: collapse; margin-top: 1em; }
+th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+input[type="text"] { width: 100%; background: none; }
+
+body { margin: 0; font-family: sans-serif; }
+svg { background: #f0f0f0; border: 1px solid #ccc; }
+.link { stroke: #999; stroke-width: 2px; }
+.link-text { fill: #555; font-size: 10px; text-anchor: middle; }
+.node circle { stroke: #fff; stroke-width: 1.5px; cursor: pointer; }
+.node text { font-size: 12px; font-weight: bold; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff; }
