@@ -1,7 +1,8 @@
 "use strict";
 
 function initQueryBuilder() {
-	const allowedOperators = ['equal', 'not_equal', 'in', 'not_in', 'less', 'less_or_equal', 'greater', 'greater_or_equal', 'contains', 'begins_with', 'ends_with'];
+	//const allowedOperators = ['equal', 'not_equal', 'in', 'not_in', 'less', 'less_or_equal', 'greater', 'greater_or_equal', 'contains', 'begins_with', 'ends_with'];
+	const allowedOperators = ['equal', 'not_equal', 'less', 'less_or_equal', 'greater', 'greater_or_equal', 'contains', 'begins_with', 'ends_with'];
 
 	fetch('/api/labels')
 		.then(r => r.json())
