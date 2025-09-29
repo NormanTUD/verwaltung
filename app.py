@@ -698,11 +698,11 @@ def inject_sidebar_data():
     my_session.close()
 
     return dict(
-            tables=tables,
-            is_authenticated=is_authenticated,
-            is_admin=is_admin,
-            theme=theme
-            )
+        tables=tables,
+        is_authenticated=is_authenticated,
+        is_admin=is_admin,
+        theme=theme
+    )
 
 
 if __name__ == "__main__":
