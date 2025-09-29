@@ -536,6 +536,4 @@ document.addEventListener('DOMContentLoaded', () => {
 	insertBefore(resultsContainer, insertBtn);
 
 	fetchRelationships();
-
-	fetchData(false);
 });
