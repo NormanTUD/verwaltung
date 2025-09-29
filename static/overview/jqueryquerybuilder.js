@@ -79,6 +79,7 @@ function restoreQueryBuilderFromUrl() {
 	var params = new URLSearchParams(window.location.search);
 	var qb = params.get('qb');
 	if (!qb) {
+		fetchData();
 		return;
 	}
 
