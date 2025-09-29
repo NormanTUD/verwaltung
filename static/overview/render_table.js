@@ -219,5 +219,14 @@ function collectGlobalRelations(data) {
 	});
 }
 
-document.getElementById('querySelection').addEventListener('change', fetchData);
-document.getElementById('relationshipSelection').addEventListener('change', fetchData);
+function safeAddEventListener(id, event, handler) {
+	var elem = document.getElementById(id);
+	if (elem) {
+		elem.addEventListener(event, handler);
+	} else {
+		console.warn("Element mit ID '" + id + "' nicht gefunden. EventListener nicht gesetzt.");
+	}
+}
+
+safeAddEventListener('querySelection', 'change', fetchData);
+safeAddEventListener('relationshipSelection', 'change', fetchData);
