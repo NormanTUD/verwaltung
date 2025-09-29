@@ -24,9 +24,9 @@ jobs:
 
       - name: Install Docker Compose
         run: |
-          apt-get update && \
-            apt-get install -y docker-compose pkg-config gcc python3-dev && \
-            rm -rf /var/lib/apt/lists/*
+          sudo apt-get update && \
+            sudo apt-get install -y docker-compose pkg-config gcc python3-dev && \
+            sudo rm -rf /var/lib/apt/lists/*
           docker-compose --version
 
       - name: Run tests
