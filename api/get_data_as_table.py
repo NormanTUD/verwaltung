@@ -105,11 +105,56 @@ def create_get_data_bp(graph):
         return ensure_all_labels_present(graph_api, buckets, selected_labels, filter_labels, limit, where)
 
     def ensure_all_labels_present(graph_api, buckets, selected_labels, filter_labels, limit, where):
-        existing_labels = {lbl for bucket in buckets.values() for lbl in bucket.get("nodes", {})}
         required_labels = [lbl for lbl in selected_labels if not filter_labels or lbl in filter_labels]
-        for lbl in [l for l in required_labels if l not in existing_labels]:
-            for node in graph_api.fetch_nodes(lbl, limit, where):
+
+        def query_related_nodes_cypher(lbl):
+            q = f"""
+                MATCH (m) WHERE id(m) = $mid
+                MATCH (m)-[*1..2]-(n:`{lbl}`)
+            """
+            if where:
+                q += f" WHERE {where}"
+            q += " RETURN n"
+            if limit:
+                q += f" LIMIT {limit}"
+            return q
+
+        # 1) Attach related nodes to existing buckets (do NOT create new top-level buckets here)
+        for main_id, bucket in list(buckets.items()):
+            for lbl in required_labels:
+                if lbl in bucket.get("nodes", {}):
+                    continue
+
+                cypher = query_related_nodes_cypher(lbl)
+                try:
+                    recs = graph_api.driver.run(cypher, mid=main_id).data()
+                except Exception:
+                    continue
+
+                for r in recs:
+                    n = r.get("n")
+                    if n is None:
+                        continue
+                    node_dict = graph_api._node_to_dict(n)
+                    node_dict["props"] = node_dict.get("props") or {}
+                    node_id = node_dict.get("id")
+                    if node_id is None:
+                        continue
+                    # IMPORTANT: attach into this bucket's nodes map (do NOT create a new top-level bucket)
+                    store_or_update_node(bucket.setdefault("nodes", {}), node_id, lbl, node_dict.get("props", {}), 1)
+
+        # 2) After attachment: for any required label still missing globally, fetch global nodes and create buckets
+        labels_with_nodes = {lbl for bucket in buckets.values() for lbl in bucket.get("nodes", {})}
+        missing_globally = [lbl for lbl in required_labels if lbl not in labels_with_nodes]
+
+        for lbl in missing_globally:
+            try:
+                global_nodes = graph_api.fetch_nodes(lbl, limit, where)
+            except Exception:
+                global_nodes = []
+            for node in global_nodes:
                 add_node_to_bucket(buckets, node, lbl)
+
         return buckets
 
     def assemble_table_rows(buckets, columns):
