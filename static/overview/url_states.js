@@ -43,7 +43,5 @@ function restoreStateFromUrl() {
 		} catch (e) {
 			console.warn('Fehler beim Wiederherstellen der QueryBuilder-Regeln', e);
 		}
-	} else {
-		log("qb falsy (url_states.js)")
 	}
 }
