@@ -88,6 +88,22 @@
 					{% endif %}
 					<li><a href="/floorplan" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == '/floorplan' %}bg-gray-700{% endif %}">Floorplan</a></li>
 				</ul>
+				
+				{% if saved_queries %}
+					<div class="mt-6">
+						<p class="mt-4 mb-2 text-sm text-gray-400 uppercase">💾 Gespeicherte Abfragen</p>
+						<ul class="space-y-1">
+							{% for query in saved_queries %}
+								<li>
+									<a href="{{ query.url }}" 
+									class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.full_path == query.url %}bg-gray-700{% endif %}">
+										{{ query.name }}
+									</a>
+								</li>
+							{% endfor %}
+						</ul>
+					</div>
+				{% endif %}
 
 				{% if is_admin %}
 					<!-- Admin-Link nur für Admins -->
