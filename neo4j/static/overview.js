@@ -377,74 +377,91 @@ function addPropertyIfNotEmpty(inputElem) {
 	});
 }
 
-// Neue Funktionen für das Speichern und Laden von Abfragen
+const savedQueriesMap = new Map();
+
 function loadSavedQueriesFromAPI() {
 	fetch('/api/get_saved_queries')
 		.then(response => response.json())
 		.then(data => {
 			const selectElement = document.getElementById('savedQueriesSelect');
 			selectElement.innerHTML = '<option value="">-- Wähle eine gespeicherte Abfrage --</option>';
-			if (data && data.length > 0) {
-				data.forEach(query => {
-					const option = document.createElement('option');
-					option.value = JSON.stringify(query.labels);
-					option.textContent = query.name;
-					selectElement.appendChild(option);
-				});
-			}
+
+			data.forEach(query => {
+				savedQueriesMap.set(query.name, query); // Map speichert die Query
+				const option = document.createElement('option');
+				option.value = query.name; // nur Name im HTML
+				option.textContent = query.name;
+				selectElement.appendChild(option);
+			});
 		})
-		.catch(error => error('Fehler beim Laden gespeicherter Abfragen:', error));
+		.catch(error => console.error('Fehler beim Laden gespeicherter Abfragen:', error));
+}
+
+function getQBFromURL() {
+	try {
+		const params = new URLSearchParams(window.location.search);
+		const qbParam = params.get('qb');
+		if (!qbParam) return null;
+		return JSON.parse(decodeURIComponent(qbParam));
+	} catch (e) {
+		error('Ungültiges QB-JSON in URL: ' + e.message);
+		return null;
+	}
 }
 
 function saveQuery() {
-	const name = document.getElementById('queryNameInput').value;
-	const selectedLabels = [...querySelection.querySelectorAll('input:checked')]
-		.map(input => input.value);
+    const name = document.getElementById('queryNameInput').value;
 
-	if (!name || selectedLabels.length === 0) {
-		error('Bitte gib einen Namen ein und wähle mindestens ein Label aus.');
+    if (!name) {
+        error('Bitte gib einen Namen ein.');
+        return;
+    }
+
+    // komplette URL als String
+    const url = window.location.href;
+
+    fetch('/api/save_query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, url: url })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            success(data.message);
+            document.getElementById('queryNameInput').value = '';
+            loadSavedQueriesFromAPI();
+        } else {
+            error(data.message);
+        }
+    })
+    .catch(err => error('Fehler beim Speichern der Query: ' + err.message));
+}
+
+function loadSavedQuery() {
+	const name = $("#savedQueriesSelect").val();
+
+	if (!name) {
+		error('Bitte wähle eine gespeicherte Query aus.');
 		return;
 	}
 
-	fetch('/api/save_query', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ name, selectedLabels })
-	})
-		.then(response => response.json())
+	fetch(`/api/get_query_by_name?name=${encodeURIComponent(name)}`)
+		.then(res => res.json())
 		.then(data => {
 			if (data.status === 'success') {
-				success(data.message);
-				document.getElementById('queryNameInput').value = '';
-				loadSavedQueriesFromAPI();
+				const savedURL = data.query.url;
+				if (!savedURL) {
+					error('Gespeicherte Query enthält keine URL.');
+					return;
+				}
+				// Seite einfach mit der gespeicherten URL neu laden
+				window.location.href = savedURL;
 			} else {
 				error(data.message);
 			}
 		})
-		.catch(error => error('Fehler beim Speichern der Abfrage:', error));
-}
-
-function loadSavedQuery() {
-	const selectElement = document.getElementById('savedQueriesSelect');
-	const selectedLabelsJson = selectElement.value;
-
-	if (!selectedLabelsJson) {
-		return;
-	}
-
-	querySelection.querySelectorAll('input[type="checkbox"]').forEach(input => {
-		input.checked = false;
-	});
-
-	const labelsToSelect = JSON.parse(selectedLabelsJson);
-	labelsToSelect.forEach(label => {
-		const checkbox = querySelection.querySelector(`input[value="${label}"]`);
-		if (checkbox) {
-			checkbox.checked = true;
-		}
-	});
-
-	fetchData();
+		.catch(err => error('Fehler beim Laden der Query: ' + err.message));
 }
 
 function fetchRelationships() {
