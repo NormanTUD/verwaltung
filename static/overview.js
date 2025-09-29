@@ -398,32 +398,31 @@ function getQBFromURL() {
 }
 
 function saveQuery() {
-    const name = document.getElementById('queryNameInput').value;
+	const name = document.getElementById('queryNameInput').value;
 
-    if (!name) {
-        error('Bitte gib einen Namen ein.');
-        return;
-    }
+	if (!name) {
+		error('Bitte gib einen Namen ein.');
+		return;
+	}
 
-    // komplette URL als String
-    const url = window.location.href;
+	const url = window.location.href;
 
-    fetch('/api/save_query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name, url: url })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.status === 'success') {
-            success(data.message);
-            document.getElementById('queryNameInput').value = '';
-            loadSavedQueriesFromAPI();
-        } else {
-            error(data.message);
-        }
-    })
-    .catch(err => error('Fehler beim Speichern der Query: ' + err.message));
+	fetch('/api/save_query', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ name: name, url: url })
+	})
+		.then(res => res.json())
+		.then(data => {
+			if (data.status === 'success') {
+				success(data.message);
+				document.getElementById('queryNameInput').value = '';
+				loadSavedQueriesFromAPI();
+			} else {
+				error(data.message);
+			}
+		})
+		.catch(err => error('Fehler beim Speichern der Query: ' + err.message));
 }
 
 function loadSavedQuery() {
