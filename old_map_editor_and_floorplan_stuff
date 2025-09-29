@@ -1,0 +1,235 @@
+@app.route("/map-editor")
+@login_required
+def map_editor():
+    session = Session()
+
+    building_id_param = request.args.get("building_id")
+    etage_param = request.args.get("etage")
+
+    etageplan_dir = os.path.join("static", "floorplans")
+
+    # floorplan als Struktur: { building_id: [etage1, etage2, ...] }
+    building_map = {}
+
+    for filename in os.listdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), etageplan_dir)):
+        if filename.startswith("b") and "_f" in filename and filename.endswith(".png"):
+            try:
+                parts = filename.removeprefix("b").removesuffix(".png").split("_f")
+                b_id = int(parts[0])
+                _f = int(parts[1])
+                if b_id not in building_map:
+                    building_map[b_id] = []
+                building_map[b_id].append(_f)
+            except Exception:
+                continue
+
+    building_names = {}
+    try:
+        building_ids = list(building_map.keys())
+        if building_ids:
+            buildings = session.query(Building).filter(Building.id.in_(building_ids)).all()
+            for building in buildings:
+                building_names[building.id] = building.name
+    except Exception as e:
+        session.close()
+        return f"Error loading building names: {str(e)}", 500
+
+    # Kein Gebäude oder etage gewählt → Auswahlseite rendern
+    if building_id_param is None or etage_param is None:
+        session.close()
+        return render_template(
+            "map_editor.html",
+            floorplan={},
+            image_url=None,
+            image_width=None,
+            image_height=None,
+            building_id=None,
+            building_names=building_names,
+            etage=None,
+            building_map=building_map
+        )
+
+    try:
+        building_id = int(building_id_param)
+        etage = int(etage_param)
+    except ValueError:
+        return "Invalid 'building_id' or 'etage' – must be integers", 400
+
+    filename = f"b{building_id}_f{etage}.png"
+    image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "floorplans", filename)
+
+    if not os.path.exists(image_path):
+        session.close()
+        return f"Image not found: {filename}", 404
+
+    try:
+        with Image.open(image_path) as img:
+            width, height = img.size
+    except Exception as e:
+        session.close()
+        return f"Error opening image: {str(e)}", 500
+
+    image_url = f"static/floorplans/b{building_id}_f{etage}.png"
+
+    image_width = 1
+    image_height = 1
+
+    try:
+        with Image.open(image_path) as img:
+            image_width, image_height = img.size
+    except Exception as e:
+        print(f"Error trying to get image width and height for {image_url}")
+
+    session.close()
+
+    return render_template(
+        "map_editor.html",
+        floorplan={},
+        image_url=image_url,
+        image_width=image_width,
+        image_height=image_height,
+        building_id=building_id,
+        etage=etage,
+        building_map=building_map,
+        building_names=building_names
+    )
+
+@app.route('/floorplan')
+@login_required
+def etageplan():
+    session = Session()
+
+    building_id_param = request.args.get("building_id")
+    etage_param = request.args.get("etage")
+
+    building_id = None
+    etage = None
+
+    # Versuche ints aus Parametern zu machen
+    try:
+        if building_id_param is not None:
+            building_id = int(building_id_param)
+        if etage_param is not None:
+            etage = int(etage_param)
+    except ValueError:
+        session.close()
+        return "Invalid 'building_id' or 'etage' – must be integers", 400
+
+    # Lade alle verfügbaren Gebäude & Etagen
+    etageplan_dir = os.path.join("static", "floorplans")
+    building_map = {}
+
+    for filename in os.listdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), etageplan_dir)):
+        if filename.startswith("b") and "_f" in filename and filename.endswith(".png"):
+            try:
+                parts = filename.removeprefix("b").removesuffix(".png").split("_f")
+                b_id = int(parts[0])
+                f = int(parts[1])
+                if b_id not in building_map:
+                    building_map[b_id] = []
+                building_map[b_id].append(f)
+            except Exception:
+                continue
+
+    # Gebäude-Namen aus DB laden
+    building_names = {}
+    try:
+        building_ids = list(building_map.keys())
+        if building_ids:
+            buildings = session.query(Building).filter(Building.id.in_(building_ids)).all()
+            for building in buildings:
+                building_names[building.id] = building.name
+    except Exception as e:
+        session.close()
+        return f"Error loading building names: {str(e)}", 500
+
+    # Wenn Gebäude oder Etage fehlen, einfach das Template mit Auswahlfeldern rendern (ohne etageplan-Bild)
+    if building_id is None or etage is None:
+        session.close()
+        return render_template(
+            "floorplan.html",
+            image_url=None,
+            image_width=None,
+            image_height=None,
+            building_id=building_id,
+            etage=etage,
+            building_map=building_map,
+            building_names=building_names
+        )
+
+    # Prüfe, ob Bild existiert
+    filename = f"b{building_id}_f{etage}.png"
+    image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "floorplans", filename)
+
+    if not os.path.exists(image_path):
+        return f"Image not found: {filename}", 404
+
+    # Bildgröße ermitteln
+    try:
+        with Image.open(image_path) as img:
+            width, height = img.size
+    except Exception as e:
+        return f"Error opening image: {str(e)}", 500
+
+    # Template mit Bild rendern
+    return render_template(
+        "floorplan.html",
+        image_url=f"/static/floorplans/{filename}",
+        image_width=width,
+        image_height=height,
+        building_id=building_id,
+        etage=etage,
+        building_map=building_map,
+        building_names=building_names
+    )
+
+@app.route("/get_floorplan", methods=["GET"])
+@login_required
+def get_floorplan():
+    session = Session()
+
+    building_id_param = request.args.get("building_id")
+    etage = request.args.get("etage")
+
+    try:
+        building_id = int(building_id_param) if building_id_param is not None else None
+        etage = int(etage) if etage is not None else None
+    except ValueError:
+        session.close()
+        return jsonify({"error": "Invalid 'building_id' or 'etage' – must be integers"}), 400
+
+    if building_id is None or etage is None:
+        session.close()
+        return jsonify({"error": "Both 'building_id' and 'etage' parameters are required"}), 400
+    try:
+        query = session.query(Raum).join(RaumLayout).filter(
+            Raum.building_id == building_id,
+            Raum.etage == etage
+        )
+
+        räume = query.all()
+
+        result = []
+        for room in räume:
+            layout = room.layout
+            if layout is None:
+                continue  # skip räume without layout
+
+            result.append({
+                "id": room.id,
+                "name": room.name,
+                "x": layout.x,
+                "y": layout.y,
+                "width": layout.width,
+                "height": layout.height,
+                "guid": room.guid,
+                "building_id": room.building_id,
+                "etage": room.etage
+            })
+
+        session.close()
+        return jsonify(result), 200
+
+    except SQLAlchemyError as e:
+        session.close()
+        return jsonify({"error": str(e)}), 500
