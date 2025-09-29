@@ -1,9 +1,9 @@
-FROM python:3.12-slim
+FROM python:3.12
 
 WORKDIR /usr/src/app
 
 RUN apt-get update && \
-	apt-get install -y docker-compose pkg-config libmysqlclient-dev gcc python3-dev && \
+	apt-get install -y docker-compose pkg-config gcc python3-dev && \
 	rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
