@@ -33,18 +33,22 @@ function initQueryBuilder() {
 
 			const filters = Object.values(fields);
 
-			try {
-				$('#querybuilder').queryBuilder({
-					filters: filters
-				});
+			if(filters.length) {
+				try {
+					$('#querybuilder').queryBuilder({
+						filters: filters
+					});
 
-				restoreQueryBuilderFromUrl();
+					restoreQueryBuilderFromUrl();
 
-				// --- ENTER-Event zum Abschicken registrieren ---
-				addEnterKeyListener();
+					// --- ENTER-Event zum Abschicken registrieren ---
+					addEnterKeyListener();
 
-			} catch (e) {
-				console.error("Fehler beim Init von QueryBuilder:", e);
+				} catch (e) {
+					console.error("Fehler beim Init von QueryBuilder:", e);
+				}
+			} else {
+				log("Cannot load jqueryquerybuilder since the list was empty");
 			}
 		})
 		.catch(err => {
