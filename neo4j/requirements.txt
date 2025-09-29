@@ -1,7 +1,1 @@
-Flask
-py2neo
-python-dotenv
-mypy
-pylint
-faker
-coverage
+
