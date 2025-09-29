@@ -1,6 +1,5 @@
 name: Run Tests
 
-# Läuft bei jedem Push auf jedem Branch
 on:
   push:
     branches:
