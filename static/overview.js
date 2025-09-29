@@ -405,7 +405,7 @@ function saveQuery() {
 		return;
 	}
 
-	const url = window.location.href;
+	const url = window.location.search;
 
 	fetch('/api/save_query', {
 		method: 'POST',
@@ -443,7 +443,7 @@ function loadSavedQuery() {
 					return;
 				}
 				// Seite einfach mit der gespeicherten URL neu laden
-				window.location.href = savedURL;
+				window.location.search = savedURL;
 			} else {
 				error(data.message);
 			}
