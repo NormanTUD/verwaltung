@@ -385,15 +385,17 @@ function loadSavedQueriesFromAPI() {
 		.then(response => response.json())
 		.then(data => {
 			const selectElement = document.getElementById('savedQueriesSelect');
-			selectElement.innerHTML = '<option value="">-- Wähle eine gespeicherte Abfrage --</option>';
+			if(selectElement) {
+				selectElement.innerHTML = '<option value="">-- Wähle eine gespeicherte Abfrage --</option>';
 
-			data.forEach(query => {
-				savedQueriesMap.set(query.name, query); // Map speichert die Query
-				const option = document.createElement('option');
-				option.value = query.name; // nur Name im HTML
-				option.textContent = query.name;
-				selectElement.appendChild(option);
-			});
+				data.forEach(query => {
+					savedQueriesMap.set(query.name, query); // Map speichert die Query
+					const option = document.createElement('option');
+					option.value = query.name; // nur Name im HTML
+					option.textContent = query.name;
+					selectElement.appendChild(option);
+				});
+			}
 		})
 		.catch(error => console.error('Fehler beim Laden gespeicherter Abfragen:', error));
 }
@@ -470,22 +472,24 @@ function fetchRelationships() {
 		.then(response => response.json())
 		.then(data => {
 			const container = document.getElementById('relationshipSelection');
-			container.innerHTML = ''; // vorherige Inhalte löschen
-			data.forEach(rel => {
-				const label = document.createElement('label');
-				label.style.display = 'block';
+			if(container) {
+				container.innerHTML = ''; // vorherige Inhalte löschen
+				data.forEach(rel => {
+					const label = document.createElement('label');
+					label.style.display = 'block';
 
-				const checkbox = document.createElement('input');
-				checkbox.type = 'checkbox';
-				checkbox.name = 'relationship';
-				checkbox.value = rel;
-				checkbox.checked = true; // standardmäßig ausgewählt
+					const checkbox = document.createElement('input');
+					checkbox.type = 'checkbox';
+					checkbox.name = 'relationship';
+					checkbox.value = rel;
+					checkbox.checked = true; // standardmäßig ausgewählt
 
-				label.appendChild(checkbox);
-				label.appendChild(document.createTextNode(' ' + rel));
+					label.appendChild(checkbox);
+					label.appendChild(document.createTextNode(' ' + rel));
 
-				container.appendChild(label);
-			});
+					container.appendChild(label);
+				});
+			}
 		})
 		.catch(err => console.error('Fehler beim Laden der Relationships:', err));
 }
@@ -548,10 +552,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	restoreStateFromUrl();
 
-	createButtonWithHandler(resultsContainer, 'Neue Zeile hinzufügen', addRowToTable);
+	if(resultsContainer) {
+		createButtonWithHandler(resultsContainer, 'Neue Zeile hinzufügen', addRowToTable);
 
-	const insertBtn = createButton('Neue Zeile hinzufügen', addRowToTable);
-	insertBefore(resultsContainer, insertBtn);
+		const insertBtn = createButton('Neue Zeile hinzufügen', addRowToTable);
+		insertBefore(resultsContainer, insertBtn);
+	}
 
 	fetchRelationships();
 });
