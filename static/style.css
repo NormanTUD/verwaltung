@@ -364,3 +364,7 @@ ul {
 	position: absolute;
 	border: 1px solid gray;
 }
+
+.relationship-group {
+	color: black;
+}
