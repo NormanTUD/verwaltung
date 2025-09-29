@@ -28,7 +28,7 @@ jobs:
       # Docker Compose installieren
       - name: Install Docker Compose
         run: |
-          sudo apt-get install -y docker-compose
+          sudo apt-get install -y docker-compose pkg-config
           docker-compose --version
 
       # In Verzeichnis wechseln und bash-Script ausführen
