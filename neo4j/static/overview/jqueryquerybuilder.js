@@ -38,7 +38,6 @@ function initQueryBuilder() {
 					filters: filters
 				});
 
-				// --- URL-State direkt nach Init wiederherstellen ---
 				restoreQueryBuilderFromUrl();
 
 				// --- ENTER-Event zum Abschicken registrieren ---
@@ -87,6 +86,8 @@ function restoreQueryBuilderFromUrl() {
 		if (qb.length && qb.queryBuilder) {
 			try {
 				qb.queryBuilder('setRules', rules);
+
+				fetchData();
 			} catch (e) {
 				console.warn('Fehler beim Wiederherstellen der QueryBuilder-Regeln', e);
 			}
