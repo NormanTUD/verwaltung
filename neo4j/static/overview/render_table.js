@@ -2,11 +2,18 @@
 
 // === Fetch-Daten + URL-State ===
 function fetchData(updateUrl = true) {
+
 	var sel = document.getElementById('querySelection');
-	if (!sel) { error('Kein #querySelection im DOM'); return; }
+	if (!sel) {
+		error('Kein #querySelection im DOM');
+		return;
+	}
 
 	var labels = getSelectedLabels(sel);
-	if (!labels.length) { warning('Bitte mindestens ein Label auswählen'); return; }
+	if (!labels.length) {
+		warning('Bitte mindestens ein Label auswählen'); 
+		return;
+	}
 
 	var relationships = getSelectedRelationships();
 	var qbRules = getQueryBuilderRules();
