@@ -2,9 +2,6 @@
 
 // === Fetch-Daten + URL-State ===
 function fetchData(updateUrl = true) {
-	log("fetchData")
-	console.trace();
-
 	var sel = document.getElementById('querySelection');
 	if (!sel) {
 		error('Kein #querySelection im DOM');
