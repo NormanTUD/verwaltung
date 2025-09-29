@@ -11,7 +11,31 @@
 		<script src="/static/tailwind.js"></script>
 		<script src="/static/tailwind_config.js"></script>
 		<script src="/static/flatpickr.js"></script>
-		
+
+		<script>
+			const log = console.log;
+		</script>
+		<link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+		<script src="{{ url_for('static', filename='toaster.js') }}"></script>
+		<style>
+			body { font-family: sans-serif; margin: 2em; }
+			nav { margin-bottom: 2em; }
+			nav a { margin-right: 1em; }
+			table { width: 100%; border-collapse: collapse; margin-top: 1em; }
+			th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+			th { background-color: #f4f4f4; }
+			input[type="text"] { width: 100%; background: none; }
+
+			body { margin: 0; font-family: sans-serif; }
+			svg { background: #f0f0f0; border: 1px solid #ccc; }
+			.link { stroke: #999; stroke-width: 2px; }
+			.link-text { fill: #555; font-size: 10px; text-anchor: middle; }
+			.node circle { stroke: #fff; stroke-width: 1.5px; cursor: pointer; }
+			.node text { font-size: 12px; font-weight: bold; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff; }
+		</style>
+		<script src="static/d3.v7.min.js"></script>
+		<script src="static/overview/url_states.js"></script>
+
 		<style>
 			.form-control::placeholder{
 				color: gray!important;
@@ -35,8 +59,6 @@
 		</style>
 	
 		<script>
-			const replace_names = {{ replace_configs|safe }};
-
 			function showSpinner(text) {
 				if (document.getElementById('___spinner_overlay')) return;
 
@@ -266,7 +288,7 @@
 				</div>
 
 				<ul class="space-y-2">
-					<li class="text-sm text-gray-400 uppercase">🧙 Wizards</li>
+					<li><a href="/overview" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == '/overview' %}bg-gray-700{% endif %}">Overview</a></li>
 
 					<li class="mt-4 text-sm text-gray-400 uppercase">🗺️ Karten</li>
 					{% if is_admin %}
@@ -278,8 +300,6 @@
 				{% if is_admin %}
 					<!-- Admin-Link nur für Admins -->
 					<a href="/import" class="w-full block text-center bg-blue-700 hover:bg-blue-600 py-2 rounded transition text-white">📥 Import</a>
-
-					<a href="/merge" class="w-full block text-center bg-blue-700 hover:bg-blue-600 py-2 rounded transition text-white">🔀 Merge</a>
 
 					<a href="/admin" class="w-full block text-center bg-blue-700 hover:bg-blue-600 py-2 rounded transition text-white">🛠️ Admin</a>
 				{% endif %}
