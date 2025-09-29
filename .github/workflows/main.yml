@@ -24,7 +24,7 @@ jobs:
 
       - name: Install Docker Compose
         run: |
-          RUN apt-get update && \
+          apt-get update && \
             apt-get install -y docker-compose pkg-config libmysqlclient-dev gcc python3-dev && \
             rm -rf /var/lib/apt/lists/*
           docker-compose --version
