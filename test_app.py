@@ -1382,7 +1382,6 @@ class TestNeo4jApp(unittest.TestCase):
             data = resp.get_json()
             self.assertEqual(len(data['rows']), 100)
 
-    ''''
     def test_get_data_as_table_adjacent_priority(self):
         """Adjacent node should be preferred over distant node for same label."""
         self.graph.run("MATCH (n) DETACH DELETE n")
@@ -1397,7 +1396,6 @@ class TestNeo4jApp(unittest.TestCase):
             vals = [c['value'] for c in row['cells'] if c['value']]
             self.assertIn('111', vals)
             self.assertNotIn('999', vals)
-    '''
 
     def test_get_data_as_table_min_dist_fallback(self):
         """If no adjacent node, choose node with smallest min_dist."""

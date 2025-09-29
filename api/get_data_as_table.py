@@ -471,7 +471,11 @@ def create_get_data_bp(graph):
     def select_best_node(nodes_map, adjacent_nodes):
         if not nodes_map:
             return None
-        # Alle Nodes verwenden, Adjacent optional
+        # 1) direkt benachbarte Nodes priorisieren
+        direct_candidates = {nid: data for nid, data in nodes_map.items() if data.get("min_dist", 1e9) == 1}
+        if direct_candidates:
+            return min(direct_candidates.items(), key=lambda x: x[1].get("min_dist", 1e9))
+        # 2) wenn keine direkten, fallback auf adjacents
         candidates = {nid: data for nid, data in nodes_map.items() if nid in adjacent_nodes} or nodes_map
         return min(candidates.items(), key=lambda x: x[1].get("min_dist", 1e9))
 
