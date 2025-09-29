@@ -102,15 +102,36 @@ def create_get_data_bp(graph):
             buckets = {}
             for node in graph_api.fetch_nodes(main_label, limit, where):
                 add_node_to_bucket(buckets, node, main_label)
-        return ensure_all_labels_present(graph_api, buckets, selected_labels, filter_labels, limit, where)
+        return ensure_all_labels_present(graph_api, buckets, selected_labels, filter_labels, limit, where, max_depth)
 
-    def ensure_all_labels_present(graph_api, buckets, selected_labels, filter_labels, limit, where):
+    def ensure_all_labels_present(graph_api, buckets, selected_labels, filter_labels, limit, where, max_depth):
+        """
+        Ensure requested labels are present:
+        - For each existing bucket attach nodes of requested labels that are related to that bucket's main node,
+        searching up to max_depth hops.
+        - For any requested label that still has no nodes attached to *any* bucket, fetch nodes globally and create buckets.
+        """
         required_labels = [lbl for lbl in selected_labels if not filter_labels or lbl in filter_labels]
 
+        # helper: build quick relation index from bucket.relations
+        def build_rel_index_for_bucket(bucket):
+            idx = {}
+            for rel in bucket.get("relations", []):
+                a, b = rel.get("fromId"), rel.get("toId")
+                if a is not None:
+                    idx.setdefault(a, set()).add(b)
+                if b is not None:
+                    idx.setdefault(b, set()).add(a)
+            return idx
+
+        # determine depth for targeted queries (ensure at least 1)
+        depth = max(1, int(max_depth) if max_depth is not None else 2)
+
+        # helper: query related nodes for one main node id and label using max depth
         def query_related_nodes_cypher(lbl):
             q = f"""
                 MATCH (m) WHERE id(m) = $mid
-                MATCH (m)-[*1..2]-(n:`{lbl}`)
+                MATCH (m)-[*1..{depth}]-(n:`{lbl}`)
             """
             if where:
                 q += f" WHERE {where}"
@@ -119,9 +140,10 @@ def create_get_data_bp(graph):
                 q += f" LIMIT {limit}"
             return q
 
-        # 1) Attach related nodes to existing buckets (do NOT create new top-level buckets here)
+        # 1) For each existing bucket, attach nodes of required labels that are connected to the main node
         for main_id, bucket in list(buckets.items()):
             for lbl in required_labels:
+                # skip if label already present in this bucket
                 if lbl in bucket.get("nodes", {}):
                     continue
 
@@ -129,6 +151,7 @@ def create_get_data_bp(graph):
                 try:
                     recs = graph_api.driver.run(cypher, mid=main_id).data()
                 except Exception:
+                    # if the targeted query fails, skip attaching for this bucket/label
                     continue
 
                 for r in recs:
@@ -140,10 +163,11 @@ def create_get_data_bp(graph):
                     node_id = node_dict.get("id")
                     if node_id is None:
                         continue
-                    # IMPORTANT: attach into this bucket's nodes map (do NOT create a new top-level bucket)
+                    # Attach into this bucket's nodes map (do NOT create a new top-level bucket)
+                    # Use a small distance (1..depth) — we set distance=1 for attached related nodes to prefer them
                     store_or_update_node(bucket.setdefault("nodes", {}), node_id, lbl, node_dict.get("props", {}), 1)
 
-        # 2) After attachment: for any required label still missing globally, fetch global nodes and create buckets
+        # 2) After attachment: if a label still has zero nodes attached to any bucket, fetch globally and create buckets
         labels_with_nodes = {lbl for bucket in buckets.values() for lbl in bucket.get("nodes", {})}
         missing_globally = [lbl for lbl in required_labels if lbl not in labels_with_nodes]
 
