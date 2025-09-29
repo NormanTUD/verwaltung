@@ -219,7 +219,7 @@ def create_get_data_bp(graph):
         selected_labels = [n.strip() for n in nodes_param.split(",") if n.strip()]
         main_label = selected_labels[0]
 
-        max_depth = int(req.args.get("maxDepth", "3"))
+        max_depth = int(req.args.get("maxDepth", max(3, len(selected_labels))))
         limit_raw = req.args.get("limit")
         limit = int(limit_raw) if limit_raw else None
 
