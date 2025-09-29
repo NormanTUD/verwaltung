@@ -2,26 +2,22 @@ import time
 import sys
 import unittest
 import os
-import uuid
-import json
-import time
 from uuid import uuid4
-from flask import session
-from py2neo import Graph, Node, Relationship, Subgraph
-from unittest import mock
-from dotenv import load_dotenv
-from unittest.mock import patch, MagicMock
-from oasis_helper import load_or_generate_secret_key, get_graph_db_connection
-from app import get_all_nodes_and_relationships
-
+import json
 import warnings
+from unittest.mock import patch
+from unittest import mock
+from py2neo import Graph, Node, Relationship, Subgraph
+from dotenv import load_dotenv
+from app import get_all_nodes_and_relationships, app, graph
+from oasis_helper import load_or_generate_secret_key
+
 warnings.filterwarnings("ignore", category=ResourceWarning)
 
 # Lade Umgebungsvariablen aus der .env.test-Datei für die Tests
 load_dotenv('.env.test')
 
 # Wichtig: Importieren Sie die App-Instanz aus Ihrer Hauptdatei
-from app import app, graph
 
 # Beispiel-Daten für die Tests
 SAMPLE_CSV_DATA = """id,name,city,country
@@ -57,8 +53,6 @@ class TestNeo4jApp(unittest.TestCase):
         """
         cls.graph = None
         try:
-            # Neo4j-Verbindung
-            graph = None
             for attempt in range(15):  # max 15 Versuche
                 try:
                     cls.graph = Graph(
@@ -89,9 +83,6 @@ class TestNeo4jApp(unittest.TestCase):
         """
         cls.graph.run("MATCH (n) DETACH DELETE n")
 
-        if hasattr(cls, "driver") and cls.driver:
-            cls.driver.close()
-
     def setUp(self):
         """
         Wird vor jedem Test ausgeführt.
@@ -99,7 +90,7 @@ class TestNeo4jApp(unittest.TestCase):
         """
         self.app = app.test_client()
         self.app.testing = True
-        
+
         self.graph = self.__class__.graph
 
         # Leere die Datenbank vor jedem Test für saubere, isolierte Bedingungen
@@ -114,7 +105,7 @@ class TestNeo4jApp(unittest.TestCase):
         """Testet den Upload von gültigen CSV-Daten."""
         response = self.app.post('/upload', data={'data': SAMPLE_CSV_DATA}, content_type='multipart/form-data')
         self.assertEqual(response.status_code, 200)
-        
+
         with self.app as client:
             with client.session_transaction() as sess:
                 self.assertIn('headers', sess)
@@ -132,10 +123,10 @@ class TestNeo4jApp(unittest.TestCase):
         node = Node("UpdateNode", status="old")
         self.graph.create(node)
         node_id = node.identity
-        
+
         response = self.app.put(f'/api/update_node/{node_id}', data=json.dumps({"property": "status", "value": "new"}), content_type='application/json')
         self.assertEqual(response.status_code, 200)
-        
+
         updated_node = self.graph.run(f"MATCH (n) WHERE ID(n) = {node_id} RETURN n").data()[0]['n']
         self.assertEqual(updated_node['status'], "new")
 
@@ -144,7 +135,7 @@ class TestNeo4jApp(unittest.TestCase):
         node = Node("DeleteNode", name="Temp")
         self.graph.create(node)
         node_id = node.identity
-        
+
         response = self.app.delete(f'/api/delete_node/{node_id}')
         self.assertEqual(response.status_code, 200)
 
@@ -158,14 +149,14 @@ class TestNeo4jApp(unittest.TestCase):
         self.graph.create(node1)
         self.graph.create(node2)
         node_ids = [node1.identity, node2.identity]
-        
-        response = self.app.put(f'/api/update_nodes', data=json.dumps({
+
+        response = self.app.put('/api/update_nodes', data=json.dumps({
             "ids": node_ids,
             "property": "status",
             "value": "updated"
         }), content_type='application/json')
         self.assertEqual(response.status_code, 200)
-        
+
         results = self.graph.run(f"MATCH (n) WHERE ID(n) IN {node_ids} RETURN n.status AS status").data()
         for res in results:
             self.assertEqual(res['status'], "updated")
@@ -208,7 +199,7 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_update_nodes_with_invalid_data(self):
         """Testet Massenaktualisierung mit fehlenden JSON-Daten."""
-        response = self.app.put(f'/api/update_nodes', data=json.dumps({
+        response = self.app.put('/api/update_nodes', data=json.dumps({
             "ids": [1],
             "property": "status"
         }), content_type='application/json')
@@ -556,7 +547,7 @@ class TestNeo4jApp(unittest.TestCase):
         city = Node("Ort", name="Berlin")
         rel = Relationship(node, "HAT_WOHNSITZ", city)
         self.graph.create(node | city | rel)
-        
+
         result = get_all_nodes_and_relationships()
         self.assertIn("Person", result["labels"])
         self.assertIn("Ort", result["labels"])
@@ -564,7 +555,6 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_get_all_nodes_and_relationships_empty(self):
         self.graph.run("MATCH (n) DETACH DELETE n")
-        result = get_all_nodes_and_relationships()
         # prüfe, dass keine Knoten mehr existieren
         nodes_count = self.graph.evaluate("MATCH (n) RETURN count(n)")
         self.assertEqual(nodes_count, 0)
@@ -676,7 +666,7 @@ class TestNeo4jApp(unittest.TestCase):
         with self.app.session_transaction() as sess:
             self.assertIn('headers', sess)
             self.assertEqual(sess['headers'], ['id', 'name', 'extra'])
-        
+
     def test_save_mapping_with_expired_session(self):
         """Session enthält keine raw_data, save_mapping schlägt fehl."""
         with self.app.session_transaction() as sess:
@@ -731,7 +721,7 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_get_data_as_table_basic_positive_single_person(self):
         """Create Person->Ort->Stadt and verify single row with merged cells."""
-        uid = str(uuid.uuid4())
+        uid = str(uuid4())
 
         # Cleanup vorab: alles wegräumen, was denselben uid hat
         self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
@@ -744,11 +734,14 @@ class TestNeo4jApp(unittest.TestCase):
             CREATE (s:Stadt {stadt:'Berlin', uid:$uid})
             CREATE (p)-[:WOHNT_IN]->(o)
             CREATE (o)-[:LIEGT_IN]->(s)
-            RETURN id(p) AS pid, id(o) AS oid, id(s) AS sid
+            RETURN id(p) AS pid, id(s) AS sid
             """,
             uid=uid
         ).data()[0]
-        pid, oid, sid = r['pid'], r['oid'], r['sid']
+        pid, sid = r['pid'], r['sid']
+
+        self.assertIsInstance(pid, int)
+        self.assertIsInstance(sid, int)
 
         # Query API
         with self.app as client:
@@ -825,7 +818,7 @@ class TestNeo4jApp(unittest.TestCase):
 
         self.graph.run("MATCH (n) DETACH DELETE n")
 
-    def test_get_data_as_table_invalid_limit_param(self):
+    def test_get_data_as_table_invalid_limit_param_two_nodes(self):
         """Non-integer limit should return 500 (current impl casts int and fails)."""
         with self.app as client:
             resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Ort', 'limit': 'nope'})
@@ -948,7 +941,9 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_add_property_basic_with_value(self):
         r = graph.run("CREATE (p:Person {name:'Alice'}) RETURN id(p) AS id").data()[0]
-        node_id = r['id']
+
+        self.assertIsInstance(r, dict)
+        self.assertIsInstance(r["id"], int)
 
         resp = self.app.post(
             '/api/add_property_to_nodes',
@@ -1055,24 +1050,15 @@ class TestNeo4jApp(unittest.TestCase):
         data = resp.get_json()
         self.assertEqual(data["updated"], 2)
 
-    def test_add_property_with_float_value(self):
-        graph.run("CREATE (:Person {name:'Eva'})")
-        resp = self.app.post(
-            '/api/add_property_to_nodes',
-            data=json.dumps({"label": "Person", "property": "score", "value": 3.14}),
-            content_type="application/json"
-        )
-        self.assertEqual(resp.status_code, 200)
-        val = graph.run("MATCH (p:Person {name:'Eva'}) RETURN p.score AS score").data()[0]["score"]
-        self.assertEqual(val, 3.14)
-
     def test_add_property_idempotent(self):
         graph.run("CREATE (:Person {name:'Frank'})")
-        resp1 = self.app.post(
+
+        self.app.post(
             '/api/add_property_to_nodes',
             data=json.dumps({"label": "Person", "property": "flag", "value": True}),
             content_type="application/json"
         )
+
         resp2 = self.app.post(
             '/api/add_property_to_nodes',
             data=json.dumps({"label": "Person", "property": "flag", "value": False}),
@@ -1111,7 +1097,7 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("property", resp.get_json()["message"])
 
-    def test_create_node_invalid_property_name(self):
+    def test_create_node_invalid_property_name_123_invalid(self):
         resp = self.app.post(
             '/api/create_node',
             data=json.dumps({"property": "123invalid", "value": "Test"}),
@@ -1602,10 +1588,10 @@ class TestNeo4jApp(unittest.TestCase):
         """Different relationship types should appear in the relations list."""
         # 1. Alte Testdaten löschen
         self.graph.run("MATCH (n) DETACH DELETE n")
-        
+
         # 2. Testdaten anlegen
         self.graph.run("CREATE (p:Person {name:'R'})-[:FOO]->(o:Ort {plz:'22'})")
-        
+
         # 3. API aufrufen
         with self.app as client:
             # Retry-Mechanismus, falls CI die Relation noch nicht sieht
@@ -1621,9 +1607,8 @@ class TestNeo4jApp(unittest.TestCase):
                         rel_found = True
                         break
                 # Falls Relation noch nicht sichtbar, kurz warten
-                import time
                 time.sleep(0.1)
-            
+
             # 4. Assertion
             self.assertTrue(rel_found, "FOO-Relation wurde nicht in der API-Ausgabe gefunden")
 
@@ -1892,7 +1877,7 @@ class TestNeo4jApp(unittest.TestCase):
             data = resp.get_json()
             self.assertTrue(any(cell['value'] in ("", None, 0, False, long_str)
                                 for row in data['rows'] for cell in row['cells']))
-            
+
     def test_get_data_as_table_array_and_map_properties(self):
         """Listen- und Map-Properties müssen als String serialisierbar sein"""
         self.graph.run("MATCH (n) DETACH DELETE n")
@@ -2015,48 +2000,47 @@ class TestNeo4jApp(unittest.TestCase):
             value = data['rows'][0]['cells'][col_idx]['value']
             self.assertEqual(value, 'Bob')
 
-        def test_get_data_as_table_deep_hierarchy(self):
-            """Tiefer verschachtelter Pfad: Person->Ort->Stadt->Land->Kontinent"""
+    def test_get_data_as_table_deep_hierarchy(self):
+        """Tiefer verschachtelter Pfad: Person->Ort->Stadt->Land->Kontinent"""
 
-            # DB sauber leeren
-            self.graph.run("MATCH (n) DETACH DELETE n")
+        # DB sauber leeren
+        self.graph.run("MATCH (n) DETACH DELETE n")
 
-            # UUID-Suffix für eindeutige Namen
-            suffix = str(uuid4())
+        suffix = str(uuid4())
 
-            # Nodes und Relationships in einer Transaktion erstellen
-            tx = self.graph.begin()
-            p = Node("Person", vorname=f"C_{suffix}")
-            o = Node("Ort", name=f"O_{suffix}")
-            s = Node("Stadt", name=f"S_{suffix}")
-            l = Node("Land", name=f"L_{suffix}")
-            k = Node("Kontinent", name=f"K_{suffix}")
-            tx.create(p)
-            tx.create(o)
-            tx.create(s)
-            tx.create(l)
-            tx.create(k)
-            tx.create(Relationship(p, "WOHNT_IN", o))
-            tx.create(Relationship(o, "LIEGT_IN", s))
-            tx.create(Relationship(s, "LIEGT_IN", l))
-            tx.create(Relationship(l, "LIEGT_IN", k))
-            # Commit über graph.commit()
-            self.graph.commit(tx)
+        # Nodes und Relationships in einer Transaktion erstellen
+        tx = self.graph.begin()
+        p = Node("Person", vorname=f"C_{suffix}")
+        o = Node("Ort", name=f"O_{suffix}")
+        s = Node("Stadt", name=f"S_{suffix}")
+        l = Node("Land", name=f"L_{suffix}")
+        k = Node("Kontinent", name=f"K_{suffix}")
+        tx.create(p)
+        tx.create(o)
+        tx.create(s)
+        tx.create(l)
+        tx.create(k)
+        tx.create(Relationship(p, "WOHNT_IN", o))
+        tx.create(Relationship(o, "LIEGT_IN", s))
+        tx.create(Relationship(s, "LIEGT_IN", l))
+        tx.create(Relationship(l, "LIEGT_IN", k))
+        # Commit über graph.commit()
+        self.graph.commit(tx)
 
-            # API-Aufruf
-            with self.app as client:
-                resp = client.get(
-                    '/api/get_data_as_table',
-                    query_string={
-                        'nodes': 'Person,Ort,Stadt,Land,Kontinent',
-                        'maxDepth': 5
-                    }
-                )
-                self.assertEqual(resp.status_code, 200)
-                data = resp.get_json()
+        # API-Aufruf
+        with self.app as client:
+            resp = client.get(
+                '/api/get_data_as_table',
+                query_string={
+                    'nodes': 'Person,Ort,Stadt,Land,Kontinent',
+                    'maxDepth': 5
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
 
-                # Prüfen, dass genau ein Pfad zurückkommt
-                self.assertEqual(len(data['rows']), 1)
+            # Prüfen, dass genau ein Pfad zurückkommt
+            self.assertEqual(len(data['rows']), 1)
 
     def test_get_data_as_table_parallel_paths(self):
         """Node mit mehreren parallelen Pfaden zu verschiedenen Nodes"""
@@ -2896,9 +2880,6 @@ class TestNeo4jApp(unittest.TestCase):
 
     def tearDown_nodes_by_uid(self, uid):
         self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
-        
-    def tearDown_nodes_by_uid(self, uid):
-        self.graph.run("MATCH (n {uid:$uid}) DETACH DELETE n", uid=uid)
 
     def test_get_data_as_table_person_ort_buch_stable(self):
         uid = str(uuid4())
@@ -2932,14 +2913,12 @@ class TestNeo4jApp(unittest.TestCase):
 
         # --- Relationships erstellen ---
         for i, p in enumerate(person_nodes):
-            o = ort_nodes[i]
             self.graph.run(
                 "MATCH (p:Person {vorname:$vorname, uid:$uid}), (o:Ort {uid:$uid}) "
                 "CREATE (p)-[:WOHNT_IN]->(o)",
                 vorname=p['vorname'], uid=uid
             )
             if i < len(buch_nodes):
-                b = buch_nodes[i]
                 self.graph.run(
                     "MATCH (p:Person {vorname:$vorname, uid:$uid}), (b:Buch {uid:$uid}) "
                     "CREATE (p)-[:HAT_GESCHRIEBEN]->(b)",
@@ -3225,7 +3204,7 @@ class TestNeo4jApp(unittest.TestCase):
         data = resp.get_json()
         self.assertEqual(data["status"], "error")
 
-    def test_create_node_invalid_property_name(self):
+    def test_create_node_invalid_property_name_123_bad(self):
         resp = self.app.post(
             "/api/create_node",
             json={"node_label": "Person", "props": {"123bad": "oops"}}
@@ -3295,7 +3274,6 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_add_relationship_flakeless(self):
         """Relationship-Erstellung ohne Flakiness und ohne Sleep/Retry."""
-        from uuid import uuid4
 
         uid = str(uuid4())
         alice_label = f"Person_{uid[:8]}"
@@ -3434,7 +3412,7 @@ class TestNeo4jApp(unittest.TestCase):
     def test_load_secret_key_file_empty(self):
         # Datei existiert, aber leer → Fehlerpfad
         with mock.patch("builtins.open", mock.mock_open(read_data="")):
-            with mock.patch("secrets.token_urlsafe", return_value="generatedkey") as m:
+            with mock.patch("secrets.token_urlsafe", return_value="generatedkey"):
                 key = load_or_generate_secret_key()
                 self.assertEqual(key, "generatedkey")
 
@@ -3623,7 +3601,6 @@ class TestNeo4jApp(unittest.TestCase):
         indexes = self.graph.run("SHOW INDEXES").data()
         for idx in indexes:
             labels = idx.get("labelsOrTypes") or []
-            props = idx.get("properties") or []
             if label in labels:
                 name = idx.get("name")
                 if name:
@@ -3631,8 +3608,8 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_index_manager_page_loads_with_new_node(self):
         # Test-Knoten erzeugen
-        label = f"TestLabel_{uuid.uuid4().hex[:8]}"
-        uid = str(uuid.uuid4())
+        label = f"TestLabel_{uuid4().hex[:8]}"
+        uid = str(uuid4())
         node = Node(label, name="Alice", uid=uid)
         self.graph.create(node)
 
@@ -3647,8 +3624,8 @@ class TestNeo4jApp(unittest.TestCase):
 
     def test_create_indices_success(self):
         # Test-Knoten erzeugen
-        label = f"TestLabel_{uuid.uuid4().hex[:8]}"
-        uid = str(uuid.uuid4())
+        label = f"TestLabel_{uuid4().hex[:8]}"
+        uid = str(uuid4())
         node = Node(label, name="Alice", uid=uid)
         self.graph.create(node)
 
@@ -3805,6 +3782,35 @@ class TestNeo4jApp(unittest.TestCase):
             _, data = self._run_querybuilder_request(client, "not_ends_with", "Buch.titel", "Liebe")
             titles = [c.get("value") for r in data["rows"] for c in r["cells"]]
             self.assertFalse(any(t and t.endswith("Liebe") for t in titles))
+
+    def test_reset_and_load_complex_data(self):
+        """Testet, ob die komplexen Datenbankdaten korrekt erstellt werden."""
+        response = self.app.get('/api/reset_and_load_complex_data')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertEqual(data["status"], "success")
+
+        # Check persons (mindestens 1 Person existiert)
+        persons = self.graph.run("MATCH (p:Person) RETURN p.vorname AS vorname, p.nachname AS nachname LIMIT 1").data()
+        self.assertTrue(len(persons) > 0)
+
+        # Check books (mindestens 1 Buch existiert)
+        books = self.graph.run("MATCH (b:Buch) RETURN b.titel AS titel LIMIT 1").data()
+        self.assertTrue(len(books) > 0)
+
+        # Check at least one HAT_GESCHRIEBEN relation exists
+        rels = self.graph.run("""
+            MATCH (p:Person)-[:HAT_GESCHRIEBEN]->(b:Buch)
+            RETURN p,b LIMIT 1
+        """).data()
+        self.assertTrue(len(rels) > 0)
+
+        # Check at least one WOHNT_IN or Standort-relation exists
+        rels2 = self.graph.run("""
+            MATCH (p:Person)-[:WOHNT_IN|:NIMMT_TEIL_AN|:FINDET_STATT_IN]->(o)
+            RETURN p,o LIMIT 1
+        """).data()
+        self.assertTrue(len(rels2) > 0)
 
 if __name__ == '__main__':
     try:

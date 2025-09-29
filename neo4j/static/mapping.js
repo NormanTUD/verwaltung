@@ -1,3 +1,5 @@
+"use strict";
+
 const nodeListDiv = document.getElementById('nodeList');
 const relationshipListDiv = document.getElementById('relationshipList');
 const assignedColumns = new Set();

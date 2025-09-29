@@ -1,5 +1,4 @@
-import logging
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify
 
 def create_delete_node_bp(graph):
     bp = Blueprint("delete_node", __name__)

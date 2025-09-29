@@ -1,5 +1,4 @@
-import logging
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify
 
 def create_dump_database_bp(graph):
     bp = Blueprint("dump_database", __name__)
@@ -29,7 +28,7 @@ def create_dump_database_bp(graph):
             return jsonify(dump)
 
         except Exception as e:
-            logging.error(f"Error dumping database: {e}", exc_info=True)
+            print(f"Error dumping database: {e}", exc_info=True)
             return jsonify({"status": "error", "message": str(e)}), 500
 
     return bp

@@ -32,7 +32,7 @@ def create_get_data_bp(graph):
             try:
                 records = self.driver.run(base_query).data()
             except Exception as e:
-                raise RuntimeError(f"Neo4j-Fehler bei fetch_nodes({label}): {e}")
+                raise RuntimeError(f"Neo4j-Fehler bei fetch_nodes({label}): {e}") from e
             result = []
             for r in records:
                 n = r.get("n")
@@ -66,7 +66,7 @@ def create_get_data_bp(graph):
             try:
                 records = self.driver.run(cypher, labels=labels).data()
             except Exception as e:
-                raise RuntimeError(f"Neo4j-Fehler bei fetch_paths: {e}")
+                raise RuntimeError(f"Neo4j-Fehler bei fetch_paths: {e}") from e
 
             paths = []
             for r in records:
@@ -118,7 +118,7 @@ def create_get_data_bp(graph):
             for bucket in buckets.values()
         ]
 
-    def extract_table_columns(buckets, selected_labels=None):
+    def extract_table_columns(buckets):
         if not buckets:
             return []
         label_property_pairs = {
@@ -149,6 +149,7 @@ def create_get_data_bp(graph):
             def ci_value(v):
                 if isinstance(v, str):
                     return f"'{v.lower()}'"
+
                 return str(v)
 
             if op in {"equal", "not_equal", "less", "less_or_equal", "greater", "greater_or_equal"}:
@@ -164,8 +165,8 @@ def create_get_data_bp(graph):
                 # nur Strings case-insensitive machen
                 if isinstance(value, str):
                     return f"TOLOWER(n.`{field_name}`) {cypher_op} {ci_value(value)}"
-                else:
-                    return f"n.`{field_name}` {cypher_op} {ci_value(value)}"
+
+                return f"n.`{field_name}` {cypher_op} {ci_value(value)}"
 
             elif op == "contains":
                 return f"TOLOWER(n.`{field_name}`) CONTAINS '{value.lower()}'"
@@ -183,12 +184,12 @@ def create_get_data_bp(graph):
 
             elif op == "in":
                 if not isinstance(value, (list, tuple)):
-                    raise ValueError(f"Operator 'in' requires a list of values")
+                    raise ValueError("Operator 'in' requires a list of values")
                 value_list = ', '.join(f"'{v.lower()}'" for v in value)
                 return f"TOLOWER(n.`{field_name}`) IN [{value_list}]"
             elif op == "not_in":
                 if not isinstance(value, (list, tuple)):
-                    raise ValueError(f"Operator 'not_in' requires a list of values")
+                    raise ValueError("Operator 'not_in' requires a list of values")
                 value_list = ', '.join(f"'{v.lower()}'" for v in value)
                 return f"NOT TOLOWER(n.`{field_name}`) IN [{value_list}]"
 
@@ -202,8 +203,7 @@ def create_get_data_bp(graph):
             elif op == "is_not_null":
                 return f"n.`{field_name}` IS NOT NULL"
 
-            else:
-                raise ValueError(f"Unsupported operator: {op}")
+            raise ValueError(f"Unsupported operator: {op}")
 
         if "rules" in qb and qb["rules"]:
             parsed_rules = [parse_rule(r) for r in qb["rules"]]

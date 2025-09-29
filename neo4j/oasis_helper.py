@@ -8,7 +8,7 @@ def load_or_generate_secret_key():
     path = "/etc/oasis/secret_key"
     try:
         # Datei existiert
-        with open(path, "r") as f:
+        with open(path, encoding="utf-8", mode="r") as f:
             key = f.read().strip()
             if not key:
                 raise ValueError("Secret-Key-Datei ist leer")
@@ -17,7 +17,7 @@ def load_or_generate_secret_key():
         # Datei existiert nicht
         key = secrets.token_urlsafe(64)
         return key
-    except Exception as e:
+    except Exception:
         # Andere Fehler beim Lesen
         key = secrets.token_urlsafe(64)
         return key

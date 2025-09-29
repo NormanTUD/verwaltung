@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify
 
 def create_delete_all_bp(graph):
     bp = Blueprint("delete_all", __name__)

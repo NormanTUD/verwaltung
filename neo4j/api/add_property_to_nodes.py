@@ -1,6 +1,5 @@
 from flask import Blueprint, request, jsonify
 
-
 def create_add_property_to_nodes_bp(graph):
     bp = Blueprint("add_property_to_nodes", __name__)
 
@@ -36,7 +35,7 @@ def create_add_property_to_nodes_bp(graph):
                 response["nodes"] = updated_ids
             return jsonify(response)
         except Exception as e:
-            logging.error(f"Error adding property: {e}", exc_info=True)
+            print(f"Error adding property: {e}", exc_info=True)
             return (
                 jsonify({
                     "error": str(e),
