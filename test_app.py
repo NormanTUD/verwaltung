@@ -3894,6 +3894,45 @@ class TestNeo4jApp(unittest.TestCase):
             )
             self.assertTrue(found)
 
+    def test_get_data_as_table_long_chain_person_to_country(self):
+        """Test a long relation chain Person->Kunde->Bestellung->Shipment->Stadt->Land."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+
+        self.graph.run("""
+            CREATE (p:Person {vorname:'Clara', nachname:'Meier', person_id:'P1'})
+            CREATE (k:Kunde {kundennummer:'2001', email:'clara@example.com', produkt:'Tablet'})
+            CREATE (b:Bestellung {bestellnr:'6001', datum:'2023-03-10', betrag:'500', status:'versandt'})
+            CREATE (s:Shipment {versandnr:'9101', datum:'2023-03-11', versandart:'UPS', tracking:'UP999'})
+            CREATE (st:Stadt {name:'Berlin'})
+            CREATE (l:Land {name:'Deutschland'})
+            CREATE (p)-[:IST_AUCH]->(k)
+            CREATE (k)-[:HAT_GETÄTIGT]->(b)
+            CREATE (b)-[:BEINHALTET]->(s)
+            CREATE (k)-[:WOHNT_IN]->(st)
+            CREATE (st)-[:GEHÖRT_ZU]->(l)
+        """)
+
+        with self.app as client:
+            resp = client.get(
+                '/api/get_data_as_table',
+                query_string={'nodes': 'Person,Kunde,Bestellung,Shipment,Stadt,Land'}
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            print("DEBUG JSON LONG CHAIN:", json.dumps(data, indent=2, ensure_ascii=False))
+
+            cols = {(c['nodeType'], c['property']) for c in data['columns']}
+            self.assertIn(('Land', 'name'), cols)
+            self.assertIn(('Stadt', 'name'), cols)
+
+            rows = data['rows']
+            found = any(
+                any(cell.get('value') == 'Clara' for cell in row['cells'])
+                and any(cell.get('value') == 'Deutschland' for cell in row['cells'])
+                for row in rows
+            )
+            self.assertTrue(found)
+
 if __name__ == '__main__':
     try:
         unittest.main()

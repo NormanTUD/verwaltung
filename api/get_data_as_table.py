@@ -113,10 +113,40 @@ def create_get_data_bp(graph):
         return buckets
 
     def assemble_table_rows(buckets, columns):
-        return [
-            {"cells": build_cells_for_bucket(bucket, columns), "relations": bucket.get("relations", [])}
-            for bucket in buckets.values()
-        ]
+        multi_labels = {"Bestellung", "Shipment"}  # nur diese Labels dürfen mehrere Rows erzeugen
+        rows = []
+
+        from itertools import product
+
+        for bucket in buckets.values():
+            # baue Choices: Multi-Labels -> alle Kandidaten, sonst nur den besten
+            node_choices = []
+            for col in columns:
+                candidates = bucket.get("nodes", {}).get(col["nodeType"], {})
+                if not candidates:
+                    node_choices.append([(col, None, {"props": {}})])
+                    continue
+
+                if col["nodeType"] in multi_labels:
+                    options = [(col, nid, data) for nid, data in candidates.items()]
+                else:
+                    chosen = select_best_node(candidates, bucket.get("adjacent", set()))
+                    if chosen:
+                        nid, data = chosen
+                        options = [(col, nid, data)]
+                    else:
+                        options = [(col, None, {"props": {}})]
+                node_choices.append(options)
+
+            for combo in product(*node_choices):
+                cells = []
+                for col, nid, data in combo:
+                    props = data.get("props", {}) if data else {}
+                    value = props.get(col["property"]) if col["property"] else None
+                    cells.append({"value": value, "nodeId": nid})
+                rows.append({"cells": cells, "relations": bucket.get("relations", [])})
+
+        return rows
 
     def extract_table_columns(buckets):
         if not buckets:
