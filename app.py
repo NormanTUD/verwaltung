@@ -139,7 +139,7 @@ def restart_with_venv():
 try:
     from importers import importers_bp
 
-    from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context, Response
+    from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context, Response, session
     from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 
     from markupsafe import Markup
@@ -157,7 +157,6 @@ try:
     from sqlalchemy.orm.strategy_options import Load
     from sqlalchemy.orm.strategy_options import Load
 
-    from sqlalchemy.orm import Session
     from sqlalchemy.orm.attributes import flag_modified
 
     import sqlalchemy.exc
@@ -279,9 +278,9 @@ app.register_blueprint(create_index_bp(graph), url_prefix='/')
 
 @login_manager.user_loader
 def load_user(user_id):
-    session = Session()
-    ret = session.get(User, int(user_id))
-    session.close()
+    my_session = Session()
+    ret = my_session.get(User, int(user_id))
+    my_session.close()
     return ret
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -289,13 +288,13 @@ def login():
     if current_user.is_authenticated:
         return redirect(url_for('index'))  # Benutzer ist schon eingeloggt → sofort weiterleiten
 
-    session = Session()
+    my_session = Session()
     try:
         if request.method == 'POST':
             username = request.form.get('username', '')
             password = request.form.get('password', '')
 
-            user = session.query(User).filter_by(username=username).first()
+            user = my_session.query(User).filter_by(username=username).first()
 
             if user:
                 if not user.is_active:
@@ -308,7 +307,7 @@ def login():
             else:
                 flash('Benutzer nicht gefunden.')
     finally:
-        session.close()
+        my_session.close()
 
     return render_template('login.html')
 
@@ -330,7 +329,7 @@ def register():
     if current_user.is_authenticated:
         return redirect(url_for('index'))  # Bereits angemeldet → weiterleiten
 
-    session = Session()
+    my_session = Session()
     try:
         if request.method == 'POST':
             username = request.form.get('username', '')
@@ -344,7 +343,7 @@ def register():
                 )
 
             # Prüfen, ob Benutzername bereits existiert
-            existing_user = session.query(User).filter_by(username=username).first()
+            existing_user = my_session.query(User).filter_by(username=username).first()
             if existing_user:
                 return render_template('register.html', error='Username already taken.')
 
@@ -352,15 +351,15 @@ def register():
             hashed_pw = generate_password_hash(password, method='pbkdf2:sha256')
 
             # Prüfen, ob dies der erste Benutzer ist
-            user_count = session.query(User).count()
+            user_count = my_session.query(User).count()
             if user_count == 0:
                 # Admin-Rolle holen oder erstellen
                 try:
-                    admin_role = session.query(Role).filter_by(name='admin').one()
+                    admin_role = my_session.query(Role).filter_by(name='admin').one()
                 except NoResultFound:
                     admin_role = Role(name='admin')
-                    session.add(admin_role)
-                    session.commit()
+                    my_session.add(admin_role)
+                    my_session.commit()
 
                 # Erster Benutzer: aktiv und admin
                 new_user = User(
@@ -378,11 +377,11 @@ def register():
                     is_active=False
                 )
 
-            session.add(new_user)
-            session.commit()
+            my_session.add(new_user)
+            my_session.commit()
             return redirect(url_for('login'))
     finally:
-        session.close()
+        my_session.close()
 
     return render_template('register.html')
 
@@ -399,7 +398,7 @@ def page_not_found(e):
 @app.route('/search')
 @login_required
 def search():
-    session = Session()
+    my_session = Session()
 
     query = request.args.get('q', '').lower().strip()
     results = []
@@ -423,7 +422,7 @@ def search():
 
 @app.route('/api/versions')
 def get_versions():
-    session = Session()
+    my_session = Session()
     try:
         transactions = session.query(TransactionTable).order_by(TransactionTable.id.asc()).all()
 
@@ -637,7 +636,7 @@ def safe_var_name(label):
 
 @app.context_processor
 def inject_sidebar_data():
-    session = Session()
+    my_session = Session()
 
     tables = [
             cls.__name__.lower()
@@ -651,7 +650,7 @@ def inject_sidebar_data():
     if is_authenticated:
         try:
             # User nochmal frisch aus DB laden mit Rollen eager
-            user = session.query(User).options(
+            user = my_session.query(User).options(
                     joinedload(User.roles)
                     ).filter(User.id == current_user.id).one_or_none()
 
@@ -660,14 +659,14 @@ def inject_sidebar_data():
             else:
                 print(f"User mit ID {current_user.id} nicht in DB gefunden")
         except DetachedInstanceError:
-            print("DetachedInstanceError: current_user is not bound to session")
+            print("DetachedInstanceError: current_user is not bound to my_session")
         except Exception as e:
             print(f"Unbekannter Fehler beim Laden des Users: {e}")
 
     theme_cookie = request.cookies.get('theme')
     theme = theme_cookie if theme_cookie in ['dark', 'light'] else 'light'
 
-    session.close()
+    my_session.close()
 
     return dict(
             tables=tables,

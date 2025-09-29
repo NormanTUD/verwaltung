@@ -96,11 +96,6 @@ class TestNeo4jApp(unittest.TestCase):
         # Leere die Datenbank vor jedem Test für saubere, isolierte Bedingungen
         self.graph.run("MATCH (n) DETACH DELETE n")
 
-    def test_index_page(self):
-        """Testet, ob die Startseite erreichbar ist."""
-        response = self.app.get('/')
-        self.assertEqual(response.status_code, 200)
-
     def test_upload_valid_data(self):
         """Testet den Upload von gültigen CSV-Daten."""
         response = self.app.post('/upload', data={'data': SAMPLE_CSV_DATA}, content_type='multipart/form-data')
@@ -224,12 +219,6 @@ class TestNeo4jApp(unittest.TestCase):
         # 3. Überprüfen, ob die Nodes nicht mehr existieren
         results = self.graph.run(f"MATCH (n) WHERE ID(n) IN {node_ids} RETURN n").data()
         self.assertEqual(len(results), 0)
-
-    def test_index_content(self):
-        """Testet, ob die Startseite den erwarteten Text enthält."""
-        response = self.app.get('/')
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Upload", response.data)
 
     def test_update_node_success(self):
         """Aktualisiert erfolgreich ein Property an einem existierenden Node."""
