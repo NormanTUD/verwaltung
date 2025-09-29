@@ -97,7 +97,6 @@ function makeRow(cols, row) {
 		tr.appendChild(makeCell(col, row, i, rowRelationsData));
 	});
 
-	tr.appendChild(makeRelationsCell(row, node_map));
 	tr.appendChild(makePlusCell());
 	tr.appendChild(makeDeleteCell(row));
 
@@ -111,11 +110,6 @@ function makeCell(col, row, i, rowRelationsData) {
 	return td;
 }
 
-function makeRelationsCell(row, node_map) {
-	var td = document.createElement('td');
-	td.innerHTML = format_relations_html(row.relations || [], node_map);
-	return td;
-}
 
 function makePlusCell() {
 	var td = document.createElement('td');

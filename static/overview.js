@@ -19,9 +19,6 @@ function make_thead_from_columns(cols) {
 		tr.appendChild(th);
 	}
 
-	var thR = document.createElement('th'); thR.textContent = 'Beziehungen';
-	tr.appendChild(thR);
-
 	var thPlus = document.createElement('th'); thPlus.textContent = '+';
 	tr.appendChild(thPlus);
 
@@ -57,18 +54,6 @@ function build_node_map_from_row(cols, cells) {
 		map[id].props[prop] = cell.value;
 	}
 	return map;
-}
-
-function format_relations_html(rels, node_map) {
-	if (!rels || !rels.length) return '';
-	var parts = [];
-	for (var i = 0; i < rels.length; ++i) {
-		var r = rels[i];
-		var from_label = node_label(String(r.fromId), node_map);
-		var to_label = node_label(String(r.toId), node_map);
-		parts.push(escape_html(r.relation) + ': ' + escape_html(from_label || r.fromId) + ' → ' + escape_html(to_label || r.toId));
-	}
-	return parts.join('<br>');
 }
 
 function node_label(id, node_map) {
