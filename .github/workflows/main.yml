@@ -14,24 +14,20 @@ jobs:
       contents: write
 
     steps:
-      # Checkout des Repos
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Docker installieren
       - name: Install Docker
         run: |
           sudo apt-get remove --purge man-db -y
           sudo apt-get update
           docker --version
 
-      # Docker Compose installieren
       - name: Install Docker Compose
         run: |
           sudo apt-get install -y docker-compose pkg-config
           docker-compose --version
 
-      # In Verzeichnis wechseln und bash-Script ausführen
       - name: Run tests
         run: |
           chmod +x run_docker
