@@ -16,9 +16,18 @@ function fetchData(updateUrl = true) {
 
 	// URL-Parameter bauen
 	var params = new URLSearchParams();
-	if (labels.length) params.set('nodes', labels.join(','));
-	if (relationships.length) params.set('relationships', relationships.join(','));
-	if (qbJson) params.set('qb', qbJson);
+
+	if (labels.length) {
+		params.set('nodes', labels.join(','));
+	}
+
+	if (relationships.length) {
+		params.set('relationships', relationships.join(','));
+	}
+
+	if (qbJson) {
+		params.set('qb', qbJson);
+	}
 
 	// URL aktualisieren
 	if (updateUrl) {
