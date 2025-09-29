@@ -663,15 +663,17 @@ def safe_var_name(label):
     # Ersetzt alle nicht-alphanumerischen Zeichen durch "_"
     return "".join(ch if ch.isalnum() else "_" for ch in label.lower())
 
+
 @app.context_processor
 def inject_sidebar_data():
     my_session = Session()
 
+    # Tabellen wie bisher
     tables = [
-            cls.__name__.lower()
-            for cls in Base.__subclasses__()
-            if hasattr(cls, '__tablename__') and cls.__tablename__ not in IGNORED_TABLES
-            ]
+        cls.__name__.lower()
+        for cls in Base.__subclasses__()
+        if hasattr(cls, '__tablename__') and cls.__tablename__ not in IGNORED_TABLES
+    ]
 
     is_authenticated = current_user.is_authenticated
     is_admin = False
@@ -680,8 +682,8 @@ def inject_sidebar_data():
         try:
             # User nochmal frisch aus DB laden mit Rollen eager
             user = my_session.query(User).options(
-                    joinedload(User.roles)
-                    ).filter(User.id == current_user.id).one_or_none()
+                joinedload(User.roles)
+            ).filter(User.id == current_user.id).one_or_none()
 
             if user is not None:
                 is_admin = any(role.name == 'admin' for role in user.roles)
@@ -692,18 +694,33 @@ def inject_sidebar_data():
         except Exception as e:
             print(f"Unbekannter Fehler beim Laden des Users: {e}")
 
+    # Theme
     theme_cookie = request.cookies.get('theme')
     theme = theme_cookie if theme_cookie in ['dark', 'light'] else 'light'
 
+    # Saved Queries einlesen
+    saved_queries = []
+    try:
+        json_path = os.path.join(os.path.dirname(__file__), 'saved_queries.json')
+        with open(json_path, 'r', encoding='utf-8') as f:
+            saved_queries = json.load(f)
+    except FileNotFoundError:
+        print("saved_queries.json nicht gefunden")
+    except json.JSONDecodeError as e:
+        print(f"Fehler beim Parsen von saved_queries.json: {e}")
+    except Exception as e:
+        print(f"Unbekannter Fehler beim Laden von saved_queries.json: {e}")
+
     my_session.close()
 
+    # Rückgabe für Templates
     return dict(
         tables=tables,
         is_authenticated=is_authenticated,
         is_admin=is_admin,
-        theme=theme
+        theme=theme,
+        saved_queries=saved_queries  # <-- hier injiziert
     )
-
 
 if __name__ == "__main__":
     with app.app_context():
