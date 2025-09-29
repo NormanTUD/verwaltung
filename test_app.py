@@ -3801,6 +3801,99 @@ class TestNeo4jApp(unittest.TestCase):
         """).data()
         self.assertTrue(len(rels2) > 0)
 
+    def test_get_data_as_table_orders_and_customers(self):
+        """Ensure orders are linked to customers with correct columns."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+
+        # Insert sample Kunde + Bestellung
+        self.graph.run("""
+            CREATE (k:Kunde {vorname:'Anna', nachname:'Müller', kundennummer:'1001',
+                            email:'anna.mueller@example.com', produkt:'Laptop'})
+            CREATE (b:Bestellung {bestellnr:'5001', datum:'2023-01-15',
+                                betrag:'1200', status:'bezahlt'})
+            CREATE (s:Shipment {versandnr:'9001', datum:'2023-01-16',
+                                versandart:'DHL', tracking:'DE123456'})
+            CREATE (c:Company {name:'Versand GmbH'})
+            CREATE (k)-[:HAT_GETÄTIGT]->(b)
+            CREATE (b)-[:BEINHALTET]->(s)
+            CREATE (c)-[:IST_VERANTWORTLICH_FÜR]->(k)
+        """)
+
+        with self.app as client:
+            resp = client.get(
+                '/api/get_data_as_table',
+                query_string={'nodes': 'Kunde,Bestellung,Shipment'}
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+
+            # Debug-Prints (für späteren Vergleich im stdout)
+            print("DEBUG JSON:", json.dumps(data, indent=2, ensure_ascii=False))
+
+            expected_cols = {
+                ('Bestellung', 'bestellnr'),
+                ('Bestellung', 'datum'),
+                ('Bestellung', 'betrag'),
+                ('Bestellung', 'status'),
+                ('Kunde', 'kundennummer'),
+                ('Kunde', 'email'),
+                ('Kunde', 'produkt'),
+            }
+            cols = {(c['nodeType'], c['property']) for c in data['columns']}
+            self.assertTrue(expected_cols.issubset(cols))
+
+            # At least one row should have matching values
+            rows = data['rows']
+            found = any(
+                any(cell.get('value') == '5001' for cell in row['cells'])
+                and any(cell.get('value') == '1001' for cell in row['cells'])
+                for row in rows
+            )
+            self.assertTrue(found)
+
+    def test_get_data_as_table_with_shipments(self):
+        """Check that shipments are included and linked correctly."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+
+        self.graph.run("""
+            CREATE (k:Kunde {vorname:'Bernd', nachname:'Schmidt', kundennummer:'1002',
+                            email:'bernd.schmidt@example.com', produkt:'Smartphone'})
+            CREATE (b:Bestellung {bestellnr:'5002', datum:'2023-02-03',
+                                betrag:'800', status:'offen'})
+            CREATE (s:Shipment {versandnr:'9002', datum:'2023-02-05',
+                                versandart:'Hermes', tracking:'HE654321'})
+            CREATE (k)-[:HAT_GETÄTIGT]->(b)
+            CREATE (b)-[:BEINHALTET]->(s)
+        """)
+
+        with self.app as client:
+            resp = client.get(
+                '/api/get_data_as_table',
+                query_string={'nodes': 'Kunde,Bestellung,Shipment'}
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+
+            print("DEBUG JSON:", json.dumps(data, indent=2, ensure_ascii=False))
+
+            expected_cols = {
+                ('Shipment', 'versandnr'),
+                ('Shipment', 'datum'),
+                ('Shipment', 'versandart'),
+                ('Shipment', 'tracking'),
+            }
+            cols = {(c['nodeType'], c['property']) for c in data['columns']}
+            self.assertTrue(expected_cols.issubset(cols))
+
+            # Must find Bernd’s Bestellung and Shipment
+            rows = data['rows']
+            found = any(
+                any(cell.get('value') == '5002' for cell in row['cells'])
+                and any(cell.get('value') == '9002' for cell in row['cells'])
+                for row in rows
+            )
+            self.assertTrue(found)
+
 if __name__ == '__main__':
     try:
         unittest.main()
