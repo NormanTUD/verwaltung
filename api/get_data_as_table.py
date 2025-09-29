@@ -113,38 +113,114 @@ def create_get_data_bp(graph):
         return buckets
 
     def assemble_table_rows(buckets, columns):
-        multi_labels = {"Bestellung", "Shipment"}  # nur diese Labels dürfen mehrere Rows erzeugen
+        """
+        Build rows from buckets.
+
+        Dynamic rules (no hardcoded label names):
+        - By default produce a single row per bucket (per main node),
+            picking for each label the node with minimal min_dist.
+        - If some label L in the bucket has multiple nodes AND those
+            L-nodes have distinct related nodes for other labels (i.e. each
+            Bestellung links to its own Shipment), then expand rows
+            by L (one row per L-node). To avoid explosion we choose
+            a single pivot label to expand (the one with the most nodes).
+        """
         rows = []
 
-        from itertools import product
-
         for bucket in buckets.values():
-            # baue Choices: Multi-Labels -> alle Kandidaten, sonst nur den besten
-            node_choices = []
-            for col in columns:
-                candidates = bucket.get("nodes", {}).get(col["nodeType"], {})
-                if not candidates:
-                    node_choices.append([(col, None, {"props": {}})])
-                    continue
+            nodes_by_label = bucket.get("nodes", {})  # label -> {nodeid: {props, min_dist}}
+            relations = bucket.get("relations", [])
 
-                if col["nodeType"] in multi_labels:
-                    options = [(col, nid, data) for nid, data in candidates.items()]
-                else:
-                    chosen = select_best_node(candidates, bucket.get("adjacent", set()))
-                    if chosen:
-                        nid, data = chosen
-                        options = [(col, nid, data)]
-                    else:
-                        options = [(col, None, {"props": {}})]
-                node_choices.append(options)
+            # detect labels that have >1 node
+            candidate_multi = {label for label, nodes in nodes_by_label.items() if len(nodes) > 1}
 
-            for combo in product(*node_choices):
+            # determine whether a candidate label should actually trigger an expansion:
+            # expansion is warranted if nodes of that label have differing mappings to nodes of other labels.
+            def build_relation_index():
+                # map from node id -> set of directly related node ids (from bucket['relations'])
+                rel_index = {}
+                for rel in relations:
+                    a, b = rel.get("fromId"), rel.get("toId")
+                    if a is not None:
+                        rel_index.setdefault(a, set()).add(b)
+                    if b is not None:
+                        rel_index.setdefault(b, set()).add(a)
+                return rel_index
+
+            rel_index = build_relation_index()
+
+            def related_nodes_of_type(node_id, target_label):
+                """Return set of node ids of `target_label` that are related to node_id (and exist in bucket)."""
+                related = rel_index.get(node_id, set())
+                # intersect with nodes_by_label[target_label] keys
+                targets = nodes_by_label.get(target_label, {})
+                return set(nid for nid in related if nid in targets)
+
+            expansion_candidates = set()
+            for L in candidate_multi:
+                # for label L, check whether L-nodes have distinct relations to any other label
+                L_node_ids = list(nodes_by_label[L].keys())
+                for other_label in nodes_by_label.keys():
+                    if other_label == L:
+                        continue
+                    # build mapping Lnode -> set of related other_label nodes
+                    mapping = [frozenset(related_nodes_of_type(nid, other_label)) for nid in L_node_ids]
+                    # if mapping differs across L nodes and at least one mapping is non-empty, expand
+                    if any(m for m in mapping) and (len(set(mapping)) > 1):
+                        expansion_candidates.add(L)
+                        break  # no need to check other labels for this L
+
+            if expansion_candidates:
+                # pick a single pivot to expand by (the label with the most nodes) to keep things bounded
+                pivot_label = max(expansion_candidates, key=lambda l: len(nodes_by_label.get(l, {})))
+                pivot_items = list(nodes_by_label.get(pivot_label, {}).items())  # [(nodeid, data), ...]
+
+                # for each pivot node, create one row and try to attach related nodes for other labels
+                for pivot_node_id, pivot_node_data in pivot_items:
+                    cells = []
+                    for col in columns:
+                        label = col["nodeType"]
+                        prop = col["property"]
+                        node_map = nodes_by_label.get(label, {})
+
+                        if not node_map:
+                            cells.append({"value": None, "nodeId": None, "nodeType": label})
+                            continue
+
+                        if label == pivot_label:
+                            # use the pivot node
+                            node_id = pivot_node_id
+                            node_data = pivot_node_data
+                        else:
+                            # first try to find nodes of this label directly related to the pivot node
+                            related = related_nodes_of_type(pivot_node_id, label)
+                            if related:
+                                # if multiple related, choose the one with minimal min_dist
+                                best_id = min(related, key=lambda nid: node_map[nid].get("min_dist", 1e9))
+                                node_id = best_id
+                                node_data = node_map[node_id]
+                            else:
+                                # fallback: choose the best node by min_dist (conservative)
+                                node_id, node_data = min(node_map.items(), key=lambda x: x[1].get("min_dist", 1e9))
+
+                        value = node_data.get("props", {}).get(prop) if prop is not None else None
+                        cells.append({"value": value, "nodeId": node_id, "nodeType": label})
+
+                    rows.append({"cells": cells, "relations": relations})
+            else:
+                # no expansion needed: single row per bucket, pick best node per label by min_dist
                 cells = []
-                for col, nid, data in combo:
-                    props = data.get("props", {}) if data else {}
-                    value = props.get(col["property"]) if col["property"] else None
-                    cells.append({"value": value, "nodeId": nid})
-                rows.append({"cells": cells, "relations": bucket.get("relations", [])})
+                for col in columns:
+                    label = col["nodeType"]
+                    prop = col["property"]
+                    node_map = nodes_by_label.get(label, {})
+                    if not node_map:
+                        cells.append({"value": None, "nodeId": None, "nodeType": label})
+                        continue
+                    node_id, node_data = min(node_map.items(), key=lambda x: x[1].get("min_dist", 1e9))
+                    value = node_data.get("props", {}).get(prop) if prop is not None else None
+                    cells.append({"value": value, "nodeId": node_id, "nodeType": label})
+                rows.append({"cells": cells, "relations": relations})
 
         return rows
 

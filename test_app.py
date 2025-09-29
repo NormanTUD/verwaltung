@@ -3933,6 +3933,74 @@ class TestNeo4jApp(unittest.TestCase):
             )
             self.assertTrue(found)
 
+
+    def test_get_data_as_table_multiple_orders_for_one_customer(self):
+        """Customer with multiple orders and shipments should produce multiple rows, not merged silently."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+
+        self.graph.run("""
+            CREATE (k:Kunde {kundennummer:'2002', email:'otto@example.com', produkt:'PC'})
+            CREATE (b1:Bestellung {bestellnr:'6002', datum:'2023-04-01', betrag:'1000', status:'offen'})
+            CREATE (s1:Shipment {versandnr:'9102', datum:'2023-04-02', versandart:'DHL', tracking:'D111'})
+            CREATE (b2:Bestellung {bestellnr:'6003', datum:'2023-04-05', betrag:'700', status:'bezahlt'})
+            CREATE (s2:Shipment {versandnr:'9103', datum:'2023-04-06', versandart:'Hermes', tracking:'H222'})
+            CREATE (k)-[:HAT_GETÄTIGT]->(b1)
+            CREATE (b1)-[:BEINHALTET]->(s1)
+            CREATE (k)-[:HAT_GETÄTIGT]->(b2)
+            CREATE (b2)-[:BEINHALTET]->(s2)
+        """)
+
+        with self.app as client:
+            resp = client.get(
+                '/api/get_data_as_table',
+                query_string={'nodes': 'Kunde,Bestellung,Shipment'}
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            print("DEBUG JSON MULTIPLE ORDERS:", json.dumps(data, indent=2, ensure_ascii=False))
+
+            rows = data['rows']
+            # Expect at least 2 rows for the same Kunde with different Bestellungen
+            bestellnrs = [cell.get('value') for row in rows for cell in row['cells'] if cell.get('nodeType') == 'Bestellung']
+            self.assertIn('6002', bestellnrs)
+            self.assertIn('6003', bestellnrs)
+
+
+    def test_get_data_as_table_with_cycle_customer_mayor(self):
+        """Cyclic relation: Kunde wohnt in Stadt, Stadt hat Bürgermeister (Person), Bürgermeister ist auch Kunde."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+
+        self.graph.run("""
+            CREATE (k:Kunde {kundennummer:'2003', email:'eva@example.com', produkt:'Kamera'})
+            CREATE (st:Stadt {name:'Hamburg'})
+            CREATE (m:Person {vorname:'Max', nachname:'Mayer', person_id:'P2'})
+            CREATE (mk:Kunde {kundennummer:'2004', email:'max@example.com', produkt:'Router'})
+            CREATE (k)-[:WOHNT_IN]->(st)
+            CREATE (st)-[:HAT_BÜRGERMEISTER]->(m)
+            CREATE (m)-[:IST_AUCH]->(mk)
+        """)
+
+        with self.app as client:
+            resp = client.get(
+                '/api/get_data_as_table',
+                query_string={'nodes': 'Kunde,Person,Stadt'}
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            print("DEBUG JSON CYCLE:", json.dumps(data, indent=2, ensure_ascii=False))
+
+            cols = {(c['nodeType'], c['property']) for c in data['columns']}
+            self.assertIn(('Stadt', 'name'), cols)
+
+            rows = data['rows']
+            # Eva und Hamburg müssen erscheinen, Max eventuell auch
+            found = any(
+                any(cell.get('value') == 'eva@example.com' for cell in row['cells'])
+                and any(cell.get('value') == 'Hamburg' for cell in row['cells'])
+                for row in rows
+            )
+            self.assertTrue(found)
+
 if __name__ == '__main__':
     try:
         unittest.main()
