@@ -73,19 +73,19 @@ function addEnterKeyListener() {
 
 function restoreQueryBuilderFromUrl() {
 	var params = new URLSearchParams(window.location.search);
-	var qbJson = params.get('qb');
-	if (!qbJson) {
-		log("qbJson falsy (jqueryquerybuilder.js)");
-		log(qbJson)
+	var qb = params.get('qb');
+	if (!qb) {
+		log("qbfalsy (jqueryquerybuilder.js)");
+		log(qb)
 		return;
 	}
 
 	try {
-		var rules = JSON.parse(qbJson);
-		var qb = $('#querybuilder');
-		if (qb.length && qb.queryBuilder) {
+		var rules = JSON.parse(qb);
+		var queryBuilder = $('#querybuilder');
+		if (queryBuilder.length && queryBuilder.queryBuilder) {
 			try {
-				qb.queryBuilder('setRules', rules);
+				queryBuilder.queryBuilder('setRules', rules);
 
 				fetchData();
 			} catch (e) {
@@ -100,9 +100,9 @@ function restoreQueryBuilderFromUrl() {
 
 function getQueryBuilderRules() {
 	try {
-		var qb = $('#querybuilder');
-		if (qb.length && qb.queryBuilder) {
-			var rules = qb.queryBuilder('getRules');
+		var queryBuilder = $('#querybuilder');
+		if (queryBuilder.length && queryBuilder.queryBuilder) {
+			var rules = queryBuilder.queryBuilder('getRules');
 			if (!rules || !rules.rules || rules.rules.length === 0) return null;
 			return rules;
 		}
@@ -114,11 +114,15 @@ function getQueryBuilderRules() {
 
 function restoreQueryBuilderFromRules(rules) {
 	if (!rules) return;
-	var qb = $('#querybuilder');
-	if (!qb.length || !qb.queryBuilder) return;
+	var queryBuilder = $('#querybuilder');
+	if (!queryBuilder.length || !queryBuilder.queryBuilder) {
+		log("queryBuilder is empty")
+		return;
+	}
 
 	try {
-		qb.queryBuilder('setRules', rules);
+		log("trying to set rules:", rules)
+		queryBuilder.queryBuilder('setRules', rules);
 	} catch (e) {
 		console.warn('Fehler beim Wiederherstellen der QueryBuilder-Regeln', e);
 	}
