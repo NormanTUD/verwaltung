@@ -79,8 +79,6 @@ function restoreQueryBuilderFromUrl() {
 	var params = new URLSearchParams(window.location.search);
 	var qb = params.get('qb');
 	if (!qb) {
-		log("qbfalsy (jqueryquerybuilder.js)");
-		log(qb)
 		return;
 	}
 
