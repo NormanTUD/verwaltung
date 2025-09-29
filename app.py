@@ -612,12 +612,24 @@ def create_relationship(from_node_type, to_node_type, rel_type, nodes_created):
         #print(f"  ❌ Beziehung konnte nicht erstellt werden, Knoten fehlen: '{from_node_type}' (vorhanden: {from_node_type in nodes_created}), '{to_node_type}' (vorhanden: {to_node_type in nodes_created}).")
 
 def get_all_nodes_and_relationships():
-    """Holt alle Node-Typen und Relationship-Typen aus der Datenbank."""
-    node_labels = graph.run("CALL db.labels()").data()
-    relationship_types = graph.run("CALL db.relationshipTypes()").data()
+    """Holt alle aktuell vorhandenen Node-Typen und Relationship-Typen aus der Datenbank."""
+    try:
+        node_labels = graph.run("MATCH (n) RETURN DISTINCT labels(n) AS labels").data()
+        relationship_types = graph.run("MATCH ()-[r]->() RETURN DISTINCT type(r) AS relType").data()
+    except Exception as e:
+        raise RuntimeError(f"Fehler beim Abfragen der Datenbank: {e}")
+
+    # Labels kann eine Liste enthalten, also flachziehen
+    labels = set()
+    for entry in node_labels:
+        for label in entry["labels"]:
+            labels.add(label)
+
+    rel_types = [entry["relType"] for entry in relationship_types if "relType" in entry]
+
     return {
-        "labels": [label['label'] for label in node_labels],
-        "types": [rel['relationshipType'] for rel in relationship_types]
+        "labels": sorted(labels),
+        "types": sorted(rel_types)
     }
 
 @app.route('/overview')
@@ -625,9 +637,26 @@ def overview():
     """Zeigt die Übersichtsseite mit allen Node-Typen an."""
     if not graph:
         # Fehler-Meldung ins Template geben
-        return render_template('overview.html', db_info=None, error="Datenbank nicht verbunden."), 500
+        return render_template(
+            'overview.html',
+            db_info=None,
+            error="Datenbank nicht verbunden."
+        ), 500
 
     db_info = get_all_nodes_and_relationships()
+
+    # Prüfen, ob db_info leer oder nur leere Listen hat
+    if not db_info or (
+        isinstance(db_info, dict)
+        and not db_info.get("labels")
+        and not db_info.get("types")
+    ):
+        return render_template(
+            'overview.html',
+            db_info=None,
+            error="Keine Daten gefunden."
+        ), 200
+
     return render_template('overview.html', db_info=db_info, error=None)
 
 def safe_var_name(label):
