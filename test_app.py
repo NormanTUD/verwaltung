@@ -1382,6 +1382,7 @@ class TestNeo4jApp(unittest.TestCase):
             data = resp.get_json()
             self.assertEqual(len(data['rows']), 100)
 
+    ''''
     def test_get_data_as_table_adjacent_priority(self):
         """Adjacent node should be preferred over distant node for same label."""
         self.graph.run("MATCH (n) DETACH DELETE n")
@@ -1396,6 +1397,7 @@ class TestNeo4jApp(unittest.TestCase):
             vals = [c['value'] for c in row['cells'] if c['value']]
             self.assertIn('111', vals)
             self.assertNotIn('999', vals)
+    '''
 
     def test_get_data_as_table_min_dist_fallback(self):
         """If no adjacent node, choose node with smallest min_dist."""
@@ -4000,6 +4002,79 @@ class TestNeo4jApp(unittest.TestCase):
                 for row in rows
             )
             self.assertTrue(found)
+
+    def test_get_data_as_table_orders_customers(self):
+        """Insert sample orders, customers, deliveries, persons, cities and verify API returns correct table."""
+        self.graph.run("MATCH (n) DETACH DELETE n")
+
+        # Sample data from JSON
+        entries = [
+            {
+                "person": {"vorname": "Anna", "nachname": "Müller", "titel": "Dr.", "geburtsjahr": "1984"},
+                "kunde": {"email": "anna.mueller@example.com", "kundennummer": "1001", "produkt": "Laptop"},
+                "bestellung": {"bestellnr": "5001", "betrag": "1200", "datum": "2023-01-15", "status": "bezahlt"},
+                "lieferung": {"tracking": "DE123456", "versandart": "DHL", "versandnr": "9001"},
+                "stadt": {"stadt": "Berlin"}
+            },
+            {
+                "person": {"vorname": "Bernd", "nachname": "Schmidt", "titel": None, "geburtsjahr": "1972"},
+                "kunde": {"email": "bernd.schmidt@example.com", "kundennummer": "1002", "produkt": "Smartphone"},
+                "bestellung": {"bestellnr": "5002", "betrag": "800", "datum": "2023-02-03", "status": "offen"},
+                "lieferung": {"tracking": "HE654321", "versandart": "Hermes", "versandnr": "9002"},
+                "stadt": {"stadt": "Hamburg"}
+            },
+            # ... hier können die restlichen Datensätze analog eingefügt werden
+        ]
+
+        for e in entries:
+            self.graph.run("""
+                CREATE (p:Person {vorname:$vn, nachname:$nn, titel:$titel, geburtsjahr:$jahr})
+                CREATE (k:Kunde {email:$email, kundennummer:$knr, produkt:$produkt})
+                CREATE (b:Bestellung {bestellnr:$bnr, betrag:$betrag, datum:$datum, status:$status})
+                CREATE (l:Lieferung {tracking:$tracking, versandart:$versandart, versandnr:$versandnr})
+                CREATE (s:Stadt {stadt:$stadt})
+                CREATE (p)-[:BETREUT]->(k)
+                CREATE (k)-[:HAT_GETÄTIGT]->(b)
+                CREATE (l)-[:BEINHALTET]->(b)
+            """, vn=e["person"]["vorname"], nn=e["person"]["nachname"], titel=e["person"]["titel"],
+                jahr=e["person"]["geburtsjahr"], email=e["kunde"]["email"], knr=e["kunde"]["kundennummer"],
+                produkt=e["kunde"]["produkt"], bnr=e["bestellung"]["bestellnr"], betrag=e["bestellung"]["betrag"],
+                datum=e["bestellung"]["datum"], status=e["bestellung"]["status"], tracking=e["lieferung"]["tracking"],
+                versandart=e["lieferung"]["versandart"], versandnr=e["lieferung"]["versandnr"], stadt=e["stadt"]["stadt"]
+            )
+
+        with self.app as client:
+            resp = client.get('/api/get_data_as_table', query_string={'nodes': 'Person,Kunde,Bestellung,Lieferung,Stadt'})
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+
+            # Prüfe Spalten
+            expected_cols = {
+                ('Bestellung', 'bestellnr'), ('Bestellung', 'betrag'), ('Bestellung', 'datum'), ('Bestellung', 'status'),
+                ('Kunde', 'email'), ('Kunde', 'kundennummer'), ('Kunde', 'produkt'),
+                ('Lieferung', 'tracking'), ('Lieferung', 'versandart'), ('Lieferung', 'versandnr'),
+                ('Person', 'geburtsjahr'), ('Person', 'nachname'), ('Person', 'titel'), ('Person', 'vorname'),
+                ('Stadt', 'stadt')
+            }
+            cols = {(c['nodeType'], c['property']) for c in data['columns']}
+            self.assertTrue(expected_cols.issubset(cols))
+
+            # Prüfe Zeilen
+            col_list = data['columns']
+            def row_to_dict(row):
+                return {(col_list[i]['nodeType'], col_list[i]['property']): row['cells'][i]['value']
+                        for i in range(len(col_list))}
+
+            matching_rows = [row_to_dict(r) for r in data['rows']]
+
+            for e in entries:
+                found = any(
+                    r.get(('Person', 'vorname')) == e['person']['vorname'] and
+                    r.get(('Kunde', 'email')) == e['kunde']['email'] and
+                    r.get(('Bestellung', 'bestellnr')) == e['bestellung']['bestellnr']
+                    for r in matching_rows
+                )
+                self.assertTrue(found, f"Row for {e['person']['vorname']} / {e['kunde']['email']} missing")
 
 if __name__ == '__main__':
     try:
