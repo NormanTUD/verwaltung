@@ -10,3 +10,4 @@ database.db
 flaskenv
 .verwaltung_venv/
 venv
+saved_queries.json
