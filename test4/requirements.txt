@@ -1,2 +1,0 @@
-flask
-neo4j
