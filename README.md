@@ -17,3 +17,7 @@ Install in venv:
 `mod_wsgi`
 
 `/etc/db_engine`: `mysql+pymysql://user:pw@localhost/oasis?charset=utf8mb4`
+
+## Secret key file
+
+`/etc/oasis/secret_key`
