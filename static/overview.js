@@ -260,6 +260,7 @@ function addColumnToNode(event) {
 	overlay.style.alignItems = 'center';
 	overlay.style.justifyContent = 'center';
 	overlay.style.zIndex = 1000;
+	overlay.style.color = 'black';
 
 	// Modal-Inhalt
 	const modal = document.createElement('div');
