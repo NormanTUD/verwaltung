@@ -1,4 +1,4 @@
-name: Run Neo4j Tests
+name: Run Tests
 
 # Läuft bei jedem Push auf jedem Branch
 on:
@@ -32,8 +32,7 @@ jobs:
           docker-compose --version
 
       # In Verzeichnis wechseln und bash-Script ausführen
-      - name: Run Neo4j tests
-        working-directory: neo4j
+      - name: Run tests
         run: |
           chmod +x run_docker
           ./run_docker 1123 run_tests
