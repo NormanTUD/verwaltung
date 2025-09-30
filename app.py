@@ -420,44 +420,23 @@ def search():
 
     return jsonify(results)
 
-@app.route('/api/versions')
-def get_versions():
-    my_session = Session()
-    try:
-        transactions = session.query(TransactionTable).order_by(TransactionTable.id.asc()).all()
-
-        versions = []
-        for t in transactions:
-            timestamp_iso = None
-            if hasattr(t, "issued_at") and isinstance(t.issued_at, datetime):
-                timestamp_iso = t.issued_at.isoformat()
-
-            versions.append({
-                "id": t.id,
-                "timestamp": timestamp_iso
-            })
-
-        return jsonify(versions)
-    except SQLAlchemyError as e:
-        app.logger.error("Error fetching versions: %s", e)
-        return jsonify([]), 500
-    finally:
-        session.close()
-
 @app.route('/')
 @login_required
 def index():
     return render_template("index.html", user=current_user)
 
 @app.route('/import')
+@login_required
 def _import():
     return render_template('import.html')
 
 @app.route('/graph')
+@login_required
 def show_graph():
     return render_template('graph.html')
 
 @app.route('/upload', methods=['POST'])
+@login_required
 def upload_data():
     """Verarbeitet den CSV/TSV-Upload und zeigt die Header für die Zuordnung an."""
     if 'data' not in request.form:
@@ -481,6 +460,7 @@ def upload_data():
         return f"Fehler beim Parsen der Daten: {e}", 400
 
 @app.route('/get_rel_types', methods=['GET'])
+@login_required
 def get_rel_types():
     """Gibt eine Liste aller existierenden Relationship-Typen in der DB zurück."""
     try:
@@ -494,6 +474,7 @@ def get_rel_types():
         return jsonify([]), 500
 
 @app.route('/save_mapping', methods=['POST'])
+@login_required
 def save_mapping():
     """Hauptfunktion: speichert die zugeordneten Daten in Neo4j."""
     mapping_data = request.get_json()
@@ -633,6 +614,7 @@ def get_all_nodes_and_relationships():
     }
 
 @app.route('/overview')
+@login_required
 def overview():
     """Zeigt die Übersichtsseite mit allen Node-Typen an."""
     if not graph:
