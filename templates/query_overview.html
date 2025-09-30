@@ -32,7 +32,7 @@
     <script>
         async function loadQueries() {
             try {
-                const res = await fetch('/get_saved_queries');
+                const res = await fetch('/api/get_saved_queries');
                 const queries = await res.json();
                 const tbody = document.getElementById('queryTableBody');
                 tbody.innerHTML = '';
