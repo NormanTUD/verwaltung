@@ -11,7 +11,9 @@
             <thead>
                 <tr>
                     <th>Name</th>
-                    <th>URL</th>
+                    <th>Nodes</th>
+                    <th>Relationships</th>
+                    <th>Bedingungen</th>
                     <th>Aktionen</th>
                 </tr>
             </thead>
@@ -30,23 +32,47 @@
     </style>
 
     <script>
+        function parseQueryUrl(url) {
+            try {
+                const u = new URL(url, window.location.origin);
+                const params = u.searchParams;
+                const nodes = params.get('nodes') ? decodeURIComponent(params.get('nodes')).split(',') : [];
+                const relationships = params.get('relationships') ? decodeURIComponent(params.get('relationships')).split(',') : [];
+                const qb = params.get('qb') ? JSON.parse(decodeURIComponent(params.get('qb'))) : {};
+                return { nodes, relationships, qb };
+            } catch {
+                return { nodes: [], relationships: [], qb: {} };
+            }
+        }
+
         async function loadQueries() {
             try {
                 const res = await fetch('/api/get_saved_queries');
                 const queries = await res.json();
                 const tbody = document.getElementById('queryTableBody');
                 tbody.innerHTML = '';
+
                 queries.forEach(q => {
+                    const { nodes, relationships, qb } = parseQueryUrl(q.url);
+
                     const tr = document.createElement('tr');
-                    tr.dataset.name = q.name;
 
                     const nameTd = document.createElement('td');
                     nameTd.textContent = q.name;
                     tr.appendChild(nameTd);
 
-                    const urlTd = document.createElement('td');
-                    urlTd.textContent = q.url;
-                    tr.appendChild(urlTd);
+                    const nodesTd = document.createElement('td');
+                    nodesTd.textContent = nodes.join(', ');
+                    tr.appendChild(nodesTd);
+
+                    const relTd = document.createElement('td');
+                    relTd.textContent = relationships.join(', ');
+                    tr.appendChild(relTd);
+
+                    const condTd = document.createElement('td');
+                    condTd.textContent = qb.rules ? qb.rules.map(r => `${r.field} ${r.operator} ${r.value}`).join('; ') : '';
+                    condTd.title = JSON.stringify(qb, null, 2); // Tooltip mit vollständigem JSON
+                    tr.appendChild(condTd);
 
                     const actionsTd = document.createElement('td');
                     const renameBtn = document.createElement('button');
@@ -68,6 +94,7 @@
                 alert('Fehler beim Laden der Queries: ' + err);
             }
         }
+
 
         async function deleteQuery(name) {
             if (!confirm(`Willst du die Abfrage "${name}" wirklich löschen?`)) return;
