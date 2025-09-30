@@ -708,6 +708,14 @@ def inject_sidebar_data():
         saved_queries=saved_queries  # <-- hier injiziert
     )
 
+@app.route('/query_overview')
+@conditional_login_required
+def query_overview_page():
+    """
+    Zeigt die Hauptseite der Query-Übersicht an.
+    """
+    return render_template("query_overview.html")
+
 if __name__ == "__main__":
     with app.app_context():
         db.init_app(app)
