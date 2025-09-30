@@ -1,9 +1,11 @@
 from flask import Blueprint, jsonify
+from oasis_helper import conditional_login_required
 
 def create_graph_data_bp(graph):
     bp = Blueprint("graph_data", __name__)
 
     @bp.route('/graph-data')
+    @conditional_login_required
     def get_graph_data():
         if graph is None:
             return jsonify({"error": "Neo4j connection not available"}), 500

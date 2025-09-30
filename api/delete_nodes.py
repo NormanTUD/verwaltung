@@ -1,9 +1,11 @@
 from flask import Blueprint, request, jsonify
+from oasis_helper import conditional_login_required
 
 def create_delete_nodes_bp(graph):
     bp = Blueprint("delete_nodes", __name__)
 
     @bp.route('/delete_nodes', methods=['DELETE'])
+    @conditional_login_required
     def delete_nodes():
         """Löscht mehrere Nodes und ihre Beziehungen aus der Datenbank."""
         if not graph:

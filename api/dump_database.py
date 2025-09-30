@@ -1,9 +1,11 @@
 from flask import Blueprint, jsonify
+from oasis_helper import conditional_login_required
 
 def create_dump_database_bp(graph):
     bp = Blueprint("dump_database", __name__)
 
     @bp.route("/dump_database")
+    @conditional_login_required
     def api_dump_database():
         try:
             query_nodes = """

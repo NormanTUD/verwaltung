@@ -1,5 +1,6 @@
 import json
 from flask import Blueprint, request, jsonify
+from oasis_helper import conditional_login_required
 
 def create_get_data_bp(graph):
     bp = Blueprint("get_data_bp", __name__)
@@ -83,6 +84,7 @@ def create_get_data_bp(graph):
     graph_api = GraphAPI(graph)
 
     @bp.route("/get_data_as_table", methods=["GET"])
+    @conditional_login_required
     def get_data_as_table():
         try:
             params = parse_request_params(request)

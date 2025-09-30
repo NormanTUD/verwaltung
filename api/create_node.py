@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from oasis_helper import conditional_login_required
 
 def create_create_node_bp(graph):
     bp = Blueprint("create_node", __name__)
@@ -70,6 +71,7 @@ def create_create_node_bp(graph):
                 graph.run(query_rel, from_id=existing_node_id, to_id=new_node_id)
 
     @bp.route('/create_node', methods=['POST'])
+    @conditional_login_required
     def api_create_node():
         try:
             data = request.get_json(silent=True)

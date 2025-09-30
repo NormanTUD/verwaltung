@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify
+from oasis_helper import conditional_login_required
 
 def create_relationships_bp(graph):
     bp = Blueprint("relationships_bp", __name__)
@@ -32,6 +33,7 @@ def create_relationships_bp(graph):
     graph_api = GraphAPI(graph)
 
     @bp.route("/relationships", methods=["GET"])
+    @conditional_login_required
     def get_relationships():
         try:
             rels = graph_api.fetch_relationships()

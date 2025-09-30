@@ -2,6 +2,7 @@ import logging
 import random
 from flask import Blueprint, jsonify
 from faker import Faker
+from oasis_helper import conditional_login_required
 
 fake = Faker()
 
@@ -34,6 +35,7 @@ def create_complex_data_bp(graph):
         graph.run(query, **params)
 
     @bp.route('/reset_and_load_complex_data')
+    @conditional_login_required
     def api_reset_and_load_complex_data():
         try:
             fn_clear_database()

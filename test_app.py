@@ -91,6 +91,8 @@ class TestNeo4jApp(unittest.TestCase):
         self.app = app.test_client()
         self.app.testing = True
 
+        app.config["DISABLE_LOGIN"] = True
+
         self.graph = self.__class__.graph
 
         # Leere die Datenbank vor jedem Test für saubere, isolierte Bedingungen

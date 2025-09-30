@@ -3,6 +3,17 @@ import os
 import sys
 import secrets
 from py2neo import Graph
+from flask import current_app
+from flask_login import login_required
+from functools import wraps
+
+def conditional_login_required(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if current_app.config.get("DISABLE_LOGIN", False):
+            return func(*args, **kwargs)
+        return login_required(func)(*args, **kwargs)
+    return wrapper
 
 def load_or_generate_secret_key():
     path = "/etc/oasis/secret_key"

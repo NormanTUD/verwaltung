@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request
+from oasis_helper import conditional_login_required
 
 def create_properties_bp(graph):
     bp = Blueprint("properties_bp", __name__)
@@ -52,6 +53,7 @@ def create_properties_bp(graph):
     graph_api = GraphAPI(graph)
 
     @bp.route("/properties", methods=["GET"])
+    @conditional_login_required
     def get_properties():
         try:
             label = request.args.get("label")

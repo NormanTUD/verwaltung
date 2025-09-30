@@ -1,9 +1,11 @@
 from flask import Blueprint, request, jsonify
+from oasis_helper import conditional_login_required
 
 def create_add_relationship_bp(graph):
     bp = Blueprint("add_relationship", __name__)
 
     @bp.route('/add_relationship', methods=['POST'])
+    @conditional_login_required
     def add_relationship():
         """
         Fügt eine Relationship zwischen zwei Nodes hinzu.

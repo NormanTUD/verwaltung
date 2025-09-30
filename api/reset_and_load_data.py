@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify
+from oasis_helper import conditional_login_required
 
 def create_reset_and_load_data_bp(graph):
     bp = Blueprint("reset_and_load_data", __name__)
@@ -62,6 +63,7 @@ def create_reset_and_load_data_bp(graph):
         graph.run(query, vorname=person_vorname, nachname=person_nachname, title=book_title)
 
     @bp.route('/reset_and_load_data')
+    @conditional_login_required
     def api_reset_and_load_data():
         try:
 

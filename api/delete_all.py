@@ -1,10 +1,12 @@
 from flask import Blueprint, jsonify
+from oasis_helper import conditional_login_required
 
 def create_delete_all_bp(graph):
     bp = Blueprint("delete_all", __name__)
 
     # TODO!!! DELETE AGAIN!!!
     @bp.route('/delete_all')
+    @conditional_login_required
     def delete_all():
         """
         Löscht alle Nodes und Relationships in der Datenbank.

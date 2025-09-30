@@ -1,9 +1,11 @@
 from flask import Blueprint, request, jsonify
+from oasis_helper import conditional_login_required
 
 def create_add_row_bp(graph):
     bp = Blueprint("add_row", __name__)
 
     @bp.route('/add_row', methods=['POST'])
+    @conditional_login_required
     def add_row():
         """
         Erstellt einen neuen Node eines gegebenen Labels mit Properties.

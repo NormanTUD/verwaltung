@@ -1,9 +1,11 @@
 from flask import Blueprint, request, jsonify
+from oasis_helper import conditional_login_required
 
 def create_add_property_to_nodes_bp(graph):
     bp = Blueprint("add_property_to_nodes", __name__)
 
     @bp.route("/add_property_to_nodes", methods=["POST"])
+    @conditional_login_required
     def add_property_to_nodes():
         if not graph:
             return jsonify({"error": "No database connection"}), 500

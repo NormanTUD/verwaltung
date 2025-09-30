@@ -1,6 +1,7 @@
 import json
 import os
 from flask import Blueprint, request, jsonify
+from oasis_helper import conditional_login_required
 
 SAVED_QUERIES_FILE = 'saved_queries.json'
 
@@ -26,6 +27,7 @@ def create_save_queries():
             json.dump(queries, f, indent=4, ensure_ascii=False)
 
     @bp.route('/save_query', methods=['POST'])
+    @conditional_login_required
     def save_query():
         try:
             data = request.json
@@ -47,6 +49,7 @@ def create_save_queries():
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @bp.route('/get_saved_queries')
+    @conditional_login_required
     def get_saved_queries():
         """Gibt alle gespeicherten Abfragen zurück."""
         try:
@@ -56,6 +59,7 @@ def create_save_queries():
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @bp.route('/get_query_by_name', methods=['GET'])
+    @conditional_login_required
     def get_query_by_name():
         name = request.args.get('name')
         if not name:

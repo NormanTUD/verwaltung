@@ -1,9 +1,11 @@
 from flask import Blueprint, request, jsonify
+from oasis_helper import conditional_login_required
 
 def create_update_node_bp(graph):
     bp = Blueprint("update_node", __name__)
 
     @bp.route('/update_node/<int:node_id>', methods=['PUT'])
+    @conditional_login_required
     def update_node(node_id):
         data = request.get_json()
         property_name = data.get('property')

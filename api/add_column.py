@@ -1,9 +1,11 @@
 from flask import Blueprint, request, jsonify
+from oasis_helper import conditional_login_required
 
 def create_add_column_bp(graph):
     bp = Blueprint("add_column", __name__)
 
     @bp.route('/add_column', methods=['POST'])
+    @conditional_login_required
     def add_column():
         """Fügt allen Nodes eines bestimmten Labels eine neue Property hinzu (Standardwert = "")."""
         data = request.get_json(silent=True)
