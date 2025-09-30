@@ -1,0 +1,114 @@
+{% extends "layout.html" %}
+
+{% block title %}Abfragen Übersicht{% endblock %}
+
+{% block content %}
+    <h1>Gespeicherte Abfragen</h1>
+    <p>Hier kannst du gespeicherte Abfragen ansehen, umbenennen oder löschen.</p>
+
+    <div id="queryListContainer">
+        <table id="queryTable" border="1" cellspacing="0" cellpadding="5">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>URL</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody id="queryTableBody"></tbody>
+        </table>
+    </div>
+
+    <style>
+        table { border-collapse: collapse; width: 100%; margin-top: 15px; }
+        th, td { padding: 8px 12px; }
+        th { background-color: #f0f0f0; text-align: left; }
+        .action-button { margin-right: 5px; cursor: pointer; padding: 4px 8px; border-radius: 4px; border: none; }
+        .rename-btn { background-color: #ffc107; color: #000; }
+        .delete-btn { background-color: #dc3545; color: white; }
+        .rename-input { width: 150px; }
+    </style>
+
+    <script>
+        async function loadQueries() {
+            try {
+                const res = await fetch('/get_saved_queries');
+                const queries = await res.json();
+                const tbody = document.getElementById('queryTableBody');
+                tbody.innerHTML = '';
+                queries.forEach(q => {
+                    const tr = document.createElement('tr');
+                    tr.dataset.name = q.name;
+
+                    const nameTd = document.createElement('td');
+                    nameTd.textContent = q.name;
+                    tr.appendChild(nameTd);
+
+                    const urlTd = document.createElement('td');
+                    urlTd.textContent = q.url;
+                    tr.appendChild(urlTd);
+
+                    const actionsTd = document.createElement('td');
+                    const renameBtn = document.createElement('button');
+                    renameBtn.textContent = 'Umbenennen';
+                    renameBtn.className = 'action-button rename-btn';
+                    renameBtn.onclick = () => renameQuery(q.name);
+                    actionsTd.appendChild(renameBtn);
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.textContent = 'Löschen';
+                    deleteBtn.className = 'action-button delete-btn';
+                    deleteBtn.onclick = () => deleteQuery(q.name);
+                    actionsTd.appendChild(deleteBtn);
+
+                    tr.appendChild(actionsTd);
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                alert('Fehler beim Laden der Queries: ' + err);
+            }
+        }
+
+        async function deleteQuery(name) {
+            if (!confirm(`Willst du die Abfrage "${name}" wirklich löschen?`)) return;
+            try {
+                const res = await fetch('/delete_query', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name})
+                });
+                const result = await res.json();
+                if (result.status === 'success') {
+                    loadQueries();
+                } else {
+                    alert(result.message);
+                }
+            } catch (err) {
+                alert('Fehler beim Löschen: ' + err);
+            }
+        }
+
+        async function renameQuery(oldName) {
+            const newName = prompt('Neuer Name für die Abfrage:', oldName);
+            if (!newName || newName === oldName) return;
+
+            try {
+                const res = await fetch('/rename_query', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({oldName, newName})
+                });
+                const result = await res.json();
+                if (result.status === 'success') {
+                    loadQueries();
+                } else {
+                    alert(result.message);
+                }
+            } catch (err) {
+                alert('Fehler beim Umbenennen: ' + err);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadQueries);
+    </script>
+{% endblock %}

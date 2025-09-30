@@ -220,6 +220,7 @@ try:
     from api.labels import create_labels_bp
     from api.properties import create_properties_bp
     from api.relationships import create_relationships_bp
+    from api.query_overview import create_query_overview
 
     from index_manager import create_index_bp
 except ModuleNotFoundError as e:
@@ -277,6 +278,7 @@ app.register_blueprint(create_properties_bp(graph), url_prefix='/api')
 app.register_blueprint(create_relationships_bp(graph), url_prefix='/api')
 
 app.register_blueprint(create_index_bp(graph), url_prefix='/')
+app.register_blueprint(create_query_overview(), url_prefix='/')
 
 @login_manager.user_loader
 def load_user(user_id):
