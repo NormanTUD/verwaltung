@@ -99,7 +99,7 @@
 						<ul class="space-y-1">
 							{% for query in saved_queries %}
 								<li>
-									<a href=overview?"{{ query.url }}" 
+									<a href="overview{{ query.url }}" 
 									class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.full_path == query.url %}bg-gray-700{% endif %}">
 										{{ query.name }}
 									</a>
