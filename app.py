@@ -142,6 +142,7 @@ try:
     from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context, Response, session
     from flask_login import LoginManager, login_user, logout_user, current_user
 
+    from flask_login import login_required
     from oasis_helper import conditional_login_required
 
     from markupsafe import Markup
@@ -715,6 +716,155 @@ def query_overview_page():
     Zeigt die Hauptseite der Query-Übersicht an.
     """
     return render_template("query_overview.html")
+
+@app.route('/admin', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_panel():
+    session = Session()
+    try:
+        if request.method == 'POST' and 'new_username' in request.form:
+            username = request.form['new_username']
+            password = request.form['new_password']
+            role_id = request.form.get('new_role')
+
+            existing_user = session.query(User).filter_by(username=username).first()
+            if existing_user:
+                flash('Benutzername existiert bereits.')
+            else:
+                hashed = generate_password_hash(password)
+                user = User(username=username, password=hashed, is_active=False)
+                if role_id:
+                    role = session.query(Role).get(int(role_id))
+                    if role:
+                        user.roles.append(role)
+                session.add(user)
+                session.commit()
+                flash('Benutzer hinzugefügt.')
+
+            session.close()
+            return redirect(url_for('admin_panel'))
+
+        # WICHTIG: Rollen eager-laden, um DetachedInstanceError zu vermeiden
+        users = session.query(User).options(joinedload(User.roles)).all()
+        roles = session.query(Role).all()
+
+        return render_template('admin_panel.html', users=users, roles=roles)
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        app.logger.error("Fehler im Admin-Panel: %s", e)
+        flash("Fehler im Admin-Panel.")
+        return redirect(url_for('index'))
+
+    finally:
+        session.close()
+
+
+@app.route('/admin/delete/<int:user_id>')
+@login_required
+@admin_required
+def delete_user(user_id):
+    session = Session()
+    try:
+        user = session.query(User).get(user_id)
+        if not user:
+            flash("Benutzer nicht gefunden.")
+        else:
+            session.delete(user)
+            session.commit()
+            flash("Benutzer gelöscht.")
+        return redirect(url_for('admin_panel'))
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        app.logger.error("Fehler beim Löschen des Benutzers: %s", e)
+        flash("Fehler beim Löschen des Benutzers.")
+        return redirect(url_for('admin_panel'))
+
+    finally:
+        session.close()
+
+
+@app.route('/admin/update/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def update_user(user_id):
+    session = Session()
+    try:
+        user = session.query(User).get(user_id)
+        if not user:
+            flash("Benutzer nicht gefunden.")
+            return redirect(url_for('admin_panel'))
+
+        # Aktivieren (falls angefragt und noch nicht aktiv)
+        if 'activate_user' in request.form and not user.is_active:
+            user.is_active = True
+            flash(f"Benutzer {user.username} wurde aktiviert.")
+
+        # Benutzername ändern
+        new_username = request.form.get('username')
+        if new_username and new_username != user.username:
+            existing = session.query(User).filter(User.username == new_username, User.id != user.id).first()
+            if existing:
+                flash("Benutzername existiert bereits.")
+                return redirect(url_for('admin_panel'))
+            user.username = new_username
+
+        # Passwort ändern
+        new_password = request.form.get('new_password')
+        if new_password:
+            user.password = generate_password_hash(new_password)
+
+        # Rolle ändern
+        new_role_id = request.form.get('role_id')
+        user.roles.clear()
+        if new_role_id:
+            role = session.query(Role).get(int(new_role_id))
+            if role:
+                user.roles.append(role)
+
+        # ✅ Readonly setzen
+        user.readonly = 'readonly' in request.form
+
+        session.commit()
+        flash("Benutzer aktualisiert.")
+        return redirect(url_for('admin_panel'))
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        app.logger.error("Fehler beim Aktualisieren des Benutzers: %s", e)
+        flash("Fehler beim Aktualisieren des Benutzers.")
+        return redirect(url_for('admin_panel'))
+
+    finally:
+        session.close()
+
+
+@app.route('/admin/activate/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def activate_user(user_id):
+    session = Session()
+    try:
+        user = session.query(User).get(user_id)
+        if not user:
+            return jsonify(success=False, error="Benutzer nicht gefunden"), 404
+
+        if user.is_active:
+            return jsonify(success=False, error="Benutzer ist bereits aktiviert"), 400
+
+        user.is_active = True
+        session.commit()
+        return jsonify(success=True)
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        app.logger.error("Fehler beim Aktivieren des Benutzers: %s", e)
+        return jsonify(success=False, error="Fehler beim Aktivieren des Benutzers"), 500
+
+    finally:
+        session.close()
 
 if __name__ == "__main__":
     with app.app_context():
