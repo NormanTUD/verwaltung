@@ -408,15 +408,6 @@ def search():
     query = request.args.get('q', '').lower().strip()
     results = []
 
-    for key, config in AGGREGATE_VIEWS.items():
-        title = config.get("title", key).strip()
-        if key.startswith(query) or title.lower().startswith(query):
-            if not key.endswith("version"):
-                results.append({
-                    'label': f'📦 {title}',
-                    'url': url_for('aggregate_view', aggregate_name=key)  # ✅ Korrekt
-                })
-
     if is_admin_user(session):
         if 'admin' in query:
             results.append({'label': '🛠️ Admin', 'url': '/admin'})
