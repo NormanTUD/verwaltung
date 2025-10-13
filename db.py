@@ -4,10 +4,34 @@ import inflect
 from db_defs import *
 from sqlalchemy.orm import sessionmaker, joinedload, Session, Query
 from sqlalchemy_continuum import TransactionFactory, versioning_manager
+from pathlib import Path
+from urllib.parse import urlparse, urlunparse
 
 Transaction = TransactionFactory(Base)
 
 configure_mappers()
+
+def normalize_sqlite_uri(uri: str) -> str:
+    """
+    Wenn es sich um eine SQLite URI handelt, konvertiere sie zu einem absoluten Pfad
+    in ./instance/, behalte den Dateinamen bei.
+    """
+    parsed = urlparse(uri)
+
+    if parsed.scheme != 'sqlite':
+        # Keine SQLite URI, return original
+        return uri
+
+    # Hole den Datenbank-Dateinamen
+    db_name = Path(parsed.path).name
+
+    # Absoluter Pfad: $(pwd)/instance/<db_name>
+    abs_path = Path.cwd() / 'instance' / db_name
+    abs_path.parent.mkdir(parents=True, exist_ok=True)  # ensure ./instance exists
+
+    # Neue URI zusammenbauen
+    new_uri = f'sqlite:///{abs_path}'
+    return new_uri
 
 full_url = 'sqlite:///database.db'
 
@@ -30,6 +54,8 @@ if os.path.isfile(db_engine_file):
             print(f"[ERROR] Fehler beim Lesen von {db_engine_file}: {str(e)}", file=sys.stderr)
     else:
         print(f"[ERROR] Keine Leserechte für {db_engine_file}", file=sys.stderr)
+
+full_url = normalize_sqlite_uri(full_url)
 
 engine = create_engine(full_url)
 

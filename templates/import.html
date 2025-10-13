@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+
+{% block title %}Daten-Import{% endblock %}
+
+{% block content %}
+    <h1>Daten importieren</h1>
+
+    <div class="preset-buttons">
+        <h3>Vordefinierte Daten zum Testen einfügen:</h3>
+	<button type="button" onclick="insertDefaultData('persons')">Personen</button>
+	<button type="button" onclick="insertDefaultData('customers')">Kunden</button>
+	<button type="button" onclick="insertDefaultData('orders')">Bestellungen</button>
+	<button type="button" onclick="insertDefaultData('shipments')">Lieferungen</button>
+    </div>
+
+    <form action="/upload" method="post">
+        <label for="data">Füge deine CSV/TSV-Daten hier ein:</label><br>
+        <textarea id="data" name="data" rows="10" cols="80" placeholder="z.B.: vorname,nachname,gebäude,abkürzung"></textarea><br>
+        <button type="submit">Upload & Zuordnen</button>
+    </form>
+
+    <script src="static/import.js">
+    </script>
+{% endblock %}

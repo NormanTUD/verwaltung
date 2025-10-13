@@ -1,0 +1,44 @@
+name: Run Tests
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Docker
+        run: |
+          sudo apt-get remove --purge man-db -y
+          sudo apt-get update
+          docker --version
+
+      - name: Install Docker Compose
+        run: |
+          sudo apt-get update && \
+            sudo apt-get install -y docker-compose pkg-config gcc python3-dev && \
+            sudo rm -rf /var/lib/apt/lists/*
+          docker-compose --version
+
+      - name: Run tests
+        run: |
+          chmod +x run_docker
+          ./run_docker 1123 run_tests
+
+      - name: Create a new version
+        if: ${{ success() }}
+        run: |
+          echo "Creating new version"
+          git tag ${{ github.run_number }} || true
+          git push origin --tags || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

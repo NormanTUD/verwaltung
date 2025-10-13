@@ -1,0 +1,55 @@
+#!/bin/bash
+
+set -euo pipefail
+
+APP_PORT=${1:-1123}
+ACTION=${2:-up}
+
+log() {
+	echo "[INFO] $*"
+}
+
+error() {
+	echo "[ERROR] $*" >&2
+	exit 1
+}
+
+check_neo4j_container() {
+	if docker ps -a -q -f name=neo4j-db >/dev/null; then
+		log "Neo4j Container existiert bereits, starte vorhandenen Container..."
+		docker start neo4j-db || log "Neo4j Container konnte nicht gestartet werden, ggf. läuft er bereits."
+	else
+		log "Neo4j Container existiert nicht. Bitte erst mit 'docker-compose up neo4j-db' starten."
+	fi
+}
+
+run_app() {
+	log "Starte Docker-Compose für Python-App auf Port $APP_PORT..."
+	APP_PORT=$APP_PORT docker-compose up --build python-app
+}
+
+run_tests() {
+	log "Führe Tests im Python-Container aus..."
+	APP_PORT=$APP_PORT docker-compose up --build -d python-app
+	docker-compose run --rm python-app pytest || error "Tests fehlgeschlagen!"
+	docker-compose down
+}
+
+main() {
+	log "Aktion: $ACTION, APP_PORT=$APP_PORT"
+	check_neo4j_container
+
+	case "$ACTION" in
+		up)
+			run_app
+			;;
+		run_tests)
+			run_tests
+			;;
+		*)
+			error "Unbekannte Aktion: $ACTION. Verfügbare Aktionen: up, run_tests"
+			;;
+	esac
+}
+
+main

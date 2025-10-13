@@ -13,3 +13,12 @@ sqlalchemy_schemadisplay
 sqlalchemy_utils
 inflect
 pandas
+flask_admin
+wtforms-sqlalchemy
+mypydie
+py2neo
+python-dotenv
+mypy
+pylint
+faker
+coverage

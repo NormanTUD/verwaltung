@@ -30,10 +30,12 @@
 
 
 	<div id="containerContainer">
-		<img id="backgroundImage"
-		     src="{{ image_url }}"
-		     alt="Etagenplan"
-		     style="width: {{ image_width }}px !important; height: {{ image_height }}px !important; max-width: none !important;">
+			{% if image_url %}
+				<img id="backgroundImage"
+				     src="{{ image_url }}"
+				     alt="Etagenplan"
+				     style="width: {{ image_width }}px !important; height: {{ image_height }}px !important; max-width: none !important;">
+			{% endif %}
 		<div id="container">
 		</div>
 	</div>
@@ -45,95 +47,97 @@
 		const img = document.getElementById('backgroundImage');
 		const container = document.getElementById('container');
 
-		img.onload = function () {
-			container.style.width = img.naturalWidth + 'px';
-			container.style.height = img.naturalHeight + 'px';
-		};
+		if(img) {
+			img.onload = function () {
+				container.style.width = img.naturalWidth + 'px';
+				container.style.height = img.naturalHeight + 'px';
+			};
 
-		const buildingMap = {{ building_map | tojson }};
-		const buildingSelect = document.getElementById("buildingSelect");
-		const etageSelect = document.getElementById("etageSelect");
-		const goBtn = document.getElementById("goBtn");
+			const buildingMap = {{ building_map | tojson }};
+			const buildingSelect = document.getElementById("buildingSelect");
+			const etageSelect = document.getElementById("etageSelect");
+			const goBtn = document.getElementById("goBtn");
 
-		function updateEtageOptions() {
-			const building = buildingSelect.value;
-			etageSelect.innerHTML = '<option value="">-- Bitte wählen --</option>';
-			etageSelect.disabled = true;
-			goBtn.disabled = true;
+			function updateEtageOptions() {
+				const building = buildingSelect.value;
+				etageSelect.innerHTML = '<option value="">-- Bitte wählen --</option>';
+				etageSelect.disabled = true;
+				goBtn.disabled = true;
 
-			if (building && buildingMap[building]) {
-				buildingMap[building].sort((a, b) => a - b).forEach(etage => {
-					const opt = document.createElement("option");
-					opt.value = etage;
-					opt.textContent = etage;
-					etageSelect.appendChild(opt);
-				});
-				etageSelect.disabled = false;
-			}
-		}
-
-		buildingSelect.addEventListener("change", updateEtageOptions);
-		etageSelect.addEventListener("change", () => {
-			goBtn.disabled = etageSelect.value === "";
-		});
-
-		goBtn.addEventListener("click", () => {
-			const b = buildingSelect.value;
-			const f = etageSelect.value;
-			if (b && f) {
-				window.location.href = `/map-editor?building_id=${b}&etage=${f}`;
-			}
-		});
-
-		// Initial aktivieren, falls beide gesetzt
-		if (buildingSelect.value && etageSelect.value) {
-			goBtn.disabled = false;
-		}
-
-		function getUrlParams() {
-			let params = {};
-			let query = window.location.search.substring(1);
-			let pairs = query.split("&");
-			for (let i = 0; i < pairs.length; i++) {
-				let pair = pairs[i].split("=");
-				let key = decodeURIComponent(pair[0]);
-				let value = decodeURIComponent(pair[1] || "");
-				params[key] = value;
-			}
-			return params;
-		}
-
-		window.addEventListener("DOMContentLoaded", function () {
-			let params = getUrlParams();
-
-			let buildingSelect = document.getElementById("buildingSelect");
-			let etageSelect = document.getElementById("etageSelect");
-
-			if (params.building_id) {
-				let val = params.building_id;
-				for (let i = 0; i < buildingSelect.options.length; i++) {
-					if (buildingSelect.options[i].value === val) {
-						buildingSelect.selectedIndex = i;
-						break;
-					}
+				if (building && buildingMap[building]) {
+					buildingMap[building].sort((a, b) => a - b).forEach(etage => {
+						const opt = document.createElement("option");
+						opt.value = etage;
+						opt.textContent = etage;
+						etageSelect.appendChild(opt);
+					});
+					etageSelect.disabled = false;
 				}
 			}
 
-			if (params.etage) {
-				let val = params.etage;
-				for (let i = 0; i < etageSelect.options.length; i++) {
-					if (etageSelect.options[i].value === val) {
-						etageSelect.selectedIndex = i;
-						break;
-					}
+			buildingSelect.addEventListener("change", updateEtageOptions);
+			etageSelect.addEventListener("change", () => {
+				goBtn.disabled = etageSelect.value === "";
+			});
+
+			goBtn.addEventListener("click", () => {
+				const b = buildingSelect.value;
+				const f = etageSelect.value;
+				if (b && f) {
+					window.location.href = `/map-editor?building_id=${b}&etage=${f}`;
 				}
+			});
+
+			// Initial aktivieren, falls beide gesetzt
+			if (buildingSelect.value && etageSelect.value) {
+				goBtn.disabled = false;
 			}
 
-			// Optional: Etage-Select aktivieren, wenn Building gesetzt ist
-			if (params.building_id && etageSelect.disabled) {
-				etageSelect.disabled = false;
+			function getUrlParams() {
+				let params = {};
+				let query = window.location.search.substring(1);
+				let pairs = query.split("&");
+				for (let i = 0; i < pairs.length; i++) {
+					let pair = pairs[i].split("=");
+					let key = decodeURIComponent(pair[0]);
+					let value = decodeURIComponent(pair[1] || "");
+					params[key] = value;
+				}
+				return params;
 			}
-		});
+
+			window.addEventListener("DOMContentLoaded", function () {
+				let params = getUrlParams();
+
+				let buildingSelect = document.getElementById("buildingSelect");
+				let etageSelect = document.getElementById("etageSelect");
+
+				if (params.building_id) {
+					let val = params.building_id;
+					for (let i = 0; i < buildingSelect.options.length; i++) {
+						if (buildingSelect.options[i].value === val) {
+							buildingSelect.selectedIndex = i;
+							break;
+						}
+					}
+				}
+
+				if (params.etage) {
+					let val = params.etage;
+					for (let i = 0; i < etageSelect.options.length; i++) {
+						if (etageSelect.options[i].value === val) {
+							etageSelect.selectedIndex = i;
+							break;
+						}
+					}
+				}
+
+				// Optional: Etage-Select aktivieren, wenn Building gesetzt ist
+				if (params.building_id && etageSelect.disabled) {
+					etageSelect.disabled = false;
+				}
+			});
+		}
 	</script>
 
 	<textarea id="import" onkeyup="import_text()" style="min-width: 500px; min-height: 500px">

@@ -3,75 +3,29 @@
 {% block content %}
 
 <h1 class="text-3xl font-semibold mb-8 text-center dark:text-white">
-  Willkommen, {{ user.username }}!
+	Willkommen, {{ user.username }}!
 </h1>
 
 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 px-4">
+	<a href="/overview"
+	   class="block no-underline bg-white/60 dark:bg-gray-800/60 rounded-xl p-8 text-center shadow-md shadow-gray-300/30 dark:shadow-black/50
+		  hover:shadow-lg hover:shadow-indigo-500/40 hover:translate-y-[-6px] transition-transform transition-shadow duration-300 ease-in-out
+		  text-gray-900 dark:text-gray-100"
+	   >
+	   <span class="text-6xl block mb-4 transform transition-transform duration-300 ease-in-out hover:scale-110 hover:rotate-3">📊</span>
+	   <div class="text-lg font-medium">Overview</div>
+	</a>
 
-  <a href="/wizard/person"
-     class="block no-underline bg-white/60 dark:bg-gray-800/60 rounded-xl p-8 text-center shadow-md shadow-gray-300/30 dark:shadow-black/50
-            hover:shadow-lg hover:shadow-indigo-500/40 hover:translate-y-[-6px] transition-transform transition-shadow duration-300 ease-in-out
-            text-gray-900 dark:text-gray-100"
-  >
-    <span class="text-6xl block mb-4 transform transition-transform duration-300 ease-in-out hover:scale-110 hover:rotate-3">🧑</span>
-    <div class="text-lg font-medium">Person erfassen</div>
-  </a>
-
-  <a href="/wizard/Abteilung"
-     class="block no-underline bg-white/60 dark:bg-gray-800/60 rounded-xl p-8 text-center shadow-md shadow-gray-300/30 dark:shadow-black/50
-            hover:shadow-lg hover:shadow-indigo-500/40 hover:translate-y-[-6px] transition-transform transition-shadow duration-300 ease-in-out
-            text-gray-900 dark:text-gray-100"
-  >
-    <span class="text-6xl block mb-4 transform transition-transform duration-300 ease-in-out hover:scale-110 hover:rotate-3">🏢</span>
-    <div class="text-lg font-medium">Abteilung erfassen</div>
-  </a>
-
-  <a href="/wizard/Transponder"
-     class="block no-underline bg-white/60 dark:bg-gray-800/60 rounded-xl p-8 text-center shadow-md shadow-gray-300/30 dark:shadow-black/50
-            hover:shadow-lg hover:shadow-indigo-500/40 hover:translate-y-[-6px] transition-transform transition-shadow duration-300 ease-in-out
-            text-gray-900 dark:text-gray-100"
-  >
-    <span class="text-6xl block mb-4 transform transition-transform duration-300 ease-in-out hover:scale-110 hover:rotate-3">📟</span>
-    <div class="text-lg font-medium">Transponder erfassen</div>
-  </a>
-
-  <a href="/wizard/Kostenstelle"
-     class="block no-underline bg-white/60 dark:bg-gray-800/60 rounded-xl p-8 text-center shadow-md shadow-gray-300/30 dark:shadow-black/50
-            hover:shadow-lg hover:shadow-indigo-500/40 hover:translate-y-[-6px] transition-transform transition-shadow duration-300 ease-in-out
-            text-gray-900 dark:text-gray-100"
-  >
-    <span class="text-6xl block mb-4 transform transition-transform duration-300 ease-in-out hover:scale-110 hover:rotate-3">💼</span>
-    <div class="text-lg font-medium">Kostenstelle</div>
-  </a>
-
-  <a href="/aggregate/inventar"
-     class="block no-underline bg-white/60 dark:bg-gray-800/60 rounded-xl p-8 text-center shadow-md shadow-gray-300/30 dark:shadow-black/50
-            hover:shadow-lg hover:shadow-indigo-500/40 hover:translate-y-[-6px] transition-transform transition-shadow duration-300 ease-in-out
-            text-gray-900 dark:text-gray-100"
-  >
-    <span class="text-6xl block mb-4 transform transition-transform duration-300 ease-in-out hover:scale-110 hover:rotate-3">📦</span>
-    <div class="text-lg font-medium">Inventar</div>
-  </a>
-
-  <a href="/aggregate/transponder"
-     class="block no-underline bg-white/60 dark:bg-gray-800/60 rounded-xl p-8 text-center shadow-md shadow-gray-300/30 dark:shadow-black/50
-            hover:shadow-lg hover:shadow-indigo-500/40 hover:translate-y-[-6px] transition-transform transition-shadow duration-300 ease-in-out
-            text-gray-900 dark:text-gray-100"
-  >
-    <span class="text-6xl block mb-4 transform transition-transform duration-300 ease-in-out hover:scale-110 hover:rotate-3">🔑</span>
-    <div class="text-lg font-medium">Transponder-Übersicht</div>
-  </a>
-
-  {% if is_admin %}
-    <a href="/admin"
-      class="block no-underline bg-white/60 dark:bg-gray-800/60 rounded-xl p-8 text-center shadow-md shadow-gray-300/30 dark:shadow-black/50
-              hover:shadow-lg hover:shadow-red-500/40 hover:translate-y-[-6px] transition-transform transition-shadow duration-300 ease-in-out
-              text-gray-900 dark:text-gray-100"
-    >
-      <span class="text-6xl block mb-4 transform transition-transform duration-300 ease-in-out hover:scale-110 hover:rotate-3">🛠️</span>
-      <div class="text-lg font-medium">Adminbereich</div>
-    </a>
-  {% endif %}
+	{% if is_admin %}
+	<a href="/admin"
+	   class="block no-underline bg-white/60 dark:bg-gray-800/60 rounded-xl p-8 text-center shadow-md shadow-gray-300/30 dark:shadow-black/50
+		  hover:shadow-lg hover:shadow-red-500/40 hover:translate-y-[-6px] transition-transform transition-shadow duration-300 ease-in-out
+		  text-gray-900 dark:text-gray-100"
+	   >
+	   <span class="text-6xl block mb-4 transform transition-transform duration-300 ease-in-out hover:scale-110 hover:rotate-3">🛠️</span>
+	   <div class="text-lg font-medium">Adminbereich</div>
+	</a>
+	{% endif %}
 </div>
 
 {% endblock %}

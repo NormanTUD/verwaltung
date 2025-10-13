@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% block title %}Startseite{% endblock %}
+{% block content %}
+    {% block body %}
+    <!-- Hier rendert Flask-Admin den Content -->
+    {% endblock %}
+
+    <!-- JQuery + Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Flask-Admin JS -->
+    <script src="{{ url_for('static', filename='admin/js/actions.js') }}"></script>
+    <script src="{{ url_for('static', filename='admin/js/helpers.js') }}"></script>
+
+    <script type="application/json" id="message-data">
+	    {{ get_flashed_messages() | tojson }}
+    </script>
+
+    <script type="application/json" id="actions-confirmation-data">
+	      {{ (actions_confirmation or {}) | tojson }}
+    </script>
+    
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Alle Inputs mit data-role="datepicker" werden Flatpickr-Datepicker
+            flatpickr("input[data-role=datepicker]", {
+                dateFormat: "Y-m-d",
+                allowInput: true
+            });
+        });
+    </script>
+{% endblock %}
