@@ -11,7 +11,7 @@ function assign_person_to_nodes() {
 function overview () {
     // Set checkbox
     $("#querySelection").find("input").first().prop("checked", true)
-}
+    $("#querySelection").find("input").eq(0).prop("checked", true)}
 
 function run_tests() {
     console.log("Running tests...");
