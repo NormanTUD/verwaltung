@@ -3830,7 +3830,7 @@ class TestNeo4jApp(unittest.TestCase):
             data = resp.get_json()
 
             # Debug-Prints (für späteren Vergleich im stdout)
-            print("DEBUG JSON:", json.dumps(data, indent=2, ensure_ascii=False))
+            #print("DEBUG JSON:", json.dumps(data, indent=2, ensure_ascii=False))
 
             expected_cols = {
                 ('Bestellung', 'bestellnr'),
@@ -3876,7 +3876,7 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertEqual(resp.status_code, 200)
             data = resp.get_json()
 
-            print("DEBUG JSON:", json.dumps(data, indent=2, ensure_ascii=False))
+            #print("DEBUG JSON:", json.dumps(data, indent=2, ensure_ascii=False))
 
             expected_cols = {
                 ('Shipment', 'versandnr'),
@@ -3921,7 +3921,7 @@ class TestNeo4jApp(unittest.TestCase):
             )
             self.assertEqual(resp.status_code, 200)
             data = resp.get_json()
-            print("DEBUG JSON LONG CHAIN:", json.dumps(data, indent=2, ensure_ascii=False))
+            #print("DEBUG JSON LONG CHAIN:", json.dumps(data, indent=2, ensure_ascii=False))
 
             cols = {(c['nodeType'], c['property']) for c in data['columns']}
             self.assertIn(('Land', 'name'), cols)
@@ -3959,7 +3959,7 @@ class TestNeo4jApp(unittest.TestCase):
             )
             self.assertEqual(resp.status_code, 200)
             data = resp.get_json()
-            print("DEBUG JSON MULTIPLE ORDERS:", json.dumps(data, indent=2, ensure_ascii=False))
+            #print("DEBUG JSON MULTIPLE ORDERS:", json.dumps(data, indent=2, ensure_ascii=False))
 
             rows = data['rows']
             # Expect at least 2 rows for the same Kunde with different Bestellungen
@@ -3989,7 +3989,7 @@ class TestNeo4jApp(unittest.TestCase):
             )
             self.assertEqual(resp.status_code, 200)
             data = resp.get_json()
-            print("DEBUG JSON CYCLE:", json.dumps(data, indent=2, ensure_ascii=False))
+            #print("DEBUG JSON CYCLE:", json.dumps(data, indent=2, ensure_ascii=False))
 
             cols = {(c['nodeType'], c['property']) for c in data['columns']}
             self.assertIn(('Stadt', 'name'), cols)
