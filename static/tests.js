@@ -467,9 +467,18 @@ async function collection_overview() {
 }
 
 async function collection_queries() {
-    go_queries()
-    await rename_rule()
-    delete_rule()
+    if(!go_queries()) {
+        log("Could not go to queries");
+        return false;
+    }
+    if(!await rename_rule()) {  
+        log("Rename rule test failed");
+        return false;
+    }
+    if(!delete_rule()) {
+        log("Delete rule test failed");
+        return false;
+    }
 }
 
 async function collection_admin() {
