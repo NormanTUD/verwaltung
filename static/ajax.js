@@ -83,7 +83,7 @@ function open_link(link) {
 								load_mapping();
 							}
 						} catch (error) {
-							//
+							log(error);
 						}
 					} else {
 						console.warn("open_link(): Browser unterstützt history.pushState nicht.");
