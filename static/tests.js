@@ -305,6 +305,7 @@ function delete_new_rule_overview() {
 
     return true;
 }
+
 async function rename_rule() {
     $(".rename-btn").first().click()
     await sleep (100)
@@ -357,11 +358,23 @@ function go_overview() {
 }
 
 function go_queries() {
+    if(!$(".block").eq(1).length) {
+        error("Could not find queries button");
+        return false;
+    }
     $(".block").eq(1).click()
+
+    return true;
 }
 
 function go_admin_panel() {
+    if(!$(".w-full").eq(3).length) {
+        error("Could not find admin panel button");
+        return false;
+    }
     $(".w-full").eq(3).click()
+
+    return true;
 }
 
 async function collection_import() {
