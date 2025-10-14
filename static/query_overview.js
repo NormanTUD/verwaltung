@@ -1,0 +1,309 @@
+function parseQueryUrl(url) {
+	try {
+		const u = new URL(url, window.location.origin);
+		const params = u.searchParams;
+		const nodes = params.get('nodes') ? decodeURIComponent(params.get('nodes')).split(',') : [];
+		const relationships = params.get('relationships') ? decodeURIComponent(params.get('relationships')).split(',') : [];
+		const qb = params.get('qb') ? JSON.parse(decodeURIComponent(params.get('qb'))) : {};
+		return { nodes, relationships, qb };
+	} catch {
+		return { nodes: [], relationships: [], qb: {} };
+	}
+}
+
+async function loadQueries() {
+	try {
+		const res = await fetch('/api/get_saved_queries');
+		const queries = await res.json();
+		const tbody = document.getElementById('queryTableBody');
+		tbody.innerHTML = '';
+
+		queries.forEach(q => {
+			const { nodes, relationships, qb } = parseQueryUrl(q.url);
+
+			const tr = document.createElement('tr');
+
+			const nameTd = document.createElement('td');
+			nameTd.textContent = q.name;
+			tr.appendChild(nameTd);
+
+			const nodesTd = document.createElement('td');
+			nodesTd.textContent = nodes.join(', ');
+			tr.appendChild(nodesTd);
+
+			const relTd = document.createElement('td');
+			relTd.textContent = relationships.join(', ');
+			tr.appendChild(relTd);
+
+			const condTd = document.createElement('td');
+			condTd.textContent = qb.rules ? qb.rules.map(r => `${r.field} ${r.operator} ${r.value}`).join('; ') : '';
+			condTd.title = JSON.stringify(qb, null, 2); // Tooltip mit vollständigem JSON
+			tr.appendChild(condTd);
+
+			const actionsTd = document.createElement('td');
+			const renameBtn = document.createElement('button');
+			renameBtn.textContent = 'Umbenennen';
+			renameBtn.className = 'action-button rename-btn';
+			renameBtn.onclick = () => renameQuery(q.name);
+			actionsTd.appendChild(renameBtn);
+
+			const deleteBtn = document.createElement('button');
+			deleteBtn.textContent = 'Löschen';
+			deleteBtn.className = 'action-button delete-btn';
+			deleteBtn.onclick = () => deleteQuery(q.name);
+			actionsTd.appendChild(deleteBtn);
+
+			tr.appendChild(actionsTd);
+			tbody.appendChild(tr);
+		});
+	} catch (err) {
+		error('Fehler beim Laden der Queries: ' + err);
+	}
+}
+
+
+async function deleteQuery(name) {
+	if (typeof name !== 'string' || name.trim() === '') {
+		error('Ungültiger Name.');
+		return;
+	}
+
+	// Prüfen, ob bereits ein Modal offen ist
+	if (document.getElementById('deleteModal')) {
+		error('Bereits ein Lösch-Dialog geöffnet.');
+		return;
+	}
+
+	// Modal erzeugen
+	const modal = document.createElement('div');
+	modal.id = 'deleteModal';
+	modal.style.position = 'fixed';
+	modal.style.top = '0';
+	modal.style.left = '0';
+	modal.style.width = '100%';
+	modal.style.height = '100%';
+	modal.style.backgroundColor = 'rgba(0,0,0,0.4)';
+	modal.style.display = 'flex';
+	modal.style.alignItems = 'center';
+	modal.style.justifyContent = 'center';
+	modal.style.zIndex = '9999';
+
+	const dialog = document.createElement('div');
+	dialog.style.backgroundColor = '#ffffff';
+	dialog.style.padding = '20px';
+	dialog.style.borderRadius = '10px';
+	dialog.style.boxShadow = '0 4px 10px rgba(0,0,0,0.3)';
+	dialog.style.minWidth = '300px';
+	dialog.style.textAlign = 'center';
+	dialog.style.fontFamily = 'sans-serif';
+	dialog.style.color = '#000000';
+
+	// Nachricht
+	const msg = document.createElement('p');
+	msg.textContent = `Willst du die Abfrage "${name}" wirklich löschen?`;
+	msg.style.marginBottom = '20px';
+	dialog.appendChild(msg);
+
+	// Button-Container
+	const btnContainer = document.createElement('div');
+	btnContainer.style.display = 'flex';
+	btnContainer.style.justifyContent = 'space-between';
+	btnContainer.style.gap = '10px';
+
+	// Abbrechen-Button
+	const cancelBtn = document.createElement('button');
+	cancelBtn.textContent = 'Abbrechen';
+	cancelBtn.style.flex = '1';
+	cancelBtn.style.padding = '8px';
+	cancelBtn.style.border = 'none';
+	cancelBtn.style.borderRadius = '5px';
+	cancelBtn.style.backgroundColor = '#bbb';
+	cancelBtn.style.cursor = 'pointer';
+	cancelBtn.style.color = '#000000';
+	cancelBtn.addEventListener('click', closeModal);
+
+	// Löschen-Button
+	const okBtn = document.createElement('button');
+	okBtn.textContent = 'Löschen';
+	okBtn.style.flex = '1';
+	okBtn.style.padding = '8px';
+	okBtn.style.border = 'none';
+	okBtn.style.borderRadius = '5px';
+	okBtn.style.backgroundColor = '#dc3545';
+	okBtn.style.color = '#ffffff';
+	okBtn.style.cursor = 'pointer';
+	okBtn.addEventListener('click', confirmDelete);
+
+	btnContainer.appendChild(cancelBtn);
+	btnContainer.appendChild(okBtn);
+	dialog.appendChild(btnContainer);
+	modal.appendChild(dialog);
+	document.body.appendChild(modal);
+
+	function closeModal() {
+		document.body.removeChild(modal);
+	}
+
+	async function confirmDelete() {
+		try {
+			const res = await fetch('/delete_query', {
+				method: 'POST',
+				headers: {'Content-Type': 'application/json'},
+				body: JSON.stringify({ name })
+			});
+
+			if (!res.ok) {
+				error('HTTP-Fehler: ' + res.status + ' ' + res.statusText);
+				closeModal();
+				return;
+			}
+
+			const result = await res.json();
+
+			if (result.status === 'success') {
+				closeModal();
+				if (typeof loadQueries === 'function') loadQueries();
+			} else {
+				error(result.message || 'Fehler beim Löschen.');
+				closeModal();
+			}
+		} catch (err) {
+			error('Fehler beim Löschen: ' + err);
+			closeModal();
+		}
+	}
+}
+
+async function renameQuery(oldName) {
+	if (typeof oldName !== 'string' || oldName.trim() === '') {
+		error('Ungültiger alter Name.');
+		return;
+	}
+
+	if (document.getElementById('renameModal')) {
+		error('Bereits ein Umbenennen-Dialog geöffnet.');
+		return;
+	}
+
+	const modal = document.createElement('div');
+	modal.id = 'renameModal';
+	modal.style.position = 'fixed';
+	modal.style.top = '0';
+	modal.style.left = '0';
+	modal.style.width = '100%';
+	modal.style.height = '100%';
+	modal.style.backgroundColor = 'rgba(0,0,0,0.4)';
+	modal.style.display = 'flex';
+	modal.style.alignItems = 'center';
+	modal.style.justifyContent = 'center';
+	modal.style.zIndex = '9999';
+
+	const dialog = document.createElement('div');
+	dialog.style.backgroundColor = '#ffffff';
+	dialog.style.padding = '20px';
+	dialog.style.borderRadius = '10px';
+	dialog.style.boxShadow = '0 4px 10px rgba(0,0,0,0.3)';
+	dialog.style.minWidth = '300px';
+	dialog.style.textAlign = 'center';
+	dialog.style.fontFamily = 'sans-serif';
+	dialog.style.color = '#000000';
+
+	const title = document.createElement('h3');
+	title.textContent = 'Abfrage umbenennen';
+	title.style.marginTop = '0';
+	title.style.marginBottom = '10px';
+	dialog.appendChild(title);
+
+	const input = document.createElement('input');
+	input.type = 'text';
+	input.value = oldName;
+	input.style.width = '100%';
+	input.style.padding = '8px';
+	input.style.marginBottom = '12px';
+	input.style.border = '1px solid #ccc';
+	input.style.borderRadius = '5px';
+	input.style.backgroundColor = '#ffffff';
+	input.style.color = '#000000';
+	input.style.fontSize = '14px';
+	input.addEventListener('keydown', function(e) {
+		if (e.key === 'Enter') confirmRename();
+		if (e.key === 'Escape') closeModal();
+	});
+	dialog.appendChild(input);
+
+	const btnContainer = document.createElement('div');
+	btnContainer.style.display = 'flex';
+	btnContainer.style.justifyContent = 'space-between';
+	btnContainer.style.gap = '10px';
+
+	const cancelBtn = document.createElement('button');
+	cancelBtn.textContent = 'Abbrechen';
+	cancelBtn.style.flex = '1';
+	cancelBtn.style.padding = '8px';
+	cancelBtn.style.border = 'none';
+	cancelBtn.style.borderRadius = '5px';
+	cancelBtn.style.backgroundColor = '#bbb';
+	cancelBtn.style.cursor = 'pointer';
+	cancelBtn.style.color = '#000000';
+	cancelBtn.addEventListener('click', closeModal);
+
+	const okBtn = document.createElement('button');
+	okBtn.textContent = 'Umbenennen';
+	okBtn.style.flex = '1';
+	okBtn.style.padding = '8px';
+	okBtn.style.border = 'none';
+	okBtn.style.borderRadius = '5px';
+	okBtn.style.backgroundColor = '#007bff';
+	okBtn.style.color = '#ffffff';
+	okBtn.style.cursor = 'pointer';
+	okBtn.addEventListener('click', confirmRename);
+
+	btnContainer.appendChild(cancelBtn);
+	btnContainer.appendChild(okBtn);
+	dialog.appendChild(btnContainer);
+	modal.appendChild(dialog);
+	document.body.appendChild(modal);
+
+	input.focus();
+
+	function closeModal() {
+		document.body.removeChild(modal);
+	}
+
+	async function confirmRename() {
+		const newName = input.value.trim();
+		if (!newName || newName === oldName) {
+			closeModal();
+			return;
+		}
+
+		try {
+			const res = await fetch('/rename_query', {
+				method: 'POST',
+				headers: {'Content-Type': 'application/json'},
+				body: JSON.stringify({ oldName: oldName, newName: newName })
+			});
+
+			if (!res.ok) {
+				error('HTTP-Fehler: ' + res.status + ' ' + res.statusText);
+				closeModal();
+				return;
+			}
+
+			const result = await res.json();
+
+			if (result.status === 'success') {
+				closeModal();
+				if (typeof loadQueries === 'function') loadQueries();
+			} else {
+				error(result.message || 'Fehler beim Umbenennen.');
+				closeModal();
+			}
+		} catch (err) {
+			error('Fehler beim Umbenennen: ' + err);
+			closeModal();
+		}
+	}
+}
+
+document.addEventListener('DOMContentLoaded', loadQueries);
