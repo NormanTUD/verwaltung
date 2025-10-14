@@ -2,9 +2,28 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function import_person() {
+async function import_person() {
+    if (!$(".preset-buttons").length) {
+        error("Could not find preset buttons");
+        return false;
+    }
     $(".preset-buttons").find("button").first().click()
+    await sleep(500)
+    if (!$("#data").text() == " ") {
+        error("Could not find data textarea");
+        return false;
+    }
+    if (!$("form").length) {
+        error("Could not find form");
+        return false;
+    }
     $("form").find("button").last().click()
+    await sleep(500)
+    if (!$("#data").text == " ") {
+        error("Data not send!");
+        return false;
+    }
+    return true;
 }
 
 async function assign_person_to_nodes() {
