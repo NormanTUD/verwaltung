@@ -187,10 +187,6 @@ async function load_mapping () {
 	addRelationship();
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-	await load_mapping()
-});
-
 function saveMapping() {
 	console.log("=== saveMapping gestartet ===");
 
