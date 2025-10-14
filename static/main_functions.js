@@ -191,7 +191,7 @@ function info(msg) {
 
 function warning(msg) {
 	showMessage('warning', msg);
-	console.warning(msg);
+	console.warn(msg);
 }
 
 

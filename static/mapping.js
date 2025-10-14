@@ -317,9 +317,10 @@ function sendMapping(mapping) {
 	}).then(response => response.json())
 		.then(data => {
 			console.log("Antwort vom Server:", data);
-			error(data.message);
 			if (data.status === 'success') {
 				window.location.href = '/overview';
+			} else {
+				error(data.message);
 			}
 		}).catch(err => {
 			console.error("Fehler beim Speichern des Mappings:", err);
