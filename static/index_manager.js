@@ -8,7 +8,7 @@ document.getElementById('indexForm').addEventListener('submit', async function(e
 		return {label, property: prop};
 	});
 	if(indices.length === 0) {
-		alert("No indices selected!");
+		error("No indices selected!");
 		return;
 	}
 	const res = await fetch("/create_indices", {
@@ -18,9 +18,9 @@ document.getElementById('indexForm').addEventListener('submit', async function(e
 	});
 	const data = await res.json();
 	if(data.status === "success") {
-		alert("Indices created:\n" + data.created.map(i=>i.label+"."+i.property).join("\n"));
+		error("Indices created:\n" + data.created.map(i=>i.label+"."+i.property).join("\n"));
 		window.location.reload();
 	} else {
-		alert("Error: " + data.message);
+		error("Error: " + data.message);
 	}
 });

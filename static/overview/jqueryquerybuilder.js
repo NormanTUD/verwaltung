@@ -143,7 +143,7 @@ function runQueryBuilder() {
 	}
 
 	if (!rules) {
-		alert('Ungültige Query (keine rules)');
+		error('Ungültige Query (keine rules)');
 		return;
 	}
 

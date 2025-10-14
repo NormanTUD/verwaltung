@@ -111,11 +111,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.success) {
           location.reload();
         } else {
-          alert('Aktivierung fehlgeschlagen: ' + (data.error || 'Unbekannter Fehler'));
+          error('Aktivierung fehlgeschlagen: ' + (data.error || 'Unbekannter Fehler'));
         }
       })
       .catch(err => {
-        alert('Fehler: ' + err.message);
+        error('Fehler: ' + err.message);
       });
     });
   });

@@ -4,7 +4,7 @@ var AdminModelActions = function(actionErrorMessage, actionConfirmations) {
         var selected = $('input.action-checkbox:checked').length;
 
         if (selected === 0) {
-            alert(actionErrorMessage);
+            error(actionErrorMessage);
             return false;
         }
 
