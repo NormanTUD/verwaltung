@@ -115,7 +115,6 @@ function add_import_handlers() {
 					window.history.pushState({ ajaxLoaded: true, url: actionUrl }, "", actionUrl);
 				}
 
-				add_import_handlers();
 				load_mapping();
 			},
 			error: function (jqXHR, textStatus, errorThrown) {
