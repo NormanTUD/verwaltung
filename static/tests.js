@@ -147,12 +147,71 @@ async function overview() {
     return true;
 }
 
-function add_row_overview () {
+async function add_row_overview () {
+    if(!$("#add_new_row").length) {
+        error("Could not find add new row button");
+        return false;
+    }
+    if ($(".query-results-table").find("tr").length != 11) {
+        error("There are not 11 rows in the table");
+        return false;
+    }
     $("#add_new_row").click()
+    await sleep (500)
+    if ($(".query-results-table").find("tr").length != 12) {
+        error("There are not 12 rows in the table after adding a row");
+        return false;
+    }
+
+    return true;
+}
+
+async function wrote_overview () {
+    if(!$(".query-results-table").length) {
+        error("Could not find query results table");
+        return false;
+    }
+    if ($(".query-results-table").find("tr").length != 12) {
+        error("There are not 12 rows in the table");
+        return false;
+    }
+    $(".query-results-table").find("tr").last().find("td").eq(0).find("input").val("Test").change()
+    await sleep (500)
+    if ($(".query-results-table").find("tr").last().find("td").eq(0).find("input").val() != "Test") {
+        error("The value in the last row is not 'Test'");
+        return false;
+    }   
+    return true;
+}
+async function delete_row_overview () {
+    if(!$(".delete-btn").length) {
+        error("Could not find delete button");
+        return false;
+    }
+    if ($(".query-results-table").find("tr").length != 12) {
+        error("There are not 12 rows in the table");
+        return false;
+    }
+    await sleep (500)
+    $(".delete-btn").last().click()
+    await sleep (500)
+    if ($(".query-results-table").find("tr").length != 11) {
+        error("There are not 11 rows in the table after deleting a row");
+        return false;
+    }
 }
 
 async function define_rule ()  {
+    if(!$(".form-control").length) {
+        error("Could not find form controls");
+        return false;
+    }
+    if (!$("#querybuilder_group_0").length) {
+        error("Could not find query builder group");
+        return false;
+    }
     $(".form-control").first().val("Person.titel").change()
+
     await sleep (100)
     $('.rule-container').first()
         .find('.rule-operator-container select')
@@ -248,7 +307,8 @@ async function collection_overview() {
         log("Overview test failed");
         return false;
     }
-    add_row_overview ()
+    await add_row_overview ()
+    await delete_row_overview ()
     await define_rule ()
     await add_new_rule()
     await save_rule()
