@@ -38,13 +38,13 @@
     <div>
         <h3>Abfrage speichern</h3>
         <input type="text" id="queryNameInput" placeholder="Name der Abfrage" style="width: 100%; margin-bottom: 5px;">
-        <button onclick="saveQuery()">Speichern</button>
+        <button id='save_overview_query' onclick="saveQuery()">Speichern</button>
 
         <h3 style="margin-top: 20px;">Gespeicherte Abfragen laden</h3>
         <select id="savedQueriesSelect" style="width: 100%; margin-bottom: 5px;">
             <option value="">-- Wähle eine gespeicherte Abfrage --</option>
         </select>
-        <button onclick="loadSavedQuery()">Laden</button>
+        <button id='load_saved_query_button' onclick="loadSavedQuery()">Laden</button>
     </div>
 </div>
 
