@@ -2,6 +2,7 @@
 
 var querySelection = document.getElementById('querySelection');
 var resultsContainer = document.getElementById('resultsContainer');
+var savedQueriesMap = new Map();
 
 function make_thead_from_columns(cols) {
 	var thead = document.createElement('thead');
@@ -363,8 +364,6 @@ function addPropertyIfNotEmpty(inputElem) {
 	});
 }
 
-const savedQueriesMap = new Map();
-
 function loadSavedQueriesFromAPI() {
 	fetch('/api/get_saved_queries')
 		.then(response => response.json())
@@ -526,7 +525,6 @@ function createButton(text, onClick) {
 function insertBefore(container, element) {
 	container.parentNode.insertBefore(element, container);
 }
-
 
 // Initial beim Laden der Seite
 document.addEventListener('DOMContentLoaded', () => {
