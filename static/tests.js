@@ -359,6 +359,9 @@ async function rename_rule() {
         return false;
     }
     $("#renameModal").find("button").last().click()
+
+    await sleep(500)
+
     if ($("#queryTableBody tr").first().find("td").first().text() != "Umbenannt") {
         error("The rule name was not changed to 'Umbenannt'");
         return false;
@@ -499,12 +502,22 @@ async function go_overview() {
     return true;
 }
 
-function go_queries() {
+async function go_index() {
+    open_link("/")
+
+    await sleep(500);
+
+    return true;
+}
+
+async function go_queries() {
     if (!$(".block").eq(1).length) {
         error("Could not find queries button");
         return false;
     }
     $(".block").eq(1).click()
+
+    await sleep(500);
 
     return true;
 }
@@ -583,7 +596,7 @@ async function collection_overview() {
 }
 
 async function collection_queries() {
-    if (!go_queries()) {
+    if (!await go_queries()) {
         log("Could not go to queries");
         return false;
     }
@@ -623,7 +636,46 @@ async function collection_admin() {
     return true;
 }
 
+async function delete_all_existing_queries() {
+    if(!await go_queries()) {
+        error("Could not go to queries");
+        return false;
+    }
+
+    if (!$(".delete-btn").length) {
+        log("No existing queries to delete");
+        return true;
+    } 
+
+    while ($(".delete-btn").length) {
+        $(".delete-btn").first().click()
+        if (!$("#deleteModal").length) {
+            error("Could not find delete modal");
+            return false;
+        }
+        $("#deleteModal").find("button").last().click()
+        await sleep(500)
+    }
+
+    if ($(".delete-btn").length) {
+        error("Could not delete all existing queries");
+        return false;
+    }   
+
+    return true;
+}
+
 async function delete_all() {
+    if(!await delete_all_existing_queries()) {
+        error("Could not delete all existing queries");
+        return false;
+    }
+
+    if(!await go_index()) {
+        error("Could not go to index");
+        return false;
+    }
+
     try {
         const response = await fetch('/api/delete_all');
         const data = await response.json();
