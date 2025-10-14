@@ -182,8 +182,6 @@ function autoSuggestNodes() {
 }
 
 async function load_mapping () {
-	await sleep(1000);
-
 	try {
 		await fetchExistingRelTypes();
 		autoSuggestNodes();

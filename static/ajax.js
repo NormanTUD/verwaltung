@@ -80,7 +80,7 @@ function open_link(link) {
 							} else if (url.pathname.replace(/\/+$/, '') === '/query_overview') {
 								loadQueries();
 							} else if (url.pathname.replace(/\/+$/, '') === '/upload') {
-								//load_mapping();
+								load_mapping();
 							}
 						} catch (error) {
 							//
