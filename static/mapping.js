@@ -94,7 +94,7 @@ function addNodeMapping(suggestedType = '') {
 	newNodeDiv.querySelectorAll('.column-item').forEach(col => {
 		col.addEventListener('click', (event) => {
 			if (col.classList.contains('disabled')) {
-				alert('Diese Spalte ist bereits einem anderen Node-Typen zugeordnet.');
+				warning('Diese Spalte ist bereits einem anderen Node-Typen zugeordnet.');
 				return;
 			}
 			col.classList.toggle('selected');
@@ -240,7 +240,7 @@ function collectNodes() {
 	console.log("Assigned headers count:", assignedHeadersCount, "Expected:", headers.length);
 	if (assignedHeadersCount !== headers.length) {
 		console.error("Fehler: Nicht alle Spalten zugeordnet!");
-		alert('Fehler: Alle Spalten müssen einem Node-Typen zugeordnet werden.');
+		error('Fehler: Alle Spalten müssen einem Node-Typen zugeordnet werden.');
 		valid = false;
 	}
 
@@ -290,7 +290,7 @@ function collectRelationships() {
 	});
 
 	if (relationshipErrors.length > 0) {
-		alert("Fehlerhafte Relationships:\n" + relationshipErrors.join("\n"));
+		error("Fehlerhafte Relationships:\n" + relationshipErrors.join("\n"));
 	}
 
 	console.log(`Valid relationships: ${validRelationshipsCount}`);
@@ -300,7 +300,7 @@ function collectRelationships() {
 
 function checkRelationshipCount(nodes, relationships) {
 	if (Object.keys(nodes).length > 1 && relationships.length === 0) {
-		alert('Fehler: Bei mehreren Node-Typen muss mindestens eine gültige Relationship definiert werden.');
+		error('Fehler: Bei mehreren Node-Typen muss mindestens eine gültige Relationship definiert werden.');
 		console.error("checkRelationshipCount: Keine gültige Relationship bei mehreren Node-Typen!");
 		return false;
 	}
@@ -317,7 +317,7 @@ function sendMapping(mapping) {
 	}).then(response => response.json())
 		.then(data => {
 			console.log("Antwort vom Server:", data);
-			alert(data.message);
+			error(data.message);
 			if (data.status === 'success') {
 				window.location.href = '/overview';
 			}
