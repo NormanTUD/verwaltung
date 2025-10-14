@@ -57,8 +57,14 @@ Oliver,Seidel,1010,oliver.seidel@example.com,Beamer`;
 	textarea.value = data.trim();
 }
 
+var added_import_handlers = false;
+
 function add_import_handlers() {
 	if(!$("#upload_form")) {
+		return;
+	}
+
+	if(added_import_handlers) {
 		return;
 	}
 
@@ -127,4 +133,6 @@ function add_import_handlers() {
 	});
 
 	$("#upload_form").data("set_handler", 1)
+
+	added_import_handlers = true;
 }

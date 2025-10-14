@@ -116,7 +116,11 @@ function updateRelationshipSelects() {
 	});
 }
 
-function addRelationship() {
+function addRelationship(force=0) {
+	if(!force && $(".relationship-group").length != 0) {
+		return;
+	}
+
 	const newRelDiv = document.createElement('div');
 	newRelDiv.classList.add('relationship-group');
 
@@ -181,7 +185,6 @@ function autoSuggestNodes() {
 }
 
 async function load_mapping () {
-	console.trace();
 	try {
 		await fetchExistingRelTypes();
 		autoSuggestNodes();
@@ -323,7 +326,7 @@ function sendMapping(mapping) {
 		.then(data => {
 			console.log("Antwort vom Server:", data);
 			if (data.status === 'success') {
-				window.location.href = '/overview';
+				open_link("/overview");
 			} else {
 				error(data.message);
 			}
