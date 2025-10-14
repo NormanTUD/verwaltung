@@ -557,11 +557,27 @@ async function collection_queries() {
 }
 
 async function collection_admin() {
-    await go_admin_panel()
-    await add_user()
-    await activate_user()
-    readonly_user()
-    await delete_user()
+    if (!await go_admin_panel()) {
+        log("Could not go to admin panel");
+        return false;
+    }  
+    if (!await add_user()) {
+        log("Add user test failed");
+        return false;
+    }
+    if (!await activate_user()) {
+        log("Activate user test failed");
+        return false;
+    }
+    if (!await readonly_user()) {
+        log("Readonly user test failed");
+        return false;
+    }
+    if (!await delete_user()) {
+        log("Delete user test failed");
+        return false;
+    }
+    return true;
 }
 
 async function delete_all() {
