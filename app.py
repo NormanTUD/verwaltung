@@ -396,6 +396,10 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
+@app.errorhandler(405)
+def method_not_allowed(e):
+    return render_template('405.html'), 405
+
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('404.html'), 404
