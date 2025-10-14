@@ -106,11 +106,6 @@ function createInputCell(label, property, id) {
 	return td;
 }
 
-function createRelationshipCell(relationships) {
-	const td = document.createElement("td");
-	td.textContent = relationships.map(r => r.type).join(", ");
-	return td;
-}
 
 function createPlusButtonCell() {
 	const td = document.createElement("td");
@@ -133,7 +128,6 @@ function buildRow(headers, headersMap, nodeIds, relationships) {
 		const id = nodeIds[label] || "";
 		tr.appendChild(createInputCell(label, property, id));
 	});
-	tr.appendChild(createRelationshipCell(relationships));
 	tr.appendChild(createPlusButtonCell());
 	tr.appendChild(createActionCell());
 	return tr;

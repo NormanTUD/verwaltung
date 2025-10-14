@@ -35,59 +35,35 @@ function open_link(link) {
 					// 1️⃣ HTML-Inhalt parsen
 					var parsed = $("<div>").html(data);
 
-					// 2️⃣ Skripte extrahieren
+					// 2️⃣ Skripte extrahieren und entfernen
 					var scripts = parsed.find("script");
+					scripts.remove();
 
-					// 3️⃣ Inhalt ohne Skripte in mainContent einsetzen
-					mainContent.html(parsed);
+					// 3️⃣ Nur den Inhalt einsetzen (ohne Skripte)
+					mainContent.html(parsed.html());
 
-					// 4️⃣ Skripte nacheinander ausführen
-					scripts.each(function () {
-						var script = $(this);
-						var src = script.attr("src");
-						var code = script.html();
-
-						try {
-							if (src) {
-								// Externe Datei laden
-								$.ajax({
-									url: src,
-									dataType: "script",
-									cache: true,
-									async: false, // Reihenfolge beibehalten
-									error: function (xhr, status, err) {
-										console.error("Fehler beim Laden von Script:", src, status, err);
-									}
-								});
-							} else if (code.trim() !== "") {
-								// Inline-Skript ausführen
-								$.globalEval(code);
-							}
-						} catch (scriptError) {
-							console.error("Fehler beim Ausführen eines Skripts:", scriptError);
+					// 4️⃣ Skripte in Reihenfolge asynchron ausführen
+					executeScriptsSequentially(scripts).then(function () {
+						// 5️⃣ URL in History setzen
+						if (window.history && window.history.pushState) {
+							window.history.pushState({ ajaxLoaded: true, url: link }, "", link);
 						}
-					});
-
-					// 5️⃣ URL in History setzen
-					if (window.history && window.history.pushState) {
-						window.history.pushState({ ajaxLoaded: true, url: link }, "", link);
 
 						try {
 							var url = new URL(window.location.href);
+							var path = url.pathname.replace(/\/+$/, "");
 
-							if (url.pathname.replace(/\/+$/, '') === '/overview') {
+							if (path === "/overview") {
 								get_data_overview();
-							} else if (url.pathname.replace(/\/+$/, '') === '/query_overview') {
+							} else if (path === "/query_overview") {
 								loadQueries();
-							} else if (url.pathname.replace(/\/+$/, '') === '/upload') {
-								//load_mapping();
+							} else if (path === "/upload") {
+								load_mapping();
 							}
-						} catch (error) {
-							//
+						} catch (err) {
+							console.error("open_link(): Fehler in URL-Verarbeitung:", err);
 						}
-					} else {
-						console.warn("open_link(): Browser unterstützt history.pushState nicht.");
-					}
+					});
 
 				} catch (innerError) {
 					console.error("open_link(): Fehler beim Schreiben des Inhalts:", innerError);
@@ -104,12 +80,50 @@ function open_link(link) {
 
 	} catch (error) {
 		console.error("open_link(): Allgemeiner Fehler:", error);
-		var fallback = "<div style='color:red;padding:10px;'>Ein unerwarteter Fehler ist aufgetreten.</div>";
-		$("#main_content").html(fallback);
+		$("#main_content").html("<div style='color:red;padding:10px;'>Ein unerwarteter Fehler ist aufgetreten.</div>");
 	}
 }
 
-// Event-Handler für "Zurück"-Navigation im Browser
+// Hilfsfunktion für serielles Scriptladen
+function executeScriptsSequentially(scripts) {
+	return new Promise(function (resolve, reject) {
+		var index = 0;
+
+		function next() {
+			if (index >= scripts.length) {
+				resolve();
+				return;
+			}
+
+			var script = $(scripts[index++]);
+			var src = script.attr("src");
+			var code = script.html();
+
+			try {
+				if (src) {
+					$.getScript(src)
+						.done(next)
+						.fail(function (xhr, status, err) {
+							console.error("Fehler beim Laden von Script:", src, status, err);
+							next();
+						});
+				} else if (code.trim() !== "") {
+					$.globalEval(code);
+					next();
+				} else {
+					next();
+				}
+			} catch (err) {
+				console.error("executeScriptsSequentially(): Fehler:", err);
+				next();
+			}
+		}
+
+		next();
+	});
+}
+
+// Browser-Zurück-Event
 $(window).on("popstate", function (event) {
 	try {
 		var state = event.originalEvent.state;
