@@ -1,7 +1,7 @@
 "use strict";
 
-const querySelection = document.getElementById('querySelection');
-const resultsContainer = document.getElementById('resultsContainer');
+var querySelection = document.getElementById('querySelection');
+var resultsContainer = document.getElementById('resultsContainer');
 
 function make_thead_from_columns(cols) {
 	var thead = document.createElement('thead');
