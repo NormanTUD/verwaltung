@@ -302,7 +302,7 @@ function delete_new_rule_overview() {
         error("Could not delete new rule");
         return false;
     }
-    
+
     return true;
 }
 async function rename_rule() {
@@ -381,11 +381,35 @@ async function collection_overview() {
         log("Overview test failed");
         return false;
     }
-    await add_row_overview ()
-    await delete_row_overview ()
-    await define_rule ()
-    await add_new_rule()
-    await save_rule()
+    if(!await add_row_overview()) {
+        log("Add row overview test failed");
+        return false;
+    } 
+    if(!await wrote_overview()) {
+        log("Wrote overview test failed");
+        return false;
+    }
+    if(!await delete_row_overview()) {
+        log("Delete row overview test failed");
+        return false;
+    }
+    if(!await define_rule()) {
+        log("Define rule test failed");
+        return false;
+    }
+    if(!await save_rule()) {
+        log("Save rule test failed");
+        return false;
+    }
+    if(!await add_new_rule()) {
+        log("Add new rule test failed");
+        return false;
+    }
+    if(!delete_new_rule_overview()) {
+        log("Delete new rule overview test failed");
+        return false;
+    }
+
 
     return true;
 }
