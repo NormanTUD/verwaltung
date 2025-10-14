@@ -73,8 +73,12 @@ function open_link(link) {
 						window.history.pushState({ ajaxLoaded: true, url: link }, "", link);
 
 						try {
-							get_data_overview();
-						} catch (e) {
+							var url = new URL(window.location.href);
+
+							if (url.pathname.replace(/\/+$/, '') === '/overview') {
+								get_data_overview();
+							}
+						} catch (error) {
 							//
 						}
 					} else {
