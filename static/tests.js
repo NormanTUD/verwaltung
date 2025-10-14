@@ -307,16 +307,55 @@ function delete_new_rule_overview() {
 }
 
 async function rename_rule() {
+    if(!$(".rename-btn").length) {
+        error("Could not find rename button");
+        return false;
+    }
+    name = $("#queryTableBody tr").first().find("td").first().text()
     $(".rename-btn").first().click()
     await sleep (100)
+    if ($("#renameModal").find("input").val() != name) {
+        error("The value in the rename modal is not the same as the rule name");
+        return false;
+    }
+    if (!$("#renameModal").length) {
+        error("Could not find rename modal");
+        return false;
+    }
     $("#renameModal").find("input").val("Umbenannt")
     await sleep (100)
+    if ($("#renameModal").find("input").val() != "Umbenannt") {
+        error("The value in the rename modal is not 'Umbenannt'");
+        return false;
+    }
+    if (!$("#renameModal").find("button").last().length) {
+        error("Could not find rename modal save button");
+        return false;
+    }
     $("#renameModal").find("button").last().click()
+    if ($("#queryTableBody tr").first().find("td").first().text() != "Umbenannt") {
+        error("The rule name was not changed to 'Umbenannt'");
+        return false;
+    }
+    return true;
 }
 
 function delete_rule() {
+    if(!$(".delete-btn").length) {
+        error("Could not find delete button");
+        return false;
+    }
     $(".delete-btn").first().click()
+    if (!$("#deleteModal").length) {
+        error("Could not find delete modal");
+        return false;
+    }
     $("#deleteModal").find("button").last().click()
+    if ($("#queryTableBody tr").first().find("td").first().text() == "Umbenannt") {
+        error("The rule was not deleted");
+        return false;
+    }
+    return true;
 }
 
 async function add_user() {
