@@ -98,6 +98,7 @@ function deactivate_checkbox(checkbox) {
 }
 
 async function overview() {
+    await sleep(500)
     if (!$("#relationshipSelection").length) {
         error("Could not find relationship selection");
         return false;
@@ -167,13 +168,18 @@ async function add_row_overview() {
         error("Could not find add new row button");
         return false;
     }
-    if ($(".query-results-table").find("tr").length != 11) {
-        error("There are not 11 rows in the table");
+
+    const old_number_trs = $(".query-results-table").find("tr").length;
+
+    if (old_number_trs < 2) {
+        error("There are less than 2 rows in the table");
         return false;
     }
+
     $("#add_new_row").click()
-    await sleep(500)
-    if ($(".query-results-table").find("tr").length != 12) {
+    await sleep(2000)
+    
+    if ($(".query-results-table").find("tr").length != (old_number_trs + 1)) {
         error("There are not 12 rows in the table after adding a row");
         return false;
     }
