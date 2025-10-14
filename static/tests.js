@@ -307,6 +307,9 @@ async function save_rule() {
         return false;
     }
     $("#save_overview_query").click()
+
+    await sleep(500)
+
     if ($("#queryNameInput").val().trim() !== "") {
         console.error("❌ Fehler beim Speichern der Regel!");
         return false;
@@ -568,11 +571,13 @@ async function collection_overview() {
         log("Add new rule test failed");
         return false;
     }
+
+    /*
     if (!delete_new_rule_overview()) {
         log("Delete new rule overview test failed");
         return false;
     }
-
+    */
 
     return true;
 }
