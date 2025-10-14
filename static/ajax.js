@@ -77,10 +77,14 @@ function open_link(link) {
 
 							if (url.pathname.replace(/\/+$/, '') === '/overview') {
 								get_data_overview();
-							}
-
-							if (url.pathname.replace(/\/+$/, '') === '/query_overview') {
+							} else if (url.pathname.replace(/\/+$/, '') === '/query_overview') {
 								loadQueries();
+							} else if (url.pathname.replace(/\/+$/, '') === '/upload') {
+								log("LOAD MAPPING");
+								load_mapping();
+							} else {
+								log("INVALID URL:")
+								log(url)
 							}
 						} catch (error) {
 							//

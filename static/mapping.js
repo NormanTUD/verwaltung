@@ -180,10 +180,14 @@ function autoSuggestNodes() {
 	}
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+async function load_mapping () {
 	await fetchExistingRelTypes();
 	autoSuggestNodes();
 	addRelationship();
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+	await load_mapping()
 });
 
 function saveMapping() {
@@ -326,4 +330,3 @@ function sendMapping(mapping) {
 			console.error("Fehler beim Speichern des Mappings:", err);
 		});
 }
-
