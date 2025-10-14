@@ -3,6 +3,7 @@ function sleep(ms) {
 }
 
 async function import_person() {
+    await sleep(500)
     if (!$(".preset-buttons").length) {
         error("Could not find preset buttons");
         return false;
@@ -26,67 +27,64 @@ async function assign_person_to_nodes() {
     console.log("🚀 assign_person_to_nodes() gestartet");
 
     try {
-        // Helper für Sleep + Logging
-        const sleep = (ms) => new Promise((resolve) => {
-            console.log(`⏱️ Sleep für ${ms}ms...`);
-            setTimeout(() => {
-                console.log(`⏰ ${ms}ms vorbei`);
-                resolve();
-            }, ms);
-        });
-
-        // Check 1: jQuery verfügbar?
+        // 🔍 Check: jQuery verfügbar?
         if (typeof $ === "undefined") {
             console.error("❌ jQuery nicht gefunden!");
-            return;
-        } else {
-            console.log("✅ jQuery erkannt, Version:", $.fn.jquery);
+            return false;
         }
+        console.log("✅ jQuery erkannt, Version:", $.fn.jquery);
 
-        // Debug-Helfer
-        const debugElement = (selector, name) => {
+        // Hilfsfunktion für Element-Check
+        const getEl = (selector, name) => {
             const el = $(selector);
-            if (el.length === 0) {
+            if (!el.length) {
                 console.error(`❌ ${name} (${selector}) nicht gefunden!`);
-            } else {
-                console.log(`✅ ${name} gefunden (${el.length}x):`, el);
+                return null;
             }
+            console.log(`✅ ${name} gefunden (${el.length}x)`);
             return el;
         };
 
         console.group("🔍 Schritt 1: From-Node auswählen");
-        const fromNode = debugElement(".from-node-select", "From-Node Select");
+        const fromNode = getEl(".from-node-select", "From-Node Select");
+        if (!fromNode) return false;
         fromNode.first().val("Person").trigger("change");
         console.log("👉 Wert gesetzt auf 'Person'");
         console.groupEnd();
         await sleep(150);
 
         console.group("🔍 Schritt 2: To-Node auswählen");
-        const toNode = debugElement(".to-node-select", "To-Node Select");
+        const toNode = getEl(".to-node-select", "To-Node Select");
+        if (!toNode) return false;
         toNode.val("Stadt").trigger("change");
         console.log("👉 Wert gesetzt auf 'Stadt'");
         console.groupEnd();
         await sleep(150);
 
         console.group("🔍 Schritt 3: Relationship-Typ setzen");
-        const relType = debugElement(".rel-type-input", "Relation Type Input");
+        const relType = getEl(".rel-type-input", "Relation Type Input");
+        if (!relType) return false;
         relType.val("dasisteintest").trigger("input").trigger("change");
         console.log("👉 Wert gesetzt auf 'dasisteintest'");
         console.groupEnd();
         await sleep(150);
 
         console.group("🔍 Schritt 4: Speichern-Button klicken");
-        const saveButton = debugElement(".save-button", "Save-Button");
+        const saveButton = getEl(".save-button", "Save-Button");
+        if (!saveButton) return false;
         console.log("🖱️ Klick wird ausgeführt...");
         saveButton.trigger("click");
         console.groupEnd();
 
-        console.log("✅ Alle Schritte ausgeführt!");
+        console.log("✅ Alle Schritte erfolgreich ausgeführt!");
+        return true;
+
     } catch (err) {
         console.error("💥 FEHLER in assign_person_to_nodes:", err);
+        return false;
+    } finally {
+        console.log("🏁 assign_person_to_nodes() beendet");
     }
-
-    console.log("🏁 assign_person_to_nodes() beendet");
 }
 
 function deactivate_checkbox(checkbox) {
@@ -466,11 +464,17 @@ async function activate_user() {
     return true;
 }
 
-function click_import() {
+function go_import() {
+    if (!$("#import_button").length) {
+        error("Could not find import button");
+        return false;
+    }
     $("#import_button").click()
+
+    return true;
 }
 
-function go_overview() {
+async function go_overview() {
     const elem = $(".block").first();
     if (!elem.length) {
         error("Could not find overview button");
@@ -478,6 +482,8 @@ function go_overview() {
     }
 
     $(".block").first().click()
+
+    await sleep(500);
 
     return true;
 }
@@ -505,18 +511,27 @@ async function go_admin_panel() {
 }
 
 async function collection_import() {
-    click_import()
-    await sleep(500)
-    import_person()
-    await sleep(500)
-    await assign_person_to_nodes()
+    if (!go_import()) {
+        log("Could not go to import");
+        return false;
+    }
+    if (!await import_person()) {
+        log("Import person test failed");
+        return false;
+    }
+    if (!await assign_person_to_nodes()) {
+        log("Assign person to nodes test failed");
+        return false;
+    }
+    return true;
 }
 
 async function collection_overview() {
-    if (!go_overview()) {
+    if (!await go_overview()) {
         log("Could not go to overview");
         return false;
     }
+    
     if (!await overview()) {
         log("Overview test failed");
         return false;
@@ -613,11 +628,25 @@ async function delete_all() {
 async function run_tests() {
     console.log("Running tests...");
     await delete_all();
-    await collection_import()
-    await collection_overview()
-    await collection_queries()
-    await collection_admin()
-    console.log("All tests passed!");
+    await sleep(1000);
+    if (!await collection_import()) {
+        log("Collection import test failed");
+        return false;
+    }
+    if (!await collection_overview()) {
+        log("Collection overview test failed");
+        return false;
+    }
+    if (!await collection_queries()) {
+        log("Collection queries test failed");
+        return false;
+    }
+    if (!await collection_admin()) {
+        log("Collection admin test failed");
+        return false;
+    }
 
     return true;
 }
+
+
