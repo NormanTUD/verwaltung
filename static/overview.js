@@ -510,6 +510,7 @@ function createButtonWithHandler(container, text, onClick) {
 	btn.textContent = text;
 	btn.style.marginBottom = '10px';
 	btn.onclick = onClick;
+	btn.id = 'add_new_row';
 	container.parentNode.insertBefore(btn, container);
 	return btn;
 }
@@ -536,9 +537,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	if(resultsContainer) {
 		createButtonWithHandler(resultsContainer, 'Neue Zeile hinzufügen', addRowToTable);
-
-		const insertBtn = createButton('Neue Zeile hinzufügen', addRowToTable);
-		insertBefore(resultsContainer, insertBtn);
 	}
 
 	fetchRelationships();
