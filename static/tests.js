@@ -359,13 +359,46 @@ function delete_rule() {
 }
 
 async function add_user() {
+    if (!$("#new_username").length) {
+        error("Could not find new username input");
+        return false;
+    }
+    if (!$("#new_username").val() == "") {
+        error("New username input is not empty");
+        return false;
+    }
     $("#new_username").val("testuser")
     await sleep (100)
+    if (!$("#new_username").val() == "testuser") {
+        error("The value of the new username input is not 'testuser'");
+        return false;
+    }
+    if (!$("#new_password").length) {
+        error("Could not find new password input");
+        return false;
+    }
     $("#new_password").val("testuser")
     await sleep (100)
+    if (!$("#new_role").length) {
+        error("Could not find new role select");
+        return false;
+    }
     $("#new_role").val("1").change()
     await sleep (100)
+    if (!$("#new_role").val() == "1") {
+        error("The value of the new role select is not '1'");
+        return false;
+    }
+    if (!$(".save-new").length) {
+        error("Could not find save new user button");
+        return false;
+    }
     $(".save-new").last().click()
+    await sleep (500)
+    if ($(".user-entry").last().find("td").first().text() != "testuser") {
+        error("The new user was not added");
+        return false;
+    }
 }
 
 function delete_user() {
@@ -479,6 +512,8 @@ async function collection_queries() {
         log("Delete rule test failed");
         return false;
     }
+
+    return true;
 }
 
 async function collection_admin() {
