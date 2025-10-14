@@ -182,9 +182,15 @@ function autoSuggestNodes() {
 }
 
 async function load_mapping () {
-	await fetchExistingRelTypes();
-	autoSuggestNodes();
-	addRelationship();
+	await sleep(1000);
+
+	try {
+		await fetchExistingRelTypes();
+		autoSuggestNodes();
+		addRelationship();
+	} catch (e) {
+		error(("") + e);
+	}
 }
 
 function saveMapping() {
