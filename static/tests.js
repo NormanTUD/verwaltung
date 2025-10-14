@@ -7,8 +7,8 @@ function import_person() {
     $("form").find("button").last().click()
 }
 
-async function assign_person_to_nodes_debug() {
-    console.log("🚀 assign_person_to_nodes_debug() gestartet");
+async function assign_person_to_nodes() {
+    console.log("🚀 assign_person_to_nodes() gestartet");
 
     try {
         // Helper für Sleep + Logging
@@ -68,10 +68,10 @@ async function assign_person_to_nodes_debug() {
 
         console.log("✅ Alle Schritte ausgeführt!");
     } catch (err) {
-        console.error("💥 FEHLER in assign_person_to_nodes_debug:", err);
+        console.error("💥 FEHLER in assign_person_to_nodes:", err);
     }
 
-    console.log("🏁 assign_person_to_nodes_debug() beendet");
+    console.log("🏁 assign_person_to_nodes() beendet");
 }
 
 function deactivate_checkbox(checkbox) {
