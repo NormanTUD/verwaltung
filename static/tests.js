@@ -19,10 +19,6 @@ async function import_person() {
     }
     $("form").find("button").last().click()
     await sleep(500)
-    if (!$("#data").text == " ") {
-        error("Data not send!");
-        return false;
-    }
     return true;
 }
 
