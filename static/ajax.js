@@ -72,7 +72,7 @@ function open_link(link) {
 					if (window.history && window.history.pushState) {
 						window.history.pushState({ ajaxLoaded: true, url: link }, "", link);
 
-o						try {
+						try {
 							get_data_overview();
 						} catch (e) {
 							//
