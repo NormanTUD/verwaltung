@@ -79,8 +79,6 @@ function open_link(link) {
 								get_data_overview();
 							} else if (url.pathname.replace(/\/+$/, '') === '/query_overview') {
 								loadQueries();
-							} else if (url.pathname.replace(/\/+$/, '') === '/upload') {
-								load_mapping();
 							}
 						} catch (error) {
 							log(error);

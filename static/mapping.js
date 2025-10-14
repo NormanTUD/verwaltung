@@ -181,6 +181,7 @@ function autoSuggestNodes() {
 }
 
 async function load_mapping () {
+	console.trace();
 	try {
 		await fetchExistingRelTypes();
 		autoSuggestNodes();
