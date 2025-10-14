@@ -211,26 +211,100 @@ async function define_rule ()  {
         return false;
     }
     $(".form-control").first().val("Person.titel").change()
-
+    if (!$(".form-controol").first().val() == "Person.titel") {
+        error("The value of the first form control is not 'Person.titel'");
+        return false;
+    }
     await sleep (100)
+    if (!$('.rule-container').first().find('.rule-operator-container select').length) {
+        error("Could not find rule operator select");
+        return false;
+    }   
     $('.rule-container').first()
         .find('.rule-operator-container select')
         .val('equal')
         .trigger('change');
+    if (!$('.rule-container').first().find('.rule-operator-container select').val() == 'equal') {
+        error("The value of the rule operator select is not 'equal'");
+        return false;
+    }
+    if (!$(".form-control").last().length) {
+        error("Could not find last form control");
+        return false;
+    }
     await sleep (100)
     $(".form-control").last().val("Dr.").change()
+    if (!$(".form-control").last().val() == "Dr.") {
+        error("The value of the last form control is not 'Dr.'");
+        return false;
+    }
+    
+    return true;
 }
 
 async function add_new_rule() {
+    if (!$(".btn-success").first().length) { 
+        error("Could not find add new rule button");
+        return false;
+    }
+    if ($("#querybuilder_rule_1").length) { 
+        error("Rule 1 already exists");
+        return false;
+    }
+    if (!$("#querybuilder_rule_0").length) { 
+        error("Rule 0 does not exist");
+        return false;
+    }
     $(".btn-success").first().click()
+    if (!$("#querybuilder_rule_1").length) { 
+        error("Could not append more rules");
+        return false;
+    }
+
+    return true;
 }
 
 async function save_rule() {
+    if (!$("#queryNameInput").length) {
+        error("Could not find query name input");
+        return false;
+    }
+    if($("#queryNameInput").val().trim() !== "") {
+        console.error("❌ Input ist nicht leer!");
+        return false;
+    }
     $("#queryNameInput").val("Testregel")
     await sleep (100)
+    if ($("#queryNameInput").val() != "Testregel") {
+        error("The value of the query name input is not 'Testregel'");
+        return false;
+    }
+    if (!$("#save_overview_query").length) {
+        error("Could not find save overview query button");
+        return false;
+    }
     $("#save_overview_query").click()
+        if(input.val().trim() !== "") {
+        console.error("❌ Fehler beim Speichern der Regel!");
+        return false;
+    }
+
+    return true;
 }
 
+function delete_new_rule_overview() {
+    if(!$(".btn-group").last().length) {
+        error("Could not find delete new rule button");
+        return false;
+    }
+    $(".btn-group").last().click()
+    if($("#querybuilder_rule_1").length) {
+        error("Could not delete new rule");
+        return false;
+    }
+    
+    return true;
+}
 async function rename_rule() {
     $(".rename-btn").first().click()
     await sleep (100)
