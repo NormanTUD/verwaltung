@@ -78,6 +78,10 @@ function open_link(link) {
 							if (url.pathname.replace(/\/+$/, '') === '/overview') {
 								get_data_overview();
 							}
+
+							if (url.pathname.replace(/\/+$/, '') === '/query_overview') {
+								loadQueries();
+							}
 						} catch (error) {
 							//
 						}
