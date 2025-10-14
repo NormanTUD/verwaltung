@@ -58,7 +58,6 @@ Oliver,Seidel,1010,oliver.seidel@example.com,Beamer`;
 }
 
 function add_import_handlers() {
-	// Formular-Abfang
 	$(document).on("submit", "#upload_form", function (e) {
 		try {
 			e.preventDefault();
@@ -138,6 +137,8 @@ function add_import_handlers() {
 						if (window.history && window.history.pushState) {
 							window.history.pushState({ ajaxLoaded: true, url: actionUrl }, "", actionUrl);
 						}
+
+						load_mapping();
 					} catch (innerError) {
 						console.error("AJAX-Upload: Fehler beim Verarbeiten des Inhalts:", innerError);
 						mainContent.html("<div style='color:red;padding:10px;'>Fehler beim Verarbeiten des Inhalts.</div>");
