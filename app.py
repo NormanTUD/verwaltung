@@ -403,7 +403,7 @@ def page_not_found(e):
 @app.route('/search')
 @conditional_login_required
 def search():
-    my_session = Session()
+    session = Session()
 
     query = request.args.get('q', '').lower().strip()
     results = []
