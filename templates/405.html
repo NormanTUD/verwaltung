@@ -1,0 +1,31 @@
+{% if not request.headers.get('X-Requested-With') == 'XMLHttpRequest' %}
+    {% extends "layout.html" %}
+{% endif %}
+
+{% block title %}Startseite{% endblock %}
+{% block content %}
+		<h1>405</h1>
+
+		<img src="/static/405.jpg" width=512 />
+
+		<p class="message" id="funny-msg">Hmm... Die Katze findet hier nix!</p>
+
+		<a href="/">Zur Startseite</a>
+
+		<script>
+			// Lustige Nachrichten
+			const messages = [
+				"Hmm... Die Katze findet hier nix!",
+				"405: Katze auf der Suche nach der Seite...",
+				"Hier gibt’s nix zu schnurren.",
+				"Ups, Katze hat die Seite verlegt!",
+				"405 – die Seite ist im Katzenkörbchen verloren gegangen.",
+				"Selbst die neugierige Katze gibt hier auf.",
+				"405: Miau! Seite nicht gefunden.",
+			];
+
+			const msgElem = document.getElementById('funny-msg');
+			const randIndex = Math.floor(Math.random() * messages.length);
+			msgElem.textContent = messages[randIndex];
+		</script>
+{% endblock %}
