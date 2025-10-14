@@ -56,3 +56,83 @@ Oliver,Seidel,1010,oliver.seidel@example.com,Beamer`;
 
 	textarea.value = data.trim();
 }
+
+var added_import_handlers = false;
+
+function add_import_handlers() {
+	if(!$("#upload_form")) {
+		return;
+	}
+
+	if(added_import_handlers) {
+		return;
+	}
+
+	if($("#upload_form").data("set_handler")) {
+		return;
+	}
+
+	$(document).on("submit", "#upload_form", function (e) {
+		e.preventDefault();
+
+		var form = $(this);
+		var actionUrl = form.attr("action");
+		var method = form.attr("method") || "POST";
+
+		if (typeof actionUrl !== "string" || actionUrl.trim() === "") {
+			console.error("AJAX-Upload: Ungültige action-URL.");
+			return;
+		}
+
+		var mainContent = $("#main_content");
+		if (mainContent.length === 0) {
+			console.error("AJAX-Upload: #main_content nicht gefunden.");
+			return;
+		}
+
+		var formData = form.serialize();
+
+		// Spinner anzeigen
+		var spinnerHtml = '' +
+			'<div id="ajax_spinner" style="display:flex;align-items:center;justify-content:center;height:100%;min-height:100px;">' +
+			'  <div style="border:6px solid #f3f3f3;border-top:6px solid #3498db;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;"></div>' +
+			'  <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>' +
+			'</div>';
+		mainContent.html(spinnerHtml);
+
+		// AJAX-POST durchführen
+		$.ajax({
+			url: actionUrl,
+			type: method.toUpperCase(),
+			data: formData,
+			dataType: "html",
+			cache: false,
+			success: function (data, textStatus, jqXHR) {
+				if (typeof data !== "string" || data.trim() === "") {
+					console.warn("AJAX-Upload: Leere Antwort empfangen.");
+					mainContent.html("<div style='color:red;padding:10px;'>Fehler: Leere Antwort.</div>");
+					return;
+				}
+
+				mainContent.html(data);
+
+				// URL in History übernehmen
+				if (window.history && window.history.pushState) {
+					window.history.pushState({ ajaxLoaded: true, url: actionUrl }, "", actionUrl);
+				}
+
+				load_mapping();
+			},
+			error: function (jqXHR, textStatus, errorThrown) {
+				console.error("AJAX-Upload: Fehler beim Request:", textStatus, errorThrown);
+				var errorMsg = "<div style='color:red;padding:10px;'>Fehler beim Upload:<br>" +
+					$("<div>").text(textStatus + ": " + errorThrown).html() + "</div>";
+				mainContent.html(errorMsg);
+			}
+		});
+	});
+
+	$("#upload_form").data("set_handler", 1)
+
+	added_import_handlers = true;
+}

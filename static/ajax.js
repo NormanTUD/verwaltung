@@ -45,26 +45,28 @@ function open_link(link) {
 					scripts.each(function () {
 						var script = $(this);
 						var src = script.attr("src");
-						var code = script.html();
+						if(src != "static/import.js") {
+							var code = script.html();
 
-						try {
-							if (src) {
-								// Externe Datei laden
-								$.ajax({
-									url: src,
-									dataType: "script",
-									cache: true,
-									async: false, // Reihenfolge beibehalten
-									error: function (xhr, status, err) {
-										console.error("Fehler beim Laden von Script:", src, status, err);
-									}
-								});
-							} else if (code.trim() !== "") {
-								// Inline-Skript ausführen
-								$.globalEval(code);
+							try {
+								if (src) {
+									// Externe Datei laden
+									$.ajax({
+										url: src,
+										dataType: "script",
+										cache: true,
+										async: false, // Reihenfolge beibehalten
+										error: function (xhr, status, err) {
+											console.error("Fehler beim Laden von Script:", src, status, err);
+										}
+									});
+								} else if (code.trim() !== "") {
+									// Inline-Skript ausführen
+									$.globalEval(code);
+								}
+							} catch (scriptError) {
+								console.error("Fehler beim Ausführen eines Skripts:", scriptError);
 							}
-						} catch (scriptError) {
-							console.error("Fehler beim Ausführen eines Skripts:", scriptError);
 						}
 					});
 
