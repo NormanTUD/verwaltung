@@ -80,6 +80,8 @@ function deactivate_checkbox(checkbox) {
     } else {
         log("Checkbox is already deactivated.");
     }
+
+    
 }
 
 async function overview() {
@@ -435,12 +437,13 @@ function readonly_user() {
     }
     return true;
 }
-function activate_user() {
-    if (!$(".activate-entry").length) {
+async function activate_user() {
+    if (!$(".save-new").first().length) {
         error("Could not find activate user button");
         return false;
     }
     $(".save-new").first().click()
+    await sleep(500)
     if (!$(".activate-entry").first().hasClass("btn-success")) {
         error("The user was not activated");
         return false;
@@ -474,12 +477,14 @@ function go_queries() {
     return true;
 }
 
-function go_admin_panel() {
+async function go_admin_panel() {
     if (!$(".w-full").eq(3).length) {
         error("Could not find admin panel button");
         return false;
     }
     $(".w-full").eq(3).click()
+
+    await sleep(500);
 
     return true;
 }
@@ -552,9 +557,9 @@ async function collection_queries() {
 }
 
 async function collection_admin() {
-    go_admin_panel()
+    await go_admin_panel()
     await add_user()
-    activate_user()
+    await activate_user()
     readonly_user()
     await delete_user()
 }
