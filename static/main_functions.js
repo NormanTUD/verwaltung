@@ -181,14 +181,17 @@ function success(msg) {
 
 function error(msg) {
 	showMessage('error', msg);
+	console.error(msg);
 }
 
 function info(msg) {
 	showMessage('info', msg);
+	console.info(msg);
 }
 
 function warning(msg) {
 	showMessage('warning', msg);
+	console.warning(msg);
 }
 
 
