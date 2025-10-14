@@ -751,8 +751,7 @@ def admin_panel():
     finally:
         session.close()
 
-
-@app.route('/admin/delete/<int:user_id>')
+@app.route('/admin/delete/<int:user_id>', methods=['POST'])
 @login_required
 @admin_required
 def delete_user(user_id):
@@ -760,22 +759,19 @@ def delete_user(user_id):
     try:
         user = session.query(User).get(user_id)
         if not user:
-            flash("Benutzer nicht gefunden.")
-        else:
-            session.delete(user)
-            session.commit()
-            flash("Benutzer gelöscht.")
-        return redirect(url_for('admin_panel'))
+            return jsonify(success=False, error="Benutzer nicht gefunden.")
+        
+        session.delete(user)
+        session.commit()
+        return jsonify(success=True, message="Benutzer gelöscht.")
 
     except SQLAlchemyError as e:
         session.rollback()
         app.logger.error("Fehler beim Löschen des Benutzers: %s", e)
-        flash("Fehler beim Löschen des Benutzers.")
-        return redirect(url_for('admin_panel'))
+        return jsonify(success=False, error="Fehler beim Löschen des Benutzers.")
 
     finally:
         session.close()
-
 
 @app.route('/admin/update/<int:user_id>', methods=['POST'])
 @login_required

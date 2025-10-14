@@ -382,3 +382,16 @@ svg { background: #f0f0f0; border: 1px solid #ccc; }
 .link-text { fill: #555; font-size: 10px; text-anchor: middle; }
 .node circle { stroke: #fff; stroke-width: 1.5px; cursor: pointer; }
 .node text { font-size: 12px; font-weight: bold; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff; }
+
+a {
+	text-decoration: none !important; /* entfernt Unterstreichung immer */
+	color: inherit !important;        /* übernimmt Textfarbe */
+	outline: none;                    /* entfernt Fokus-Rahmen */
+}
+
+a:hover,
+a:focus,
+a:active {
+	text-decoration: none !important; /* entfernt Unterstreichung beim Hover/Focus/Active */
+	color: inherit !important;         /* optional: Farbe beim Hover gleich lassen */
+}
