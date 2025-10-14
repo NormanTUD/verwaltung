@@ -83,15 +83,68 @@ function deactivate_checkbox(checkbox) {
 }
 
 async function overview() {
-    $("#relationshipSelection").find("input").click()
-    await sleep(1000);
+    if(!$("#relationshipSelection").length) {
+        error("Could not find relationship selection");
+        return false;
+    }
+    if(!$("#relationshipSelection").find("input").length) {
+        error("Could not find relationship selection inputs");
+        return false;
+    }
+
+    if(!$("#relationshipSelection").find("input").first().is(":checked")) {
+        error("First relationship is not checked");
+        return false;
+    }
+
+    //$("#relationshipSelection").find("input").click()
+    //await sleep(1000);
+
+    if(!$("#querySelection").length) {
+        error("Could not find query selection");
+        return false;
+    }
+
+    if(!$("#querySelection").find("input").length) {
+        error("Could not find query selection inputs");
+        return false;
+    }
+    
+    if($("#resultsContainer").text().trim() != "Ergebnisse") {
+        error("Results container does not contain 'Ergebnisse'");
+        return false;
+    }
+
     $("#querySelection").find("input").first().click()
     await sleep(1000);
+
+    if($("#resultsContainer").text().trim() == "Ergebnisse") {
+        error("Results container does contain 'Ergebnisse'");
+        return false;
+    }
+
     deactivate_checkbox($("#querySelection").find("input").first())
+
+
     await sleep(1000);
     $("#querySelection").find("input").last().click()
     await sleep(1000);
+    
+    if($("#resultsContainer").text().trim() != "Stadt:stadt+Aktion+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen") {
+        error("Results container does not contain 'Stadt'");
+        return false;
+    }
+
+    await sleep(1000);
     $("#querySelection").find("input").first().click()
+    await sleep(1000);
+
+    if($("#resultsContainer").text().trim() != "Person:geburtsjahrPerson:nachnamePerson:titelPerson:vornameStadt:stadt+Aktion+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen") {
+        error("Results container does not contain 'Person'");
+        return false;
+    }
+
+    return true;
 }
 
 function add_row_owerview () {
