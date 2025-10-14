@@ -58,6 +58,14 @@ Oliver,Seidel,1010,oliver.seidel@example.com,Beamer`;
 }
 
 function add_import_handlers() {
+	if(!$("#upload_form")) {
+		return;
+	}
+
+	if($("#upload_form").data("set_handler")) {
+		return;
+	}
+
 	$(document).on("submit", "#upload_form", function (e) {
 		e.preventDefault();
 
@@ -94,54 +102,21 @@ function add_import_handlers() {
 			dataType: "html",
 			cache: false,
 			success: function (data, textStatus, jqXHR) {
-				try {
-					if (typeof data !== "string" || data.trim() === "") {
-						console.warn("AJAX-Upload: Leere Antwort empfangen.");
-						mainContent.html("<div style='color:red;padding:10px;'>Fehler: Leere Antwort.</div>");
-						return;
-					}
-
-					// HTML-Inhalt parsen
-					var parsed = $("<div>").html(data);
-					var scripts = parsed.find("script");
-
-					mainContent.html(parsed);
-
-					// Skripte ausführen
-					scripts.each(function () {
-						var script = $(this);
-						var src = script.attr("src");
-						var code = script.html();
-
-						try {
-							if (src) {
-								$.ajax({
-									url: src,
-									dataType: "script",
-									cache: true,
-									async: false,
-									error: function (xhr, status, err) {
-										console.error("Fehler beim Laden von Script:", src, status, err);
-									},
-								});
-							} else if (code.trim() !== "") {
-								$.globalEval(code);
-							}
-						} catch (scriptError) {
-							console.error("Fehler beim Ausführen eines Skripts:", scriptError);
-						}
-					});
-
-					// URL in History übernehmen
-					if (window.history && window.history.pushState) {
-						window.history.pushState({ ajaxLoaded: true, url: actionUrl }, "", actionUrl);
-					}
-
-					load_mapping();
-				} catch (innerError) {
-					console.error("AJAX-Upload: Fehler beim Verarbeiten des Inhalts:", innerError);
-					mainContent.html("<div style='color:red;padding:10px;'>Fehler beim Verarbeiten des Inhalts.</div>");
+				if (typeof data !== "string" || data.trim() === "") {
+					console.warn("AJAX-Upload: Leere Antwort empfangen.");
+					mainContent.html("<div style='color:red;padding:10px;'>Fehler: Leere Antwort.</div>");
+					return;
 				}
+
+				mainContent.html(data);
+
+				// URL in History übernehmen
+				if (window.history && window.history.pushState) {
+					window.history.pushState({ ajaxLoaded: true, url: actionUrl }, "", actionUrl);
+				}
+
+				add_import_handlers();
+				load_mapping();
 			},
 			error: function (jqXHR, textStatus, errorThrown) {
 				console.error("AJAX-Upload: Fehler beim Request:", textStatus, errorThrown);
@@ -151,4 +126,6 @@ function add_import_handlers() {
 			}
 		});
 	});
+
+	$("#upload_form").data("set_handler", 1)
 }
