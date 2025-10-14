@@ -1,12 +1,12 @@
 "use strict";
 
-const nodeListDiv = document.getElementById('nodeList');
-const relationshipListDiv = document.getElementById('relationshipList');
-const assignedColumns = new Set();
-let nodeCounter = 0;
-let existingRelTypes = [];
+var nodeListDiv = document.getElementById('nodeList');
+var relationshipListDiv = document.getElementById('relationshipList');
+var assignedColumns = new Set();
+var nodeCounter = 0;
+var existingRelTypes = [];
 
-const nodeSuggestions = {
+var nodeSuggestions = {
 	'Buch': ['buchtitel', 'erscheinungsjahr'],
 	'Person': ['titel', 'telefon', 'vorname', 'nachname', 'name', 'person', 'first_name', 'last_name', 'kontaktdaten', 'geburtsjahr'],
 	'ZIH-Login': ['ZIH-Login', 'Ablauf'],
