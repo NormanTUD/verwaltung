@@ -84,7 +84,6 @@ function deactivate_checkbox(checkbox) {
 
 async function overview() {
     if(!$("#relationshipSelection").length) {
-        error("Could not find relationship selection");
         return false;
     }
     if(!$("#relationshipSelection").find("input").length) {
