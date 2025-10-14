@@ -7,14 +7,71 @@ function import_person() {
     $("form").find("button").last().click()
 }
 
-async function assign_person_to_nodes() {
-    $(".from-node-select").first().val("Person")
-    await sleep(100);
-    $(".to-node-select").val("Stadt")
-    await sleep(100);
-    $(".rel-type-input").val("dasisteintest")
-    await sleep(100);
-    $(".save-button").click()
+async function assign_person_to_nodes_debug() {
+    console.log("🚀 assign_person_to_nodes_debug() gestartet");
+
+    try {
+        // Helper für Sleep + Logging
+        const sleep = (ms) => new Promise((resolve) => {
+            console.log(`⏱️ Sleep für ${ms}ms...`);
+            setTimeout(() => {
+                console.log(`⏰ ${ms}ms vorbei`);
+                resolve();
+            }, ms);
+        });
+
+        // Check 1: jQuery verfügbar?
+        if (typeof $ === "undefined") {
+            console.error("❌ jQuery nicht gefunden!");
+            return;
+        } else {
+            console.log("✅ jQuery erkannt, Version:", $.fn.jquery);
+        }
+
+        // Debug-Helfer
+        const debugElement = (selector, name) => {
+            const el = $(selector);
+            if (el.length === 0) {
+                console.error(`❌ ${name} (${selector}) nicht gefunden!`);
+            } else {
+                console.log(`✅ ${name} gefunden (${el.length}x):`, el);
+            }
+            return el;
+        };
+
+        console.group("🔍 Schritt 1: From-Node auswählen");
+        const fromNode = debugElement(".from-node-select", "From-Node Select");
+        fromNode.first().val("Person").trigger("change");
+        console.log("👉 Wert gesetzt auf 'Person'");
+        console.groupEnd();
+        await sleep(150);
+
+        console.group("🔍 Schritt 2: To-Node auswählen");
+        const toNode = debugElement(".to-node-select", "To-Node Select");
+        toNode.val("Stadt").trigger("change");
+        console.log("👉 Wert gesetzt auf 'Stadt'");
+        console.groupEnd();
+        await sleep(150);
+
+        console.group("🔍 Schritt 3: Relationship-Typ setzen");
+        const relType = debugElement(".rel-type-input", "Relation Type Input");
+        relType.val("dasisteintest").trigger("input").trigger("change");
+        console.log("👉 Wert gesetzt auf 'dasisteintest'");
+        console.groupEnd();
+        await sleep(150);
+
+        console.group("🔍 Schritt 4: Speichern-Button klicken");
+        const saveButton = debugElement(".save-button", "Save-Button");
+        console.log("🖱️ Klick wird ausgeführt...");
+        saveButton.trigger("click");
+        console.groupEnd();
+
+        console.log("✅ Alle Schritte ausgeführt!");
+    } catch (err) {
+        console.error("💥 FEHLER in assign_person_to_nodes_debug:", err);
+    }
+
+    console.log("🏁 assign_person_to_nodes_debug() beendet");
 }
 
 function deactivate_checkbox(checkbox) {
@@ -102,7 +159,15 @@ function click_import() {
 }
 
 function go_overview() {
+    const elem = $(".block").first();
+    if(!elem.length) {
+        error("Could not find overview button");
+        return false;
+    }
+
     $(".block").first().click()
+
+    return true;
 }
 
 function go_queries() {
@@ -115,12 +180,17 @@ function go_admin_panel() {
 
 async function collection_import() {
     click_import()
+    await sleep(500)
     import_person()
+    await sleep(500)
     await assign_person_to_nodes()
 }
 
 async function collection_overview() {
-    go_overview()
+    if(!go_overview()) {
+        log("Could not go to overview");
+        return false;
+    }
     await overview()
     add_row_owerview ()
     await define_rule ()
