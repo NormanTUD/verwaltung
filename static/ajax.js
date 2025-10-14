@@ -11,17 +11,14 @@ function open_link(link) {
 			return;
 		}
 
-		// Spinner HTML & CSS inline
 		var spinnerHtml = '' +
 			'<div id="ajax_spinner" style="display:flex;align-items:center;justify-content:center;height:100%;min-height:100px;">' +
 			'  <div style="border:6px solid #f3f3f3;border-top:6px solid #3498db;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;"></div>' +
 			'  <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>' +
 			'</div>';
 
-		// Spinner anzeigen
 		mainContent.html(spinnerHtml);
 
-		// AJAX GET
 		$.ajax({
 			url: link,
 			type: "GET",
@@ -35,10 +32,43 @@ function open_link(link) {
 						return;
 					}
 
-					// Inhalt einsetzen
-					mainContent.html(data);
+					// 1️⃣ HTML-Inhalt parsen
+					var parsed = $("<div>").html(data);
 
-					// URL ändern, ohne neu zu laden
+					// 2️⃣ Skripte extrahieren
+					var scripts = parsed.find("script");
+
+					// 3️⃣ Inhalt ohne Skripte in mainContent einsetzen
+					mainContent.html(parsed);
+
+					// 4️⃣ Skripte nacheinander ausführen
+					scripts.each(function () {
+						var script = $(this);
+						var src = script.attr("src");
+						var code = script.html();
+
+						try {
+							if (src) {
+								// Externe Datei laden
+								$.ajax({
+									url: src,
+									dataType: "script",
+									cache: true,
+									async: false, // Reihenfolge beibehalten
+									error: function (xhr, status, err) {
+										console.error("Fehler beim Laden von Script:", src, status, err);
+									}
+								});
+							} else if (code.trim() !== "") {
+								// Inline-Skript ausführen
+								$.globalEval(code);
+							}
+						} catch (scriptError) {
+							console.error("Fehler beim Ausführen eines Skripts:", scriptError);
+						}
+					});
+
+					// 5️⃣ URL in History setzen
 					if (window.history && window.history.pushState) {
 						window.history.pushState({ ajaxLoaded: true, url: link }, "", link);
 					} else {
