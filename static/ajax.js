@@ -55,9 +55,6 @@ function open_link(link) {
 				var errorMsg = "<div style='color:red;padding:10px;'>Fehler beim Laden der Seite:<br>" +
 					$("<div>").text(textStatus + ": " + errorThrown).html() + "</div>";
 				mainContent.html(errorMsg);
-			},
-			complete: function (jqXHR, textStatus) {
-				console.log("open_link(): AJAX abgeschlossen mit Status:", textStatus);
 			}
 		});
 
