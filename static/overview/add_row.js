@@ -157,6 +157,8 @@ async function addRowToTable() {
 		// 5. Zeile bauen und einfügen
 		const tr = buildRow(headers, headersMap, nodeIds, relationships);
 		tbody.appendChild(tr);
+
+		open_link("/overview" + window.location.search);
 	} catch (err) {
 		console.error("Error adding row:", err);
 	}
