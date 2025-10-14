@@ -147,7 +147,7 @@ async function overview() {
     return true;
 }
 
-function add_row_owerview () {
+function add_row_overview () {
     $("#add_new_row").click()
 }
 
@@ -244,11 +244,16 @@ async function collection_overview() {
         log("Could not go to overview");
         return false;
     }
-    await overview()
-    add_row_owerview ()
+    if(!await overview()) {
+        log("Overview test failed");
+        return false;
+    }
+    add_row_overview ()
     await define_rule ()
     await add_new_rule()
     await save_rule()
+
+    return true;
 }
 
 async function collection_queries() {
