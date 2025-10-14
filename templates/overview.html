@@ -1,4 +1,6 @@
-{% extends "layout.html" %}
+{% if not request.headers.get('X-Requested-With') == 'XMLHttpRequest' %}
+    {% extends "layout.html" %}
+{% endif %}
 
 {% block title %}Übersicht{% endblock %}
 

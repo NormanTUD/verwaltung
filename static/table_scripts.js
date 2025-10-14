@@ -1,5 +1,3 @@
-const log = console.log;
-
 // Funktion, die prüft, ob mindestens ein Feld in der neuen Zeile gefüllt ist
 function checkNewEntryInputs() {
         const inputs = $(".new-entry input, .new-entry select");

@@ -81,10 +81,6 @@ function getCallerInfo() {
 	return callerLine.replace(/^at\s+/, '');
 }
 
-const log = (...args) => {
-	console.log(`[${getCallerInfo()}]`, ...args);
-};
-
 const debug = (...args) => {
 	console.debug(`[${getCallerInfo()}]`, ...args);
 };

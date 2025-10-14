@@ -22,6 +22,7 @@
 		<script src="static/query-builder.standalone.min.js"></script>
 
 		<script src="static/overview/jqueryquerybuilder.js"></script>
+		<script src="static/ajax.js"></script>
 
 		<script>
 			const log = console.log;
@@ -81,9 +82,9 @@
 				</div>
 
 				<ul class="space-y-2">
-					<li><a href="/overview" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == '/overview' %}bg-gray-700{% endif %}">📊 Overview</a></li>
+					<li><a href="/overview" onclick="open_link('/overview'); return false;" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == '/overview' %}bg-gray-700{% endif %}">📊 Overview</a></li>
 
-					<li><a href="/query_overview" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == '/query_overview' %}bg-gray-700{% endif %}">🔍 Queries</a></li>
+					<li><a href="/query_overview" onclick="open_link('/query_overview'); return false;" class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.path == '/query_overview' %}bg-gray-700{% endif %}">🔍 Queries</a></li>
 
 					<!--
 						<li class="mt-4 text-sm text-gray-400 uppercase">🗺️ Karten</li>
@@ -100,7 +101,7 @@
 						<ul class="space-y-1">
 							{% for query in saved_queries %}
 								<li>
-									<a href="overview{{ query.url }}" 
+									<a href="overview{{ query.url }}" onclick="open_link('/overview{{ query.url }}'); return false;" 
 									class="block px-4 py-2 rounded transition hover:bg-gray-700 {% if request.full_path == query.url %}bg-gray-700{% endif %}">
 										{{ query.name }}
 									</a>
@@ -112,7 +113,7 @@
 
 				{% if is_admin %}
 					<!-- Admin-Link nur für Admins -->
-					<a href="/import" class="w-full block text-center bg-blue-700 hover:bg-blue-600 py-2 rounded transition text-white">📥 Import</a>
+					<a id="import_button" href="/import" onclick="open_link('/import'); return false;" class="w-full block text-center bg-blue-700 hover:bg-blue-600 py-2 rounded transition text-white">📥 Import</a>
 
 					<a href="/admin" class="w-full block text-center bg-blue-700 hover:bg-blue-600 py-2 rounded transition text-white">🛠️ Admin</a>
 				{% endif %}
@@ -158,12 +159,14 @@
 
 		<!-- Main Content -->
 		<main class="flex-grow p-6 transition-all overflow-auto">
-			{% block content %}
-				<div class="inline-block whitespace-nowrap">
-					<h1 class="text-3xl font-bold">Willkommen</h1>
-					<!-- Mehr Content hier, der die Breite erweitert -->
-				</div>
-			{% endblock %}
+			<div id='main_content'>
+				{% block content %}
+					<div class="inline-block whitespace-nowrap">
+						<h1 class="text-3xl font-bold">Willkommen</h1>
+						<!-- Mehr Content hier, der die Breite erweitert -->
+					</div>
+				{% endblock %}
+			</div>
 			
 			<footer class="mt-12 text-center text-sm text-gray-500 dark:text-gray-400 space-x-4">
 				<a href="https://scads.ai/imprint/" target="_blank" rel="noopener noreferrer" class="hover:underline">Impressum</a>

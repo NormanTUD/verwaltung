@@ -1,4 +1,7 @@
-{% extends "layout.html" %}
+{% if not request.headers.get('X-Requested-With') == 'XMLHttpRequest' %}
+    {% extends "layout.html" %}
+{% endif %}
+
 {% block title %}Map-Editor{% endblock %}
 {% block content %}
 	<link rel="stylesheet" type="text/css" href="static/map_editor.css">
