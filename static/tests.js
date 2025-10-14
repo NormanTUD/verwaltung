@@ -302,30 +302,103 @@ function delete_new_rule_overview() {
         error("Could not delete new rule");
         return false;
     }
-    
+
     return true;
 }
+
 async function rename_rule() {
+    if(!$(".rename-btn").length) {
+        error("Could not find rename button");
+        return false;
+    }
+    name = $("#queryTableBody tr").first().find("td").first().text()
     $(".rename-btn").first().click()
     await sleep (100)
+    if ($("#renameModal").find("input").val() != name) {
+        error("The value in the rename modal is not the same as the rule name");
+        return false;
+    }
+    if (!$("#renameModal").length) {
+        error("Could not find rename modal");
+        return false;
+    }
     $("#renameModal").find("input").val("Umbenannt")
     await sleep (100)
+    if ($("#renameModal").find("input").val() != "Umbenannt") {
+        error("The value in the rename modal is not 'Umbenannt'");
+        return false;
+    }
+    if (!$("#renameModal").find("button").last().length) {
+        error("Could not find rename modal save button");
+        return false;
+    }
     $("#renameModal").find("button").last().click()
+    if ($("#queryTableBody tr").first().find("td").first().text() != "Umbenannt") {
+        error("The rule name was not changed to 'Umbenannt'");
+        return false;
+    }
+    return true;
 }
 
 function delete_rule() {
+    if(!$(".delete-btn").length) {
+        error("Could not find delete button");
+        return false;
+    }
     $(".delete-btn").first().click()
+    if (!$("#deleteModal").length) {
+        error("Could not find delete modal");
+        return false;
+    }
     $("#deleteModal").find("button").last().click()
+    if ($("#queryTableBody tr").first().find("td").first().text() == "Umbenannt") {
+        error("The rule was not deleted");
+        return false;
+    }
+    return true;
 }
 
 async function add_user() {
+    if (!$("#new_username").length) {
+        error("Could not find new username input");
+        return false;
+    }
+    if (!$("#new_username").val() == "") {
+        error("New username input is not empty");
+        return false;
+    }
     $("#new_username").val("testuser")
     await sleep (100)
+    if (!$("#new_username").val() == "testuser") {
+        error("The value of the new username input is not 'testuser'");
+        return false;
+    }
+    if (!$("#new_password").length) {
+        error("Could not find new password input");
+        return false;
+    }
     $("#new_password").val("testuser")
     await sleep (100)
+    if (!$("#new_role").length) {
+        error("Could not find new role select");
+        return false;
+    }
     $("#new_role").val("1").change()
     await sleep (100)
+    if (!$("#new_role").val() == "1") {
+        error("The value of the new role select is not '1'");
+        return false;
+    }
+    if (!$(".save-new").length) {
+        error("Could not find save new user button");
+        return false;
+    }
     $(".save-new").last().click()
+    await sleep (500)
+    if ($(".user-entry").last().find("td").first().text() != "testuser") {
+        error("The new user was not added");
+        return false;
+    }
 }
 
 function delete_user() {
@@ -357,11 +430,23 @@ function go_overview() {
 }
 
 function go_queries() {
+    if(!$(".block").eq(1).length) {
+        error("Could not find queries button");
+        return false;
+    }
     $(".block").eq(1).click()
+
+    return true;
 }
 
 function go_admin_panel() {
+    if(!$(".w-full").eq(3).length) {
+        error("Could not find admin panel button");
+        return false;
+    }
     $(".w-full").eq(3).click()
+
+    return true;
 }
 
 async function collection_import() {
@@ -381,19 +466,54 @@ async function collection_overview() {
         log("Overview test failed");
         return false;
     }
-    await add_row_overview ()
-    await delete_row_overview ()
-    await define_rule ()
-    await add_new_rule()
-    await save_rule()
+    if(!await add_row_overview()) {
+        log("Add row overview test failed");
+        return false;
+    } 
+    if(!await wrote_overview()) {
+        log("Wrote overview test failed");
+        return false;
+    }
+    if(!await delete_row_overview()) {
+        log("Delete row overview test failed");
+        return false;
+    }
+    if(!await define_rule()) {
+        log("Define rule test failed");
+        return false;
+    }
+    if(!await save_rule()) {
+        log("Save rule test failed");
+        return false;
+    }
+    if(!await add_new_rule()) {
+        log("Add new rule test failed");
+        return false;
+    }
+    if(!delete_new_rule_overview()) {
+        log("Delete new rule overview test failed");
+        return false;
+    }
+
 
     return true;
 }
 
 async function collection_queries() {
-    go_queries()
-    await rename_rule()
-    delete_rule()
+    if(!go_queries()) {
+        log("Could not go to queries");
+        return false;
+    }
+    if(!await rename_rule()) {  
+        log("Rename rule test failed");
+        return false;
+    }
+    if(!delete_rule()) {
+        log("Delete rule test failed");
+        return false;
+    }
+
+    return true;
 }
 
 async function collection_admin() {
