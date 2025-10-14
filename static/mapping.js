@@ -117,6 +117,7 @@ function updateRelationshipSelects() {
 }
 
 function addRelationship() {
+	console.trace();
 	const newRelDiv = document.createElement('div');
 	newRelDiv.classList.add('relationship-group');
 
