@@ -527,8 +527,7 @@ function insertBefore(container, element) {
 	container.parentNode.insertBefore(element, container);
 }
 
-// Initial beim Laden der Seite
-document.addEventListener('DOMContentLoaded', () => {
+function get_data_overview() {
 	initQueryBuilder();
 
 	loadSavedQueriesFromAPI();
@@ -540,4 +539,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 
 	fetchRelationships();
+}
+
+// Initial beim Laden der Seite
+document.addEventListener('DOMContentLoaded', () => {
+	get_data_overview();
 });

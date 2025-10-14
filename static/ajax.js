@@ -71,6 +71,12 @@ function open_link(link) {
 					// 5️⃣ URL in History setzen
 					if (window.history && window.history.pushState) {
 						window.history.pushState({ ajaxLoaded: true, url: link }, "", link);
+
+o						try {
+							get_data_overview();
+						} catch (e) {
+							//
+						}
 					} else {
 						console.warn("open_link(): Browser unterstützt history.pushState nicht.");
 					}
