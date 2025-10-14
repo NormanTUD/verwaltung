@@ -80,18 +80,21 @@ function deactivate_checkbox(checkbox) {
     } else {
         log("Checkbox is already deactivated.");
     }
+
+    
 }
 
 async function overview() {
-    if(!$("#relationshipSelection").length) {
+    if (!$("#relationshipSelection").length) {
+        error("Could not find relationship selection");
         return false;
     }
-    if(!$("#relationshipSelection").find("input").length) {
+    if (!$("#relationshipSelection").find("input").length) {
         error("Could not find relationship selection inputs");
         return false;
     }
 
-    if(!$("#relationshipSelection").find("input").first().is(":checked")) {
+    if (!$("#relationshipSelection").find("input").first().is(":checked")) {
         error("First relationship is not checked");
         return false;
     }
@@ -99,17 +102,17 @@ async function overview() {
     //$("#relationshipSelection").find("input").click()
     //await sleep(1000);
 
-    if(!$("#querySelection").length) {
+    if (!$("#querySelection").length) {
         error("Could not find query selection");
         return false;
     }
 
-    if(!$("#querySelection").find("input").length) {
+    if (!$("#querySelection").find("input").length) {
         error("Could not find query selection inputs");
         return false;
     }
-    
-    if($("#resultsContainer").text().trim() != "Ergebnisse") {
+
+    if ($("#resultsContainer").text().trim() != "Ergebnisse") {
         error("Results container does not contain 'Ergebnisse'");
         return false;
     }
@@ -117,7 +120,7 @@ async function overview() {
     $("#querySelection").find("input").first().click()
     await sleep(1000);
 
-    if($("#resultsContainer").text().trim() == "Ergebnisse") {
+    if ($("#resultsContainer").text().trim() == "Ergebnisse") {
         error("Results container does contain 'Ergebnisse'");
         return false;
     }
@@ -128,8 +131,8 @@ async function overview() {
     await sleep(1000);
     $("#querySelection").find("input").last().click()
     await sleep(1000);
-    
-    if($("#resultsContainer").text().trim() != "Stadt:stadt+Aktion+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen") {
+
+    if ($("#resultsContainer").text().trim() != "Stadt:stadt+Aktion+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen") {
         error("Results container does not contain 'Stadt'");
         return false;
     }
@@ -138,7 +141,7 @@ async function overview() {
     $("#querySelection").find("input").first().click()
     await sleep(1000);
 
-    if($("#resultsContainer").text().trim() != "Person:geburtsjahrPerson:nachnamePerson:titelPerson:vornameStadt:stadt+Aktion+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen") {
+    if ($("#resultsContainer").text().trim() != "Person:geburtsjahrPerson:nachnamePerson:titelPerson:vornameStadt:stadt+Aktion+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen+Löschen") {
         error("Results container does not contain 'Person'");
         return false;
     }
@@ -146,8 +149,8 @@ async function overview() {
     return true;
 }
 
-async function add_row_overview () {
-    if(!$("#add_new_row").length) {
+async function add_row_overview() {
+    if (!$("#add_new_row").length) {
         error("Could not find add new row button");
         return false;
     }
@@ -156,7 +159,7 @@ async function add_row_overview () {
         return false;
     }
     $("#add_new_row").click()
-    await sleep (500)
+    await sleep(500)
     if ($(".query-results-table").find("tr").length != 12) {
         error("There are not 12 rows in the table after adding a row");
         return false;
@@ -165,8 +168,8 @@ async function add_row_overview () {
     return true;
 }
 
-async function wrote_overview () {
-    if(!$(".query-results-table").length) {
+async function wrote_overview() {
+    if (!$(".query-results-table").length) {
         error("Could not find query results table");
         return false;
     }
@@ -175,15 +178,15 @@ async function wrote_overview () {
         return false;
     }
     $(".query-results-table").find("tr").last().find("td").eq(0).find("input").val("Test").change()
-    await sleep (500)
+    await sleep(500)
     if ($(".query-results-table").find("tr").last().find("td").eq(0).find("input").val() != "Test") {
         error("The value in the last row is not 'Test'");
         return false;
-    }   
+    }
     return true;
 }
-async function delete_row_overview () {
-    if(!$(".delete-btn").length) {
+async function delete_row_overview() {
+    if (!$(".delete-btn").length) {
         error("Could not find delete button");
         return false;
     }
@@ -191,17 +194,17 @@ async function delete_row_overview () {
         error("There are not 12 rows in the table");
         return false;
     }
-    await sleep (500)
+    await sleep(500)
     $(".delete-btn").last().click()
-    await sleep (500)
+    await sleep(500)
     if ($(".query-results-table").find("tr").length != 11) {
         error("There are not 11 rows in the table after deleting a row");
         return false;
     }
 }
 
-async function define_rule ()  {
-    if(!$(".form-control").length) {
+async function define_rule() {
+    if (!$(".form-control").length) {
         error("Could not find form controls");
         return false;
     }
@@ -214,11 +217,11 @@ async function define_rule ()  {
         error("The value of the first form control is not 'Person.titel'");
         return false;
     }
-    await sleep (100)
+    await sleep(100)
     if (!$('.rule-container').first().find('.rule-operator-container select').length) {
         error("Could not find rule operator select");
         return false;
-    }   
+    }
     $('.rule-container').first()
         .find('.rule-operator-container select')
         .val('equal')
@@ -231,31 +234,31 @@ async function define_rule ()  {
         error("Could not find last form control");
         return false;
     }
-    await sleep (100)
+    await sleep(100)
     $(".form-control").last().val("Dr.").change()
     if (!$(".form-control").last().val() == "Dr.") {
         error("The value of the last form control is not 'Dr.'");
         return false;
     }
-    
+
     return true;
 }
 
 async function add_new_rule() {
-    if (!$(".btn-success").first().length) { 
+    if (!$(".btn-success").first().length) {
         error("Could not find add new rule button");
         return false;
     }
-    if ($("#querybuilder_rule_1").length) { 
+    if ($("#querybuilder_rule_1").length) {
         error("Rule 1 already exists");
         return false;
     }
-    if (!$("#querybuilder_rule_0").length) { 
+    if (!$("#querybuilder_rule_0").length) {
         error("Rule 0 does not exist");
         return false;
     }
     $(".btn-success").first().click()
-    if (!$("#querybuilder_rule_1").length) { 
+    if (!$("#querybuilder_rule_1").length) {
         error("Could not append more rules");
         return false;
     }
@@ -268,12 +271,12 @@ async function save_rule() {
         error("Could not find query name input");
         return false;
     }
-    if($("#queryNameInput").val().trim() !== "") {
+    if ($("#queryNameInput").val().trim() !== "") {
         console.error("❌ Input ist nicht leer!");
         return false;
     }
     $("#queryNameInput").val("Testregel")
-    await sleep (100)
+    await sleep(100)
     if ($("#queryNameInput").val() != "Testregel") {
         error("The value of the query name input is not 'Testregel'");
         return false;
@@ -283,7 +286,7 @@ async function save_rule() {
         return false;
     }
     $("#save_overview_query").click()
-        if(input.val().trim() !== "") {
+    if (input.val().trim() !== "") {
         console.error("❌ Fehler beim Speichern der Regel!");
         return false;
     }
@@ -292,12 +295,12 @@ async function save_rule() {
 }
 
 function delete_new_rule_overview() {
-    if(!$(".btn-group").last().length) {
+    if (!$(".btn-group").last().length) {
         error("Could not find delete new rule button");
         return false;
     }
     $(".btn-group").last().click()
-    if($("#querybuilder_rule_1").length) {
+    if ($("#querybuilder_rule_1").length) {
         error("Could not delete new rule");
         return false;
     }
@@ -306,13 +309,13 @@ function delete_new_rule_overview() {
 }
 
 async function rename_rule() {
-    if(!$(".rename-btn").length) {
+    if (!$(".rename-btn").length) {
         error("Could not find rename button");
         return false;
     }
     name = $("#queryTableBody tr").first().find("td").first().text()
     $(".rename-btn").first().click()
-    await sleep (100)
+    await sleep(100)
     if ($("#renameModal").find("input").val() != name) {
         error("The value in the rename modal is not the same as the rule name");
         return false;
@@ -322,7 +325,7 @@ async function rename_rule() {
         return false;
     }
     $("#renameModal").find("input").val("Umbenannt")
-    await sleep (100)
+    await sleep(100)
     if ($("#renameModal").find("input").val() != "Umbenannt") {
         error("The value in the rename modal is not 'Umbenannt'");
         return false;
@@ -340,7 +343,7 @@ async function rename_rule() {
 }
 
 function delete_rule() {
-    if(!$(".delete-btn").length) {
+    if (!$(".delete-btn").length) {
         error("Could not find delete button");
         return false;
     }
@@ -367,7 +370,7 @@ async function add_user() {
         return false;
     }
     $("#new_username").val("testuser")
-    await sleep (100)
+    await sleep(100)
     if (!$("#new_username").val() == "testuser") {
         error("The value of the new username input is not 'testuser'");
         return false;
@@ -377,13 +380,13 @@ async function add_user() {
         return false;
     }
     $("#new_password").val("testuser")
-    await sleep (100)
+    await sleep(100)
     if (!$("#new_role").length) {
         error("Could not find new role select");
         return false;
     }
     $("#new_role").val("1").change()
-    await sleep (100)
+    await sleep(100)
     if (!$("#new_role").val() == "1") {
         error("The value of the new role select is not '1'");
         return false;
@@ -393,23 +396,59 @@ async function add_user() {
         return false;
     }
     $(".save-new").last().click()
-    await sleep (500)
+    await sleep(500)
     if ($(".user-entry").last().find("td").first().text() != "testuser") {
         error("The new user was not added");
         return false;
     }
+
+    return true;
 }
 
-function delete_user() {
-    $(".delete-entry").last().click() 
+async function delete_user() {
+    if (!$(".delete-entry").length) {
+        error("Could not find delete user button");
+        return false;
+    }
+    $(".delete-entry").last().click()
+    if (!$("#confirmDelete").length) {
+        error("Could not find confirm delete button");
+        return false;
+    }
     $("#confirmDelete").last().click()
+    await sleep(500)
+    if ($(".user-entry").length != 1) {
+        error("The user was not deleted");
+        return false;
+    }
+
+    return true;
 }
 
-function readonly_user ()  {
+function readonly_user() {
+    if (!$("input[type='checkbox']").length) {
+        error("Could not find readonly checkbox");
+        return false;
+    }
     $("input[type='checkbox']").last().click()
+    if (!$("input[type='checkbox']").last().prop("checked")) {
+        error("The readonly checkbox was not checked");
+        return false;
+    }
+    return true;
 }
-function activate_user ()  {
+async function activate_user() {
+    if (!$(".save-new").first().length) {
+        error("Could not find activate user button");
+        return false;
+    }
     $(".save-new").first().click()
+    await sleep(500)
+    if (!$(".activate-entry").first().hasClass("btn-success")) {
+        error("The user was not activated");
+        return false;
+    }
+    return true;
 }
 
 function click_import() {
@@ -418,7 +457,7 @@ function click_import() {
 
 function go_overview() {
     const elem = $(".block").first();
-    if(!elem.length) {
+    if (!elem.length) {
         error("Could not find overview button");
         return false;
     }
@@ -429,7 +468,7 @@ function go_overview() {
 }
 
 function go_queries() {
-    if(!$(".block").eq(1).length) {
+    if (!$(".block").eq(1).length) {
         error("Could not find queries button");
         return false;
     }
@@ -438,12 +477,14 @@ function go_queries() {
     return true;
 }
 
-function go_admin_panel() {
-    if(!$(".w-full").eq(3).length) {
+async function go_admin_panel() {
+    if (!$(".w-full").eq(3).length) {
         error("Could not find admin panel button");
         return false;
     }
     $(".w-full").eq(3).click()
+
+    await sleep(500);
 
     return true;
 }
@@ -457,39 +498,39 @@ async function collection_import() {
 }
 
 async function collection_overview() {
-    if(!go_overview()) {
+    if (!go_overview()) {
         log("Could not go to overview");
         return false;
     }
-    if(!await overview()) {
+    if (!await overview()) {
         log("Overview test failed");
         return false;
     }
-    if(!await add_row_overview()) {
+    if (!await add_row_overview()) {
         log("Add row overview test failed");
         return false;
-    } 
-    if(!await wrote_overview()) {
+    }
+    if (!await wrote_overview()) {
         log("Wrote overview test failed");
         return false;
     }
-    if(!await delete_row_overview()) {
+    if (!await delete_row_overview()) {
         log("Delete row overview test failed");
         return false;
     }
-    if(!await define_rule()) {
+    if (!await define_rule()) {
         log("Define rule test failed");
         return false;
     }
-    if(!await save_rule()) {
+    if (!await save_rule()) {
         log("Save rule test failed");
         return false;
     }
-    if(!await add_new_rule()) {
+    if (!await add_new_rule()) {
         log("Add new rule test failed");
         return false;
     }
-    if(!delete_new_rule_overview()) {
+    if (!delete_new_rule_overview()) {
         log("Delete new rule overview test failed");
         return false;
     }
@@ -499,15 +540,15 @@ async function collection_overview() {
 }
 
 async function collection_queries() {
-    if(!go_queries()) {
+    if (!go_queries()) {
         log("Could not go to queries");
         return false;
     }
-    if(!await rename_rule()) {  
+    if (!await rename_rule()) {
         log("Rename rule test failed");
         return false;
     }
-    if(!delete_rule()) {
+    if (!delete_rule()) {
         log("Delete rule test failed");
         return false;
     }
@@ -516,26 +557,42 @@ async function collection_queries() {
 }
 
 async function collection_admin() {
-    go_admin_panel()
-    await add_user()
-    activate_user ()
-    readonly_user ()
-    delete_user()
+    if (!await go_admin_panel()) {
+        log("Could not go to admin panel");
+        return false;
+    }  
+    if (!await add_user()) {
+        log("Add user test failed");
+        return false;
+    }
+    if (!await activate_user()) {
+        log("Activate user test failed");
+        return false;
+    }
+    if (!await readonly_user()) {
+        log("Readonly user test failed");
+        return false;
+    }
+    if (!await delete_user()) {
+        log("Delete user test failed");
+        return false;
+    }
+    return true;
 }
 
 async function delete_all() {
-  try {
-    const response = await fetch('/api/delete_all');
-    const data = await response.json();
+    try {
+        const response = await fetch('/api/delete_all');
+        const data = await response.json();
 
-    if (data.status === 'success') {
-      success(data.message);
-    } else {
-      error(data.message || 'Unbekannter Fehler');
+        if (data.status === 'success') {
+            success(data.message);
+        } else {
+            error(data.message || 'Unbekannter Fehler');
+        }
+    } catch (err) {
+        error('Verbindung fehlgeschlagen: ' + err.message);
     }
-  } catch (err) {
-    error('Verbindung fehlgeschlagen: ' + err.message);
-  }
 }
 
 async function run_tests() {
