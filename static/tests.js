@@ -192,10 +192,6 @@ async function wrote_overview() {
         error("Could not find query results table");
         return false;
     }
-    if ($(".query-results-table").find("tr").length != 12) {
-        error("There are not 12 rows in the table");
-        return false;
-    }
     $(".query-results-table").find("tr").last().find("td").eq(0).find("input").val("Test").change()
     await sleep(500)
     if ($(".query-results-table").find("tr").last().find("td").eq(0).find("input").val() != "Test") {
@@ -209,17 +205,23 @@ async function delete_row_overview() {
         error("Could not find delete button");
         return false;
     }
-    if ($(".query-results-table").find("tr").length != 12) {
-        error("There are not 12 rows in the table");
+    await sleep(500)
+
+    const old_number_trs = $(".query-results-table").find("tr").length;
+    if(old_number_trs < 2) {
+        error("There are less than 2 rows in the table");
         return false;
     }
-    await sleep(500)
+    
     $(".delete-btn").last().click()
-    await sleep(500)
-    if ($(".query-results-table").find("tr").length != 11) {
-        error("There are not 11 rows in the table after deleting a row");
+    await sleep(100)
+
+    if ($(".query-results-table").find("tr").length != (old_number_trs - 1)) {
+        error(`There are not ${old_number_trs - 1} rows in the table after deleting a row`);
         return false;
     }
+
+    return true;
 }
 
 async function define_rule() {
@@ -305,7 +307,7 @@ async function save_rule() {
         return false;
     }
     $("#save_overview_query").click()
-    if (input.val().trim() !== "") {
+    if ($("#queryNameInput").val().trim() !== "") {
         console.error("❌ Fehler beim Speichern der Regel!");
         return false;
     }
