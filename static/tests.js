@@ -142,9 +142,24 @@ async function collection_admin() {
     delete_user()
 }
 
+async function delete_all() {
+  try {
+    const response = await fetch('/api/delete_all');
+    const data = await response.json();
+
+    if (data.status === 'success') {
+      success(data.message);
+    } else {
+      error(data.message || 'Unbekannter Fehler');
+    }
+  } catch (err) {
+    error('Verbindung fehlgeschlagen: ' + err.message);
+  }
+}
 
 async function run_tests() {
     console.log("Running tests...");
+    await delete_all();
     await collection_import()
     await collection_overview()
     await collection_queries()
