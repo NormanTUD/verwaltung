@@ -117,7 +117,6 @@ function updateRelationshipSelects() {
 }
 
 function addRelationship() {
-	console.trace();
 	const newRelDiv = document.createElement('div');
 	newRelDiv.classList.add('relationship-group');
 
@@ -182,14 +181,15 @@ function autoSuggestNodes() {
 }
 
 async function load_mapping () {
-	await fetchExistingRelTypes();
-	autoSuggestNodes();
-	addRelationship();
+	console.trace();
+	try {
+		await fetchExistingRelTypes();
+		autoSuggestNodes();
+		addRelationship();
+	} catch (e) {
+		error(("") + e);
+	}
 }
-
-document.addEventListener('DOMContentLoaded', async () => {
-	await load_mapping()
-});
 
 function saveMapping() {
 	console.log("=== saveMapping gestartet ===");
