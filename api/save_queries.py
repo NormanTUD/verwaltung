@@ -5,26 +5,26 @@ from oasis_helper import conditional_login_required
 
 SAVED_QUERIES_FILE = 'saved_queries.json'
 
+def load_saved_queries():
+    """Lädt die gespeicherten Abfragen aus der Datei."""
+    if not os.path.exists(SAVED_QUERIES_FILE):
+        return []
+    with open(SAVED_QUERIES_FILE, encoding="utf-8", mode='r') as f:
+        try:
+            content = f.read().strip()
+            if not content:
+                return []
+            return json.loads(content)
+        except json.JSONDecodeError:
+            return []
+
+def save_queries_to_file(queries):
+    """Speichert die Abfragen in der Datei."""
+    with open(SAVED_QUERIES_FILE, encoding="utf-8", mode='w') as f:
+        json.dump(queries, f, indent=4, ensure_ascii=False)
+
 def create_save_queries():
     bp = Blueprint("save_queries", __name__)
-
-    def load_saved_queries():
-        """Lädt die gespeicherten Abfragen aus der Datei."""
-        if not os.path.exists(SAVED_QUERIES_FILE):
-            return []
-        with open(SAVED_QUERIES_FILE, encoding="utf-8", mode='r') as f:
-            try:
-                content = f.read().strip()
-                if not content:
-                    return []
-                return json.loads(content)
-            except json.JSONDecodeError:
-                return []
-
-    def save_queries_to_file(queries):
-        """Speichert die Abfragen in der Datei."""
-        with open(SAVED_QUERIES_FILE, encoding="utf-8", mode='w') as f:
-            json.dump(queries, f, indent=4, ensure_ascii=False)
 
     @bp.route('/save_query', methods=['POST'])
     @conditional_login_required
