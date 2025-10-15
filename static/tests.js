@@ -834,33 +834,22 @@ async function test_search() {
     }
 
     try {
-        // 🧩 Schritt 1: Request mit await
-        let data = await $.get('/search?q=admin');
-
-        console.log('🔍 Antwort von /search:', JSON.stringify(data));
-
-        // 🧩 Schritt 2: Versuch, JSON zu parsen (falls nötig)
-        if (typeof data === 'string') {
-            try {
-                data = JSON.parse(data);
-            } catch (e) {
-                console.error('❌ Antwort ist kein valides JSON:', e);
-                return false;
-            }
+        // 🧩 Schritt 1: Request mit await für 'admin'
+        let adminData = await $.get('/search?q=admin');
+        if (typeof adminData === 'string') {
+            adminData = JSON.parse(adminData);
         }
 
-        // 🧩 Schritt 3: Struktur prüfen
-        if (!Array.isArray(data)) {
-            console.error('❌ Erwartet wurde ein Array, erhalten:', typeof data);
+        if (!Array.isArray(adminData)) {
+            console.error('❌ Erwartet wurde ein Array für admin, erhalten:', typeof adminData);
             return false;
         }
 
-        // 🧩 Schritt 4: URLs prüfen
-        const hasAnyUrl = data.some(item => item.url);
-        const hasAdminUrl = data.some(item => item.url === '/admin');
+        const hasAnyUrlAdmin = adminData.some(item => item.url);
+        const hasAdminUrl = adminData.some(item => item.url === '/admin');
 
-        if (!hasAnyUrl) {
-            console.warn('⚠️ Keine URL in der Antwort gefunden.');
+        if (!hasAnyUrlAdmin) {
+            console.warn('⚠️ Keine URL in der Antwort für admin gefunden.');
             return false;
         }
 
@@ -869,9 +858,30 @@ async function test_search() {
             return false;
         }
 
-        // 🧩 Schritt 5: Erfolg
-        console.log('✅ Erfolgreich! /admin ist in der Antwort enthalten.');
-        console.log('📦 Vollständige Daten:', data);
+        console.log('✅ Admin-Test erfolgreich! /admin ist enthalten.');
+
+        // 🧩 Schritt 2: Request für Autocomplete 'o'
+        let autoData = await $.get('/search?q=o');
+        if (typeof autoData === 'string') {
+            autoData = JSON.parse(autoData);
+        }
+
+        if (!Array.isArray(autoData)) {
+            console.error('❌ Erwartet wurde ein Array für Autocomplete, erhalten:', typeof autoData);
+            return false;
+        }
+
+        // Prüfen ob Overview enthalten ist
+        const hasOverview = autoData.some(item => item.url === '/overview');
+
+        if (!hasOverview) {
+            console.warn('⚠️ Autocomplete "/overview" nicht gefunden.');
+            return false;
+        }
+
+        console.log('✅ Autocomplete-Test erfolgreich! "/overview" ist enthalten.');
+        console.log('📦 Vollständige Autocomplete-Daten:', autoData);
+
         return true;
 
     } catch (err) {
@@ -879,6 +889,7 @@ async function test_search() {
         return false;
     }
 }
+
 
 
 async function run_tests() {
