@@ -34,6 +34,10 @@ jobs:
           chmod +x run_docker
           ./run_docker 1123 run_tests
 
+      - name: Run Tests
+        run: |
+          bash run_tests
+
       - name: Create a new version
         if: ${{ success() }}
         run: |
