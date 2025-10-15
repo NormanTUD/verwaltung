@@ -217,7 +217,7 @@ try:
     from api.add_row import create_add_row_bp
     from api.add_column import create_add_column_bp
     from api.update_nodes import create_update_nodes_bp
-    from api.save_queries import create_save_queries, get_saved_queries
+    from api.save_queries import create_save_queries, load_saved_queries
     from api.add_relationship import create_add_relationship_bp
     from api.reset_and_load_complex_data import create_complex_data_bp
     from api.labels import create_labels_bp
