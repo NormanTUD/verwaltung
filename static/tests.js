@@ -1039,6 +1039,10 @@ async function run_tests() {
         log("Queries search test failed");
         return false;
     }
+    if (!await search_schaefer_test()) {
+        log("Search Schäfer test failed");
+        return false;
+    }
 
     /*
     if (!await collection_admin()) {
