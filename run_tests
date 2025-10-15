@@ -36,7 +36,7 @@ fi
 
 if $run_docker; then
 	echo "====== Starting docker container ======"
-	bash docker.sh --local-port 1122
+	bash run_docker
 	exit_code=$?
 	echo "====== Started docker container ======"
 
