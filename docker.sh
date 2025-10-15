@@ -53,7 +53,7 @@ if ! command -v docker &>/dev/null; then
 			echo "apt-get update failed. Are you online?"
 		}
 
-		UPDATED_PACKAGES=1
+	UPDATED_PACKAGES=1
 	fi
 
 
@@ -70,7 +70,7 @@ if ! command -v wget &>/dev/null; then
 			echo "apt-get update failed. Are you online?"
 		}
 
-		UPDATED_PACKAGES=1
+	UPDATED_PACKAGES=1
 	fi
 
 	_sudo apt-get install -y wget || {
@@ -85,7 +85,7 @@ if ! command -v git &>/dev/null; then
 			echo "apt-get update failed. Are you online?"
 		}
 
-		UPDATED_PACKAGES=1
+	UPDATED_PACKAGES=1
 	fi
 
 	_sudo apt-get install -y git || {
@@ -94,32 +94,45 @@ if ! command -v git &>/dev/null; then
 fi
 
 function docker_compose {
-    # check if user is in docker group
-    if [[ -n $USER ]]; then
-	    if id -nG "$USER" | grep -qw docker; then
+	# check if user is in docker group
+	if [[ -n $USER ]]; then
+		if id -nG "$USER" | grep -qw docker; then
+			prefix=""
+		else
+			prefix="_sudo"
+		fi
+	else
+		prefix="sudo"
+	fi
+
+	if ! command -v sudo 2>/dev/null >/dev/null; then
 		prefix=""
-	    else
-		prefix="_sudo"
-	    fi
-    else
-	prefix="sudo"
-    fi
+	fi
 
-    if ! command -v sudo 2>/dev/null >/dev/null; then
-	    prefix=""
-    fi
-
-    if command -v docker-compose >/dev/null 2>&1; then
-        $prefix docker-compose "$@"
-    else
-        $prefix docker compose "$@"
-    fi
+	if command -v docker-compose >/dev/null 2>&1; then
+		$prefix docker-compose "$@"
+	else
+		$prefix docker compose "$@"
+	fi
 }
 
 docker_compose build || {
 	echo "Failed to build container"
 	exit 254
 }
+
+# Handle existing Neo4j container gracefully
+existing_containers=$(docker ps -a --format '{{.Names}}' | grep -E '^neo4j-db$')
+
+if [[ -n "$existing_containers" ]]; then
+	echo "Container 'neo4j-db' already exists. Starting it..."
+	docker start neo4j-db >/dev/null 2>&1 || {
+		echo "Failed to start existing container neo4j-db"
+			exit 253
+		}
+else
+	echo "Container 'neo4j-db' does not exist. Proceeding with docker compose up."
+fi
 
 docker_compose up -d || {
 	echo "Failed to build container"
