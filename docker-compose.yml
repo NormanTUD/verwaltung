@@ -23,7 +23,7 @@ services:
       SECRET_KEY: "DASISTDERTOPSECRETKEY"
     networks:
       - appnet
-    command: ["./wait-for-it.sh", "neo4j-db:7687", "--timeout=60"]
+    command: ["./wait-for-it.sh", "neo4j-db:7687", "--timeout=60", "--", "python3", "app.py"]
 
 networks:
   appnet:
