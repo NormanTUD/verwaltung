@@ -29,10 +29,10 @@ jobs:
             sudo rm -rf /var/lib/apt/lists/*
           docker-compose --version
 
-      - name: Run tests
+      - name: Run docker tests
         run: |
-          chmod +x run_docker
-          ./run_docker 1123 run_tests
+          docker-compose up -d neo4j-db
+          bash run_tests
 
       - name: Create a new version
         if: ${{ success() }}
