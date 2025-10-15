@@ -414,9 +414,9 @@ def search():
     query = request.args.get('q', '').lower().strip()
     results = []
 
-    if is_admin_user(session) or auto_is_authenticated:
-        if 'admin' in query:
-           results.append({'label': '🛠️ Admin', 'url': '/admin'})
+    #if is_admin_user(session) or auto_is_authenticated:
+    #    if 'admin' in query:
+    #       results.append({'label': '🛠️ Admin', 'url': '/admin'})
 
     session.close()
 
