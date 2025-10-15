@@ -890,6 +890,82 @@ async function test_search() {
     }
 }
 
+async function queries_search_test() {
+    if (!$("#sidebarSearch").length) {
+        console.error("❌ Could not find search input");
+        return false;
+    }
+
+    try {
+        // 🧩 Schritt 1: Overview öffnen
+        if (!await go_overview()) {
+            console.error("❌ Could not go to overview");
+            return false;
+        }
+        console.log("✅ go_overview erfolgreich");
+
+        // 🧩 Schritt 2: Overview testen
+        if (!await overview()) {
+            console.error("❌ Overview test failed");
+            return false;
+        }
+        console.log("✅ overview erfolgreich");
+
+        // 🧩 Schritt 3: Regel definieren
+        if (!await define_rule()) {
+            console.error("❌ Define rule test failed");
+            return false;
+        }
+        console.log("✅ define_rule erfolgreich");
+
+        // 🧩 Schritt 4: Regel speichern
+        if (!await save_rule()) {
+            console.error("❌ Save rule test failed");
+            return false;
+        }
+        console.log("✅ save_rule erfolgreich");
+
+        // 🧩 Schritt 5: Search API testen nach "Testregel"
+        let searchData = await $.get('/search?q=' + encodeURIComponent('Testregel'));
+        if (typeof searchData === 'string') {
+            try {
+                searchData = JSON.parse(searchData);
+            } catch (err) {
+                console.error('❌ JSON Parsing der Search-Antwort fehlgeschlagen:', err);
+                return false;
+            }
+        }
+
+        if (!Array.isArray(searchData)) {
+            console.error('❌ Erwartet wurde ein Array für Search, erhalten:', typeof searchData);
+            return false;
+        }
+
+        const hasAnyUrl = searchData.some(item => item.url);
+        const hasTestregel = searchData.some(item => item.label.includes('Testregel'));
+
+        if (!hasAnyUrl) {
+            console.warn('⚠️ Keine URLs in der Search-Antwort gefunden.');
+            return false;
+        }
+
+        if (!hasTestregel) {
+            console.warn('⚠️ Query "Testregel" wurde in den Suchergebnissen nicht gefunden.');
+            return false;
+        }
+
+        console.log('✅ Search-Test erfolgreich! "Testregel" ist enthalten.');
+        console.log('📦 Vollständige Search-Daten:', searchData);
+
+        return true;
+
+    } catch (err) {
+        console.error('❌ Fehler beim Abruf von /search:', err);
+        return false;
+    }
+}
+
+
 
 
 async function run_tests() {
@@ -910,6 +986,10 @@ async function run_tests() {
     }
     if (!await collection_queries()) {
         log("Collection queries test failed");
+        return false;
+    }
+    if (!await queries_search_test()) {
+        log("Queries search test failed");
         return false;
     }
 
