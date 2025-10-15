@@ -965,45 +965,61 @@ async function queries_search_test() {
     }
 }
 
-async function search_schaefer_test() {
+async function search_schaefer_dresden_test() {
     if (!$("#sidebarSearch").length) {
         console.error("❌ Could not find search input");
         return false;
     }
 
     try {
-        // 🧩 Schritt 1: Sucheingabe füllen
-        const searchTerm = 'Schäfer';
+        // --- Schritt 1: Suche nach "Schäfer" ---
+        const term1 = 'Schäfer';
+        $("#sidebarSearch").val(term1);
+        console.log(`✅ Suchfeld mit "${term1}" gefüllt`);
 
-        // 🧩 Schritt 2: Search API aufrufen
-        let searchData = await $.get('/search?q=' + encodeURIComponent(searchTerm));
-        if (typeof searchData === 'string') {
-            try {
-                searchData = JSON.parse(searchData);
-            } catch (err) {
-                console.error('❌ JSON Parsing der Search-Antwort fehlgeschlagen:', err);
-                return false;
-            }
+        let data1 = await $.get('/search?q=' + encodeURIComponent(term1));
+        if (typeof data1 === 'string') {
+            try { data1 = JSON.parse(data1); } 
+            catch (err) { console.error('❌ JSON Parsing fehlgeschlagen:', err); return false; }
         }
 
-        if (!Array.isArray(searchData)) {
-            console.error('❌ Erwartet wurde ein Array für Search, erhalten:', typeof searchData);
+        if (!Array.isArray(data1)) {
+            console.error('❌ Erwartet wurde ein Array für Search, erhalten:', typeof data1);
             return false;
         }
 
-        // 🧩 Schritt 3: Prüfen, ob die erwartete URL enthalten ist
-        const expectedUrl = '/overview?nodes=Person%2CStadt&relationships=WOHNT_IN&qb=%7B%22condition%22%3A+%22AND%22%2C+%22rules%22%3A+%5B%7B%22id%22%3A+%22Person.nachname%22%2C+%22field%22%3A+%22Person.nachname%22%2C+%22type%22%3A+%22string%22%2C+%22input%22%3A+%22text%22%2C+%22operator%22%3A+%22equal%22%2C+%22value%22%3A+%22Sch%5Cu00e4fer%22%7D%5D%2C+%22valid%22%3A+true%7D';
-        const hasExpectedUrl = searchData.some(item => item.url === expectedUrl);
+        const expectedUrl1 = '/overview?nodes=Person%2CStadt&relationships=WOHNT_IN&qb=%7B%22condition%22%3A+%22AND%22%2C+%22rules%22%3A+%5B%7B%22id%22%3A+%22Person.nachname%22%2C+%22field%22%3A+%22Person.nachname%22%2C+%22type%22%3A+%22string%22%2C+%22input%22%3A+%22text%22%2C+%22operator%22%3A+%22equal%22%2C+%22value%22%3A+%22Sch%5Cu00e4fer%22%7D%5D%2C+%22valid%22%3A+true%7D';
+        if (!data1.some(item => item.url === expectedUrl1)) {
+            console.warn('⚠️ Erwartete URL für "Schäfer" nicht gefunden.');
+            console.log('📦 Vollständige Search-Daten:', data1);
+            return false;
+        }
+        console.log('✅ Suche nach "Schäfer" erfolgreich! URL korrekt.');
 
-        await sleep(500); // Kurze Pause für Debugging
+        // --- Schritt 2: Suche nach "Dresden" ---
+        const term2 = 'Dresden';
+        $("#sidebarSearch").val(term2);
+        console.log(`✅ Suchfeld mit "${term2}" gefüllt`);
 
-        if (!hasExpectedUrl) {
-            console.warn('⚠️ Erwartete URL wurde in den Suchergebnissen nicht gefunden.');
-            console.log('📦 Vollständige Search-Daten:', searchData);
+        let data2 = await $.get('/search?q=' + encodeURIComponent(term2));
+        if (typeof data2 === 'string') {
+            try { data2 = JSON.parse(data2); } 
+            catch (err) { console.error('❌ JSON Parsing fehlgeschlagen:', err); return false; }
+        }
+
+        if (!Array.isArray(data2)) {
+            console.error('❌ Erwartet wurde ein Array für Search, erhalten:', typeof data2);
             return false;
         }
 
-        console.log('✅ Search-Test erfolgreich! Erwartete URL ist enthalten.');
+        const expectedUrl2 = '/overview?nodes=Person%2CStadt&relationships=WOHNT_IN&qb=%7B%22condition%22%3A+%22AND%22%2C+%22rules%22%3A+%5B%7B%22id%22%3A+%22Stadt.stadt%22%2C+%22field%22%3A+%22Stadt.stadt%22%2C+%22type%22%3A+%22string%22%2C+%22input%22%3A+%22text%22%2C+%22operator%22%3A+%22equal%22%2C+%22value%22%3A+%22Dresden%22%7D%5D%2C+%22valid%22%3A+true%7D';
+        if (!data2.some(item => item.url === expectedUrl2)) {
+            console.warn('⚠️ Erwartete URL für "Dresden" nicht gefunden.');
+            console.log('📦 Vollständige Search-Daten:', data2);
+            return false;
+        }
+        console.log('✅ Suche nach "Dresden" erfolgreich! URL korrekt.');
+
         return true;
 
     } catch (err) {
@@ -1011,6 +1027,7 @@ async function search_schaefer_test() {
         return false;
     }
 }
+
 
 
 
@@ -1039,7 +1056,7 @@ async function run_tests() {
         log("Queries search test failed");
         return false;
     }
-    if (!await search_schaefer_test()) {
+    if (!await search_schaefer_dresden_test()) {
         log("Search Schäfer test failed");
         return false;
     }
