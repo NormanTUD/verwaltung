@@ -52,10 +52,8 @@ if ! command -v docker &>/dev/null; then
 		_sudo apt update || {
 			echo "apt-get update failed. Are you online?"
 		}
-
 	UPDATED_PACKAGES=1
 	fi
-
 
 	# Install Docker
 	_sudo apt install -y docker.io docker-compose || {
@@ -63,36 +61,33 @@ if ! command -v docker &>/dev/null; then
 	}
 fi
 
+# Check if wget is installed
 if ! command -v wget &>/dev/null; then
-	# Update package lists
 	if [[ $UPDATED_PACKAGES == 0 ]]; then
 		_sudo apt update || {
 			echo "apt-get update failed. Are you online?"
 		}
-
 	UPDATED_PACKAGES=1
 	fi
-
 	_sudo apt-get install -y wget || {
 		echo "sudo apt install -y wget failed"
 	}
 fi
 
+# Check if git is installed
 if ! command -v git &>/dev/null; then
-	# Update package lists
 	if [[ $UPDATED_PACKAGES == 0 ]]; then
 		_sudo apt update || {
 			echo "apt-get update failed. Are you online?"
 		}
-
 	UPDATED_PACKAGES=1
 	fi
-
 	_sudo apt-get install -y git || {
 		echo "sudo apt install -y git failed"
 	}
 fi
 
+# Wrapper function for docker compose
 function docker_compose {
 	# check if user is in docker group
 	if [[ -n $USER ]]; then
@@ -116,25 +111,34 @@ function docker_compose {
 	fi
 }
 
+# Build Docker images
 docker_compose build || {
 	echo "Failed to build container"
 	exit 254
 }
 
-# Handle existing Neo4j container gracefully
-existing_containers=$(docker ps -a --format '{{.Names}}' | grep -E '^neo4j-db$')
+# Handle conflicting existing containers cleanly
+EXISTING=$(docker ps -a --filter "name=^neo4j-db$" --format "{{.ID}}")
 
-if [[ -n "$existing_containers" ]]; then
-	echo "Container 'neo4j-db' already exists. Starting it..."
-	docker start neo4j-db >/dev/null 2>&1 || {
-		echo "Failed to start existing container neo4j-db"
-			exit 253
-		}
-else
-	echo "Container 'neo4j-db' does not exist. Proceeding with docker compose up."
+if [[ -n "$EXISTING" ]]; then
+	echo "Container 'neo4j-db' already exists. Checking state..."
+
+	# Check if container is part of current compose project
+	if ! docker inspect "$EXISTING" --format '{{ index .Config.Labels "com.docker.compose.project" }}' | grep -q 'verwaltung'; then
+		echo "Old or external container detected. Removing stale container..."
+		docker rm -f neo4j-db >/dev/null 2>&1 || {
+			echo "Failed to remove old container neo4j-db"
+					exit 253
+				}
+		else
+			echo "Container belongs to this compose project. Reusing it."
+	fi
 fi
 
-docker_compose up -d || {
-	echo "Failed to build container"
+echo "Starting containers (reusing existing ones if present)..."
+docker_compose up -d --no-recreate --remove-orphans || {
+	echo "Failed to start or reuse existing containers"
 	exit 255
 }
+
+echo "All containers are up and running."
