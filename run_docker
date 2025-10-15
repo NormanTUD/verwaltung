@@ -33,7 +33,7 @@ check_neo4j_container() {
 }
 
 wait_for_app() {
-    local retries=30
+    local retries=60
     local delay=2
     local count=0
 
