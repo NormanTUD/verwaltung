@@ -416,7 +416,7 @@ def search():
 
     if is_admin_user(session):
         if 'admin' in query:
-            results.append({'label': '🛠️ Admin', 'url': '/admin'})
+           results.append({'label': '🛠️ Admin', 'url': '/admin'})
 
     session.close()
 
