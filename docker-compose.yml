@@ -6,7 +6,6 @@ services:
       NEO4J_AUTH: "neo4j/testTEST12345678"
     ports:
       - "7687:7687"
-      - "5001:5000"
     volumes:
       - neo4j_data:/data
     networks:
@@ -14,6 +13,8 @@ services:
 
   verwaltung:
     build: .
+    ports:
+      - "5001:5000"
     depends_on:
       - neo4j-db
     environment:
