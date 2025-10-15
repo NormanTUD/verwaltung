@@ -445,37 +445,80 @@ def search():
         print("Fehler beim Laden der gespeicherten Queries:", e)
 
 
-    # 🔹 Neo4j Nodes durchsuchen
+    import json
+    import urllib.parse
+
+    results = []
+
     try:
-        # Alle Labels aus Neo4j abrufen
+        # 🔹 Alle Labels abfragen
         labels = [r['label'] for r in graph.run("CALL db.labels() YIELD label RETURN label").data()]
 
         for label in labels:
+            # 🔹 MATCH mit beliebigen Relationships
             cypher = f"""
-            MATCH (n:`{label}`)
+            MATCH (n:`{label}`)-[r]->(m)
             WHERE ANY(prop IN keys(n) WHERE toLower(toString(n[prop])) CONTAINS $query)
-            RETURN n
-            LIMIT 5
+            OR ANY(prop IN keys(m) WHERE toLower(toString(m[prop])) CONTAINS $query)
+            RETURN n, type(r) AS rel, m
+            LIMIT 20
             """
-            neo_results = graph.run(cypher, query=query).data()
+            neo_results = graph.run(cypher, query=query.lower()).data()
+
             for r in neo_results:
                 n = r['n']
-                node_id = n.identity  # Node-ID korrekt
+                m = r['m']
+                rel = r['rel']
 
-                # Alle Properties zusammenfügen
-                if n.keys():
-                    display_value = " | ".join(f"{k}: {n[k]}" for k in n.keys() if n[k] is not None)
-                else:
-                    display_value = str(node_id)
+                # 🔹 Alle Properties zusammenfügen für Label (nur fürs Display)
+                def concat_props(node):
+                    return " | ".join(f"{k}: {node[k]}" for k in node.keys() if node[k] is not None)
+
+                display_value_n = concat_props(n) if n.keys() else str(n.identity)
+                display_value_m = concat_props(m) if m.keys() else str(m.identity)
+
+                # 🔹 QB-Filter nur für Property, die die Suche matched
+                rules = []
+
+                # Prüfen welche Node die Suchquery enthält
+                for k in n.keys():
+                    if query.lower() in str(n[k]).lower():
+                        rules.append({
+                            "id": f"{list(n.labels)[0]}.{k}",
+                            "field": f"{list(n.labels)[0]}.{k}",
+                            "type": "string",
+                            "input": "text",
+                            "operator": "equal",
+                            "value": str(n[k])
+                        })
+                for k in m.keys():
+                    if query.lower() in str(m[k]).lower():
+                        rules.append({
+                            "id": f"{list(m.labels)[0]}.{k}",
+                            "field": f"{list(m.labels)[0]}.{k}",
+                            "type": "string",
+                            "input": "text",
+                            "operator": "equal",
+                            "value": str(m[k])
+                        })
+
+                qb_dict = {"condition": "AND", "rules": rules, "valid": True}
+
+                # 🔹 URL bauen
+                nodes_str = ",".join(list(n.labels) + list(m.labels))
+                url = "/overview?" + urllib.parse.urlencode({
+                    "nodes": nodes_str,
+                    "relationships": rel,
+                    "qb": json.dumps(qb_dict)
+                })
 
                 results.append({
-                    'label': f"🟢 {label}: {display_value}",
-                    'url': f"/overview/node/{node_id}"
+                    "label": f"🟢 {list(n.labels)[0]} -> {rel} -> {list(m.labels)[0]}: {display_value_n} -> {display_value_m}",
+                    "url": url
                 })
 
     except Exception as e:
         print("Fehler bei Neo4j-Suche:", e)
-
 
     session.close()
     return jsonify(results)
