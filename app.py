@@ -415,26 +415,26 @@ def search():
 
     show_admin_stuff = is_admin_user(session) or auto_is_authenticated
 
-    # Admin-Optionen
+    # Alle möglichen Optionen
     options = []
+
     if show_admin_stuff:
         options.extend([
             {'label': '🛠️ Admin', 'url': '/admin', 'key': 'admin'},
             {'label': '📥 Import', 'url': '/import', 'key': 'import'}
         ])
 
-    # Standard-Optionen
     options.extend([
         {'label': '📊 Overview', 'url': '/overview', 'key': 'overview'},
         {'label': '🔍 Queries', 'url': '/query_overview', 'key': 'queries'}
     ])
 
-    # Autocomplete: Treffer nur am Anfang des Keys
+    # Autocomplete: nur Treffer am Anfang des Keys
     for opt in options:
         if opt['key'].lower().startswith(query):
             results.append({'label': opt['label'], 'url': opt['url']})
 
-    # Gespeicherte Queries durchsuchen
+    # 🔹 gespeicherte Queries durchsuchen
     try:
         saved_queries = load_saved_queries()
         for q in saved_queries:
@@ -444,31 +444,46 @@ def search():
     except Exception as e:
         print("Fehler beim Laden der gespeicherten Queries:", e)
 
-    # Neo4j Nodes durchsuchen
+    # 🔹 Neo4j Nodes durchsuchen
     try:
-        labels = [l['label'] for l in graph.run("CALL db.labels() YIELD label RETURN label").data()]
+        # Alle Labels aus Neo4j abrufen
+        labels = [r['label'] for r in graph.run("CALL db.labels() YIELD label RETURN label").data()]
+
+        # Priorität der Properties für Autocomplete-Label
+        property_priority = ["title", "firstname", "lastname"]
 
         for label in labels:
             cypher = f"""
             MATCH (n:`{label}`)
-            WHERE ANY(prop IN keys(n) 
-                      WHERE toLower(toString(n[prop])) STARTS WITH $query)
-            RETURN n LIMIT 5
+            WHERE ANY(prop IN keys(n) WHERE toLower(toString(n[prop])) CONTAINS $query)
+            RETURN n
+            LIMIT 5
             """
             neo_results = graph.run(cypher, query=query).data()
             for r in neo_results:
                 n = r['n']
-                node_id = n.identity  # <-- korrekt für Neo4j Node-ID
-                display_value = next((str(n[k]) for k in n.keys() if n[k]), str(node_id))
+                node_id = n.identity  # Node-ID korrekt
+
+                # display_value nach Priorität wählen
+                display_value = None
+                for prop in property_priority:
+                    if prop in n.keys() and n[prop]:
+                        display_value = str(n[prop])
+                        break
+                if not display_value:
+                    display_value = str(node_id)
+
                 results.append({
                     'label': f"🟢 {label}: {display_value}",
                     'url': f"/overview/node/{node_id}"
                 })
+
     except Exception as e:
         print("Fehler bei Neo4j-Suche:", e)
 
     session.close()
     return jsonify(results)
+
 
 
 
