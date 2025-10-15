@@ -24,14 +24,14 @@ check_neo4j_container() {
 }
 
 run_app() {
-	log "Starte Docker-Compose für Python-App auf Port $APP_PORT..."
-	APP_PORT=$APP_PORT docker-compose up --build python-app
+	log "Starte Docker-Compose für verwaltung auf Port $APP_PORT..."
+	APP_PORT=$APP_PORT docker-compose up --build verwaltung
 }
 
 run_tests() {
 	log "Führe Tests im Python-Container aus..."
-	APP_PORT=$APP_PORT docker-compose up --build -d python-app
-	docker-compose run --rm python-app pytest || error "Tests fehlgeschlagen!"
+	APP_PORT=$APP_PORT docker-compose up --build -d verwaltung
+	docker-compose run --rm verwaltung pytest || error "Tests fehlgeschlagen!"
 	docker-compose down
 }
 
