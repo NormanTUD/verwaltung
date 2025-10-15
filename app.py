@@ -444,13 +444,11 @@ def search():
     except Exception as e:
         print("Fehler beim Laden der gespeicherten Queries:", e)
 
+
     # 🔹 Neo4j Nodes durchsuchen
     try:
         # Alle Labels aus Neo4j abrufen
         labels = [r['label'] for r in graph.run("CALL db.labels() YIELD label RETURN label").data()]
-
-        # Priorität der Properties für Autocomplete-Label
-        property_priority = ["title", "firstname", "lastname"]
 
         for label in labels:
             cypher = f"""
@@ -464,13 +462,10 @@ def search():
                 n = r['n']
                 node_id = n.identity  # Node-ID korrekt
 
-                # display_value nach Priorität wählen
-                display_value = None
-                for prop in property_priority:
-                    if prop in n.keys() and n[prop]:
-                        display_value = str(n[prop])
-                        break
-                if not display_value:
+                # Alle Properties zusammenfügen
+                if n.keys():
+                    display_value = " | ".join(f"{k}: {n[k]}" for k in n.keys() if n[k] is not None)
+                else:
                     display_value = str(node_id)
 
                 results.append({
@@ -480,6 +475,7 @@ def search():
 
     except Exception as e:
         print("Fehler bei Neo4j-Suche:", e)
+
 
     session.close()
     return jsonify(results)
