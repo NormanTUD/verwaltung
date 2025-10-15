@@ -4,52 +4,83 @@ set -euo pipefail
 
 APP_PORT=${1:-5001}
 ACTION=${2:-up}
+APP_NAME="verwaltung"
+NEO4J_CONTAINER="neo4j-db"
 
 log() {
-	echo "[INFO] $*"
+    echo "[INFO] $*"
 }
 
 error() {
-	echo "[ERROR] $*" >&2
-	exit 1
+    echo "[ERROR] $*" >&2
+    exit 1
 }
 
 check_neo4j_container() {
-	if docker ps -a -q -f name=neo4j-db >/dev/null; then
-		log "Neo4j Container existiert bereits, starte vorhandenen Container..."
-		docker start neo4j-db || log "Neo4j Container konnte nicht gestartet werden, ggf. läuft er bereits."
-	else
-		log "Neo4j Container existiert nicht. Bitte erst mit 'docker-compose up neo4j-db' starten."
-	fi
+    local container_exists
+    container_exists=$(docker ps -a -q -f name="$NEO4J_CONTAINER" || true)
+
+    if [ -n "$container_exists" ]; then
+        if docker ps -q -f name="$NEO4J_CONTAINER" >/dev/null; then
+            log "Neo4j Container läuft bereits."
+        else
+            log "Starte vorhandenen Neo4j-Container..."
+            docker start "$NEO4J_CONTAINER" >/dev/null || error "Neo4j-Container konnte nicht gestartet werden!"
+        fi
+    else
+        error "Neo4j Container existiert nicht. Bitte erst mit 'docker-compose up -d $NEO4J_CONTAINER' starten."
+    fi
+}
+
+wait_for_app() {
+    local retries=30
+    local delay=2
+    local count=0
+
+    log "Warte, bis Anwendung auf Port $APP_PORT erreichbar ist..."
+    while ! curl -s "http://localhost:$APP_PORT" >/dev/null 2>&1; do
+        count=$((count + 1))
+        if [ "$count" -ge "$retries" ]; then
+            error "Anwendung auf Port $APP_PORT nach $((retries * delay)) Sekunden nicht erreichbar!"
+        fi
+        log "Noch nicht erreichbar... (${count}/${retries}), warte ${delay}s"
+        sleep "$delay"
+    done
+    log "Anwendung ist erreichbar!"
 }
 
 run_app() {
-	log "Starte Docker-Compose für verwaltung auf Port $APP_PORT..."
-	APP_PORT=$APP_PORT docker-compose up --build verwaltung
+    log "Starte Docker-Compose für $APP_NAME im Hintergrund auf Port $APP_PORT..."
+    APP_PORT=$APP_PORT docker-compose up -d --build "$APP_NAME"
+    wait_for_app
+    log "Container läuft und ist erreichbar. Skript beendet sich nun."
 }
 
 run_tests() {
-	log "Führe Tests im Python-Container aus..."
-	APP_PORT=$APP_PORT docker-compose up --build -d verwaltung
-	docker-compose run --rm verwaltung pytest || error "Tests fehlgeschlagen!"
-	docker-compose down
+    log "Starte Testumgebung..."
+    APP_PORT=$APP_PORT docker-compose up -d --build "$APP_NAME"
+    wait_for_app
+    log "Führe Tests aus..."
+    docker-compose run --rm "$APP_NAME" pytest || error "Tests fehlgeschlagen!"
+    log "Tests abgeschlossen. Fahre Container herunter..."
+    docker-compose down
 }
 
 main() {
-	log "Aktion: $ACTION, APP_PORT=$APP_PORT"
-	check_neo4j_container
+    log "Aktion: $ACTION, APP_PORT=$APP_PORT"
+    check_neo4j_container
 
-	case "$ACTION" in
-		up)
-			run_app
-			;;
-		run_tests)
-			run_tests
-			;;
-		*)
-			error "Unbekannte Aktion: $ACTION. Verfügbare Aktionen: up, run_tests"
-			;;
-	esac
+    case "$ACTION" in
+        up)
+            run_app
+            ;;
+        run_tests)
+            run_tests
+            ;;
+        *)
+            error "Unbekannte Aktion: $ACTION. Verfügbare Aktionen: up, run_tests"
+            ;;
+    esac
 }
 
-main
+main "$@"
