@@ -701,6 +701,9 @@ def inject_sidebar_data():
     if auto_is_authenticated:
         is_authenticated = True
 
+    if auto_is_authenticated:
+        is_admin = True
+
     return dict(
         tables=tables,
         is_authenticated=is_authenticated,
