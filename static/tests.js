@@ -965,6 +965,53 @@ async function queries_search_test() {
     }
 }
 
+async function search_schaefer_test() {
+    if (!$("#sidebarSearch").length) {
+        console.error("❌ Could not find search input");
+        return false;
+    }
+
+    try {
+        // 🧩 Schritt 1: Sucheingabe füllen
+        const searchTerm = 'Schäfer';
+
+        // 🧩 Schritt 2: Search API aufrufen
+        let searchData = await $.get('/search?q=' + encodeURIComponent(searchTerm));
+        if (typeof searchData === 'string') {
+            try {
+                searchData = JSON.parse(searchData);
+            } catch (err) {
+                console.error('❌ JSON Parsing der Search-Antwort fehlgeschlagen:', err);
+                return false;
+            }
+        }
+
+        if (!Array.isArray(searchData)) {
+            console.error('❌ Erwartet wurde ein Array für Search, erhalten:', typeof searchData);
+            return false;
+        }
+
+        // 🧩 Schritt 3: Prüfen, ob die erwartete URL enthalten ist
+        const expectedUrl = '/overview?nodes=Person%2CStadt&relationships=WOHNT_IN&qb=%7B%22condition%22%3A+%22AND%22%2C+%22rules%22%3A+%5B%7B%22id%22%3A+%22Person.nachname%22%2C+%22field%22%3A+%22Person.nachname%22%2C+%22type%22%3A+%22string%22%2C+%22input%22%3A+%22text%22%2C+%22operator%22%3A+%22equal%22%2C+%22value%22%3A+%22Sch%5Cu00e4fer%22%7D%5D%2C+%22valid%22%3A+true%7D';
+        const hasExpectedUrl = searchData.some(item => item.url === expectedUrl);
+
+        await sleep(500); // Kurze Pause für Debugging
+
+        if (!hasExpectedUrl) {
+            console.warn('⚠️ Erwartete URL wurde in den Suchergebnissen nicht gefunden.');
+            console.log('📦 Vollständige Search-Daten:', searchData);
+            return false;
+        }
+
+        console.log('✅ Search-Test erfolgreich! Erwartete URL ist enthalten.');
+        return true;
+
+    } catch (err) {
+        console.error('❌ Fehler beim Abruf von /search:', err);
+        return false;
+    }
+}
+
 
 
 
