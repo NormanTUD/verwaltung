@@ -83,7 +83,7 @@
 		</div>
 
 		<p class="register-link">Kein Account?
-			<a href="{{ url_for('register') }}">Hier registrieren</a>
+			<a href="{{ url_for('register') }}" onclick="open_link('{{ url_for('register') }}'); return false;" >Hier registrieren</a>
 		</p>
 
 		{% with messages = get_flashed_messages() %}
