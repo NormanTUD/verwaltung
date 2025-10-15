@@ -226,6 +226,9 @@ try:
     from api.query_overview import create_query_overview
 
     from index_manager import create_index_bp
+    
+    import json
+    import urllib.parse
 except ModuleNotFoundError as e:
     if not VENV_PATH.exists():
         create_and_setup_venv()
@@ -443,10 +446,6 @@ def search():
                 results.append({'label': f"🔖 {q['name']}", 'url': f"/overview{q['url']}"})
     except Exception as e:
         print("Fehler beim Laden der gespeicherten Queries:", e)
-
-
-    import json
-    import urllib.parse
 
     results = []
 
