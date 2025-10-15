@@ -2,7 +2,6 @@
     {% extends "layout.html" %}
 {% endif %}
 
-{% block title %}Aggregat{% endblock %}
 {% block content %}
 <style>
 .register-container {
@@ -83,7 +82,7 @@
 		</div>
 
 		<p class="login-link">Bereits einen Account?
-			<a href="{{ url_for('login') }}">Hier anmelden</a>
+		<a href="{{ url_for('login') }}" onclick="open_link('{{ url_for('login') }}'); return false;">Hier anmelden</a>
 		</p>
 
 		{% if error %}

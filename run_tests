@@ -46,8 +46,12 @@ if [[ ! -d ~/.verwaltung_test_env ]]; then
 		rm -rf ~/.verwaltung_test_env
 		exit 1
 	fi
-	playwright install chromium
-	playwright install firefox
+	playwright install --with-deps chromium
+	playwright install --with-deps firefox
+
+	if ! which chromium 2> /dev/null >/dev/null; then
+		sudo apt install chromium
+	fi
 fi
 
 source ~/.verwaltung_test_env/bin/activate
@@ -59,21 +63,10 @@ if ! pip install playwright; then
 	exit 1
 fi
 
-echo "====== playwright install chromium ======"
-playwright install chromium
-
 echo "====== Checked virtualenv ======"
 if $run_python_tests; then
-	echo "====== python -m playwright install --with-deps chromium ======"
-
-	if ! which chromium 2> /dev/null >/dev/null; then
-		sudo apt install chromium
-	fi
-
-	python -m playwright install --with-deps chromium
-
 	echo "====== Run tests ======"
-	python3 _run_tests.py --enable-fake-media --fake-video fake.y4m $*
+	python3 _run_tests.py $*
 	exit_code=$?
 	echo "====== Ran tests ======"
 else

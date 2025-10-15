@@ -27,11 +27,10 @@ LOG_LEVELS = {
 
 
 def to_int_exit(value) -> int:
-    try:
-        return int(value)
-    except Exception:
-        return 1
+    if value:
+        return 0
 
+    return 1
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Playwright test runner with console capture.")
@@ -39,15 +38,12 @@ def parse_args():
     parser.add_argument("--chromium", action="store_true", help="Run Chromium (if omitted and --firefox not given, both are run).")
     parser.add_argument("--chromium-executable", default=DEFAULT_CHROMIUM_PATH, help="Path to Chromium executable (default: %(default)s)")
     parser.add_argument("--firefox-executable", default=None, help="Path to Firefox executable (optional; Playwright's installed Firefox used if omitted)")
-    parser.add_argument("--url", default="http://localhost:1122", help="URL to open (default: %(default)s)")
+    parser.add_argument("--url", default="http://localhost:5001", help="URL to open (default: %(default)s)")
     parser.add_argument("--wait", type=int, default=10_000, help="Wait time in milliseconds before running tests (default: %(default)s)")
-    parser.add_argument("--no-smoke-tests", action="store_true", help="Disable smoke tests")
     parser.add_argument("--no-docker", action="store_true", help="Disable docker")
     parser.add_argument("--no-run-tests", action="store_true", help="Disable python script")
     parser.add_argument("--no_headless", default=False, action="store_true", help="Disable headless")
 
-    parser.add_argument("--enable-fake-media", action="store_true", help="Enable fake webcam/microphone (inject video file and auto-accept permissions)")
-    parser.add_argument("--fake-video", default=None, help="Path to a Y4M video file to use as fake webcam (used when --enable-fake-media is set)")
 
     parser.add_argument("--run-chrome-on-firefox-failure", action="store_true", help="If Firefox fails, still run Chromium (default: don't).")
 
@@ -74,13 +70,6 @@ async def run(browser_name: str, executable_path: Optional[str], url: str, wait_
     launch_args = []
     if browser_name == "chromium":
         launch_args.append("--enable-unsafe-swiftshader")
-        if args.enable_fake_media:
-            launch_args.extend([
-                "--use-fake-ui-for-media-stream",
-                "--use-fake-device-for-media-stream",
-            ])
-            if args.fake_video:
-                launch_args.append(f"--use-file-for-fake-video-capture={args.fake_video}")
 
     # firefox prefs we want when fake media requested
     firefox_prefs = {
@@ -97,8 +86,6 @@ async def run(browser_name: str, executable_path: Optional[str], url: str, wait_
     async with async_playwright() as p:
         try:
             if browser_name == "firefox":
-                if args.enable_fake_media and args.fake_video:
-                    logging.warning(f"[{browser_name}] --fake-video provided but Firefox cannot use a file for fake webcam; file will be ignored and a static test image will be used.")
                 # create a temporary user_data_dir for a persistent context so we can pass firefox_user_prefs
                 tmp_user_dir = tempfile.mkdtemp(prefix="pw_firefox_profile_")
                 # launch persistent context (returns a BrowserContext directly)
