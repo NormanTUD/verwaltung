@@ -34,8 +34,9 @@ jobs:
           chmod +x run_docker
           ./run_docker 1123 run_tests
 
-      - name: Run Tests
+      - name: Run docker tests
         run: |
+          docker-compose up -d neo4j-db
           bash run_tests
 
       - name: Create a new version
