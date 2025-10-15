@@ -52,6 +52,8 @@ if [[ ! -d ~/.verwaltung_test_env ]]; then
 	if ! which chromium 2> /dev/null >/dev/null; then
 		sudo apt install chromium
 	fi
+
+	pip install -r requirements.txt
 fi
 
 source ~/.verwaltung_test_env/bin/activate
