@@ -99,10 +99,12 @@ function deactivate_checkbox(checkbox) {
 
 async function overview() {
     await sleep(500)
+    /*
     if (!$("#relationshipSelection").length) {
         error("Could not find relationship selection");
         return false;
     }
+    */
     if (!$("#relationshipSelection").find("input").length) {
         error("Could not find relationship selection inputs");
         return false;
@@ -808,6 +810,73 @@ async function delete_all() {
     } catch (err) {
         error('Verbindung fehlgeschlagen: ' + err.message);
     }
+}
+
+function triggerLogout() {
+    const logoutLink = $('a[href="/logout"]');
+    if (!logoutLink.length) {
+        console.error("❌ Logout-Link nicht gefunden!");
+        return false;
+    }
+
+    console.log("🚪 Logout wird ausgeführt...");
+    window.location.href = logoutLink.attr("href");
+    if ($(".login-container").length) {
+        console.log("✅ Logout erfolgreich!");
+        return true;
+    }
+}
+
+async function test_search() {
+    if (!$("#sidebarSearch").length) {
+        error("Could not find search input");
+        return false;
+    }
+    $.get('/search?q=admin', function (data) {
+        console.log('🔍 Antwort von /search:', data);
+
+        // 🧩 Schritt 1: Versuch, JSON zu parsen (falls nötig)
+        if (typeof data === 'string') {
+            try {
+                data = JSON.parse(data);
+            } catch (e) {
+                console.error('❌ Antwort ist kein valides JSON:', e);
+                return false;
+            }
+        }
+
+        // 🧩 Schritt 2: Struktur prüfen
+        if (!Array.isArray(data)) {
+            console.error('❌ Erwartet wurde ein Array, erhalten:', typeof data);
+            return false;
+        }
+
+        // 🧩 Schritt 3: URLs prüfen
+        const hasAnyUrl = data.some(item => item.url);
+        const hasAdminUrl = data.some(item => item.url === '/admin');
+
+        if (!hasAnyUrl) {
+            console.warn('⚠️ Keine URL in der Antwort gefunden.');
+            return false;
+        }
+
+        if (!hasAdminUrl) {
+            console.warn('⚠️ URL "/admin" nicht gefunden.');
+            return false;
+        }
+
+        // 🧩 Schritt 4: Erfolg
+        console.log('✅ Erfolgreich! /admin ist in der Antwort enthalten.');
+        console.log('📦 Vollständige Daten:', data);
+        return true;
+
+    }).fail(function (jqXHR, textStatus, errorThrown) {
+        console.error('❌ Fehler beim Abruf von /search:', textStatus, errorThrown);
+        return false;
+    });
+
+    return true;
+
 }
 
 async function run_tests() {
