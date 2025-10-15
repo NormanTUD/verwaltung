@@ -434,10 +434,18 @@ def search():
         if opt['key'].lower().startswith(query):
             results.append({'label': opt['label'], 'url': opt['url']})
 
+    # 🔹 gespeicherte Queries durchsuchen
+    try:
+        saved_queries = load_saved_queries()
+        for q in saved_queries:
+            name = q.get('name', '').lower()
+            if name.startswith(query):
+                results.append({'label': f"🔖 {q['name']}", 'url': f"/overview{q['url']}"})
+    except Exception as e:
+        print("Fehler beim Laden der gespeicherten Queries:", e)
+
     session.close()
     return jsonify(results)
-
-
 
 @app.route('/')
 @conditional_login_required
