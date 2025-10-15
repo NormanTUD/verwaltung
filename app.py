@@ -418,6 +418,16 @@ def search():
         if 'admin' in query:
            results.append({'label': '🛠️ Admin', 'url': '/admin'})
 
+    if is_admin_user(session) or auto_is_authenticated:
+        if 'import' in query:
+           results.append({'label': '📥 Import', 'url': '/import'})
+
+    if 'overview' in query:
+        results.append({'label': '📊 Overview', 'url': '/overview'})
+
+    if 'queries' in query:
+        results.append({'label': '🔍 Queries', 'url': '/query_overview'})
+
     session.close()
 
     return jsonify(results)
