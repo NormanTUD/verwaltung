@@ -537,6 +537,136 @@ async function go_admin_panel() {
     return true;
 }
 
+async function login_test() {
+    if (!$(".login-container").length) {
+        error("Could not find login container");
+        return false;
+    }
+    if (!$("#username").length) {
+        error("Could not find username input");
+        return false;
+    }   
+    $("#username").val("Admin1234/*")
+    await sleep(100)
+    if (!$("#password").length) {
+        error("Could not find password input");
+        return false;
+    }
+    $("#password").val("Admin1234/*")
+    await sleep(100)
+    if (!$(".save-new").length) {
+        error("Could not find login button");
+        return false;
+    }
+    $(".save-new").click()
+    await sleep(500)
+    return true;
+}
+
+async function go_login() {
+    if (!$(".login-link").length) {
+        error("Could not find login link");
+        return false;
+    }
+    $(".login-link").find("a")[0].click()
+    await sleep(500)
+    return true;
+}
+
+async function go_register() {
+    if (!$(".register-link").length) {
+        error("Could not find register link");
+        return false;
+    }
+    $(".register-link").find("a")[0].click()
+    await sleep(500)
+    return true;
+}
+
+async function register_test() {
+    if (!$(".register-container").length) {
+        error("Could not find register container");
+        return false;
+    }
+    if (!$("#username").length) {
+        error("Could not find username input");
+        return false;
+    }
+    $("#username").val("Admin1234/*")
+    await sleep(100)
+    if (!$("#password").length) {
+        error("Could not find password input");
+        return false;
+    }
+    $("#password").val("Admin1234/*")
+    await sleep(100)
+        await sleep(100)
+    if (!$(".save-new").length) {
+        error("Could not find login button");
+        return false;
+    }
+    $(".save-new").click()
+    await sleep(500)
+    if (!$(".save-new").length) {
+        error("Could not find login button");
+        return false;
+    }
+    $(".save-new").click()
+    await sleep(500)
+    return true;
+}
+
+async function register_works() {
+    if (!await register_test()) {
+        log("Register test failed");
+        return false;
+    }
+    if (!await login_test()) {
+        log("Login test failed");
+        return false;
+    }
+    return true;
+}
+
+async function login_works() {
+    if (!await go_register()) {
+        log("Could not go to register");
+        return false;
+    }
+    if (!await register_test()) {
+        log("Register test failed");
+        return false;
+    }
+    if (!await login_test()) {
+        log("Login test failed");
+        return false;
+    }
+    return true;
+}
+
+
+async function collection_start() {
+    if (!$(".register-container").length) {
+        if (!register_works()) {
+            log("Register does not work");
+            return true;
+        }
+    } 
+    if (!$(".login-container").length) {
+        if (!login_works()) {
+            log("Login does not work");
+            return true;
+        }
+    }
+    if ($(".flex-grow").length) {
+        log ("Already logged in");
+        return null;
+    }
+    return true;
+}
+
+
+
 async function collection_import() {
     if (!go_import()) {
         log("Could not go to import");
@@ -719,5 +849,3 @@ async function run_tests() {
 
     return true;
 }
-
-
