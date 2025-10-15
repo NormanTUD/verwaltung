@@ -418,6 +418,12 @@ def search():
 
     show_admin_stuff = is_admin_user(session) or auto_is_authenticated
 
+    # 🔹 Abstrakte Property-Reihenfolge pro Node-Label
+    property_order = {
+        "Person": ["titel", "vorname", "nachname", "geburtsjahr"]
+        # andere Labels hier hinzufügen
+    }
+
     # Alle möglichen Optionen
     options = []
 
@@ -490,8 +496,14 @@ def search():
 
                 qb_dict = {"condition": "AND", "rules": rules, "valid": True}
 
-                # 🔹 Display nur für matching_node Properties
-                display_value = " | ".join(f"{k}: {matching_node[k]}" for k in matching_node.keys() if matching_node[k] is not None)
+                # 🔹 Display nur für matching_node Properties in definierter Reihenfolge
+                label_name = list(matching_node.labels)[0]
+                keys_to_show = property_order.get(label_name, list(matching_node.keys()))
+                display_parts = []
+                for key in keys_to_show:
+                    if key in matching_node and matching_node[key] is not None:
+                        display_parts.append(f"{key}: {matching_node[key]}")
+                display_value = " | ".join(display_parts)
 
                 # 🔹 URL bauen (unverändert)
                 nodes_str = ",".join(list(n.labels) + list(m.labels))
@@ -511,6 +523,7 @@ def search():
 
     session.close()
     return jsonify(results)
+
 
 
 
