@@ -414,11 +414,13 @@ def search():
     query = request.args.get('q', '').lower().strip()
     results = []
 
-    if is_admin_user(session) or auto_is_authenticated:
+    show_admin_stuff = is_admin_user(session) or auto_is_authenticated
+
+    if show_admin_stuff:
         if 'admin' in query:
            results.append({'label': '🛠️ Admin', 'url': '/admin'})
 
-    if is_admin_user(session) or auto_is_authenticated:
+    if show_admin_stuff:
         if 'import' in query:
            results.append({'label': '📥 Import', 'url': '/import'})
 
