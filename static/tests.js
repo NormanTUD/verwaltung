@@ -883,6 +883,9 @@ async function run_tests() {
     console.log("Running tests...");
     await delete_all();
     await sleep(1000);
+    if (!await test_search()) {
+        log("Search test failed");
+    }
     if (!await collection_import()) {
         log("Collection import test failed");
         return false;
