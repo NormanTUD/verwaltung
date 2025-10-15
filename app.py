@@ -502,7 +502,7 @@ def search():
                 })
 
                 results.append({
-                    "label": f"🟢 {list(n.labels)[0]} -> {rel} -> {list(m.labels)[0]}: {display_value}",
+                    "label": f"🟢 {display_value}",
                     "url": url
                 })
 
