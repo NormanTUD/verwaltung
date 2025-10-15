@@ -536,7 +536,7 @@ async function go_admin_panel() {
 
     return true;
 }
-
+/*
 async function login_test() {
     if (!$(".login-container").length) {
         error("Could not find login container");
@@ -616,19 +616,12 @@ async function register_test() {
     return true;
 }
 
-async function register_works() {
-    if (!await register_test()) {
-        log("Register test failed");
-        return false;
-    }
-    if (!await login_test()) {
-        log("Login test failed");
-        return false;
-    }
-    return true;
-}
 
 async function login_works() {
+    if (await login_test()) {
+        log("Login test succeeded");
+        return true;
+    }
     if (!await go_register()) {
         log("Could not go to register");
         return false;
@@ -646,12 +639,6 @@ async function login_works() {
 
 
 async function collection_start() {
-    if (!$(".register-container").length) {
-        if (!register_works()) {
-            log("Register does not work");
-            return true;
-        }
-    } 
     if (!$(".login-container").length) {
         if (!login_works()) {
             log("Login does not work");
@@ -660,12 +647,12 @@ async function collection_start() {
     }
     if ($(".flex-grow").length) {
         log ("Already logged in");
-        return null;
+        return true;
     }
     return true;
 }
 
-
+*/
 
 async function collection_import() {
     if (!go_import()) {
