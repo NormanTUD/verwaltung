@@ -38,24 +38,24 @@ if $run_docker; then
 fi
 
 echo "====== Checking virtualenv ======"
-if [[ ! -d ~/.asanai_test_env ]]; then
-	python3 -m venv ~/.asanai_test_env
-	source ~/.asanai_test_env/bin/activate
+if [[ ! -d ~/.verwaltung_test_env ]]; then
+	python3 -m venv ~/.verwaltung_test_env
+	source ~/.verwaltung_test_env/bin/activate
 	if ! pip install playwright; then
 		echo "pip install playwright failed. Are you online?"
-		rm -rf ~/.asanai_test_env
+		rm -rf ~/.verwaltung_test_env
 		exit 1
 	fi
 	playwright install chromium
 	playwright install firefox
 fi
 
-source ~/.asanai_test_env/bin/activate
+source ~/.verwaltung_test_env/bin/activate
 
 echo "====== pip install playwright ======"
 if ! pip install playwright; then
 	echo "pip install playwright failed. Are you online?"
-	rm -rf ~/.asanai_test_env
+	rm -rf ~/.verwaltung_test_env
 	exit 1
 fi
 
