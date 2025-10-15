@@ -29,9 +29,8 @@ LOG_LEVELS = {
 def to_int_exit(value) -> int:
     if value:
         return 0
-    except Exception:
-        return 1
 
+    return 1
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Playwright test runner with console capture.")
