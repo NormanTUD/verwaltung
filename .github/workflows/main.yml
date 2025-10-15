@@ -31,6 +31,7 @@ jobs:
 
       - name: Run docker tests
         run: |
+          docker-compose up -d neo4j-db'
           bash run_tests
 
       - name: Create a new version
