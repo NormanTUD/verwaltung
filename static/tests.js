@@ -988,7 +988,7 @@ async function search_schaefer_dresden_test() {
             return false;
         }
 
-        const expectedUrl1 = '/overview?nodes=Person%2CStadt&relationships=WOHNT_IN&qb=%7B%22condition%22%3A+%22AND%22%2C+%22rules%22%3A+%5B%7B%22id%22%3A+%22Person.nachname%22%2C+%22field%22%3A+%22Person.nachname%22%2C+%22type%22%3A+%22string%22%2C+%22input%22%3A+%22text%22%2C+%22operator%22%3A+%22equal%22%2C+%22value%22%3A+%22Sch%5Cu00e4fer%22%7D%5D%2C+%22valid%22%3A+true%7D';
+        const expectedUrl1 = '/overview?nodes=Person%2CStadt&relationships=DASISTEINTEST&qb=%7B%22condition%22%3A+%22AND%22%2C+%22rules%22%3A+%5B%7B%22id%22%3A+%22Person.nachname%22%2C+%22field%22%3A+%22Person.nachname%22%2C+%22type%22%3A+%22string%22%2C+%22input%22%3A+%22text%22%2C+%22operator%22%3A+%22equal%22%2C+%22value%22%3A+%22Sch%5Cu00e4fer%22%7D%5D%2C+%22valid%22%3A+true%7D';
         if (!data1.some(item => item.url === expectedUrl1)) {
             console.warn('⚠️ Erwartete URL für "Schäfer" nicht gefunden.');
             console.log('📦 Vollständige Search-Daten:', data1);
