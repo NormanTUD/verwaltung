@@ -12,7 +12,7 @@ services:
     networks:
       - appnet
 
-  python-app:
+  verwaltung:
     build: .
     depends_on:
       - neo4j-db
