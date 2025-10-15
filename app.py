@@ -22,6 +22,7 @@ from pathlib import Path
 from datetime import datetime
 from urllib.parse import urlparse, urlunparse
 
+auto_is_authenticated = False
 
 parser = argparse.ArgumentParser(description="Starte die Flask-App mit konfigurierbaren Optionen.")
 parser.add_argument('--debug', action='store_true', help='Aktiviere den Debug-Modus')
@@ -291,7 +292,7 @@ def load_user(user_id):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if current_user.is_authenticated:
+    if current_user.is_authenticated or auto_is_authenticated:
         return redirect(url_for('index'))  # Benutzer ist schon eingeloggt → sofort weiterleiten
 
     my_session = Session()
@@ -332,7 +333,7 @@ def is_password_complex(password):
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    if current_user.is_authenticated:
+    if current_user.is_authenticated or auto_is_authenticated:
         return redirect(url_for('index'))  # Bereits angemeldet → weiterleiten
 
     my_session = Session()
@@ -659,6 +660,7 @@ def inject_sidebar_data():
     ]
 
     is_authenticated = current_user.is_authenticated
+
     is_admin = False
 
     if is_authenticated:
@@ -696,7 +698,9 @@ def inject_sidebar_data():
 
     my_session.close()
 
-    # Rückgabe für Templates
+    if auto_is_authenticated:
+        is_authenticated = True
+
     return dict(
         tables=tables,
         is_authenticated=is_authenticated,
@@ -900,5 +904,6 @@ if __name__ == "__main__":
     if args.disable_login or is_running_in_docker():
         print("Login not required!")
         app.config["DISABLE_LOGIN"] = True
+        auto_is_authenticated = True
 
     app.run(debug=args.debug, host='0.0.0.0', port=args.port)
