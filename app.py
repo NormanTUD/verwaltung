@@ -25,6 +25,7 @@ from urllib.parse import urlparse, urlunparse
 
 parser = argparse.ArgumentParser(description="Starte die Flask-App mit konfigurierbaren Optionen.")
 parser.add_argument('--debug', action='store_true', help='Aktiviere den Debug-Modus')
+parser.add_argument('--disable_login', action='store_true', help='Deaktivier den Login')
 parser.add_argument('--port', type=int, default=5000, help='Port für die App (Standard: 5000)')
 parser.add_argument('--engine-db', type=str, default='sqlite:///instance/database.db', help='URI für create_engine()')
 args = parser.parse_args()
@@ -857,11 +858,47 @@ def activate_user(user_id):
     finally:
         session.close()
 
+def is_running_in_docker():
+    """
+    Detects if the current process is running inside a Docker container.
+
+    Returns:
+        bool: True if running in Docker, False otherwise.
+    """
+    try:
+        # Check if /.dockerenv file exists (commonly present in Docker)
+        if os.path.exists('/.dockerenv'):
+            return True
+
+        # Check if 'docker' or 'containerd' is mentioned in cgroup info
+        cgroup_path = '/proc/1/cgroup'
+        if os.path.exists(cgroup_path):
+            with open(cgroup_path, 'r', encoding='utf-8', errors='ignore') as file:
+                for line in file:
+                    if 'docker' in line or 'containerd' in line:
+                        return True
+
+        # Fallback: check environment variables sometimes set in container environments
+        docker_env_vars = ['DOCKER_CONTAINER', 'KUBERNETES_SERVICE_HOST', 'CONTAINER']
+        for var in docker_env_vars:
+            if var in os.environ:
+                return True
+
+        return False
+    except Exception as e:
+        # If detection fails, assume not running in Docker
+        print(f"Warning: Docker detection failed due to error: {e}")
+        return False
+
 if __name__ == "__main__":
     with app.app_context():
         db.init_app(app)
         Base.metadata.create_all(db.engine)
 
     print(f"args.engine_db: {args.engine_db}")
+
+    if args.disable_login or is_running_in_docker():
+        print("Login not required!")
+        app.config["DISABLE_LOGIN"] = True
 
     app.run(debug=args.debug, host='0.0.0.0', port=args.port)
