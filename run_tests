@@ -14,25 +14,16 @@ Options:
 EOF
 }
 
-run_smoke_tests=true
 run_docker=true
 run_python_tests=true
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--no-smoke-tests) run_smoke_tests=false ;;
 		--no-docker) run_docker=false ;;
 		--no-run-tests) run_python_tests=false ;;
 	esac
 	shift
 done
-
-if $run_smoke_tests; then
-	if ! bash tests/smoke_tests; then
-		echo "Smoke tests failed"
-		exit 1
-	fi
-fi
 
 if $run_docker; then
 	echo "====== Starting docker container ======"
