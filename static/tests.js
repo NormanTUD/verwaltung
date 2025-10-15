@@ -837,7 +837,7 @@ async function test_search() {
         // 🧩 Schritt 1: Request mit await
         let data = await $.get('/search?q=admin');
 
-        console.log('🔍 Antwort von /search:', data);
+        console.log('🔍 Antwort von /search:', JSON.stringify(data));
 
         // 🧩 Schritt 2: Versuch, JSON zu parsen (falls nötig)
         if (typeof data === 'string') {
