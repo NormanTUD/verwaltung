@@ -410,29 +410,34 @@ def page_not_found(e):
 @conditional_login_required
 def search():
     session = Session()
-
     query = request.args.get('q', '').lower().strip()
     results = []
 
     show_admin_stuff = is_admin_user(session) or auto_is_authenticated
 
-    if show_admin_stuff:
-        if 'admin' in query:
-           results.append({'label': '🛠️ Admin', 'url': '/admin'})
+    # Alle möglichen Optionen
+    options = []
 
     if show_admin_stuff:
-        if 'import' in query:
-           results.append({'label': '📥 Import', 'url': '/import'})
+        options.extend([
+            {'label': '🛠️ Admin', 'url': '/admin', 'key': 'admin'},
+            {'label': '📥 Import', 'url': '/import', 'key': 'import'}
+        ])
 
-    if 'overview' in query:
-        results.append({'label': '📊 Overview', 'url': '/overview'})
+    options.extend([
+        {'label': '📊 Overview', 'url': '/overview', 'key': 'overview'},
+        {'label': '🔍 Queries', 'url': '/query_overview', 'key': 'queries'}
+    ])
 
-    if 'queries' in query:
-        results.append({'label': '🔍 Queries', 'url': '/query_overview'})
+    # Autocomplete: nur Treffer am Anfang des Keys
+    for opt in options:
+        if opt['key'].lower().startswith(query):
+            results.append({'label': opt['label'], 'url': opt['url']})
 
     session.close()
-
     return jsonify(results)
+
+
 
 @app.route('/')
 @conditional_login_required
