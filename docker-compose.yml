@@ -5,8 +5,8 @@ services:
     environment:
       NEO4J_AUTH: "neo4j/testTEST12345678"
     ports:
-      - "7474:7474"
-      - "7687:5000"
+      - "7687:7687"
+      - "5001:5000"
     volumes:
       - neo4j_data:/data
     networks:

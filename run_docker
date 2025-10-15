@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-APP_PORT=${1:-7687}
+APP_PORT=${1:-5001}
 ACTION=${2:-up}
 
 log() {
