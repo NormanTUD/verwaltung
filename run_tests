@@ -66,6 +66,14 @@ fi
 echo "====== Checked virtualenv ======"
 if $run_python_tests; then
 	echo "====== Run tests ======"
+
+	python3 test_app.py
+
+	if [[ $? -ne 0 ]]; then
+		echo "test_app.py failed"
+		exit 1
+	fi
+
 	python3 _run_tests.py $*
 	exit_code=$?
 	echo "====== Ran tests ======"

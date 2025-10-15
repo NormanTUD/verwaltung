@@ -29,12 +29,6 @@ jobs:
             sudo rm -rf /var/lib/apt/lists/*
           docker-compose --version
 
-      - name: Run tests
-        run: |
-          chmod +x run_docker
-          docker-compose up -d neo4j-db
-          ./run_docker 1123 run_tests
-
       - name: Run docker tests
         run: |
           bash run_tests
