@@ -14,29 +14,20 @@ Options:
 EOF
 }
 
-run_smoke_tests=true
 run_docker=true
 run_python_tests=true
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--no-smoke-tests) run_smoke_tests=false ;;
 		--no-docker) run_docker=false ;;
 		--no-run-tests) run_python_tests=false ;;
 	esac
 	shift
 done
 
-if $run_smoke_tests; then
-	if ! bash tests/smoke_tests; then
-		echo "Smoke tests failed"
-		exit 1
-	fi
-fi
-
 if $run_docker; then
 	echo "====== Starting docker container ======"
-	bash docker.sh --local-port 1122
+	bash run_docker
 	exit_code=$?
 	echo "====== Started docker container ======"
 
@@ -47,24 +38,24 @@ if $run_docker; then
 fi
 
 echo "====== Checking virtualenv ======"
-if [[ ! -d ~/.asanai_test_env ]]; then
-	python3 -m venv ~/.asanai_test_env
-	source ~/.asanai_test_env/bin/activate
+if [[ ! -d ~/.verwaltung_test_env ]]; then
+	python3 -m venv ~/.verwaltung_test_env
+	source ~/.verwaltung_test_env/bin/activate
 	if ! pip install playwright; then
 		echo "pip install playwright failed. Are you online?"
-		rm -rf ~/.asanai_test_env
+		rm -rf ~/.verwaltung_test_env
 		exit 1
 	fi
 	playwright install chromium
 	playwright install firefox
 fi
 
-source ~/.asanai_test_env/bin/activate
+source ~/.verwaltung_test_env/bin/activate
 
 echo "====== pip install playwright ======"
 if ! pip install playwright; then
 	echo "pip install playwright failed. Are you online?"
-	rm -rf ~/.asanai_test_env
+	rm -rf ~/.verwaltung_test_env
 	exit 1
 fi
 

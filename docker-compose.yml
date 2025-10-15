@@ -5,15 +5,16 @@ services:
     environment:
       NEO4J_AUTH: "neo4j/testTEST12345678"
     ports:
-      - "7474:7474"
-      - "7687:5000"
+      - "7687:7687"
     volumes:
       - neo4j_data:/data
     networks:
       - appnet
 
-  python-app:
+  verwaltung:
     build: .
+    ports:
+      - "5001:5000"
     depends_on:
       - neo4j-db
     environment:
@@ -23,7 +24,7 @@ services:
       SECRET_KEY: "DASISTDERTOPSECRETKEY"
     networks:
       - appnet
-    command: ["./wait-for-it.sh", "neo4j-db:7687", "--timeout=60"]
+    command: ["./wait-for-it.sh", "neo4j-db:7687", "--timeout=60", "--", "python3", "app.py"]
 
 networks:
   appnet:
