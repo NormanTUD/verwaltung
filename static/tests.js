@@ -972,10 +972,7 @@ async function search_schaefer_dresden_test() {
     }
 
     try {
-        // --- Schritt 1: Suche nach "Schäfer" ---
         const term1 = 'Schäfer';
-        $("#sidebarSearch").val(term1);
-        console.log(`✅ Suchfeld mit "${term1}" gefüllt`);
 
         let data1 = await $.get('/search?q=' + encodeURIComponent(term1));
         if (typeof data1 === 'string') {
@@ -996,10 +993,7 @@ async function search_schaefer_dresden_test() {
         }
         console.log('✅ Suche nach "Schäfer" erfolgreich! URL korrekt.');
 
-        // --- Schritt 2: Suche nach "Dresden" ---
         const term2 = 'Hannover';
-        $("#sidebarSearch").val(term2);
-        console.log(`✅ Suchfeld mit "${term2}" gefüllt`);
 
         let data2 = await $.get('/search?q=' + encodeURIComponent(term2));
         if (typeof data2 === 'string') {
