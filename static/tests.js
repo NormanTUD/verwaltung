@@ -997,7 +997,7 @@ async function search_schaefer_dresden_test() {
         console.log('✅ Suche nach "Schäfer" erfolgreich! URL korrekt.');
 
         // --- Schritt 2: Suche nach "Dresden" ---
-        const term2 = 'Dresden';
+        const term2 = 'Hannover';
         $("#sidebarSearch").val(term2);
         console.log(`✅ Suchfeld mit "${term2}" gefüllt`);
 
@@ -1012,13 +1012,13 @@ async function search_schaefer_dresden_test() {
             return false;
         }
 
-        const expectedUrl2 = '/overview?nodes=Person%2CStadt&relationships=WOHNT_IN&qb=%7B%22condition%22%3A+%22AND%22%2C+%22rules%22%3A+%5B%7B%22id%22%3A+%22Stadt.stadt%22%2C+%22field%22%3A+%22Stadt.stadt%22%2C+%22type%22%3A+%22string%22%2C+%22input%22%3A+%22text%22%2C+%22operator%22%3A+%22equal%22%2C+%22value%22%3A+%22Dresden%22%7D%5D%2C+%22valid%22%3A+true%7D';
+        const expectedUrl2 = '/overview?nodes=Person%2CStadt&relationships=DASISTEINTEST&qb=%7B%22condition%22%3A+%22AND%22%2C+%22rules%22%3A+%5B%7B%22id%22%3A+%22Stadt.stadt%22%2C+%22field%22%3A+%22Stadt.stadt%22%2C+%22type%22%3A+%22string%22%2C+%22input%22%3A+%22text%22%2C+%22operator%22%3A+%22equal%22%2C+%22value%22%3A+%22Hannover%22%7D%5D%2C+%22valid%22%3A+true%7D';
         if (!data2.some(item => item.url === expectedUrl2)) {
-            console.warn('⚠️ Erwartete URL für "Dresden" nicht gefunden.');
+            console.warn('⚠️ Erwartete URL für "Hannover" nicht gefunden.');
             console.log('📦 Vollständige Search-Daten:', data2);
             return false;
         }
-        console.log('✅ Suche nach "Dresden" erfolgreich! URL korrekt.');
+        console.log('✅ Suche nach "Hannover" erfolgreich! URL korrekt.');
 
         return true;
 
