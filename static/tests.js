@@ -98,7 +98,7 @@ function deactivate_checkbox(checkbox) {
 }
 
 async function overview() {
-    await sleep(500)
+    await sleep(2000)
     /*
     if (!$("#relationshipSelection").length) {
         error("Could not find relationship selection");
