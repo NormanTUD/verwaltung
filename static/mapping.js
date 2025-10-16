@@ -189,6 +189,8 @@ async function load_mapping () {
 		await fetchExistingRelTypes();
 		autoSuggestNodes();
 		addRelationship();
+		log("Load mapping")
+		console.trace();
 	} catch (e) {
 		error(("") + e);
 	}
@@ -304,7 +306,6 @@ function collectRelationships() {
 	console.log(`Valid relationships: ${validRelationshipsCount}`);
 	return { relationships, valid };
 }
-
 
 function checkRelationshipCount(nodes, relationships) {
 	if (Object.keys(nodes).length > 1 && relationships.length === 0) {

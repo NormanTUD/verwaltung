@@ -217,8 +217,6 @@ function safeAddEventListener(id, event, handler) {
 	var elem = document.getElementById(id);
 	if (elem) {
 		elem.addEventListener(event, handler);
-	} else {
-		console.warn("Element mit ID '" + id + "' nicht gefunden. EventListener nicht gesetzt.");
 	}
 }
 
