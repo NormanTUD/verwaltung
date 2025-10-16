@@ -57,8 +57,6 @@ Oliver,Seidel,1010,oliver.seidel@example.com,Beamer`;
 	textarea.value = data.trim();
 }
 
-var added_import_handlers = false;
-
 function add_import_handlers() {
 	if(!$("#upload_form")) {
 		return;

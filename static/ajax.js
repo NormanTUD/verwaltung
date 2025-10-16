@@ -26,6 +26,8 @@ function open_link(link) {
 			dataType: "html",
 			success: function (data, textStatus, jqXHR) {
 				try {
+					//added_import_handlers = false;
+
 					if (typeof data !== "string" || data.trim() === "") {
 						console.warn("open_link(): Keine oder leere Antwort empfangen.");
 						mainContent.html("<div style='color:red;padding:10px;'>Fehler: Leere Antwort.</div>");
