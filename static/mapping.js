@@ -189,8 +189,6 @@ async function load_mapping () {
 		await fetchExistingRelTypes();
 		autoSuggestNodes();
 		addRelationship();
-		log("Load mapping")
-		console.trace();
 	} catch (e) {
 		error(("") + e);
 	}
