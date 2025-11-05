@@ -16,4 +16,6 @@ RUN chmod +x /usr/src/app/wait-for-it.sh
 
 COPY . .
 
+RUN touch /etc/docker_but_login_required
+
 CMD ["python3", "app.py"]
