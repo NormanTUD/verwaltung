@@ -1010,10 +1010,12 @@ if __name__ == "__main__":
 
     print(f"args.engine_db: {args.engine_db}")
 
-    if args.disable_login or is_running_in_docker():
-        if not os.path.exists("/etc/docker_but_login_required"):
-            print("Login not required!")
-            app.config["DISABLE_LOGIN"] = True
-            auto_is_authenticated = True
+    disable_login_flag = "/etc/docker_but_login_required"
+
+    #if args.disable_login or (is_running_in_docker() and os.path.exists(disable_login_flag)):
+    #    print("Login not required!")
+    #    app.config["DISABLE_LOGIN"] = True
+    #    auto_is_authenticated = True
+
 
     app.run(debug=args.debug, host='0.0.0.0', port=args.port)
