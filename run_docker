@@ -6,7 +6,6 @@ APP_PORT=${1:-5001}
 ACTION=${2:-up}
 APP_NAME="verwaltung"
 NEO4J_CONTAINER="neo4j-db"
-CI_RUN=${CI_RUN:-false}  # Default: false, kann von außen gesetzt werden
 
 log() {
     echo "[INFO] $*"
@@ -50,20 +49,8 @@ wait_for_app() {
     log "Anwendung ist erreichbar!"
 }
 
-# Dynamisch Datei für Login-Bypass setzen, nur wenn CI_RUN=true
-setup_login_flag() {
-    if [[ "$CI_RUN" == "true" ]]; then
-        if [ ! -f /etc/docker_but_login_required ]; then
-            log "Erstelle /etc/docker_but_login_required für CI-Run"
-            sudo touch /etc/docker_but_login_required
-            sudo chmod 644 /etc/docker_but_login_required
-        fi
-    fi
-}
-
 run_app() {
     log "Starte Docker-Compose für $APP_NAME im Hintergrund auf Port $APP_PORT..."
-    setup_login_flag
     APP_PORT=$APP_PORT docker-compose up -d --build "$APP_NAME"
     wait_for_app
     log "Container läuft und ist erreichbar. Skript beendet sich nun."
@@ -71,7 +58,6 @@ run_app() {
 
 run_tests() {
     log "Starte Testumgebung..."
-    setup_login_flag
     APP_PORT=$APP_PORT docker-compose up -d --build "$APP_NAME"
     wait_for_app
     log "Führe Tests aus..."
@@ -81,7 +67,7 @@ run_tests() {
 }
 
 main() {
-    log "Aktion: $ACTION, APP_PORT=$APP_PORT, CI_RUN=$CI_RUN"
+    log "Aktion: $ACTION, APP_PORT=$APP_PORT"
     check_neo4j_container
 
     case "$ACTION" in

@@ -1,6 +1,7 @@
 services:
   neo4j-db:
     image: neo4j:5.14
+    container_name: neo4j-db
     environment:
       NEO4J_AUTH: "neo4j/testTEST12345678"
     ports:

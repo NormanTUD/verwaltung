@@ -14,7 +14,6 @@ Options:
 EOF
 }
 
-export CI_RUN=true
 run_docker=true
 run_python_tests=true
 
