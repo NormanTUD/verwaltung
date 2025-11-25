@@ -10,8 +10,8 @@ from functools import wraps
 def conditional_login_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        #if current_app.config.get("DISABLE_LOGIN", False):
-        #    return func(*args, **kwargs)
+        if current_app.config.get("DISABLE_LOGIN", False):
+            return func(*args, **kwargs)
         return login_required(func)(*args, **kwargs)
     return wrapper
 
