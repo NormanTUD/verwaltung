@@ -16,6 +16,16 @@ error() {
     exit 1
 }
 
+setup_login_flag() {
+	if [[ "$CI_RUN" == "true" ]]; then
+		if [ ! -f /etc/docker_but_login_required ]; then
+			log "Erstelle /etc/docker_but_login_required für CI-Run"
+			sudo touch /etc/docker_but_login_required
+			sudo chmod 644 /etc/docker_but_login_required
+		fi
+	fi
+}
+
 check_neo4j_container() {
     local container_exists
     container_exists=$(docker ps -a -q -f name="$NEO4J_CONTAINER" || true)
