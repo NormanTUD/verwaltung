@@ -142,9 +142,8 @@ try:
     from importers import importers_bp
 
     from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context, Response, session
-    from flask_login import LoginManager, login_user, logout_user, current_user
+    from flask_login import LoginManager, login_user, logout_user, current_user, login_required
 
-    from flask_login import login_required
     from oasis_helper import conditional_login_required
 
     from markupsafe import Markup
