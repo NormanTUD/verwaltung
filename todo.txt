@@ -1,0 +1,3 @@
+- Aktuell gehen nur 1:1 Beziehungen. Es wäre cool wenn man auch n:m Beziehungen machen könnte allgemein
+- Bessere GUI, Excel-Like-Interface
+- Allgemeine Bugfixes, testen
