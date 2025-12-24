@@ -2,7 +2,7 @@
 set -e
 
 echo "Starting neo4j"
-docker start neo4j-db 2>/dev/null
+docker start neo4j-db
 echo "Starting neo4j: $?"
 
 echo "Running neo4j"
