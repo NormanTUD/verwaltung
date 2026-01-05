@@ -74,61 +74,58 @@ try:
 
     from oasis_helper import conditional_login_required
 
-    from markupsafe import Markup
 
-    from sqlalchemy import create_engine, inspect, Date, DateTime, text, func, event, String, Unicode, Text
     from sqlalchemy.orm import sessionmaker, joinedload, Session, Query
     from sqlalchemy.orm.attributes import flag_modified
     from sqlalchemy.orm.exc import NoResultFound, DetachedInstanceError
     from sqlalchemy.exc import SQLAlchemyError
-    from sqlalchemy.event import listens_for
-    from sqlalchemy_schemadisplay import create_schema_graph
-    from sqlalchemy.orm import class_mapper, ColumnProperty, RelationshipProperty
-    from sqlalchemy import Integer, Text, Date, Float, Boolean, ForeignKey
+    # from sqlalchemy.event import listens_for
+    # from sqlalchemy_schemadisplay import create_schema_graph
+    # from sqlalchemy.orm import class_mapper, ColumnProperty, RelationshipProperty
+    # from sqlalchemy import Integer, Text, Date, Float, Boolean, ForeignKey
 
     from sqlalchemy.orm.strategy_options import Load
     from sqlalchemy.orm.strategy_options import Load
 
     from sqlalchemy.orm.attributes import flag_modified
 
-    import sqlalchemy.exc
 
     from db_defs import *
-    from pypdf import PdfReader, PdfWriter
-    from pypdf.generic import NameObject
+    # from pypdf import PdfReader, PdfWriter
+    # from pypdf.generic import NameObject
     import io
-    from markupsafe import escape
-    import html
-    import sqlalchemy
-    import cryptography
-    import aiosqlite
-    from PIL import Image
-    import datetime
+    # from markupsafe import escape
+    # import html
+    # import sqlalchemy
+    # import cryptography
+    # import aiosqlite
+    # from PIL import Image
+    # import datetime
 
     from werkzeug.security import generate_password_hash, check_password_hash
-    from werkzeug.utils import secure_filename
+    # from werkzeug.utils import secure_filename
 
-    import tempfile
-    import pandas as pd
+    # import tempfile
+    # import pandas as pd
 
-    from markupsafe import escape
+    # from markupsafe import escape
 
     from db_interface import *
 
     from auth import admin_required, is_admin_user
     from db import *
 
-    from flask_sqlalchemy import SQLAlchemy
-    from flask_admin import Admin
-    from flask_admin.contrib.sqla import ModelView
-    from wtforms import IntegerField, FloatField
-    from flask_admin.form import Select2Widget
-    from wtforms.validators import Optional as OptionalValidator
-    from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
+    # from flask_sqlalchemy import SQLAlchemy
+    # from flask_admin import Admin
+    # from flask_admin.contrib.sqla import ModelView
+    # from wtforms import IntegerField, FloatField
+    # from flask_admin.form import Select2Widget
+    # from wtforms.validators import Optional as OptionalValidator
+    # from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
 
-    from mypydie import dier
+    # from mypydie import dier
 
-    from dotenv import load_dotenv
+    # from dotenv import load_dotenv
     import oasis_helper
 
     from api.get_data_as_table import create_get_data_bp

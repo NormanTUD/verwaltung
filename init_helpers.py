@@ -54,7 +54,7 @@ def read_db_engine_file(abs_path) -> str | None:
             print(f"[ERROR] Keine Leserechte für {abs_path}", file=sys.stderr)
     return None
 
-def get_from_requirements_txt_file(path=None):
+def get_from_requirements_txt_file(path=None) -> list[str]:
     try:
         if path is None:
             script_dir = os.path.dirname(os.path.abspath(__file__))
