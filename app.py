@@ -15,7 +15,7 @@ from pathlib import Path
 
 
 auto_is_authenticated = False
-from init_helpers import parsing, normalize_sqlite_uri, read_db_engine_file
+from init_helpers import parsing, normalize_sqlite_uri, read_db_engine_file, get_from_requirements_txt_file
 args = parsing()
 
 
@@ -37,29 +37,6 @@ except ModuleNotFoundError:
 VENV_PATH = Path.home() / ".verwaltung_venv"
 PYTHON_BIN = VENV_PATH / ("Scripts" if platform.system() == "Windows" else "bin") / ("python.exe" if platform.system() == "Windows" else "python")
 
-def get_from_requirements_txt_file(path=None):
-    try:
-        if path is None:
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            path = os.path.join(script_dir, "requirements.txt")
-
-        if not os.path.isfile(path):
-            raise FileNotFoundError(f"requirements.txt not found at: {path}")
-
-        with open(path, "r", encoding="utf-8") as _f:
-            lines = _f.readlines()
-
-        requirements = []
-        for line in lines:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                requirements.append(line)
-
-        return requirements
-
-    except Exception as e:
-        print(f"Error reading requirements file: {e}")
-        return []
 
 pip_install_modules = [
     PYTHON_BIN, "-m", "pip", "install", "-q", "--upgrade",

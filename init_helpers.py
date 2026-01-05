@@ -53,3 +53,26 @@ def read_db_engine_file(abs_path) -> str | None:
         else:
             print(f"[ERROR] Keine Leserechte für {abs_path}", file=sys.stderr)
     return None
+
+def get_from_requirements_txt_file(path=None):
+    try:
+        if path is None:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            path = os.path.join(script_dir, "requirements.txt")
+
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"requirements.txt not found at: {path}")
+
+        with open(path, "r", encoding="utf-8") as _f:
+            lines = _f.readlines()
+
+        requirements = []
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                requirements.append(line)
+
+        return requirements
+    except Exception as e:
+        print(f"Error reading requirements file: {e}")
+        return []
