@@ -5,22 +5,15 @@
 
 import argparse
 import sys
-import traceback
 import re
 import platform
 import shutil
 import os
 import subprocess
-from datetime import date
-import datetime
-from copy import deepcopy
 import csv
-import uuid
 import json
-from collections import defaultdict
 from pathlib import Path
-from datetime import datetime
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse
 
 auto_is_authenticated = False
 
