@@ -9,11 +9,17 @@ from sqlalchemy_continuum import TransactionFactory, versioning_manager
 Transaction = TransactionFactory(Base)
 
 configure_mappers()
-from init_helpers import normalize_sqlite_uri
+from init_helpers import normalize_sqlite_uri, read_db_engine_file
 
 full_url = 'sqlite:///database.db'
 from constants import DB_ENGINE_FILE
+# either keep full url or set it to contents of DB_ENGINE_FILE
+engine_file_contents = read_db_engine_file(DB_ENGINE_FILE)
+if engine_file_contents:
+    full_url = engine_file_contents
 
+
+"""
 if os.path.isfile(DB_ENGINE_FILE):
     print(f"[DEBUG] {DB_ENGINE_FILE} ist eine Datei", file=sys.stderr)
     if os.access(DB_ENGINE_FILE, os.R_OK):
@@ -31,7 +37,7 @@ if os.path.isfile(DB_ENGINE_FILE):
             print(f"[ERROR] Fehler beim Lesen von {DB_ENGINE_FILE}: {str(e)}", file=sys.stderr)
     else:
         print(f"[ERROR] Keine Leserechte für {DB_ENGINE_FILE}", file=sys.stderr)
-
+"""
 full_url = normalize_sqlite_uri(full_url)
 
 engine = create_engine(full_url)
