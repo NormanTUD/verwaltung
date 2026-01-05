@@ -15,32 +15,16 @@ from pathlib import Path
 
 
 auto_is_authenticated = False
-from init_helpers import parsing, normalize_sqlite_uri
+from init_helpers import parsing, normalize_sqlite_uri, read_db_engine_file
 args = parsing()
 
 
 args.engine_db = normalize_sqlite_uri(args.engine_db)
 
 from constants import DB_ENGINE_FILE
-
-
-if os.path.isfile(DB_ENGINE_FILE):
-    #print(f"[DEBUG] {DB_ENGINE_FILE} ist eine Datei", file=sys.stderr)
-    if os.access(DB_ENGINE_FILE, os.R_OK):
-        #print(f"[DEBUG] {DB_ENGINE_FILE} ist lesbar", file=sys.stderr)
-        try:
-            with open(DB_ENGINE_FILE, "r", encoding="utf-8") as f:
-                file_content = f.read().strip()
-                #print(f"[DEBUG] Gelesener Inhalt: '{file_content}'", file=sys.stderr)
-                if file_content:
-                    args.engine_db = file_content
-                    print(f"[DEBUG] args.engine_db auf '{args.engine_db}' gesetzt", file=sys.stderr)
-                else:
-                    print(f"[WARN] {DB_ENGINE_FILE} ist leer", file=sys.stderr)
-        except Exception as e:
-            print(f"[ERROR] Fehler beim Lesen von {DB_ENGINE_FILE}: {str(e)}", file=sys.stderr)
-    else:
-        print(f"[ERROR] Keine Leserechte für {DB_ENGINE_FILE}", file=sys.stderr)
+engine_file_contents = read_db_engine_file(DB_ENGINE_FILE)
+if engine_file_contents:
+    args.engine_db = engine_file_contents
 
 IGNORED_TABLES = {"transaction", "user", "role"}
 

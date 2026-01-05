@@ -11,7 +11,6 @@ def parsing():
     parser.add_argument('--engine-db', type=str, default='sqlite:///instance/database.db', help='URI für create_engine()')
     return parser.parse_args()
 
-
 def normalize_sqlite_uri(uri: str) -> str:
     """
     Wenn es sich um eine SQLite URI handelt, konvertiere sie zu einem absoluten Pfad
