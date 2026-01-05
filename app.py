@@ -67,66 +67,29 @@ def restart_with_venv():
         sys.exit(1)
 
 try:
+    # Library Imports
     from importers import importers_bp
+    import io
 
-    from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context, Response, session
+    from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context, Response, session # pyright: ignore[reportMissingImports]
     from flask_login import LoginManager, login_user, logout_user, current_user, login_required
 
-    from oasis_helper import conditional_login_required
-
-
     from sqlalchemy.orm import sessionmaker, joinedload, Session, Query
-    from sqlalchemy.orm.attributes import flag_modified
     from sqlalchemy.orm.exc import NoResultFound, DetachedInstanceError
     from sqlalchemy.exc import SQLAlchemyError
-    # from sqlalchemy.event import listens_for
-    # from sqlalchemy_schemadisplay import create_schema_graph
-    # from sqlalchemy.orm import class_mapper, ColumnProperty, RelationshipProperty
-    # from sqlalchemy import Integer, Text, Date, Float, Boolean, ForeignKey
-
-    from sqlalchemy.orm.strategy_options import Load
-    from sqlalchemy.orm.strategy_options import Load
-
-    from sqlalchemy.orm.attributes import flag_modified
-
-
-    from db_defs import *
-    # from pypdf import PdfReader, PdfWriter
-    # from pypdf.generic import NameObject
-    import io
-    # from markupsafe import escape
-    # import html
-    # import sqlalchemy
-    # import cryptography
-    # import aiosqlite
-    # from PIL import Image
-    # import datetime
 
     from werkzeug.security import generate_password_hash, check_password_hash
-    # from werkzeug.utils import secure_filename
 
-    # import tempfile
-    # import pandas as pd
-
-    # from markupsafe import escape
-
-    from db_interface import *
 
     from auth import admin_required, is_admin_user
-    from db import *
 
-    # from flask_sqlalchemy import SQLAlchemy
-    # from flask_admin import Admin
-    # from flask_admin.contrib.sqla import ModelView
-    # from wtforms import IntegerField, FloatField
-    # from flask_admin.form import Select2Widget
-    # from wtforms.validators import Optional as OptionalValidator
-    # from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
-
-    # from mypydie import dier
-
-    # from dotenv import load_dotenv
     import oasis_helper
+    from oasis_helper import conditional_login_required
+
+    # Our Code Imports
+    from db import *
+    from db_interface import *
+    from db_defs import *
 
     from api.get_data_as_table import create_get_data_bp
     from api.dump_database import create_dump_database_bp
