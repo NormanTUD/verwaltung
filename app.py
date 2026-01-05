@@ -132,30 +132,7 @@ graph = oasis_helper.get_graph_db_connection()
 app.config['GRAPH'] = graph
 from api.api_route_registration import register_blueprints
 register_blueprints(app, graph)
-"""
-app.register_blueprint(create_get_data_bp(graph), url_prefix='/api')
-app.register_blueprint(create_dump_database_bp(graph), url_prefix='/api')
-app.register_blueprint(create_reset_and_load_data_bp(graph), url_prefix='/api')
-app.register_blueprint(create_delete_node_bp(graph), url_prefix='/api')
-app.register_blueprint(create_add_property_to_nodes_bp(graph), url_prefix='/api')
-app.register_blueprint(create_delete_nodes_bp(graph), url_prefix='/api')
-app.register_blueprint(create_create_node_bp(graph), url_prefix='/api')
-app.register_blueprint(create_delete_all_bp(graph), url_prefix='/api')
-app.register_blueprint(create_graph_data_bp(graph), url_prefix='/api')
-app.register_blueprint(create_update_node_bp(graph), url_prefix='/api')
-app.register_blueprint(create_add_row_bp(graph), url_prefix='/api')
-app.register_blueprint(create_add_column_bp(graph), url_prefix='/api')
-app.register_blueprint(create_save_queries(), url_prefix='/api')
-app.register_blueprint(create_update_nodes_bp(graph), url_prefix='/api')
-app.register_blueprint(create_add_relationship_bp(graph), url_prefix='/api')
-app.register_blueprint(create_complex_data_bp(graph), url_prefix='/api')
-app.register_blueprint(create_labels_bp(graph), url_prefix='/api')
-app.register_blueprint(create_properties_bp(graph), url_prefix='/api')
-app.register_blueprint(create_relationships_bp(graph), url_prefix='/api')
 
-app.register_blueprint(create_index_bp(graph), url_prefix='/')
-app.register_blueprint(create_query_overview(), url_prefix='/')
-"""
 @login_manager.user_loader
 def load_user(user_id):
     my_session = Session()
