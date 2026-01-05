@@ -225,7 +225,7 @@ try:
     from api.query_overview import create_query_overview
 
     from index_manager import create_index_bp
-    
+
     import json
     import urllib.parse
 except ModuleNotFoundError as e:
@@ -877,7 +877,7 @@ def delete_user(user_id):
         user = session.query(User).get(user_id)
         if not user:
             return jsonify(success=False, error="Benutzer nicht gefunden.")
-        
+
         session.delete(user)
         session.commit()
         return jsonify(success=True, message="Benutzer gelöscht.")
