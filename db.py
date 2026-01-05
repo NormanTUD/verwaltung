@@ -10,28 +10,7 @@ from urllib.parse import urlparse, urlunparse
 Transaction = TransactionFactory(Base)
 
 configure_mappers()
-
-def normalize_sqlite_uri(uri: str) -> str:
-    """
-    Wenn es sich um eine SQLite URI handelt, konvertiere sie zu einem absoluten Pfad
-    in ./instance/, behalte den Dateinamen bei.
-    """
-    parsed = urlparse(uri)
-
-    if parsed.scheme != 'sqlite':
-        # Keine SQLite URI, return original
-        return uri
-
-    # Hole den Datenbank-Dateinamen
-    db_name = Path(parsed.path).name
-
-    # Absoluter Pfad: $(pwd)/instance/<db_name>
-    abs_path = Path.cwd() / 'instance' / db_name
-    abs_path.parent.mkdir(parents=True, exist_ok=True)  # ensure ./instance exists
-
-    # Neue URI zusammenbauen
-    new_uri = f'sqlite:///{abs_path}'
-    return new_uri
+from init_helpers import normalize_sqlite_uri
 
 full_url = 'sqlite:///database.db'
 
