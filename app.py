@@ -67,33 +67,88 @@ def restart_with_venv():
         sys.exit(1)
 
 try:
-    # Library Imports
     from importers import importers_bp
-    import io
 
-    from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context, Response, session # pyright: ignore[reportMissingImports]
+    from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context, Response, session
     from flask_login import LoginManager, login_user, logout_user, current_user, login_required
 
-    from sqlalchemy.orm import sessionmaker, joinedload, Session, Query
-    from sqlalchemy.orm.exc import NoResultFound, DetachedInstanceError
-    from sqlalchemy.exc import SQLAlchemyError
-
-    from werkzeug.security import generate_password_hash, check_password_hash
-
-
-    from auth import admin_required, is_admin_user
-
-    import oasis_helper
     from oasis_helper import conditional_login_required
 
-    # Our Code Imports
-    from db import *
-    from db_interface import *
+
+    from sqlalchemy.orm import sessionmaker, joinedload, Session, Query
+    from sqlalchemy.orm.attributes import flag_modified
+    from sqlalchemy.orm.exc import NoResultFound, DetachedInstanceError
+    from sqlalchemy.exc import SQLAlchemyError
+    # from sqlalchemy.event import listens_for
+    # from sqlalchemy_schemadisplay import create_schema_graph
+    # from sqlalchemy.orm import class_mapper, ColumnProperty, RelationshipProperty
+    # from sqlalchemy import Integer, Text, Date, Float, Boolean, ForeignKey
+
+    from sqlalchemy.orm.strategy_options import Load
+    from sqlalchemy.orm.strategy_options import Load
+
+    from sqlalchemy.orm.attributes import flag_modified
+
+
     from db_defs import *
+    # from pypdf import PdfReader, PdfWriter
+    # from pypdf.generic import NameObject
+    import io
+    # from markupsafe import escape
+    # import html
+    # import sqlalchemy
+    # import cryptography
+    # import aiosqlite
+    # from PIL import Image
+    # import datetime
 
+    from werkzeug.security import generate_password_hash, check_password_hash
+    # from werkzeug.utils import secure_filename
 
-    from api.save_queries import load_saved_queries
+    # import tempfile
+    # import pandas as pd
 
+    # from markupsafe import escape
+    from db_interface import *
+
+    from auth import admin_required, is_admin_user
+    from db import *
+
+    # from flask_sqlalchemy import SQLAlchemy
+    # from flask_admin import Admin
+    # from flask_admin.contrib.sqla import ModelView
+    # from wtforms import IntegerField, FloatField
+    # from flask_admin.form import Select2Widget
+    # from wtforms.validators import Optional as OptionalValidator
+    # from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
+
+    # from mypydie import dier
+
+    # from dotenv import load_dotenv
+    import oasis_helper
+
+    from api.get_data_as_table import create_get_data_bp
+    from api.dump_database import create_dump_database_bp
+    from api.reset_and_load_data import create_reset_and_load_data_bp
+    from api.delete_node import create_delete_node_bp
+    from api.delete_nodes import create_delete_nodes_bp
+    from api.create_node import create_create_node_bp
+    from api.add_property_to_nodes import create_add_property_to_nodes_bp
+    from api.delete_all import create_delete_all_bp
+    from api.graph_data import create_graph_data_bp
+    from api.update_node import create_update_node_bp
+    from api.add_row import create_add_row_bp
+    from api.add_column import create_add_column_bp
+    from api.update_nodes import create_update_nodes_bp
+    from api.save_queries import create_save_queries, load_saved_queries
+    from api.add_relationship import create_add_relationship_bp
+    from api.reset_and_load_complex_data import create_complex_data_bp
+    from api.labels import create_labels_bp
+    from api.properties import create_properties_bp
+    from api.relationships import create_relationships_bp
+    from api.query_overview import create_query_overview
+
+    from index_manager import create_index_bp
 
     import json
     import urllib.parse
