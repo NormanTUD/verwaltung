@@ -33,6 +33,11 @@ def create_get_data_bp(graph):
             }
 
         def fetch_nodes(self, label, limit=None, where=None):
+            """
+            Get Nodes with a specified label from the db.
+            Returns a List of node dicts (id, labels, props)
+            """
+
             base_query = f"MATCH (n:`{label}`)"
             if where:
                 base_query += f" WHERE {where}"
@@ -54,6 +59,11 @@ def create_get_data_bp(graph):
             return result
 
         def fetch_paths(self, labels, max_depth, limit=None, where=None, rel_filter=None):
+            """
+            Gets the paths with nodes with any of the labels
+
+            Returns a list of paths which have nodes and relationships)
+            """
             depth_str = f"*..{max_depth}" if max_depth >= 0 else "*"
             rel_match = f"[r:{'|'.join(rel_filter)}{depth_str}]" if rel_filter else f"[{depth_str}]"
 
