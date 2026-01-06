@@ -10,6 +10,10 @@ def create_get_data_bp(graph):
             self.driver = driver
 
         def _node_to_dict(self, node):
+            """
+            Converts a neo4j Node into a Python dict
+            - "id", "labels", "props"
+            """
             return {
                 "id": getattr(node, "identity", None),
                 "labels": list(getattr(node, "labels", [])),
@@ -17,6 +21,11 @@ def create_get_data_bp(graph):
             }
 
         def _rel_to_dict(self, rel):
+            """
+            Converts Neo4j-Relationship to dict with
+            - "fromId", "toId", "type"
+            """
+
             return {
                 "fromId": getattr(rel.start_node, "identity", None),
                 "toId": getattr(rel.end_node, "identity", None),
