@@ -225,7 +225,7 @@ try:
     from api.query_overview import create_query_overview
 
     from index_manager import create_index_bp
-    
+
     import json
     import urllib.parse
 except ModuleNotFoundError as e:
@@ -258,8 +258,8 @@ login_manager.login_message = "Bitte melde dich an, um fortzufahren."
 
 app.secret_key = oasis_helper.load_or_generate_secret_key()
 
+# usage of py2neo Graph
 graph = oasis_helper.get_graph_db_connection()
-
 app.config['GRAPH'] = graph
 
 app.register_blueprint(create_get_data_bp(graph), url_prefix='/api')
@@ -877,7 +877,7 @@ def delete_user(user_id):
         user = session.query(User).get(user_id)
         if not user:
             return jsonify(success=False, error="Benutzer nicht gefunden.")
-        
+
         session.delete(user)
         session.commit()
         return jsonify(success=True, message="Benutzer gelöscht.")

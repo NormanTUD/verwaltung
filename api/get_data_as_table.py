@@ -2,7 +2,9 @@ import json
 from flask import Blueprint, request, jsonify
 from oasis_helper import conditional_login_required
 
-def create_get_data_bp(graph):
+from neo4j_interface import Neo4jDBInterface
+
+def create_get_data_bp(graph) -> Blueprint:
     bp = Blueprint("get_data_bp", __name__)
 
     class GraphAPI:
@@ -89,6 +91,20 @@ def create_get_data_bp(graph):
     @bp.route("/get_data_as_table", methods=["GET"])
     @conditional_login_required
     def get_data_as_table():
+
+        DBI = Neo4jDBInterface()
+        # read params
+        # params = parse_request_params(request)
+
+        # request db
+        data = DBI.read_data()
+
+        # process to table
+
+        # process to json
+
+        return
+
         try:
             params = parse_request_params(request)
             buckets = build_buckets(graph_api, params)
