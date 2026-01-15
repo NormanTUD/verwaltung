@@ -24,6 +24,8 @@ def create_get_data_bp(graph):
             }
 
         def fetch_nodes(self, label, limit=None, where=None):
+            # Label-Injection is possible
+            # no logging
             base_query = f"MATCH (n:`{label}`)"
             if where:
                 base_query += f" WHERE {where}"
@@ -39,6 +41,7 @@ def create_get_data_bp(graph):
                 n = r.get("n")
                 if n is None:
                     continue
+
                 node_dict = self._node_to_dict(n)
                 node_dict["props"] = node_dict.get("props") or {}
                 result.append(node_dict)
