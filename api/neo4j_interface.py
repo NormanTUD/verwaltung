@@ -94,8 +94,6 @@ def validate_labels(*label_groups) -> ValidationResult:
     return ValidationResult(ok=not bad, bad=bad)
 
 
-
-
 def construct_cypher_query(
     node_labels: list[str],
     node_filters: dict | None = None,
