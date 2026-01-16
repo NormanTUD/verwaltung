@@ -1,6 +1,6 @@
 
 
-from neo4j import Driver
+from neo4j import Driver,GraphDatabase
 from neo4j.exceptions import Neo4jError
 import logging
 from dataclasses import dataclass, asdict
@@ -118,12 +118,17 @@ def construct_cypher_query(
     node_label_clause = ":" + ":".join(node_labels)
     node_pattern = f"(n{node_label_clause})"
 
-    # relations
+    # Relationship clause (optional)
+
     if rel_types:
         rel_type_clause = ":" + "|".join(rel_types)
         rel_pattern = f"-[r{rel_type_clause}]->(m)"
+        match_clause = f"MATCH {node_pattern}{rel_pattern}"
+        return_clause = " RETURN n, r, m"
     else:
-        rel_pattern = "-[r]->(m)"
+        match_clause = f"MATCH {node_pattern}"
+        return_clause = " RETURN n"
+
 
     # where clause
     where_clauses: list[str] = []
@@ -147,9 +152,9 @@ def construct_cypher_query(
 
     # Construct
     cypher = (
-        f"MATCH {node_pattern}{rel_pattern}"
+        f"{match_clause}"
         f"{where_clause}"
-        f" RETURN n, r, m"
+        f"{return_clause}"
         f"{limit_clause}"
     )
     return cypher, parameters
@@ -164,7 +169,7 @@ def label_validation(label: str) -> bool:
 
 class Neo4jDBInterface(ABC):
     def __init__(self, driver):
-        self._driver = driver
+        self._driver: Driver = driver
 
     def create_data(self):
         raise NotImplementedError("Method not implemented yet.")
@@ -194,11 +199,13 @@ class Neo4jDB(Neo4jDBInterface):
     ==========
     """
 
-    def read_data(self, node_types, relationships = None, filters = None, limit=None) -> TableResponse:
-        self.logger.info(f"Read Query: {node_types}, {relationships}, {filters}, {limit}")
-        q = construct_cypher_query(node_types, filters, relationships, limit)
+    def read_data(self, node_types, relationships = None, filters = None, limit=None):
+        self.logger.info(f"Read Query: {node_types=}, {relationships=}, {filters=}, {limit=}")
+        cypher, params = construct_cypher_query(node_types, filters, relationships, limit)
+        with self._driver.session() as session:
+            result = session.run(cypher, params).data()
 
-        return
+        return result
 
     """
     ==========
@@ -282,3 +289,27 @@ if __name__ == "__main__":
         )
     except ValueError as exc:
         print("Caught validation error:", exc)
+    import os
+
+    db = Neo4jDB(GraphDatabase.driver(os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+                    auth=(
+                        os.getenv("NEO4J_USER", "neo4j"),
+                        os.getenv("NEO4J_PASS", "testTEST12345678")
+                    )))
+    DELIMITER = "=========="
+    print(f"{DELIMITER} Students only {DELIMITER}")
+    r = db.read_data(["Student"])
+    for element in r:
+        for k,v in element.items():
+            print(k,v)
+    print(f"{DELIMITER} Classes only {DELIMITER}")
+    r = db.read_data(["Class"])
+    for element in r:
+        for k,v in element.items():
+            print(k,v)
+    print(f"{DELIMITER} Both! {DELIMITER}")
+    r = db.read_data(["Student"], relationships=["ENROLLED_IN"])
+    for element in r:
+        for k,v in element.items():
+            print(k,v)
+

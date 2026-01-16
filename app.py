@@ -139,6 +139,7 @@ def restart_with_venv():
         sys.exit(1)
 
 try:
+    print("Trying Imports")
     from importers import importers_bp
 
     from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context, Response, session
@@ -230,16 +231,18 @@ try:
     import urllib.parse
 except ModuleNotFoundError as e:
     if not VENV_PATH.exists():
+        print("Creating venv")
         create_and_setup_venv()
     else:
         try:
+            print("Subprocess installing dependencies from requirements")
             subprocess.check_call(pip_install_modules)
         except subprocess.CalledProcessError as e:
             shutil.rmtree(VENV_PATH)
             create_and_setup_venv()
             restart_with_venv()
         except KeyboardInterrupt:
-            print("CTRL-c detected")
+            print("CTRL-c detected While importing")
             sys.exit(0)
     try:
         restart_with_venv()
