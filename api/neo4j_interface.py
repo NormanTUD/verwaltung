@@ -178,9 +178,9 @@ class Neo4jDB(Neo4jDBInterface):
         filters = req_data.filter_labels
         limit = req_data.limit
 
-        self.logger.info(f"Read Query: {node_types=}, {relationships=}, {filters=}, {limit=}")
+        self.logger.debug(f"Read Query: {node_types=}, {relationships=}, {filters=}, {limit=}")
         cypher, params = construct_cypher_query(node_types, None, relationships, limit)
-        self.logger.info(f"Cypher was created: {cypher} with paramets: {params}")
+        self.logger.debug(f"Cypher was created: {cypher} with paramets: {params}")
         with self._driver.session() as session:
             # converting the Result object to a list of Records is memory intensive
             # should be no problem if we dont have results with over 1000s of Nodes
