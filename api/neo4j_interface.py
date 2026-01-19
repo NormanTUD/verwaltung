@@ -14,10 +14,21 @@ logger = logging.getLogger(__name__)
 Dataclasses
 ==========
 """
+@dataclass
+class ReadRequest():
+    selected_labels: list[str]
+    main_label: str
+    max_depth: int
+    limit: int | None
+    filter_labels: list[str] | None
+    where: list[str] | None
+    rel_fitler: list[str] | None
+
 @dataclass(frozen=True)
 class ValidationResult:
     ok: bool
     bad: list[str]
+
 @dataclass(frozen=True)
 class Column():
     nodeType: str
@@ -58,7 +69,7 @@ class TableResponse:
         }
 """
 ==========
-Dataclasses End
+Helper Functions - Dataclasses End
 ==========
 """
 def n4j_label_validation(label: str) -> bool:
@@ -175,10 +186,7 @@ class Neo4jDBInterface(ABC):
         raise NotImplementedError("Method not implemented yet.")
 
     def read_data(self,
-                  node_types: list[str]|str,
-                  relationships: list[str]|str|None = None,
-                  filters: dict | None = None,
-                  limit=None):
+                  request: ReadRequest):
 
         raise NotImplementedError("Method not implemented yet.")
 
@@ -199,9 +207,14 @@ class Neo4jDB(Neo4jDBInterface):
     ==========
     """
 
-    def read_data(self, node_types, relationships = None, filters = None, limit=None):
+    def read_data(self, req_data: ReadRequest): #node_types, relationships = None, filters = None, limit=None
+        node_types = req_data.selected_labels
+        relationships = req_data.rel_fitler
+        filters = req_data.filter_labels
+        limit = req_data.limit
+
         self.logger.info(f"Read Query: {node_types=}, {relationships=}, {filters=}, {limit=}")
-        cypher, params = construct_cypher_query(node_types, filters, relationships, limit)
+        cypher, params = construct_cypher_query(node_types, None, relationships, limit)
         with self._driver.session() as session:
             result = session.run(cypher, params).data()
 
@@ -270,46 +283,4 @@ class Neo4jDB(Neo4jDBInterface):
             except Exception as e:
                 logger.error(f"Error fetching nodes: {e}")
                 raise
-
-if __name__ == "__main__":
-    # Example –‑ valid input
-    query, params = construct_cypher_query(
-        node_labels=["Student", "Class"],
-        node_filters={"name": "Alice"},
-        rel_types=["ENROLLED_IN"],
-        limit=10,
-    )
-    print(query)
-    print(params)
-
-    # Example –‑ invalid label (will raise)
-    try:
-        construct_cypher_query(
-            node_labels=["Person", "!!bad!!"],  # <-- invalid
-        )
-    except ValueError as exc:
-        print("Caught validation error:", exc)
-    import os
-
-    db = Neo4jDB(GraphDatabase.driver(os.getenv("NEO4J_URI", "bolt://localhost:7687"),
-                    auth=(
-                        os.getenv("NEO4J_USER", "neo4j"),
-                        os.getenv("NEO4J_PASS", "testTEST12345678")
-                    )))
-    DELIMITER = "=========="
-    print(f"{DELIMITER} Students only {DELIMITER}")
-    r = db.read_data(["Student"])
-    for element in r:
-        for k,v in element.items():
-            print(k,v)
-    print(f"{DELIMITER} Classes only {DELIMITER}")
-    r = db.read_data(["Class"])
-    for element in r:
-        for k,v in element.items():
-            print(k,v)
-    print(f"{DELIMITER} Both! {DELIMITER}")
-    r = db.read_data(["Student"], relationships=["ENROLLED_IN"])
-    for element in r:
-        for k,v in element.items():
-            print(k,v)
 

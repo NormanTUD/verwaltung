@@ -263,8 +263,16 @@ app.secret_key = oasis_helper.load_or_generate_secret_key()
 # usage of py2neo Graph
 graph = oasis_helper.get_graph_db_connection()
 app.config['GRAPH'] = graph
+from api.neo4j_interface import Neo4jDBInterface
+from neo4j import GraphDatabase
+URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+AUTH =(
+    os.getenv("NEO4J_USER", "neo4j"),
+    os.getenv("NEO4J_PASS", "testTEST12345678")
+)
+app.config["driver"] = GraphDatabase.driver(URI, auth=AUTH)
 
-app.register_blueprint(create_get_data_bp(graph), url_prefix='/api')
+app.register_blueprint(create_get_data_bp(), url_prefix='/api')
 app.register_blueprint(create_dump_database_bp(graph), url_prefix='/api')
 app.register_blueprint(create_reset_and_load_data_bp(graph), url_prefix='/api')
 app.register_blueprint(create_delete_node_bp(graph), url_prefix='/api')

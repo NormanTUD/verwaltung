@@ -1,11 +1,70 @@
 import json
-from flask import Blueprint, request, jsonify
+from dataclasses import dataclass
+from flask import Blueprint, request, jsonify, current_app
 from oasis_helper import conditional_login_required
 
-from api.neo4j_interface import Neo4jDBInterface
+from api.neo4j_interface import Neo4jDB, ReadRequest
+from logging import getLogger
 
-def create_get_data_bp(graph) -> Blueprint:
+log = getLogger("get_data_as_table")
+def create_get_data_bp() -> Blueprint:
+    log.info("Registering Blueprint")
     bp = Blueprint("get_data_bp", __name__)
+
+
+
+
+    def parse_request_params(req) -> ReadRequest:
+        nodes_param = req.args.get("nodes")
+        if not nodes_param:
+            raise ValueError("Parameter 'nodes' required")
+        selected_labels = [n.strip() for n in nodes_param.split(",") if n.strip()]
+        main_label = selected_labels[0]
+
+        max_depth = int(req.args.get("maxDepth", max(3, len(selected_labels))))
+        limit_raw = req.args.get("limit")
+        limit = int(limit_raw) if limit_raw else None
+
+        filter_labels_raw = req.args.get("filterLabels")
+        filter_labels = [l.strip() for l in filter_labels_raw.split(",")] if filter_labels_raw else None
+
+        relationships_raw = req.args.get("relationships")
+        rel_filter = [r.strip() for r in relationships_raw.split(",")] if relationships_raw else None
+
+        qb_raw = req.args.get("qb")
+        where = None
+        if qb_raw and qb_raw.lower() != "null":
+            qb_json = json.loads(qb_raw)
+            if qb_json:  # prüfen, dass es nicht None ist
+                where = qb_to_cypher(qb_json)
+
+        # allow manual where override
+        manual_where = req.args.get("where")
+        if manual_where:
+            where = manual_where
+
+        return ReadRequest(selected_labels, main_label, max_depth, limit, filter_labels, where, rel_filter)
+
+    @bp.route("/get_data_as_table", methods=["GET"])
+    @conditional_login_required
+    def get_data_as_table2():
+        log.info("getting ourselves the driver and create the InterfaceClass")
+        driver = current_app.config["driver"]
+        # log.info(driver)
+        interf_db = Neo4jDB(driver)
+        log.info(interf_db)
+        params = parse_request_params(request)
+
+        # BUG: The next logging process produces a weird error
+        # log.info("Parsed Parameters from Front", params)
+        interf_db.read_data(params)
+
+
+        return jsonify({"columns": {},
+                        "rows": {}
+                        }
+                    )
+    return bp
 
     class GraphAPI:
         def __init__(self, driver):
