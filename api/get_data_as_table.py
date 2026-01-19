@@ -1,10 +1,13 @@
 import json
-from dataclasses import dataclass
 from flask import Blueprint, request, jsonify, current_app
 from oasis_helper import conditional_login_required
 
 from api.neo4j_interface import Neo4jDB, ReadRequest
+from neo4j import Record
+from neo4j.graph import Node, Relationship
 from logging import getLogger
+from pandas import DataFrame
+from typing import Any
 
 log = getLogger("get_data_as_table")
 def create_get_data_bp() -> Blueprint:
@@ -45,10 +48,124 @@ def create_get_data_bp() -> Blueprint:
 
         return ReadRequest(selected_labels, main_label, max_depth, limit, filter_labels, where, rel_filter)
 
-    @bp.route("/get_data_as_table", methods=["GET"])
+
+
+    def records_to_table(
+        records: list[Record],
+        *,
+        keep_original_field_names: bool = True,
+        prefix_node: str = "node_",
+        prefix_rel: str = "rel_",
+        include_meta: bool = True,
+        ) -> DataFrame:
+        """
+        Convert a sequence of ``neo4j.Record`` objects into a tidy pandas DataFrame.
+
+        Parameters
+        ----------
+        records: Iterable[Record]
+            The raw result rows you get from ``session.run(...)``.
+        keep_original_field_names: bool (default True)
+            If True, each column coming from a Record field is prefixed with the field name,
+            e.g. ``person_name`` instead of just ``node_name``.
+        prefix_node / prefix_rel: str
+            The string that will be added in front of every property of a node / relationship.
+        include_meta: bool
+            Keep the auto‑generated meta columns (`node_id`, `node_labels`, `rel_id`, …).
+
+        Returns
+        -------
+        pandas.DataFrame
+            One row per Record, a union of all discovered columns. Missing values are NaN.
+        """
+        def _flatten_node(node: Node) -> dict[str, Any]:
+            """Return a flat dict for a Node, prefixed with `node_` to avoid clashes."""
+            log.info(f"=====Node: {node}")
+            base = {
+                "node_id": node.element_id,
+                "node_labels": list(node.labels)
+            }
+            # prepend `node_` to every property name
+            props = {f"node_{k}": v for k, v in dict(node).items()}
+            base.update(props)
+            return base
+
+        def _flatten_relationship(rel: Relationship) -> dict[str, Any]:
+            """Return a flat dict for a Relationship, prefixed with `rel_`."""
+            base = {
+                "rel_id": rel.id,
+                "rel_type": rel.type,
+                "rel_start_id": rel.start_node.id,
+                "rel_end_id": rel.end_node.id,
+                "rel_type_name": rel.type,
+                "rel_type": "relationship",
+            }
+            # prepend `rel_` to every property name
+            props = {f"rel_{k}": v for k, v in dict(rel).items()}
+            base.update(props)
+            return base
+
+        def _flatten_value(value: Any) -> dict[str, Any]:
+            """
+            Dispatch to the correct flattener. Scalars stay as a single column
+            named after the original field (``field``) – the caller will add the
+            field name later.
+            """
+            if isinstance(value, Node):
+                return _flatten_node(value)
+            if isinstance(value, Relationship):
+                return _flatten_relationship(value)
+            # Primitive (int, str, bool, float, None) – keep as‑is
+            return {"value": value}
+        # ------------------------------------------------------------------
+        # 1️⃣  Build a list of flat dicts – one per record
+        # ------------------------------------------------------------------
+        flat_rows: list[dict[str, Any]] = []
+
+        for rec in records:
+            # ``rec.keys()`` gives us the label the user gave in the query,
+            # e.g. ["person", "friend", "knows"]
+            flat_row: dict[str, Any] = {}
+
+            for field_name, raw_value in zip(rec.keys(), rec.values()):
+                # 2️⃣  Turn the *raw* Neo4j type into a flat dict
+                sub_dict = _flatten_value(raw_value)
+
+                # 3️⃣  Decide on final column names
+                if isinstance(raw_value, (Node, Relationship)):
+                    # we already have a nice prefix inside the dict (node_/rel_)
+                    # but we *may* want to prepend the query‑field name for extra safety
+                    if keep_original_field_names:
+                        # rename every key: "<field>_<original>"
+                        renamed = {
+                            f"{field_name}_{k}": v for k, v in sub_dict.items()
+                        }
+                        flat_row.update(renamed)
+                    else:
+                        flat_row.update(sub_dict)
+                else:
+                    # Primitive values – just keep the field name
+                    flat_row[field_name] = raw_value
+
+            flat_rows.append(flat_row)
+
+        # ------------------------------------------------------------------
+        # 4️⃣  Build a DataFrame (pandas automatically creates the union of columns)
+        # ------------------------------------------------------------------
+        df = DataFrame(flat_rows)
+
+        # Optional: tidy up column ordering – put meta columns first, then data columns
+        if include_meta:
+            meta_cols = [c for c in df.columns if any(m in c for m in ("_id", "_type", "_labels", "_rel_type", "_start_id", "_end_id"))]
+            other_cols = [c for c in df.columns if c not in meta_cols]
+        df = df[meta_cols + other_cols]
+        df = df.to_json()
+        return df
+
+    # @bp.route("/get_data_as_table", methods=["GET"])
     @conditional_login_required
     def get_data_as_table2():
-        log.info("getting ourselves the driver and create the InterfaceClass")
+        log.info("=====api.get_data_as_table=====")
         driver = current_app.config["driver"]
         # log.info(driver)
         interf_db = Neo4jDB(driver)
@@ -57,14 +174,18 @@ def create_get_data_bp() -> Blueprint:
 
         # BUG: The next logging process produces a weird error
         # log.info("Parsed Parameters from Front", params)
-        interf_db.read_data(params)
+
+        data = interf_db.read_data(params)
+        df = records_to_table(data)
+        print(df)
+
 
 
         return jsonify({"columns": {},
                         "rows": {}
                         }
                     )
-    return bp
+    # return bp
 
     class GraphAPI:
         def __init__(self, driver):
@@ -145,25 +266,18 @@ def create_get_data_bp() -> Blueprint:
                 paths.append({"nodes": nodes, "rels": rels})
             return paths
 
-    graph_api = GraphAPI(graph)
+    # graph_api = GraphAPI(graph)
 
     @bp.route("/get_data_as_table", methods=["GET"])
     @conditional_login_required
     def get_data_as_table():
+        graph_api = GraphAPI(current_app.config["GRAPH"])
 
-        DBI = Neo4jDBInterface()
         # read params
         # params = parse_request_params(request)
 
         # request db
         data = DBI.read_data()
-
-        # process to table
-
-        # process to json
-
-        return
-
         try:
             params = parse_request_params(request)
             buckets = build_buckets(graph_api, params)

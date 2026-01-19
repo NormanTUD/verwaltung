@@ -1,6 +1,6 @@
 
 
-from neo4j import Driver,GraphDatabase
+from neo4j import Driver, Record
 from neo4j.exceptions import Neo4jError
 import logging
 from dataclasses import dataclass, asdict
@@ -29,44 +29,9 @@ class ValidationResult:
     ok: bool
     bad: list[str]
 
-@dataclass(frozen=True)
-class Column():
-    nodeType: str
-    property: str
-
-@dataclass(frozen=True)
-class Cell():
-    nodeId: int
-    nodeType: str
-    value: Any
-
-@dataclass(frozen=True)
-class Relation:
-    fromId: int
-    relation: str
-    toId: int
-
-@dataclass(frozen=True)
-class Row:
-    cells: list[Cell]
-    relations: list[Relation]
-
-@dataclass(frozen=True)
-class TableResponse:
-    columns: list[Column]
-    rows: list[Row]
-
-    def to_dict(self):
-        return {
-            "columns": [asdict(col) for col in self.columns],
-            "rows": [
-                {
-                    "cells": [asdict(cell) for cell in row.cells],
-                    "relations": [asdict(rel) for rel in row.relations]
-                }
-                for row in self.rows
-            ]
-        }
+@dataclass
+class DBResult():
+    pass
 """
 ==========
 Helper Functions - Dataclasses End
@@ -207,7 +172,7 @@ class Neo4jDB(Neo4jDBInterface):
     ==========
     """
 
-    def read_data(self, req_data: ReadRequest): #node_types, relationships = None, filters = None, limit=None
+    def read_data(self, req_data: ReadRequest) -> list[Record]: #node_types, relationships = None, filters = None, limit=None
         node_types = req_data.selected_labels
         relationships = req_data.rel_fitler
         filters = req_data.filter_labels
@@ -215,8 +180,22 @@ class Neo4jDB(Neo4jDBInterface):
 
         self.logger.info(f"Read Query: {node_types=}, {relationships=}, {filters=}, {limit=}")
         cypher, params = construct_cypher_query(node_types, None, relationships, limit)
+        self.logger.info(f"Cypher was created: {cypher} with paramets: {params}")
         with self._driver.session() as session:
-            result = session.run(cypher, params).data()
+            # converting the Result object to a list of Records is memory intensive
+            # should be no problem if we dont have results with over 1000s of Nodes
+            r = session.run(cypher, params)
+            result = list(r)
+            r.consume()
+
+        # self.logger.info(f"Query result: {result}")
+
+        # for record in result:
+        #     self.logger.info(f"Result: First Level {record}")
+        #     for k,v  in record.items():
+        #         self.logger.info(f"Result: Second level {k} : {v}")
+
+
 
         return result
 
