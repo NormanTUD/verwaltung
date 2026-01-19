@@ -22,3 +22,4 @@ mypy
 pylint
 faker
 coverage
+neo4j

@@ -2,7 +2,7 @@ import json
 from flask import Blueprint, request, jsonify
 from oasis_helper import conditional_login_required
 
-from neo4j_interface import Neo4jDBInterface
+from api.neo4j_interface import Neo4jDBInterface
 
 def create_get_data_bp(graph) -> Blueprint:
     bp = Blueprint("get_data_bp", __name__)

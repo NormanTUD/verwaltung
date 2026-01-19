@@ -235,7 +235,6 @@ except ModuleNotFoundError as e:
         create_and_setup_venv()
     else:
         try:
-            print("Subprocess installing dependencies from requirements")
             subprocess.check_call(pip_install_modules)
         except subprocess.CalledProcessError as e:
             shutil.rmtree(VENV_PATH)
