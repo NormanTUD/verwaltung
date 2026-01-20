@@ -9,6 +9,8 @@ from typing import Optional
 from playwright.async_api import async_playwright
 import playwright._impl._errors
 
+sys.exit(1)
+
 DEFAULT_CHROMIUM_PATH = "/usr/bin/chromium"
 
 logging.basicConfig(
