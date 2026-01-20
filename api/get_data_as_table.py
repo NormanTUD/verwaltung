@@ -122,6 +122,4 @@ def records_to_json(data: list[Record]) -> dict[str, Any]:
         rows.append(row)
 
 
-        print("\n")
-
     return {"columns": columns, "rows": rows}

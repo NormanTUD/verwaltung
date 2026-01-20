@@ -6,8 +6,9 @@ import logging
 from dataclasses import dataclass, asdict
 from typing import Any
 from abc import ABC
-logging.basicConfig(level=logging.INFO)
+
 logger = logging.getLogger(__name__)
+
 
 """
 ==========
@@ -186,16 +187,10 @@ class Neo4jDB(Neo4jDBInterface):
             # should be no problem if we dont have results with over 1000s of Nodes
             r = session.run(cypher, params)
             result = list(r)
+            if len(result) > 1000:
+                logger.warning(" Length of results list is over 1k, switch to iterative approach?")
+
             r.consume()
-
-        # self.logger.info(f"Query result: {result}")
-
-        # for record in result:
-        #     self.logger.info(f"Result: First Level {record}")
-        #     for k,v  in record.items():
-        #         self.logger.info(f"Result: Second level {k} : {v}")
-
-
 
         return result
 

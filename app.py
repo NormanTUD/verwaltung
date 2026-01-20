@@ -226,6 +226,7 @@ try:
     from api.query_overview import create_query_overview
 
     from index_manager import create_index_bp
+    import log
 
     import json
     import urllib.parse
@@ -294,6 +295,8 @@ app.register_blueprint(create_relationships_bp(graph), url_prefix='/api')
 
 app.register_blueprint(create_index_bp(graph), url_prefix='/')
 app.register_blueprint(create_query_overview(), url_prefix='/')
+
+
 
 @login_manager.user_loader
 def load_user(user_id):
