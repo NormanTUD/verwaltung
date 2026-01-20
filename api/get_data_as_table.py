@@ -39,6 +39,7 @@ def create_get_data_bp() -> Blueprint:
         if qb_raw and qb_raw.lower() != "null":
             qb_json = json.loads(qb_raw)
             if qb_json:  # prüfen, dass es nicht None ist
+                raise NotImplementedError
                 where = qb_to_cypher(qb_json)
 
         # allow manual where override
@@ -55,7 +56,6 @@ def create_get_data_bp() -> Blueprint:
         driver = current_app.config["driver"]
         # log.debug(driver)
         interf_db = Neo4jDB(driver)
-        log.debug(interf_db)
         params = parse_request_params(request)
 
         # BUG: The next logging process produces a weird error
@@ -65,28 +65,62 @@ def create_get_data_bp() -> Blueprint:
         log.debug(f" data was read: {data}"[:100])
 
         # df = records_to_table(data)
-        data_dict = records_to_json(data)
+        data_dict = records_to_json(data, params)
 
         log.debug(f"JSON Data: {data_dict}"[:200])
         return jsonify(data_dict)
 
     return bp
 
-
-def records_to_json(data: list[Record]) -> dict[str, Any]:
-
-    if not data:
-        return {"columns": [], "rows": []}
-    columns = []
-    # If every Record has the same structure, we only need to consider the first to create our columns
+def cols_from_data(data) -> list[dict]:
+    # Create Columns
+    columns:list = []
+    known_node_types = set()
     for record in data:
         for element in record:
-            if isinstance(element, Node):
-                label = list(element.labels)[0]
-                if not label in [c["nodeType"] for c in columns]:
-                    for prop, val in element.items():
-                        columns.append({"nodeType": label,
-                                        "property": prop})
+            if isinstance(element, Relationship): continue
+            label = list(element.labels)[0]
+            if label in known_node_types: continue
+            for prop, val in element.items():
+                columns.append({"nodeType": label,
+                                "property": prop})
+            known_node_types.add(label)
+    return columns
+
+def distance_of_unrelated_node_types(columns: list) -> dict[str, int]:
+    columns_per_node_type:dict = {}
+    prev = None
+    for i, c in enumerate(columns):
+        node_type = c["nodeType"]
+        if not prev:
+            prev = node_type
+            continue
+        if node_type != prev:
+            columns_per_node_type[node_type] = i
+            prev = node_type
+    return columns_per_node_type
+
+def get_data_print(data):
+    LIM = "    "
+    for record in data:
+        print("Record:")
+        for element in record:
+            print(f"{LIM}{element}")
+            for property, value in element.items():
+                print(LIM * 2, property, value)
+
+def records_to_json(data: list[Record], params:ReadRequest) -> dict[str, Any]:
+    if not data:
+        return {"columns": [], "rows": []}
+
+    columns = cols_from_data(data)
+    indent_distances = distance_of_unrelated_node_types(columns)
+    # get_data_print(data)
+
+    log.debug(f"Counted Columns per Node Type: {indent_distances}")
+
+
+    empty_cell = {"nodeId": None, "nodeType": None, "value": None}
 
     rows = []
 
@@ -94,14 +128,29 @@ def records_to_json(data: list[Record]) -> dict[str, Any]:
         row = {}
         cells = []
         relations: list = []
+
+
+
+        # populate row
         for element in record:
 
-            if isinstance(element, Node):
 
+            if isinstance(element, Node):
                 label = list(element.labels)[0]
+                # indentation for node_types that are not related
+                # indent = columns_per_node_type.get(label)
+                # if indent:
+                #     for i in range(indent):
+                #         cells.append(empty_cell)
                 for prop, val in element.items():
+
+                    # TTD
+                    # col_label = columns[len(cells)]["nodeType"]
+                    # assert label == col_label, f"expected {label} == {col_label}, but it aint in {len(cells)}"
+
+
                     cells.append( {"nodeId": element.element_id,
-                                   "nodyType": label,
+                                   "nodeType": label,
                                    "value": val
                                    }
                                 )
@@ -109,11 +158,17 @@ def records_to_json(data: list[Record]) -> dict[str, Any]:
                 relations.append({"fromId": element.nodes[0].element_id,
                                   "relation": element.type,
                                   "toId": element.nodes[1].element_id})
-
-
         row["cells"] = cells
         row["relations"] = relations
         rows.append(row)
+
+    for row in rows:
+        if row["relations"]: continue
+        row_type = row["cells"][0]["nodeType"]
+        indent = indent_distances.get(row_type)
+        if indent:
+            for i in range(indent):
+                row["cells"].insert(0, empty_cell)
 
 
     return {"columns": columns, "rows": rows}
