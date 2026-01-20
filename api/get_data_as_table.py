@@ -79,39 +79,33 @@ def records_to_json(data: list[Record]) -> dict[str, Any]:
         return {"columns": [], "rows": []}
     columns = []
     # If every Record has the same structure, we only need to consider the first to create our columns
-    rec = data[0]
-    for element in rec:
-        if isinstance(element, Node):
-            label = list(element.labels)[0]
-            for prop, val in element.items():
-                columns.append({"nodeType": label,
-                                "property": prop})
+    for record in data:
+        for element in record:
+            if isinstance(element, Node):
+                label = list(element.labels)[0]
+                if not label in [c["nodeType"] for c in columns]:
+                    for prop, val in element.items():
+                        columns.append({"nodeType": label,
+                                        "property": prop})
 
     rows = []
 
     for record in data:
-        # print(f"    {record=}"[:50]+   f"   {len(record)=}")
-        row = {} # dict with cells, relations
+        row = {}
         cells = []
         relations: list = []
         for element in record:
-            # print(f"        {element=}"[:100]+   f"   {len(element)=}")
 
             if isinstance(element, Node):
 
                 label = list(element.labels)[0]
-                # Analysis
-                # print(f"{" "*12} ID= {element.element_id}")
-                # print(f"{" "*12} {label=} with props:")
                 for prop, val in element.items():
-                    # print(f"{" "*16} {prop}: {val}")
                     cells.append( {"nodeId": element.element_id,
                                    "nodyType": label,
                                    "value": val
                                    }
                                 )
             elif isinstance(element, Relationship):
-                # print(f"{" "*12} RELATIONSJIP {element}")
                 relations.append({"fromId": element.nodes[0].element_id,
                                   "relation": element.type,
                                   "toId": element.nodes[1].element_id})
