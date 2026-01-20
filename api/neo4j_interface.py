@@ -75,11 +75,13 @@ def construct_cypher_query(
     node_labels: list[str],
     node_filters: dict | None = None,
     rel_types: list[str] | None = None,
-    limit: int | None = None
+    limit: int | None = None,
+    all_labels: bool = False
 ) -> tuple[str, dict[str, Any]]:
     """
-    TODO: Docstring
+    TODO:
     """
+
     # validate
     validation = validate_labels(
         node_labels,
@@ -92,7 +94,10 @@ def construct_cypher_query(
         )
 
     # Node Types
-    node_label_clause = ":" + ":".join(node_labels)
+    if all_labels:
+        node_label_clause = ":" + ":".join(node_labels)
+    else:
+        node_label_clause = ":" + "|".join(node_labels)
     node_pattern = f"(n{node_label_clause})"
 
     # Relationship clause (optional)
@@ -105,7 +110,6 @@ def construct_cypher_query(
     else:
         match_clause = f"MATCH {node_pattern}"
         return_clause = " RETURN n"
-
 
     # where clause
     where_clauses: list[str] = []
@@ -134,8 +138,9 @@ def construct_cypher_query(
         f"{return_clause}"
         f"{limit_clause}"
     )
+    if 'limit' in parameters:
+        parameters["limit"] = limit
     return cypher, parameters
-
 
 def label_validation(label: str) -> bool:
     """Sketch. Validates that the label is alphanumeric with underscores only."""
