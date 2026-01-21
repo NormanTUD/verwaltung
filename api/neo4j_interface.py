@@ -21,7 +21,7 @@ class ReadRequest():
     main_label: str
     max_depth: int
     limit: int | None
-    filter_labels: list[str] | None
+    filter_labels: dict[str, str] | None
     where: list[str] | None
     rel_fitler: list[str] | None
 
@@ -185,7 +185,7 @@ class Neo4jDB(Neo4jDBInterface):
         limit = req_data.limit
 
         self.logger.debug(f"Read Query: {node_types=}, {relationships=}, {filters=}, {limit=}")
-        cypher, params = construct_cypher_query(node_types, None, relationships, limit)
+        cypher, params = construct_cypher_query(node_types, filters, relationships, limit)
         self.logger.debug(f"Cypher was created: {cypher} with paramets: {params}")
         with self._driver.session() as session:
             # converting the Result object to a list of Records is memory intensive
