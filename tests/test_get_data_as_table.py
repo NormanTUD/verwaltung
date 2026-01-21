@@ -27,37 +27,37 @@ def db_cls(driver):
 
 def test_read_from_db(db_cls: Neo4jDB):
     # Simple Request
-    req = ReadRequest(["Student"], "Student", 3, None, None, None, None)
+    label1 = t_helpers.STUDENT_KEYS[0]
+    req = ReadRequest([label1], label1, 3, None, None, None, None)
     records = list(db_cls.read_data(req))
     for s in t_helpers.STUDENTS:
         assert s[1] in [r.data()["n"]["f_name"] for r in records]
 
-    req = ReadRequest(["Class"], "Class", 3, None, None, None, None)
+    label2 = t_helpers.CLASS_KEYS[0]
+    req = ReadRequest([label2], label2, 3, None, None, None, None)
     records = list(db_cls.read_data(req))
     for c in t_helpers.CLASSES:
-        assert c[1] in [r.data()["n"]["class_code"] for r in records]
+        assert c[1] in [r.data()["n"][t_helpers.CLASS_KEYS[1]] for r in records]
 
     # Limits
     for i in range(8):
-        req = ReadRequest(["Student"], "Student", 3, i, None, None, None)
+        req = ReadRequest([label1], label1, 3, i, None, None, None)
         records = list(db_cls.read_data(req))
         assert len(records) == i
 
     # Where
     names = [s[1] for s in t_helpers.STUDENTS]
+
     for n in names:
-        req = ReadRequest(["Student"], "Student", 3, None, {"f_name":n}, None, None)
+        req = ReadRequest([label1],
+                          label1,
+                          3,
+                          None,
+                          {t_helpers.STUDENT_KEYS[2]:n},
+                          None,
+                          None)
         records = list(db_cls.read_data(req))
 
-        assert n in [r.data()["n"]["f_name"] for r in records]
-        assert "Cookiebert Strauss" not in [r.data()["n"]["f_name"] for r in records]
-
-
-
-
-
-
-
-
-    pass
+        assert n in [r.data()["n"][t_helpers.STUDENT_KEYS[2]] for r in records]
+        assert "Cookiebert Strauss" not in [r.data()["n"][t_helpers.STUDENT_KEYS[1]] for r in records]
 

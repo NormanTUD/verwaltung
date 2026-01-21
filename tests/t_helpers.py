@@ -6,6 +6,10 @@ AUTH =(
     os.getenv("NEO4J_USER", "neo4j"),
     os.getenv("NEO4J_PASS", "testTEST12345678")
 )
+STUDENT_KEYS = ("Student", "student_id", "f_name", "l_name")
+CLASS_KEYS = ("Class", "class_code",  "title")
+TEACHER_KEYS = ("Teacher", "teacher_id", "f_name", "l_name", "title")
+
 STUDENTS = [
     (1, "Hermoine", "Granger"),
     (2, "Ron", "Weasley"),
@@ -53,65 +57,41 @@ def add_node(driver, label, key_props, other_props={}):
     """
     driver.session().run(query, {**key_props, **other_props})
 
-# Define entities
-STUDENTS = [
-    (1, "Hermoine", "Granger"),
-    (2, "Ron", "Weasley"),
-    (3, "Harry", "Potter"),
-    (4, "Luna", "Lovegood"),
-    (5, "Neville", "Longbottom"),
-    (6, "Ginny", "Weasley"),
-    (7, "Cho", "Chang"),
-    (8, "Dumbledore", "Army"),
-]
-
-CLASSES = [
-    ("Math", "class_1"),
-    ("Science", "class_2"),
-    ("History", "class_3"),
-    ("English", "class_4"),
-]
-
-TEACHERS = [
-    (1, "Professor", "McGonagall", "Transfiguration"),
-    (2, "Professor", "Snape", "Potions"),
-    (3, "Professor", "Dumbledore", "Defense Against the Dark Arts"),
-    (4, "Professor", "Sprout", "Herbology"),
-]
 
 # Function to enroll students randomly
 def enroll_students_randomly(driver, student_ids, class_codes, max_classes_per_student=3):
     for student_id in student_ids:
         chosen_classes = random.sample(class_codes, min(max_classes_per_student, len(class_codes)))
         for class_code in chosen_classes:
-            connect_nodes(driver, "Student", {"student_id": student_id}, "ENROLLED_IN", "Class", {"class_code": class_code})
-            connect_nodes(driver, "Class", {"class_code": class_code}, "TAKEN_BY", "Student", {"student_id": student_id})
+            connect_nodes(driver, STUDENT_KEYS[0], {STUDENT_KEYS[1]: student_id}, "ENROLLED_IN", CLASS_KEYS[0], {CLASS_KEYS[1]: class_code})
+            connect_nodes(driver, CLASS_KEYS[0], {CLASS_KEYS[1]: class_code}, "TAKEN_BY", STUDENT_KEYS[0], {STUDENT_KEYS[1]: student_id})
 
 # Function to connect teacher to class
 def teacher_to_class_connection(driver, teacher_id, class_code):
-    connect_nodes(driver, "Teacher", {"teacher_id": teacher_id}, "TEACHES", "Class", {"class_code": class_code})
-    connect_nodes(driver, "Class", {"class_code": class_code}, "HELD_BY", "Teacher", {"teacher_id": teacher_id})
+    connect_nodes(driver, TEACHER_KEYS[0], {TEACHER_KEYS[1]: teacher_id}, "TEACHES", CLASS_KEYS[0], {CLASS_KEYS[1]: class_code})
+    connect_nodes(driver, CLASS_KEYS[0], {CLASS_KEYS[1]: class_code}, "HELD_BY", TEACHER_KEYS[0], {TEACHER_KEYS[1]: teacher_id})
+
 
 # Main function
 def main(driver):
     student_ids = [student[0] for student in STUDENTS]
-    class_codes = [class_info[1] for class_info in CLASSES]
+    class_codes = [class_info[0] for class_info in CLASSES]
     teacher_ids = [teacher[0] for teacher in TEACHERS]
 
     print("Creating Classes")
     for class_info in CLASSES:
-        add_node(driver, "Class", {"class_code": class_info[1]}, {"title": class_info[0]})
+        add_node(driver, CLASS_KEYS[0], {CLASS_KEYS[1]: class_info[1]}, {CLASS_KEYS[2]: class_info[0]})
 
     print("Creating Students")
     for student in STUDENTS:
-        add_node(driver, "Student", {"student_id": student[0]}, {"f_name": student[1], "l_name": student[2]})
+        add_node(driver, STUDENT_KEYS[0], {STUDENT_KEYS[1]: student[0]}, {STUDENT_KEYS[2]: student[1], STUDENT_KEYS[3]: student[2]})
 
     print("Enrolling")
     enroll_students_randomly(driver, student_ids, class_codes)
 
     print("Creating Teachers")
     for teacher in TEACHERS:
-        add_node(driver, "Teacher", {"teacher_id": teacher[0]}, {"f_name": teacher[1], "l_name": teacher[2], "title": teacher[3]})
+        add_node(driver, TEACHER_KEYS[0], {TEACHER_KEYS[1]: teacher[0]}, {TEACHER_KEYS[2]: teacher[1], TEACHER_KEYS[3]: teacher[2], TEACHER_KEYS[4]: teacher[3]})
 
     print("Assigning Teachers to Classes")
     for class_code in class_codes:
