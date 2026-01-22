@@ -23,6 +23,6 @@ def driver():
         d.close()
 
 @pytest.fixture
-def db_cls(driver):
+def db(driver):
     return Neo4jDB(driver)
 
