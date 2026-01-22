@@ -1,11 +1,11 @@
 from neo4j import GraphDatabase
 import random
 import os
-URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-AUTH =(
-    os.getenv("NEO4J_USER", "neo4j"),
-    os.getenv("NEO4J_PASS", "testTEST12345678")
-)
+import pytest
+
+
+
+
 STUDENT_KEYS = ("Student", "student_id", "f_name", "l_name")
 CLASS_KEYS = ("Class", "class_code",  "title")
 TEACHER_KEYS = ("Teacher", "teacher_id", "f_name", "l_name", "title")
@@ -38,23 +38,47 @@ TEACHERS = [
 from neo4j import GraphDatabase
 import random
 
-# Define helper function to connect nodes
-def connect_nodes(driver, from_label, from_key, rel_type, to_label, to_key):
-    query = f"""
-        MATCH (a:{from_label} {{ {', '.join([f'{k}: ${k}' for k in from_key.keys()])} }})
-        MATCH (b:{to_label} {{ {', '.join([f'{k}: ${k}' for k in to_key.keys()])} }})
-        MERGE (a)-[:{rel_type}]->(b)
+def connect_nodes(driver, from_label, from_key, rel_type, to_label, to_key, rel_properties=None):
     """
-    driver.session().run(query, {**from_key, **to_key})
 
+    """
+
+    if not from_key or not to_key:
+        raise ValueError("Both from_key and to_key must be provided")
+
+    match_from = ", ".join(f"{k}: ${k}" for k in from_key)
+    match_to = ", ".join(f"{k}: ${k}" for k in to_key)
+
+    cypher = f"""
+    MATCH (a:{from_label} {{ {match_from} }})
+    MATCH (b:{to_label} {{ {match_to} }})
+    MERGE (a)-[r:{rel_type}]->(b)
+    """
+
+    if rel_properties:
+        set_properties = ", ".join(f"r.{k} = ${k}" for k in rel_properties)
+        cypher += f" SET {set_properties}"
+
+    params = {
+        **from_key,
+        **to_key,
+        **(rel_properties or {})
+    }
+
+    with driver.session() as session:
+        session.run(cypher, params)
 # Define helper function to add node
-def add_node(driver, label, key_props, other_props={}):
+def add_node(driver, label, key_props:dict, other_props:dict={}):
     props = ", ".join([f"{k}: ${k}" for k in key_props.keys()])
     set_props = ", ".join([f"{k}: ${k}" for k in other_props.keys()])
+
+    props_str = f"{props}" if props else ""
+    set_props_str = f", {set_props}" if set_props else ""
+
     query = f"""
-        MERGE (n:{label} {{ {props}, {set_props} }})
-        RETURN id(n)
-    """
+            MERGE (n:{label} {{ {props_str}{set_props_str} }})
+            RETURN id(n)
+        """
     driver.session().run(query, {**key_props, **other_props})
 
 
@@ -65,7 +89,7 @@ def enroll_students_randomly(driver, student_ids, class_codes, max_classes_per_s
         for class_code in chosen_classes:
             connect_nodes(driver, STUDENT_KEYS[0], {STUDENT_KEYS[1]: student_id}, "ENROLLED_IN", CLASS_KEYS[0], {CLASS_KEYS[1]: class_code})
             connect_nodes(driver, CLASS_KEYS[0], {CLASS_KEYS[1]: class_code}, "TAKEN_BY", STUDENT_KEYS[0], {STUDENT_KEYS[1]: student_id})
-
+    print(student_ids ,"and", class_codes, "were connected")
 # Function to connect teacher to class
 def teacher_to_class_connection(driver, teacher_id, class_code):
     connect_nodes(driver, TEACHER_KEYS[0], {TEACHER_KEYS[1]: teacher_id}, "TEACHES", CLASS_KEYS[0], {CLASS_KEYS[1]: class_code})
@@ -98,11 +122,4 @@ def main(driver):
         teacher_id = random.choice(teacher_ids)
         teacher_to_class_connection(driver, teacher_id, class_code)
 
-# Usage
-if __name__ == "__main__":
-    driver = GraphDatabase.driver(URI, auth=AUTH)
 
-    try:
-        main(driver)
-    finally:
-        driver.close()
