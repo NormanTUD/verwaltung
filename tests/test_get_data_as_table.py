@@ -13,6 +13,7 @@ AUTH =(
 
 
 def test_simple_db_reads(db: "Neo4jDB"):
+    "Basic Read requests from the Data-Layer Neo4jDB class"
     # Simple Request
 
     label1 = "Student"
@@ -28,6 +29,7 @@ def test_simple_db_reads(db: "Neo4jDB"):
         assert c.name in [r.data()["n"]["title"] for r in records]
 
 def test_where_request(db):
+    "Basic where requests from the Data-Layer Neo4jDB class"
     lbl= "Student"
     # Where
     names = [s.f_name for s in t_helpers.STUDENTS]
@@ -45,6 +47,7 @@ def test_where_request(db):
         assert "Cookiebert Strauss" not in [r.data()["n"]["f_name"] for r in records]
 
 def test_limit_request(db):
+    "Basic iterative limit requests from the Data-Layer Neo4jDB class"
     # Limits
     lbl= "Student"
     for i in range(8):
