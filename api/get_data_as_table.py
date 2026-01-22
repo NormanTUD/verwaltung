@@ -35,19 +35,20 @@ def create_get_data_bp() -> Blueprint:
         rel_filter = [r.strip() for r in relationships_raw.split(",")] if relationships_raw else None
 
         qb_raw = req.args.get("qb")
-        where = None
         if qb_raw and qb_raw.lower() != "null":
-            qb_json = json.loads(qb_raw)
-            if qb_json:  # prüfen, dass es nicht None ist
-                raise NotImplementedError
-                where = qb_to_cypher(qb_json)
+            raise NotImplementedError(f"qbraw was in the args of get_data_as_table route")
+            # qb_json = json.loads(qb_raw)
+            # if qb_json:  # prüfen, dass es nicht None ist
+            #     raise NotImplementedError
+            #     where = qb_to_cypher(qb_json)
 
         # allow manual where override
         manual_where = req.args.get("where")
         if manual_where:
-            where = manual_where
+            raise NotImplementedError(f"Where clauses are not supported atm")
+            # where = manual_where
 
-        return ReadRequest(selected_labels, main_label, max_depth, limit, filter_labels, where, rel_filter)
+        return ReadRequest(selected_labels, main_label, max_depth, limit, filter_labels, rel_filter)
 
     @bp.route("/get_data_as_table", methods=["GET"])
     @conditional_login_required

@@ -22,7 +22,6 @@ class ReadRequest():
     max_depth: int
     limit: int | None
     filter_labels: dict[str, str] | None
-    where: list[str] | None
     rel_fitler: list[str] | None
 
 @dataclass(frozen=True)
