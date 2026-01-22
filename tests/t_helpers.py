@@ -2,123 +2,202 @@ from neo4j import GraphDatabase
 import random
 import os
 import pytest
+from dataclasses import dataclass
 
+@dataclass(frozen=True, slots=True)
+class Student:
+    student_id: int
+    f_name: str
+    l_name: str
+    node_name: str = "Student"
 
+@dataclass(frozen=True, slots=True)
+class Seminar:
+    id: int
+    name: str
+    level: int
+    node_name: str = "Seminar"
 
+@dataclass(frozen=True, slots=True)
+class Teacher:
+    id: int
+    title: str
+    f_name: str
+    l_name: str
+    node_name: str = "Seminar"
 
-STUDENT_KEYS = ("Student", "student_id", "f_name", "l_name")
-CLASS_KEYS = ("Class", "class_code",  "title")
-TEACHER_KEYS = ("Teacher", "teacher_id", "f_name", "l_name", "title")
 
 STUDENTS = [
-    (1, "Hermoine", "Granger"),
-    (2, "Ron", "Weasley"),
-    (3, "Harry", "Potter"),
-    (4, "Luna", "Lovegood"),
-    (5, "Neville", "Longbottom"),
-    (6, "Ginny", "Weasley"),
-    (7, "Cho", "Chang"),
-    (8, "Dumbledore", "Army"),
+    Student(1, "Hermoine", "Granger"),
+    Student(2, "Ron",      "Weasley"),
+    Student(3, "Harry",    "Potter"),
+    Student(4, "Luna",     "Lovegood"),
+    Student(5, "Neville",  "Longbottom"),
+    Student(6, "Ginny",    "Weasley"),
+    Student(7, "Cho",      "Chang"),
+    Student(8, "Dumbledore","Army"),
 ]
 
-CLASSES = [
-    ("Math", "class_1"),
-    ("Science", "class_2"),
-    ("History", "class_3"),
-    ("English", "class_4"),
+SEMINARS = [
+    Seminar(1, "Math", 5),
+    Seminar(2, "Science", 3),
+    Seminar(3, "History", 2),
+    Seminar(4, "English", 1),
 ]
 
 TEACHERS = [
-    (1, "Professor", "McGonagall", "Transfiguration"),
-    (2, "Professor", "Snape", "Potions"),
-    (3, "Professor", "Dumbledore", "Defense Against the Dark Arts"),
-    (4, "Professor", "Sprout", "Herbology"),
+    Teacher(1, "Professor", "McGonagall", "Transfiguration"),
+    Teacher(2, "Professor", "Snape",      "Potions"),
+    Teacher(3, "Professor", "Dumbledore", "Defense Against the Dark Arts"),
+    Teacher(4, "Professor", "Sprout",     "Herbology"),
 ]
 
 from neo4j import GraphDatabase
 import random
 
-def connect_nodes(driver, from_label, from_key, rel_type, to_label, to_key, rel_properties=None):
+def connect_nodes(
+    driver,
+    src_label: str,
+    src_props: dict,
+    rel_type: str,
+    dst_label: str,
+    dst_props: dict,
+) -> None:
     """
-
+    MATCH (a:SrcLabel) WHERE a.<key> = $src_<key>
+    MATCH (b:DstLabel) WHERE b.<key> = $dst_<key>
+    MERGE (a)-[r:REL_TYPE]->(b)
     """
-
-    if not from_key or not to_key:
-        raise ValueError("Both from_key and to_key must be provided")
-
-    match_from = ", ".join(f"{k}: ${k}" for k in from_key)
-    match_to = ", ".join(f"{k}: ${k}" for k in to_key)
-
-    cypher = f"""
-    MATCH (a:{from_label} {{ {match_from} }})
-    MATCH (b:{to_label} {{ {match_to} }})
-    MERGE (a)-[r:{rel_type}]->(b)
-    """
-
-    if rel_properties:
-        set_properties = ", ".join(f"r.{k} = ${k}" for k in rel_properties)
-        cypher += f" SET {set_properties}"
-
-    params = {
-        **from_key,
-        **to_key,
-        **(rel_properties or {})
-    }
-
-    with driver.session() as session:
-        session.run(cypher, params)
-# Define helper function to add node
-def add_node(driver, label, key_props:dict, other_props:dict={}):
-    props = ", ".join([f"{k}: ${k}" for k in key_props.keys()])
-    set_props = ", ".join([f"{k}: ${k}" for k in other_props.keys()])
-
-    props_str = f"{props}" if props else ""
-    set_props_str = f", {set_props}" if set_props else ""
+    # build the WHERE clauses
+    src_where = " AND ".join(f"a.{k} = $src_{k}" for k in src_props)
+    dst_where = " AND ".join(f"b.{k} = $dst_{k}" for k in dst_props)
 
     query = f"""
-            MERGE (n:{label} {{ {props_str}{set_props_str} }})
-            RETURN id(n)
-        """
-    driver.session().run(query, {**key_props, **other_props})
+    MATCH (a:{src_label})
+    WHERE {src_where}
+    MATCH (b:{dst_label})
+    WHERE {dst_where}
+    MERGE (a)-[r:{rel_type}]->(b)
+    RETURN r
+    """
+
+    # flatten the dictionaries into a single param dict
+    params = {f"src_{k}": v for k, v in src_props.items()}
+    params.update({f"dst_{k}": v for k, v in dst_props.items()})
 
 
-# Function to enroll students randomly
-def enroll_students_randomly(driver, student_ids, class_codes, max_classes_per_student=3):
+    with driver.session() as sess:
+        sess.run(query, params)
+# Define helper function to add node
+def add_node(driver, label: str, properties: dict) -> None:
+    """
+    Create a node in Neo4j.
+
+    *driver* – neo4j driver/session object
+    *label*  – node label e.g. "Student"
+    *properties* – full property map for the node
+    """
+    with driver.session() as sess:
+        query = f"CREATE (n:{label} $props)"
+        sess.run(query, props=properties)
+
+def enroll_students_randomly(
+    driver,
+    student_ids: list[int],
+    class_codes: list[int],
+    max_classes_per_student: int = 3,
+) -> None:
+    """
+    Each student is enrolled in up to *max_classes_per_student* distinct classes.
+    """
     for student_id in student_ids:
-        chosen_classes = random.sample(class_codes, min(max_classes_per_student, len(class_codes)))
-        for class_code in chosen_classes:
-            connect_nodes(driver, STUDENT_KEYS[0], {STUDENT_KEYS[1]: student_id}, "ENROLLED_IN", CLASS_KEYS[0], {CLASS_KEYS[1]: class_code})
-            connect_nodes(driver, CLASS_KEYS[0], {CLASS_KEYS[1]: class_code}, "TAKEN_BY", STUDENT_KEYS[0], {STUDENT_KEYS[1]: student_id})
-    print(student_ids ,"and", class_codes, "were connected")
-# Function to connect teacher to class
-def teacher_to_class_connection(driver, teacher_id, class_code):
-    connect_nodes(driver, TEACHER_KEYS[0], {TEACHER_KEYS[1]: teacher_id}, "TEACHES", CLASS_KEYS[0], {CLASS_KEYS[1]: class_code})
-    connect_nodes(driver, CLASS_KEYS[0], {CLASS_KEYS[1]: class_code}, "HELD_BY", TEACHER_KEYS[0], {TEACHER_KEYS[1]: teacher_id})
+        # pick a random subset of classes for this student
+        chosen = random.sample(
+            class_codes, k=min(max_classes_per_student, len(class_codes))
+        )
+        for class_code in chosen:
+            src = {"student_id": student_id}
+            dst = {"id": class_code}
+            connect_nodes(
+                driver,
+                src_label="Student",
+                src_props=src,
+                rel_type="ENROLLED_IN",
+                dst_label="Seminar",
+                dst_props=dst,
+            )
 
+# Function to connect teacher to class
+def teacher_to_class_connection(driver, teacher_id: int, class_code: int) -> None:
+    """
+    Create the bidirectional relationship between a teacher and a class.
+    """
+    src = {"teacher_id": teacher_id}
+    dst = {"class_code": class_code}
+
+    # Teacher → Class
+    connect_nodes(
+        driver,
+        src_label="Teacher",
+        src_props=src,
+        rel_type="TEACHES",
+        dst_label="Class",
+        dst_props=dst,
+    )
+    # Class → Teacher (optional, shows the reverse direction)
+    connect_nodes(
+        driver,
+        src_label="Class",
+        src_props=dst,
+        rel_type="HELD_BY",
+        dst_label="Teacher",
+        dst_props=src,
+    )
 
 # Main function
 def main(driver):
-    student_ids = [student[0] for student in STUDENTS]
-    class_codes = [class_info[0] for class_info in CLASSES]
-    teacher_ids = [teacher[0] for teacher in TEACHERS]
+    # ------------------------------------------------------------------
+    # 1. Create Class nodes
+    # ------------------------------------------------------------------
+    for s in SEMINARS:
+        props = {"id": s.id, "title": s.name, "level": s.level}
+        add_node(driver, s.node_name, props)
 
-    print("Creating Classes")
-    for class_info in CLASSES:
-        add_node(driver, CLASS_KEYS[0], {CLASS_KEYS[1]: class_info[1]}, {CLASS_KEYS[2]: class_info[0]})
+    # ------------------------------------------------------------------
+    # 2. Create Student nodes
+    # ------------------------------------------------------------------
+    for stu in STUDENTS:
+        props = {
+            "student_id": stu.student_id,
+            "f_name":     stu.f_name,
+            "l_name":     stu.l_name,
+        }
+        add_node(driver, "Student", props)
 
-    print("Creating Students")
-    for student in STUDENTS:
-        add_node(driver, STUDENT_KEYS[0], {STUDENT_KEYS[1]: student[0]}, {STUDENT_KEYS[2]: student[1], STUDENT_KEYS[3]: student[2]})
+    # ------------------------------------------------------------------
+    # 3. Enroll students randomly
+    # ------------------------------------------------------------------
+    student_ids = [s.student_id for s in STUDENTS]
+    seminar_ids  = [s.id for s in SEMINARS]
+    enroll_students_randomly(driver, student_ids, seminar_ids)
 
-    print("Enrolling")
-    enroll_students_randomly(driver, student_ids, class_codes)
+    # ------------------------------------------------------------------
+    # 4. Create Teacher nodes
+    # ------------------------------------------------------------------
+    for tch in TEACHERS:
+        props = {
+            "teacher_id": tch.id,
+            "title":      tch.title,
+            "f_name":     tch.f_name,
+            "l_name":     tch.l_name,
+        }
+        add_node(driver, "Teacher", props)
 
-    print("Creating Teachers")
-    for teacher in TEACHERS:
-        add_node(driver, TEACHER_KEYS[0], {TEACHER_KEYS[1]: teacher[0]}, {TEACHER_KEYS[2]: teacher[1], TEACHER_KEYS[3]: teacher[2], TEACHER_KEYS[4]: teacher[3]})
-
-    print("Assigning Teachers to Classes")
-    for class_code in class_codes:
+    # ------------------------------------------------------------------
+    # 5. Assign a random teacher to each class
+    # ------------------------------------------------------------------
+    teacher_ids = [t.id for t in TEACHERS]
+    for class_code in seminar_ids:
         teacher_id = random.choice(teacher_ids)
         teacher_to_class_connection(driver, teacher_id, class_code)
 

@@ -15,17 +15,17 @@ AUTH =(
 def test_simple_db_reads(db_cls: "Neo4jDB"):
     # Simple Request
 
-    label1 = t_helpers.STUDENT_KEYS[0]
+    label1 = "Student"
     req = ReadRequest([label1], label1, 3,  None, None, None)
     records = list(db_cls.read_data(req))
     for s in t_helpers.STUDENTS:
-        assert s[1] in [r.data()["n"]["f_name"] for r in records]
+        assert s.f_name in [r.data()["n"]["f_name"] for r in records]
 
-    label2 = t_helpers.CLASS_KEYS[0]
+    label2 = "Seminar"
     req = ReadRequest([label2], label2, 3,  None, None, None)
     records = list(db_cls.read_data(req))
-    for c in t_helpers.CLASSES:
-        assert c[1] in [r.data()["n"][t_helpers.CLASS_KEYS[1]] for r in records]
+    for c in t_helpers.SEMINARS:
+        assert c.name in [r.data()["n"]["title"] for r in records]
 
     # Limits
     for i in range(8):
@@ -34,22 +34,22 @@ def test_simple_db_reads(db_cls: "Neo4jDB"):
         assert len(records) == i
 
     # Where
-    names = [s[1] for s in t_helpers.STUDENTS]
+    names = [s.f_name for s in t_helpers.STUDENTS]
 
     for n in names:
         req = ReadRequest([label1],
                           label1,
                           3,
                           None,
-                          {t_helpers.STUDENT_KEYS[2]:n},
+                          {"f_name":n},
                           None)
         records = list(db_cls.read_data(req))
 
-        assert n in [r.data()["n"][t_helpers.STUDENT_KEYS[2]] for r in records] and len(records) == 1
-        assert "Cookiebert Strauss" not in [r.data()["n"][t_helpers.STUDENT_KEYS[1]] for r in records]
+        assert n in [r.data()["n"]["f_name"] for r in records] and len(records) == 1
+        assert "Cookiebert Strauss" not in [r.data()["n"]["f_name"] for r in records]
 
 def test_simple_relationships(db_cls: "Neo4jDB"):
-    label1 = t_helpers.STUDENT_KEYS[0]
+    label1 = "Student"
 
     req = ReadRequest([label1], label1, 3,  None, None, ["ENROLLED_IN"])
     records = list(db_cls.read_data(req))
@@ -57,4 +57,4 @@ def test_simple_relationships(db_cls: "Neo4jDB"):
     assert len(records) > 5, f"To little records for student-class enrolled relation {records}"
     for r in records:
          relation = r.data()["r"]
-         assert relation.type == "ENROLLED_IN", f"[Test] , no relation in {r} of {records}"
+         assert relation[1] == "ENROLLED_IN", f"[Test] , no relation in {relation}, or at least not at index 1? "

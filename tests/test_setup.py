@@ -14,8 +14,7 @@ def test_add_node(empty_driver):
     assert empty_driver
     label = "TestLabel"
     key_props = {"key": "value"}
-    other_props = {"other_key": "other_value"}
-    add_node(empty_driver, label, key_props, other_props)
+    add_node(empty_driver, label, key_props)
     query = f"MATCH (n:{label}) RETURN n"
     result = empty_driver.session().run(query)
     assert result.single()["n"] is not None
@@ -25,8 +24,8 @@ def test_connect_nodes(empty_driver):
     from_label = "FromLabel"
     from_key = {"fkey": "fvalue"}
     rel_type = "REL_TYPE"
-    to_label = "ToLabel"
     to_key = {"to_key": "to_value"}
+    to_label = "ToLabel"
     add_node(empty_driver, from_label, from_key)
     add_node(empty_driver, to_label, to_key)
     connect_nodes(empty_driver, from_label, from_key, rel_type, to_label, to_key)
@@ -35,25 +34,16 @@ def test_connect_nodes(empty_driver):
     s_res = result.single()
     assert s_res["r"] is not None and s_res["n"] is not None
 
-# Test enrolling students randomly
+
 def test_enroll_students_randomly(empty_driver):
-    student_ids = [student[0] for student in STUDENTS]
-    class_codes = [class_info[0] for class_info in CLASSES]
-    for class_info in CLASSES:
-        add_node(empty_driver, CLASS_KEYS[0], {CLASS_KEYS[1]: class_info[1]}, {CLASS_KEYS[2]: class_info[0]})
-    for student in STUDENTS:
-        add_node(empty_driver, STUDENT_KEYS[0], {STUDENT_KEYS[1]: student[0]}, {STUDENT_KEYS[2]: student[1], STUDENT_KEYS[3]: student[2]})
-    enroll_students_randomly(empty_driver, student_ids, class_codes)
+    student_ids = [s.student_id for s in STUDENTS]
+    main(empty_driver)
 
-    query = f"MATCH (s:{STUDENT_KEYS[0]} {{ {STUDENT_KEYS[1]}: $student_id }})-[:ENROLLED_IN]->(c) RETURN s, c"
-    for student_id in student_ids:
-        result = list(empty_driver.session().run(query, {"student_id": student_id}))
-        for r  in result:
-             assert r["c"] is not None, f"{r=} in {result=} has no class? {r["c"]=}"
+    CYPHER_QUERY = """
+        MATCH (s:Student)-[:ENROLLED_IN]->(:Seminar)
+        RETURN s
+        """
 
-# Test main function
-def test_main(driver):
-    main(driver)
-    query = f"RETURN *"
-    result = driver.session().run(query)
-    assert result is not None
+    for sid in student_ids:
+        result = list(empty_driver.session().run(CYPHER_QUERY, {"student_id": sid}))
+        assert result, f"Student {sid} is not enrolled in any seminar"
