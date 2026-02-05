@@ -1,6 +1,7 @@
 import pytest
 from api.neo4j_interface import Neo4jDB, ReadRequest
 from neo4j import GraphDatabase
+from neo4j.exceptions import ClientError
 import os
 import t_helpers, conftest
 
@@ -46,6 +47,35 @@ def test_where_request(db):
         assert n in [r.data()["n"]["f_name"] for r in records] and len(records) == 1
         assert "Cookiebert Strauss" not in [r.data()["n"]["f_name"] for r in records]
 
+def test_complex_where_requests(db):
+    label = "Thesis"
+    wild_filters = [
+        {"department": "Science",
+         "is_published": True,
+         "year": 1998},
+        {"grade": 99.9},
+        {"topic": "Economics"},
+        {"pages": 300, "keywords": ["plants", "dangerous", "forest"]},
+        {"department": "Biology", "is_published": False},
+        {"year": 1999, "grade": 88.0},
+    ]
+
+    for filter in wild_filters:
+        req = ReadRequest([label],
+                          label,
+                          3,
+                          None,
+                          filter,
+                          None)
+        records = db.read_data(req)
+        assert len(records) > 0, f"complex where request with {filter=} could not find a thesis"
+
+
+
+
+
+
+
 def test_limit_request(db):
     "Basic iterative limit requests from the Data-Layer Neo4jDB class"
     # Limits
@@ -56,6 +86,7 @@ def test_limit_request(db):
         assert len(records) == i
 
 def test_simple_relationships(db: "Neo4jDB"):
+    "Basic relationship requests from the Data-Layer Neo4jDB class"
     label1 = "Student"
 
     req = ReadRequest([label1], label1, 3,  None, None, ["ENROLLED_IN"])
@@ -67,7 +98,23 @@ def test_simple_relationships(db: "Neo4jDB"):
          assert relation[1] == "ENROLLED_IN", f"[Test] , no relation in {relation}, or at least not at index 1? "
 
 def test_unpresent_label(db):
+    " Basic requests for a label that doesnt exist from the Data-Layer Neo4jDB class"
     m_label = "COOOOKIES"
     req = ReadRequest([m_label], m_label, 3,  None, None, ["ENROLLED_IN"])
     records = list(db.read_data(req))
     assert len(records) == 0
+
+def test_bad_limit(db):
+    " Expected behavior with wrong label input"
+    label1 = "Student"
+    bad_limits = {-3, "f", "", 14.13}
+    for bad_lim in bad_limits:
+        req = ReadRequest(selected_labels=[label1],
+                          main_label= label1,
+                           max_depth= 3,
+                            limit= bad_lim,
+                            filter_labels=None,
+                            rel_fitler=None)
+        with pytest.raises(ClientError):
+            db.read_data(req)
+

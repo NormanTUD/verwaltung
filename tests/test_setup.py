@@ -1,3 +1,7 @@
+"""
+Testing the Setup/Helper Functions of the Neo4j interface tests.
+"""
+
 from t_helpers import *
 import conftest
 

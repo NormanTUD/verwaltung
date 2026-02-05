@@ -26,6 +26,95 @@ class Teacher:
     l_name: str
     node_name: str = "Seminar"
 
+@dataclass(frozen=True, slots=True)
+class MasterThesis:
+    id: int
+    title: str
+    year: int
+    grade: float
+    is_published: bool
+    pages: int
+    submission_date: str
+    topic: str
+    keywords: list[str]
+    department: str
+    student_id: int
+    supervisor_ids: list[int]
+    node_name: str = "Thesis"
+
+THESES = [
+    MasterThesis(
+        id=101,
+        title="Advanced Potions and their interactions with Muggles",
+        year=1998,
+        grade=95.5,
+        is_published=True,
+        pages=120,
+        submission_date="1998-06-15",
+        topic="Potions",
+        keywords=["chemistry", "magic", "safety"],
+        department="Science",
+        student_id=1,  # Hermoine
+        supervisor_ids=[2, 3] # Snape, Dumbledore
+    ),
+    MasterThesis(
+        id=102,
+        title="The impact of Quidditch on Wizarding Economics",
+        year=1999,
+        grade=88.0,
+        is_published=False,
+        pages=85,
+        submission_date="1999-05-20",
+        topic="Economics",
+        keywords=["sports", "finance", "galleons"],
+        department="History",
+        student_id=2,  # Ron
+        supervisor_ids=[1] # McGonagall
+    ),
+    MasterThesis(
+        id=103,
+        title="Defense Against Dark Arts: A Practical Guide",
+        year=1998,
+        grade=92.0,
+        is_published=True,
+        pages=200,
+        submission_date="1998-07-01",
+        topic="Defense",
+        keywords=["combat", "spells", "survival"],
+        department="Defense",
+        student_id=3,  # Harry
+        supervisor_ids=[3, 2] # Dumbledore, Snape
+    ),
+    MasterThesis(
+        id=104,
+        title="Flora of the Forbidden Forest",
+        year=2000,
+        grade=99.9,
+        is_published=True,
+        pages=300,
+        submission_date="2000-04-10",
+        topic="Herbology",
+        keywords=["plants", "dangerous", "forest"],
+        department="Biology",
+        student_id=5,  # Neville
+        supervisor_ids=[4] # Sprout
+    ),
+    MasterThesis(
+        id=105,
+        title="Invisible Creatures and Where to Find Them",
+        year=1999,
+        grade=85.5,
+        is_published=False,
+        pages=90,
+        submission_date="1999-08-22",
+        topic="Magizoology",
+        keywords=["creatures", "invisible", "spectrespecs"],
+        department="Biology",
+        student_id=4,  # Luna
+        supervisor_ids=[1, 4] # McGonagall, Sprout
+    ),
+]
+
 
 STUDENTS = [
     Student(1, "Hermoine", "Granger"),
@@ -201,4 +290,49 @@ def main(driver):
         teacher_id = random.choice(teacher_ids)
         teacher_to_class_connection(driver, teacher_id, class_code)
 
+    # ------------------------------------------------------------------
+    # 6. Create Master Thesis nodes (New Entity)
+    # ------------------------------------------------------------------
+    for thesis in THESES:
+        # We exclude the ID lists from the node properties to keep the graph clean,
+        # or we can include them if we want to test array properties.
+        # Here we include them to satisfy the "lot of fields" requirement.
+        props = {
+            "id": thesis.id,
+            "title": thesis.title,
+            "year": thesis.year,
+            "grade": thesis.grade,
+            "is_published": thesis.is_published,
+            "pages": thesis.pages,
+            "submission_date": thesis.submission_date,
+            "topic": thesis.topic,
+            "keywords": thesis.keywords,
+            "department": thesis.department
+        }
+        add_node(driver, thesis.node_name, props)
+
+        # ------------------------------------------------------------------
+        # 7. Link Thesis to Student (Author) and Teachers (Supervisors)
+        # ------------------------------------------------------------------
+
+        # Link Student -> Thesis
+        connect_nodes(
+            driver,
+            src_label="Student",
+            src_props={"student_id": thesis.student_id},
+            rel_type="AUTHORED",
+            dst_label="Thesis",
+            dst_props={"id": thesis.id}
+        )
+
+        # Link Teachers -> Thesis
+        for supervisor_id in thesis.supervisor_ids:
+            connect_nodes(
+                driver,
+                src_label="Teacher",
+                src_props={"teacher_id": supervisor_id},
+                rel_type="SUPERVISED",
+                dst_label="Thesis",
+                dst_props={"id": thesis.id}
+            )
 
