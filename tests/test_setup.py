@@ -5,8 +5,13 @@ Testing the Setup/Helper Functions of the Neo4j interface tests.
 from t_helpers import *
 import conftest
 
+
 @pytest.fixture
 def empty_driver():
+    """ WARNING: Wipes the Database!
+    Is safe in regard to that it can only ever run when testing """
+    if not os.environ.get("PYTEST_VERSION"): raise RuntimeError("The Programm just tried to wipe the database outside of test mode")
+
     t_driver = GraphDatabase.driver(conftest.URI, auth=conftest.AUTH)
     with t_driver.session() as session:
                 session.run("MATCH (n) DETACH DELETE n")
@@ -44,10 +49,12 @@ def test_enroll_students_randomly(empty_driver):
     main(empty_driver)
 
     CYPHER_QUERY = """
-        MATCH (s:Student)-[:ENROLLED_IN]->(:Seminar)
+        MATCH (s:Student {student_id: $student_id})  -[:ENROLLED_IN]->(:Seminar)
         RETURN s
         """
 
     for sid in student_ids:
         result = list(empty_driver.session().run(CYPHER_QUERY, {"student_id": sid}))
         assert result, f"Student {sid} is not enrolled in any seminar"
+
+

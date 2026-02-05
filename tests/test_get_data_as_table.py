@@ -4,13 +4,7 @@ from neo4j import GraphDatabase
 from neo4j.exceptions import ClientError
 import os
 import t_helpers, conftest
-
-
-URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-AUTH =(
-    os.getenv("NEO4J_USER", "neo4j"),
-    os.getenv("NEO4J_PASS", "testTEST12345678")
-)
+from conftest import URI, AUTH
 
 
 def test_simple_db_reads(db: "Neo4jDB"):
