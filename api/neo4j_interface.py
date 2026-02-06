@@ -74,9 +74,7 @@ def construct_cypher_query(
     limit: int | None = None,
     all_labels: bool = False
 ) -> tuple[str, dict[str, Any]]:
-    """
-    TODO:
-    """
+    # do we need default handling like node_filters = node_filters or {}?
 
     # validate
     validation = validate_labels(
@@ -205,68 +203,4 @@ class Neo4jDB(Neo4jDBInterface):
             r.consume()
 
         return result
-
-    """
-    ==========
-    Read Data Helper Methods
-    ==========
-    """
-
-    def _fetch_nodes(self,
-                label: str,
-                limit: int | None = None,
-                where_props: dict | None = None) -> list[dict] | list:
-        """
-        Args:
-            label: Node label to fetch
-            limit: Optional limit on number of nodes to fetch
-            where_props: Dict of property filters, e.g., {"age": 25, "f_name": "Alice"}
-        Returns:
-        a List of dictionaries with the node data OR an empty list if no nodes found.
-        This is raw Node data.
-        """
-        logger.info(f"fetch_nodes(\n    {label=}\n    {limit=}\n    {where_props=}\n):")
-        if not label_validation(label):
-            logger.error(f"fetch_nodes(): Invalid label {label}.")
-            raise ValueError(f"Invalid label {label}.")
-        if not isinstance(limit, (type(None), int)) or (isinstance(limit, int) and limit <= 0):
-            logger.error(f"fetch_nodes(): Invalid limit {limit}. Must be None or positive integer.")
-            raise ValueError(f"Invalid limit {limit}. Must be None or positive integer.")
-        # Cypher query construction
-        base_query = f"MATCH (n:`{label}`)"
-        params = {}
-        if where_props:
-            conditions = []
-            for key, value in where_props.items():
-                if not label_validation(key):
-                    logger.error(f"fetch_nodes(): Invalid property key {key}.")
-                    raise ValueError(f"Invalid property key {key}.")
-                param_name = f"prop_{key}"
-                conditions.append(f"n.{key} = ${param_name}")
-                params[param_name] = value
-
-            base_query += " WHERE " + " AND ".join(conditions)
-        base_query += " RETURN n"
-        if limit:
-            base_query += " LIMIT $limit"
-            params["limit"] = limit
-
-
-        with self._driver.session() as session:
-            try:
-                records = session.run(base_query, params).data()
-                if not records:
-                    logger.info(f"fetch_nodes(): No nodes found with label {label}.")
-                    return []
-                else:
-                    logger.info(f"fetch_nodes(): Retrieved {len(records)} nodes with label {label}.")
-                    # remove the "n" dictionary layer
-                    return [record["n"] for record in records]
-
-            except Neo4jError as e:
-                logger.error(f"Neo4jError fetching nodes: {e}")
-                raise
-            except Exception as e:
-                logger.error(f"Error fetching nodes: {e}")
-                raise
 
