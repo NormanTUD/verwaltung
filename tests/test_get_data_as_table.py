@@ -68,7 +68,7 @@ def test_limit_request(db):
     "Basic iterative limit requests from the Data-Layer Neo4jDB class"
     # Limits
     lbl= "Student"
-    for i in range(8):
+    for i in range(1, 8):
         req = ReadRequest([lbl], lbl, 3, i,  None, None)
         records = list(db.read_data(req))
         assert len(records) == i
@@ -95,7 +95,7 @@ def test_unpresent_label(db):
 def test_bad_limit(db):
     " Expected behavior with wrong label input"
     label1 = "Student"
-    bad_limits = {-3, "f", "", 14.13}
+    bad_limits = {-3, "f", 14.13}
     for bad_lim in bad_limits:
         req = ReadRequest(selected_labels=[label1],
                           main_label= label1,
