@@ -36,7 +36,6 @@ class ValidationResult:
     bad: list[str]
 
 
-
 """
 Helper Functions - Dataclasses End
 """
@@ -65,7 +64,6 @@ def validate_labels(*label_groups) -> ValidationResult:
                 bad.append(item)
 
     return ValidationResult(ok=not bad, bad=bad)
-
 
 def construct_cypher_query(
     node_labels: list[str],

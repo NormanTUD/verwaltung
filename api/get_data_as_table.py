@@ -75,7 +75,8 @@ def create_get_data_bp() -> Blueprint:
 
     return bp
 
-def cols_from_data(data) -> list[dict]:
+def cols_from_data(data: list[Record]) -> list[dict]:
+    """ Parses the data for columns, where each column is a node:property"""
     # Create Columns
     columns:list = []
     known_node_types = set()
@@ -91,6 +92,7 @@ def cols_from_data(data) -> list[dict]:
     return columns
 
 def distance_of_unrelated_node_types(columns: list) -> dict[str, int]:
+    """ Calculates how many columns each type of node has."""
     columns_per_node_type:dict = {}
     prev = None
     for i, c in enumerate(columns):
