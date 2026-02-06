@@ -42,12 +42,6 @@ class DBResult():
 """
 Helper Functions - Dataclasses End
 """
-def n4j_label_validation(label: str) -> bool:
-    """Sketch. Validates that the label is alphanumeric with underscores only."""
-    if not label.replace("_", "").isalnum():
-        logger.error(f"Invalid label format: {label}")
-        return False
-    return True
 
 def validate_labels(*label_groups) -> ValidationResult:
     bad: list[str] = []
@@ -69,7 +63,7 @@ def validate_labels(*label_groups) -> ValidationResult:
             if not isinstance(item, str):
                 bad.append(repr(item))
                 continue
-            if not n4j_label_validation(item):
+            if not label_validation(item):
                 bad.append(item)
 
     return ValidationResult(ok=not bad, bad=bad)
@@ -195,8 +189,11 @@ class Neo4jDB(Neo4jDBInterface):
         self.logger.info("cypher construction: max_depth from ReadRequest is not implemented.")
 
         self.logger.debug(f"Read Query: {node_types=}, {relationships=}, {filters=}, {limit=}")
+
+        # tightly coupled - but the cypher constructing is a bridge between request interface and db access
         cypher, params = construct_cypher_query(node_types, filters, relationships, limit)
         self.logger.debug(f"Cypher was created: {cypher} with paramets: {params}")
+
         with self._driver.session() as session:
             """
             converting the Result object to a list of Records is memory intensive
