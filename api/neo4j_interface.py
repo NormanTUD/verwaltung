@@ -146,7 +146,7 @@ Interface
 """
 
 class Neo4jDBInterface(ABC):
-    def __init__(self, driver):
+    def __init__(self, driver, logger=None):
         self._driver: Driver = driver
 
     def create_data(self):
@@ -164,9 +164,9 @@ class Neo4jDBInterface(ABC):
         raise NotImplementedError("Method not implemented yet.")
 
 class Neo4jDB(Neo4jDBInterface):
-    def __init__(self, driver: Driver):
+    def __init__(self, driver: Driver, logger=None):
         super().__init__(driver)
-        self.logger = logging.getLogger("[Database]") # This should probably get injected
+        self.logger = logger or logging.getLogger("[Database]") # This should probably get injected
 
     """
     Main Interface Methods
