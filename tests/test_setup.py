@@ -49,7 +49,7 @@ def test_enroll_students_randomly(empty_driver):
     main(empty_driver)
 
     CYPHER_QUERY = """
-        MATCH (s:Student {student_id: $student_id})  -[:ENROLLED_IN]->(:Seminar)
+        MATCH (s:Student {student_id: $student_id})  -[:ENROLLED]->(:Seminar)
         RETURN s
         """
 

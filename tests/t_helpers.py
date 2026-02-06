@@ -211,7 +211,7 @@ def enroll_students_randomly(
                 driver,
                 src_label="Student",
                 src_props=src,
-                rel_type="ENROLLED_IN",
+                rel_type="ENROLLED",
                 dst_label="Seminar",
                 dst_props=dst,
             )

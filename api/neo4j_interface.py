@@ -35,14 +35,74 @@ class ValidationResult:
     ok: bool
     bad: list[str]
 
+CYPHER_RESERVED_WORDS = {
+    "ALL",
+    "AND",
+    "ANY",
+    "AS",
+    "ASC",
+    "ASCENDING",
+    "BY",
+    "CONTAINS",
+    "CREATE",
+    "DELETE",
+    "DESC",
+    "DESCENDING",
+    "DETACH",
+    "DISTINCT",
+    "DROP",
+    "ELSE",
+    "END",
+    "ENDS",
+    "EXISTS",
+    "FALSE",
+    "FILTER",
+    "FOREACH",
+    "IN",
+    "IS",
+    "LIMIT",
+    "MATCH",
+    "MERGE",
+    "NOT",
+    "NULL",
+    "ON",
+    "OPTIONAL",
+    "OR",
+    "ORDER",
+    "REMOVE",
+    "RETURN",
+    "SET",
+    "SKIP",
+    "STARTS",
+    "THEN",
+    "TRUE",
+    "UNION",
+    "UNIQUE",
+    "UNWIND",
+    "WHEN",
+    "WHERE",
+    "WITH",
+    "XOR"
+}
 
 """
 Helper Functions - Dataclasses End
 """
 
-def validate_labels(*label_groups) -> ValidationResult:
-    bad: list[str] = []
+def label_validation(label: str) -> bool:
+    """Sketch. Validates that the label is alphanumeric with underscores only."""
+    if not label.replace("_", "").isalnum():
+        logger.error(f"Invalid label format: {label}")
+        return False
+    for word in CYPHER_RESERVED_WORDS:
+        if word in label:
+            return False
+    return True
 
+def validate_labels(node_labels, node_filters, rel_types) -> ValidationResult:
+    bad: list[str] = []
+    if not node_labels: return ValidationResult(False, ["empty string as labels"])
+    label_groups = [node_labels, node_filters, rel_types]
     for group in label_groups:
         if not group:
             continue
@@ -74,11 +134,12 @@ def construct_cypher_query(
 ) -> tuple[str, dict[str, Any]]:
     # do we need default handling like node_filters = node_filters or {}?
 
+    # if not node_labels: raise ValueError("N4JDB: construct_cypher: Unvalid node labels")
     # validate
     validation = validate_labels(
         node_labels,
         node_filters.keys() if node_filters else None,
-        rel_types,
+        rel_types or None,
     )
     if not validation.ok:
         raise ValueError(
@@ -133,13 +194,6 @@ def construct_cypher_query(
     if 'limit' in parameters:
         parameters["limit"] = limit
     return cypher, parameters
-
-def label_validation(label: str) -> bool:
-    """Sketch. Validates that the label is alphanumeric with underscores only."""
-    if not label.replace("_", "").isalnum():
-        logger.error(f"Invalid label format: {label}")
-        return False
-    return True
 
 """
 Interface
