@@ -160,14 +160,5 @@ def records_to_json(data: list[Record], params:ReadRequest) -> dict[str, Any]:
                     row["cells"].insert(0, empty_cell)
 
         rows.append(row)
-    """
-    for row in rows:
-        if row["relations"]: continue
-        row_type = row["cells"][0]["nodeType"]
-        indent = indent_distances.get(row_type)
-        if indent:
-            for i in range(indent):
-                row["cells"].insert(0, empty_cell)
-    """
 
     return {"columns": columns, "rows": rows}
