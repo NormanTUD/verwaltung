@@ -178,7 +178,7 @@ class Neo4jDBInterface(ABC):
 class Neo4jDB(Neo4jDBInterface):
     def __init__(self, driver: Driver):
         super().__init__(driver)
-        self.logger = logging.getLogger("Database") # This should probably get injected
+        self.logger = logging.getLogger("[Database]") # This should probably get injected
 
     """
     Main Interface Methods
@@ -190,6 +190,9 @@ class Neo4jDB(Neo4jDBInterface):
         filters = req_data.filter_labels
         limit = req_data.limit
         if not limit: limit = 1000
+
+        # max_depth is not implemented
+        self.logger.info("cypher construction: max_depth from ReadRequest is not implemented.")
 
         self.logger.debug(f"Read Query: {node_types=}, {relationships=}, {filters=}, {limit=}")
         cypher, params = construct_cypher_query(node_types, filters, relationships, limit)
