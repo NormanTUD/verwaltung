@@ -35,9 +35,7 @@ class ValidationResult:
     ok: bool
     bad: list[str]
 
-@dataclass
-class DBResult():
-    pass
+
 
 """
 Helper Functions - Dataclasses End
