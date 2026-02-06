@@ -152,8 +152,15 @@ def records_to_json(data: list[Record], params:ReadRequest) -> dict[str, Any]:
                                   "toId": element.nodes[1].element_id})
         row["cells"] = cells
         row["relations"] = relations
-        rows.append(row)
+        if not row["relations"]:
+            row_type = row["cells"][0]["nodeType"]
+            indent = indent_distances.get(row_type)
+            if indent:
+                for i in range(indent):
+                    row["cells"].insert(0, empty_cell)
 
+        rows.append(row)
+    """
     for row in rows:
         if row["relations"]: continue
         row_type = row["cells"][0]["nodeType"]
@@ -161,6 +168,6 @@ def records_to_json(data: list[Record], params:ReadRequest) -> dict[str, Any]:
         if indent:
             for i in range(indent):
                 row["cells"].insert(0, empty_cell)
-
+    """
 
     return {"columns": columns, "rows": rows}
