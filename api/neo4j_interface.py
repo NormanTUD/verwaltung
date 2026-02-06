@@ -11,12 +11,18 @@ logger = logging.getLogger(__name__)
 
 
 """
-==========
 Dataclasses
-==========
 """
 @dataclass
 class ReadRequest():
+    """ Dataclass that holds:
+    - selected labels
+    - main_label
+    - max_depth
+    - limit
+    - filter labels
+    - rel_filter
+    """
     selected_labels: list[str]
     main_label: str
     max_depth: int
@@ -32,10 +38,9 @@ class ValidationResult:
 @dataclass
 class DBResult():
     pass
+
 """
-==========
 Helper Functions - Dataclasses End
-==========
 """
 def n4j_label_validation(label: str) -> bool:
     """Sketch. Validates that the label is alphanumeric with underscores only."""
@@ -148,6 +153,10 @@ def label_validation(label: str) -> bool:
         return False
     return True
 
+"""
+Interface
+"""
+
 class Neo4jDBInterface(ABC):
     def __init__(self, driver):
         self._driver: Driver = driver
@@ -172,9 +181,9 @@ class Neo4jDB(Neo4jDBInterface):
         self.logger = logging.getLogger("Database")
 
     """
-    ==========
+
     Main Interface Methods
-    ==========
+
     """
 
     def read_data(self, req_data: ReadRequest) -> list[Record]: #node_types, relationships = None, filters = None, limit=None
@@ -182,6 +191,7 @@ class Neo4jDB(Neo4jDBInterface):
         relationships = req_data.rel_fitler
         filters = req_data.filter_labels
         limit = req_data.limit
+        if not limit: limit = 1000
 
         self.logger.debug(f"Read Query: {node_types=}, {relationships=}, {filters=}, {limit=}")
         cypher, params = construct_cypher_query(node_types, filters, relationships, limit)
@@ -189,6 +199,7 @@ class Neo4jDB(Neo4jDBInterface):
         with self._driver.session() as session:
             # converting the Result object to a list of Records is memory intensive
             # should be no problem if we dont have results with over 1000s of Nodes
+            # However to fulfill the endpoint, we can validate the limit to be <1000?
             r = session.run(cypher, params)
             result = list(r)
             if len(result) > 1000:
