@@ -178,12 +178,10 @@ class Neo4jDBInterface(ABC):
 class Neo4jDB(Neo4jDBInterface):
     def __init__(self, driver: Driver):
         super().__init__(driver)
-        self.logger = logging.getLogger("Database")
+        self.logger = logging.getLogger("Database") # This should probably get injected
 
     """
-
     Main Interface Methods
-
     """
 
     def read_data(self, req_data: ReadRequest) -> list[Record]: #node_types, relationships = None, filters = None, limit=None
@@ -197,13 +195,14 @@ class Neo4jDB(Neo4jDBInterface):
         cypher, params = construct_cypher_query(node_types, filters, relationships, limit)
         self.logger.debug(f"Cypher was created: {cypher} with paramets: {params}")
         with self._driver.session() as session:
-            # converting the Result object to a list of Records is memory intensive
-            # should be no problem if we dont have results with over 1000s of Nodes
-            # However to fulfill the endpoint, we can validate the limit to be <1000?
+            """
+            converting the Result object to a list of Records is memory intensive
+            should be no problem if we dont have results with over 1000s of Nodes
+            However to fulfill the endpoint, we can validate the limit to be <1000?
+            """
+
             r = session.run(cypher, params)
             result = list(r)
-            if len(result) > 1000:
-                logger.warning(" Length of results list is over 1k, switch to iterative approach?")
 
             r.consume()
 

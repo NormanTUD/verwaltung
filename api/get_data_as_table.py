@@ -23,6 +23,10 @@ def create_get_data_bp() -> Blueprint:
             raise ValueError("Parameter 'nodes' required")
         selected_labels = [n.strip() for n in nodes_param.split(",") if n.strip()]
         main_label = selected_labels[0]
+        log.info("db_read: request_parse: main_label is a attribute of the \
+                 ReadRequest, however the frontend does not give one.\
+                 defaulting to the first label.")
+
 
         max_depth = int(req.args.get("maxDepth", max(3, len(selected_labels))))
         limit_raw = req.args.get("limit")
