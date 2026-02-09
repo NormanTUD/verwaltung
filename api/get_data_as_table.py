@@ -11,10 +11,8 @@ from typing import Any
 
 log = getLogger("[API] get_data_as_table")
 def create_get_data_bp() -> Blueprint:
-    log.info("Registering Blueprint")
+    log.debug("Registering Blueprint")
     bp = Blueprint("get_data_bp", __name__)
-
-
 
 
     def parse_request_params(req) -> ReadRequest:
@@ -22,11 +20,15 @@ def create_get_data_bp() -> Blueprint:
         if not nodes_param:
             raise ValueError("Parameter 'nodes' required")
         selected_labels = [n.strip() for n in nodes_param.split(",") if n.strip()]
-        main_label = selected_labels[0]
-        log.info("db_read: request_parse: main_label is a attribute of the ReadRequest, however the frontend does not give one. defaulting to the first label.")
+        # main_label = selected_labels[0]
+        # log.info("db_read: request_parse: main_label is a attribute of the ReadRequest, however the frontend does not give one. defaulting to the first label.")
 
+        if req.args.get("maxDepth"):
+            log.info("Max Depth is passed from the frontend but is ultimately not used")
+            # We dont need it, as we alway want to search by relationship type
+            # and not retrieve nodes simply because thei're connected in any way.
+            # max_depth = int(req.args.get("maxDepth", max(3, len(selected_labels))))
 
-        max_depth = int(req.args.get("maxDepth", max(3, len(selected_labels))))
         limit_raw = req.args.get("limit")
         limit = int(limit_raw) if limit_raw else None
 
@@ -51,7 +53,7 @@ def create_get_data_bp() -> Blueprint:
             raise NotImplementedError(f"Where clauses are not supported atm")
             # where = manual_where
 
-        return ReadRequest(selected_labels, main_label, max_depth, limit, filter_labels, rel_filter)
+        return ReadRequest(selected_labels, limit, filter_labels, rel_filter)
 
     @bp.route("/get_data_as_table", methods=["GET"])
     @conditional_login_required
