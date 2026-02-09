@@ -54,12 +54,6 @@ class TestCypherConstruction:
 
 
 
-
-
-
-
-
-
 def test_simple_db_reads(db: "Neo4jDB"):
     "Basic Read requests from the Data-Layer Neo4jDB class"
     # Simple Request

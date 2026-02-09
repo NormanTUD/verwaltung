@@ -57,7 +57,6 @@ def create_get_data_bp() -> Blueprint:
     @conditional_login_required
     def get_data_as_table2():
         driver = current_app.config["driver"]
-        # log.debug(driver)
         interf_db = Neo4jDB(driver)
         params = parse_request_params(request)
 
