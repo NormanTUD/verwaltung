@@ -141,6 +141,12 @@ TEACHERS = [
     Teacher(4, "Professor", "Sprout",     "Herbology"),
 ]
 
+CONNECTIONS =  {(Teacher, Seminar): "teaches",
+                (Seminar, Teacher): "held_by",
+                (Student, Seminar): "enrolled",
+                (Teacher, MasterThesis): "supervises",
+                (Student, MasterThesis): "authored"}
+
 from neo4j import GraphDatabase
 import random
 
@@ -211,7 +217,7 @@ def enroll_students_randomly(
                 driver,
                 src_label="Student",
                 src_props=src,
-                rel_type="ENROLLED",
+                rel_type=CONNECTIONS[Student, Seminar],
                 dst_label="Seminar",
                 dst_props=dst,
             )
@@ -229,7 +235,7 @@ def teacher_to_class_connection(driver, teacher_id: int, class_code: int) -> Non
         driver,
         src_label="Teacher",
         src_props=src,
-        rel_type="TEACHES",
+        rel_type=CONNECTIONS[(Teacher, Seminar)],
         dst_label="Class",
         dst_props=dst,
     )
@@ -238,7 +244,7 @@ def teacher_to_class_connection(driver, teacher_id: int, class_code: int) -> Non
         driver,
         src_label="Class",
         src_props=dst,
-        rel_type="HELD_BY",
+        rel_type=CONNECTIONS[(Seminar, Teacher)],
         dst_label="Teacher",
         dst_props=src,
     )
@@ -320,7 +326,7 @@ def main(driver):
             driver,
             src_label="Student",
             src_props={"student_id": thesis.student_id},
-            rel_type="AUTHORED",
+            rel_type=CONNECTIONS[Student, MasterThesis],
             dst_label="Thesis",
             dst_props={"id": thesis.id}
         )
@@ -331,7 +337,7 @@ def main(driver):
                 driver,
                 src_label="Teacher",
                 src_props={"teacher_id": supervisor_id},
-                rel_type="SUPERVISED",
+                rel_type=CONNECTIONS[Teacher, MasterThesis],
                 dst_label="Thesis",
                 dst_props={"id": thesis.id}
             )

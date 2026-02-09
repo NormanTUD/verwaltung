@@ -124,13 +124,13 @@ def test_simple_relationships(db: "Neo4jDB"):
     "Basic relationship requests from the Data-Layer Neo4jDB class"
     label1 = "Student"
 
-    req = ReadRequest([label1], label1, 3,  None, None, ["ENROLLED"])
+    req = ReadRequest([label1], label1, 3,  None, None, [t_helpers.CONNECTIONS[(t_helpers.Student, t_helpers.Seminar)]])
     records = list(db.read_data(req))
 
     assert len(records) > 5, f"To little records for student-class enrolled relation {records}"
     for r in records:
          relation = r.data()["r"]
-         assert relation[1] == "ENROLLED", f"[Test] , no relation in {relation}, or at least not at index 1? "
+         assert relation[1] == t_helpers.CONNECTIONS[(t_helpers.Student, t_helpers.Seminar)], f"[Test] , no relation in {relation}, or at least not at index 1? "
 
 def test_unpresent_label(db):
     " Basic requests for a label that doesnt exist from the Data-Layer Neo4jDB class"
