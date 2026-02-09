@@ -59,13 +59,13 @@ def test_simple_db_reads(db: "Neo4jDB"):
     # Simple Request
 
     label1 = "Student"
-    req = ReadRequest([label1], label1, 3,  None, None, None)
+    req = ReadRequest([label1],  None, None, None)
     records = list(db.read_data(req))
     for s in t_helpers.STUDENTS:
         assert s.f_name in [r.data()["n"]["f_name"] for r in records]
 
     label2 = "Seminar"
-    req = ReadRequest([label2], label2, 3,  None, None, None)
+    req = ReadRequest([label2],  None, None, None)
     records = list(db.read_data(req))
     for c in t_helpers.SEMINARS:
         assert c.name in [r.data()["n"]["title"] for r in records]
@@ -78,8 +78,6 @@ def test_where_request(db):
 
     for n in names:
         req = ReadRequest([lbl],
-                          lbl,
-                          3,
                           None,
                           {"f_name":n},
                           None)
@@ -103,8 +101,6 @@ def test_complex_where_requests(db):
 
     for filter in wild_filters:
         req = ReadRequest([label],
-                          label,
-                          3,
                           None,
                           filter,
                           None)
@@ -116,7 +112,7 @@ def test_limit_request(db):
     # Limits
     lbl= "Student"
     for i in range(1, 8):
-        req = ReadRequest([lbl], lbl, 3, i,  None, None)
+        req = ReadRequest([lbl], i,  None, None)
         records = list(db.read_data(req))
         assert len(records) == i
 
@@ -124,7 +120,7 @@ def test_simple_relationships(db: "Neo4jDB"):
     "Basic relationship requests from the Data-Layer Neo4jDB class"
     label1 = "Student"
 
-    req = ReadRequest([label1], label1, 3,  None, None, ["ENROLLED"])
+    req = ReadRequest([label1],  None, None, ["ENROLLED"])
     records = list(db.read_data(req))
 
     assert len(records) > 5, f"To little records for student-class enrolled relation {records}"
@@ -135,7 +131,7 @@ def test_simple_relationships(db: "Neo4jDB"):
 def test_unpresent_label(db):
     " Basic requests for a label that doesnt exist from the Data-Layer Neo4jDB class"
     m_label = "COOOOKIES"
-    req = ReadRequest([m_label], m_label, 3,  None, None, ["ENROLLED"])
+    req = ReadRequest([m_label],  None, None, ["ENROLLED"])
     records = list(db.read_data(req))
     assert len(records) == 0
 
@@ -145,8 +141,6 @@ def test_bad_limit(db):
     bad_limits = {-3, "f", 14.13}
     for bad_lim in bad_limits:
         req = ReadRequest(selected_labels=[label1],
-                          main_label= label1,
-                           max_depth= 3,
                             limit= bad_lim,
                             filter_labels=None,
                             rel_fitler=None)
@@ -170,8 +164,6 @@ class TestCypherInjectionDBInterfaceLevel:
 
         req = ReadRequest(
             selected_labels=["Student"],
-            main_label="Student",
-            max_depth=3,
             limit=None,
             filter_labels={"f_name": malicious_name},
             rel_fitler=None
@@ -188,8 +180,6 @@ class TestCypherInjectionDBInterfaceLevel:
         """
         req = ReadRequest(
             selected_labels=[TestCypherInjectionDBInterfaceLevel.INJECTION_PAYLOADS["malicious_label"]],
-            main_label="Student",
-            max_depth=1,
             limit=None,
             filter_labels=None,
             rel_fitler=None
@@ -202,8 +192,6 @@ class TestCypherInjectionDBInterfaceLevel:
 
         check_req = ReadRequest(
             selected_labels=["Student"],
-            main_label="Student",
-            max_depth=1,
             limit=None,
             filter_labels=None,
             rel_fitler=None
@@ -219,8 +207,6 @@ class TestCypherInjectionDBInterfaceLevel:
 
         req = ReadRequest(
             selected_labels=["Student"],
-            main_label="Student",
-            max_depth=1,
             limit=None,
             filter_labels=None,
             rel_fitler=[malicious_rel]
@@ -242,8 +228,6 @@ class TestCypherInjectionDBInterfaceLevel:
 
         req = ReadRequest(
             selected_labels=["Student"],
-            main_label="Student",
-            max_depth=1,
             limit=malicious_limit,
             filter_labels=None,
             rel_fitler=None
@@ -266,8 +250,6 @@ class TestCypherInjectionDBInterfaceLevel:
 
         req = ReadRequest(
             selected_labels=["Student"],
-            main_label="Student",
-            max_depth=1,
             limit=None,
             filter_labels={"f_name": malicious_val},
             rel_fitler=None
@@ -280,8 +262,6 @@ class TestCypherInjectionDBInterfaceLevel:
 
         check_req = ReadRequest(
             selected_labels=["Student"],
-            main_label="Student",
-            max_depth=1,
             limit=None,
             filter_labels=None,
             rel_fitler=None

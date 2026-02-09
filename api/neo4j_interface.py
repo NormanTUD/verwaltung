@@ -17,15 +17,13 @@ Dataclasses
 class ReadRequest():
     """ Dataclass that holds:
     - selected labels
-    - main_label
-    - max_depth
     - limit
     - filter labels
     - rel_filter
     """
     selected_labels: list[str]
-    main_label: str
-    max_depth: int
+    # main_label: str
+    # max_depth: int
     limit: int | None
     filter_labels: dict[str, str] | None
     rel_fitler: list[str] | None
