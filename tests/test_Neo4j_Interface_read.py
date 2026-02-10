@@ -141,7 +141,7 @@ def test_bad_limit(db):
     for bad_lim in bad_limits:
         req = ReadRequest(selected_labels=[label1],
                             limit= bad_lim,
-                            filter_labels=None,
+                            property_filters=None,
                             rel_fitler=None)
         with pytest.raises(ClientError):
             db.read_data(req)
@@ -164,7 +164,7 @@ class TestCypherInjectionDBInterfaceLevel:
         req = ReadRequest(
             selected_labels=["Student"],
             limit=None,
-            filter_labels={"f_name": malicious_name},
+            property_filters={"f_name": malicious_name},
             rel_fitler=None
         )
 
@@ -180,7 +180,7 @@ class TestCypherInjectionDBInterfaceLevel:
         req = ReadRequest(
             selected_labels=[TestCypherInjectionDBInterfaceLevel.INJECTION_PAYLOADS["malicious_label"]],
             limit=None,
-            filter_labels=None,
+            property_filters=None,
             rel_fitler=None
         )
 
@@ -192,7 +192,7 @@ class TestCypherInjectionDBInterfaceLevel:
         check_req = ReadRequest(
             selected_labels=["Student"],
             limit=None,
-            filter_labels=None,
+            property_filters=None,
             rel_fitler=None
         )
         students = list(db.read_data(check_req))
@@ -207,7 +207,7 @@ class TestCypherInjectionDBInterfaceLevel:
         req = ReadRequest(
             selected_labels=["Student"],
             limit=None,
-            filter_labels=None,
+            property_filters=None,
             rel_fitler=[malicious_rel]
         )
 
@@ -228,7 +228,7 @@ class TestCypherInjectionDBInterfaceLevel:
         req = ReadRequest(
             selected_labels=["Student"],
             limit=malicious_limit,
-            filter_labels=None,
+            property_filters=None,
             rel_fitler=None
         )
 
@@ -241,7 +241,7 @@ class TestCypherInjectionDBInterfaceLevel:
 
     def test_destructive_where_injection(self, db: "Neo4jDB"):
         """
-        High-risk test: Attempts to delete the database via the filter_labels clause.
+        High-risk test: Attempts to delete the database via the property_filters clause.
         """
         assert len(t_helpers.STUDENTS) > 0
 
@@ -250,7 +250,7 @@ class TestCypherInjectionDBInterfaceLevel:
         req = ReadRequest(
             selected_labels=["Student"],
             limit=None,
-            filter_labels={"f_name": malicious_val},
+            property_filters={"f_name": malicious_val},
             rel_fitler=None
         )
 
@@ -262,7 +262,7 @@ class TestCypherInjectionDBInterfaceLevel:
         check_req = ReadRequest(
             selected_labels=["Student"],
             limit=None,
-            filter_labels=None,
+            property_filters=None,
             rel_fitler=None
         )
         remaining_students = list(db.read_data(check_req))

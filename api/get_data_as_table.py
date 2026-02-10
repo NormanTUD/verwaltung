@@ -21,8 +21,6 @@ def create_get_data_bp() -> Blueprint:
         if not nodes_param:
             raise ValueError("Parameter 'nodes' required")
         selected_labels = [n.strip() for n in nodes_param.split(",") if n.strip()]
-        # main_label = selected_labels[0]
-        # log.info("db_read: request_parse: main_label is a attribute of the ReadRequest, however the frontend does not give one. defaulting to the first label.")
 
         if req.args.get("maxDepth"):
             log.info("Max Depth is passed from the frontend but is ultimately not used")
@@ -33,8 +31,10 @@ def create_get_data_bp() -> Blueprint:
         limit_raw = req.args.get("limit")
         limit = int(limit_raw) if limit_raw else None
 
-        filter_labels_raw = req.args.get("filterLabels")
-        filter_labels = [l.strip() for l in filter_labels_raw.split(",")] if filter_labels_raw else None
+        if req.args.get("filterLabels"):
+            log.info("Frontend Send Deprecated field fiter_labels")
+
+        property_filters = None
 
         relationships_raw = req.args.get("relationships")
         rel_filter = [r.strip() for r in relationships_raw.split(",")] if relationships_raw else None
@@ -53,7 +53,7 @@ def create_get_data_bp() -> Blueprint:
             raise NotImplementedError(f"Where clauses are not supported atm")
             # where = manual_where
 
-        return ReadRequest(selected_labels, limit, filter_labels, rel_filter)
+        return ReadRequest(selected_labels, limit, property_filters, rel_filter)
 
     @bp.route("/get_data_as_table", methods=["GET"])
     @conditional_login_required

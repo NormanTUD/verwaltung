@@ -13,15 +13,10 @@ Dataclasses
 """
 @dataclass
 class ReadRequest():
-    """ Dataclass that holds:
-    - selected labels
-    - limit
-    - filter labels
-    - rel_filter
-    """
+
     selected_labels: list[str]
     limit: int | None
-    filter_labels: dict[str, str] | None
+    property_filters: dict[str, str] | None
     rel_fitler: list[str] | None
 
 @dataclass(frozen=True)
@@ -224,7 +219,7 @@ class Neo4jDB(Neo4jDBInterface):
     def read_data(self, req_data: ReadRequest) -> list[Record]: #node_types, relationships = None, filters = None, limit=None
         node_types = req_data.selected_labels
         relationships = req_data.rel_fitler
-        filters = req_data.filter_labels
+        filters = req_data.property_filters
         limit = req_data.limit
         if not limit: limit = 1000
 
