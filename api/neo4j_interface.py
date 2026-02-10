@@ -196,8 +196,8 @@ Interface
 """
 
 class Neo4jDBInterface(ABC):
-    def __init__(self, driver, logger=None):
-        self._driver: Driver = driver
+    def __init__(self, driver: Driver , logger=None):
+        self._driver = driver
 
     def create_data(self):
         raise NotImplementedError("Method not implemented yet.")
