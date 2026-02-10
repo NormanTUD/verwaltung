@@ -144,6 +144,7 @@ TEACHERS = [
 CONNECTIONS =  {(Teacher, Seminar): "teaches",
                 (Seminar, Teacher): "held_by",
                 (Student, Seminar): "enrolled",
+                (Seminar, Student): "taken_by",
                 (Teacher, MasterThesis): "supervises",
                 (Student, MasterThesis): "authored"}
 
@@ -220,6 +221,14 @@ def enroll_students_randomly(
                 rel_type=CONNECTIONS[Student, Seminar],
                 dst_label="Seminar",
                 dst_props=dst,
+            )
+            connect_nodes(
+                driver,
+                src_label="Seminar",
+                src_props=src,
+                rel_type=CONNECTIONS[Seminar, Student],
+                dst_label="Student",
+                dst_props=dst
             )
 
 # Function to connect teacher to class

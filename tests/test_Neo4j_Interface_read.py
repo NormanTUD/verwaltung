@@ -52,8 +52,6 @@ class TestCypherConstruction:
                 pytest.fail(f"Cypher Construction Test: Value Error not risen for label {l}")
             assert exc_info.type == ValueError, f"Cypher Construction did not catch special char {l}"
 
-
-
 def test_simple_db_reads(db: "Neo4jDB"):
     "Basic Read requests from the Data-Layer Neo4jDB class"
     # Simple Request
@@ -271,3 +269,6 @@ class TestCypherInjectionDBInterfaceLevel:
 
         assert len(remaining_students) > 0, "Destructive injection in WHERE clause succeeded! Database wiped."
 
+class TestComlexRelationshipReads:
+    def test_connection_types(db):
+        pass
