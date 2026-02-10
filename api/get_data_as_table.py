@@ -5,11 +5,12 @@ from oasis_helper import conditional_login_required
 from api.neo4j_interface import Neo4jDB, ReadRequest
 from neo4j import Record
 from neo4j.graph import Node, Relationship
-from logging import getLogger
+import logging
 from pandas import DataFrame
 from typing import Any
 
-log = getLogger("[API] get_data_as_table")
+log = logging.getLogger("[API] get_data_as_table")
+log.setLevel(logging.INFO)
 def create_get_data_bp() -> Blueprint:
     log.debug("Registering Blueprint")
     bp = Blueprint("get_data_bp", __name__)

@@ -1,5 +1,3 @@
-
-
 from neo4j import Driver, Record
 from neo4j.exceptions import Neo4jError
 import logging
@@ -219,6 +217,7 @@ class Neo4jDB(Neo4jDBInterface):
     def __init__(self, driver: Driver, logger=None):
         super().__init__(driver)
         self.logger = logger or logging.getLogger("[Database]") # This should probably get injected
+        self.logger.setLevel(logging.INFO)
 
     """
     Main Interface Methods
