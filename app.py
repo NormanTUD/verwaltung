@@ -67,6 +67,7 @@ def restart_with_venv():
         sys.exit(1)
 
 try:
+    print("Trying Imports")
     from importers import importers_bp
 
     from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context, Response, session
@@ -119,11 +120,13 @@ try:
     from api.query_overview import create_query_overview
 
     from index_manager import create_index_bp
+    import log
 
     import json
     import urllib.parse
 except ModuleNotFoundError as e:
     if not VENV_PATH.exists():
+        print("Creating venv")
         create_and_setup_venv()
     else:
         try:
@@ -133,7 +136,7 @@ except ModuleNotFoundError as e:
             create_and_setup_venv()
             restart_with_venv()
         except KeyboardInterrupt:
-            print("CTRL-c detected")
+            print("CTRL-c detected While importing")
             sys.exit(0)
     try:
         restart_with_venv()
@@ -152,11 +155,21 @@ login_manager.login_message = "Bitte melde dich an, um fortzufahren."
 
 app.secret_key = oasis_helper.load_or_generate_secret_key()
 
+# usage of py2neo Graph
 graph = oasis_helper.get_graph_db_connection()
-
 app.config['GRAPH'] = graph
 from api.api_route_registration import register_blueprints
+from api.neo4j_interface import Neo4jDBInterface
+from neo4j import GraphDatabase
+URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+AUTH =(
+    os.getenv("NEO4J_USER", "neo4j"),
+    os.getenv("NEO4J_PASS", "testTEST12345678")
+)
+app.config["driver"] = GraphDatabase.driver(URI, auth=AUTH)
 register_blueprints(app, graph)
+
+
 
 @login_manager.user_loader
 def load_user(user_id):
