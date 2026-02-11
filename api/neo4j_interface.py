@@ -5,6 +5,9 @@ from dataclasses import dataclass, asdict
 from typing import Any
 from abc import ABC
 
+from api.neo4j_interface_helpers import label_validation, validate_labels
+from api.qb_helpers import QueryBuilderProcessor, CypherWhereClause, old_where_clause
+
 logger = logging.getLogger(__name__)
 
 
@@ -19,116 +22,27 @@ class ReadRequest():
     property_filters: dict[str, str] | None
     rel_fitler: list[str] | None
 
-@dataclass(frozen=True)
-class ValidationResult:
-    ok: bool
-    bad: list[str]
-
-CYPHER_RESERVED_WORDS = {
-    "ALL",
-    "AND",
-    "ANY",
-    "AS",
-    "ASC",
-    "ASCENDING",
-    "BY",
-    "CONTAINS",
-    "CREATE",
-    "DELETE",
-    "DESC",
-    "DESCENDING",
-    "DETACH",
-    "DISTINCT",
-    "DROP",
-    "ELSE",
-    "END",
-    "ENDS",
-    "EXISTS",
-    "FALSE",
-    "FILTER",
-    "FOREACH",
-    "IN",
-    "IS",
-    "LIMIT",
-    "MATCH",
-    "MERGE",
-    "NOT",
-    "NULL",
-    "ON",
-    "OPTIONAL",
-    "OR",
-    "ORDER",
-    "REMOVE",
-    "RETURN",
-    "SET",
-    "SKIP",
-    "STARTS",
-    "THEN",
-    "TRUE",
-    "UNION",
-    "UNIQUE",
-    "UNWIND",
-    "WHEN",
-    "WHERE",
-    "WITH",
-    "XOR"
-}
 
 """
 Helper Functions - Dataclasses End
 """
 
-def label_validation(label: str) -> bool:
-    """Sketch. Validates that the label is alphanumeric with underscores only."""
-    if not label.replace("_", "").isalnum():
-        logger.error(f"Invalid label format: {label}")
-        return False
-    for word in CYPHER_RESERVED_WORDS:
-        if word in label:
-            return False
-    return True
-
-def validate_labels(node_labels, node_filters, rel_types) -> ValidationResult:
-    bad: list[str] = []
-    if not node_labels: return ValidationResult(False, ["empty string as labels"])
-    label_groups = [node_labels, node_filters, rel_types]
-    for group in label_groups:
-        if not group:
-            continue
-
-        if isinstance(group, str):
-            items = [group]
-        else:
-            try:
-                items = list(group)
-            except TypeError:
-                bad.append(str(group))
-                continue
-
-        for item in items:
-            if not isinstance(item, str):
-                bad.append(repr(item))
-                continue
-            if not label_validation(item):
-                bad.append(item)
-
-    return ValidationResult(ok=not bad, bad=bad)
 
 def construct_cypher_query(
     node_labels: list[str],
-    node_filters: dict | None = None,
+    property_filters: dict | None = None,
     rel_types: list[str] | None = None,
     limit: int | None = None,
     all_labels: bool = False
 ) -> tuple[str, dict[str, Any]]:
-    # do we need default handling like node_filters = node_filters or {}?
 
     # if not node_labels: raise ValueError("N4JDB: construct_cypher: Unvalid node labels")
     # validate
     validation = validate_labels(
         node_labels,
-        node_filters.keys() if node_filters else None,
+        property_filters.keys() if property_filters else None,
         rel_types or None,
+        logger
     )
     if not validation.ok:
         raise ValueError(
@@ -157,15 +71,23 @@ def construct_cypher_query(
     where_clauses: list[str] = []
     parameters: dict[str, Any] = {}
 
-    if node_filters:
-        for prop, value in node_filters.items():
-            param_name = f"prop_{prop}"
-            where_clauses.append(f"n.{prop} = ${param_name}")
-            parameters[param_name] = value
 
-    where_clause = ""
-    if where_clauses:
-        where_clause = " WHERE " + " AND ".join(where_clauses)
+
+    if not property_filters: where_clause = ""
+    else:
+        qb_p = QueryBuilderProcessor("n")
+        where = qb_p.process(property_filters)
+
+        # TODO: Remove TDD Fallback
+        if where.is_valid:
+            where_clause, parameters = "WHERE " + where.clause, where.parameters
+            logger.info(f"DEV: qb-parser: valid: {where_clause=},\n    {parameters=}")
+        else:
+            where_clause, parameters = old_where_clause(property_filters)
+            logger.info(f"DEV: qb-parser: broken result: {where_clause}, {parameters}")
+
+
+
 
     # limit
     limit_clause = ""

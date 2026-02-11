@@ -42,10 +42,9 @@ def create_get_data_bp() -> Blueprint:
         qb_raw = req.args.get("qb")
         if qb_raw and qb_raw.lower() != "null":
             qb_json = json.loads(qb_raw)
-            log.info(f" Filters are not implemented {qb_json}")
-            # if qb_json:  # prüfen, dass es nicht None ist
-            #     raise NotImplementedError
-            #     where = qb_to_cypher(qb_json)
+            log.info(f"DEV:  {qb_json=}")
+            property_filters = qb_json
+
 
         # allow manual where override
         manual_where = req.args.get("where")
