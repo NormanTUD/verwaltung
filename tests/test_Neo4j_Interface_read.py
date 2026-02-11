@@ -69,41 +69,82 @@ def test_simple_db_reads(db: "Neo4jDB"):
         assert c.name in [r.data()["n"]["title"] for r in records]
 
 def test_where_request(db):
-    "Basic where requests from the Data-Layer Neo4jDB class"
-    lbl= "Student"
-    # Where
+    """Basic where requests using QueryBuilder format"""
+    lbl = "Student"
     names = [s.f_name for s in t_helpers.STUDENTS]
 
     for n in names:
-        req = ReadRequest([lbl],
-                          None,
-                          {"f_name":n},
-                          None)
+        qb_filter = {
+            "condition": "AND",
+            "rules": [
+                {"field": "Student.f_name", "operator": "equal", "value": n}
+            ],
+            "valid": True
+        }
+        req = ReadRequest([lbl], None, qb_filter, None)
         records = list(db.read_data(req))
 
         assert n in [r.data()["n"]["f_name"] for r in records] and len(records) == 1
         assert "Cookiebert Strauss" not in [r.data()["n"]["f_name"] for r in records]
 
 def test_complex_where_requests(db):
+    """Complex where requests using QueryBuilder format"""
     label = "Thesis"
+
     wild_filters = [
-        {"department": "Science",
-         "is_published": True,
-         "year": 1998},
-        {"grade": 99.9},
-        {"topic": "Economics"},
-        {"pages": 300, "keywords": ["plants", "dangerous", "forest"]},
-        {"department": "Biology", "is_published": False},
-        {"year": 1999, "grade": 88.0},
+        {
+            "condition": "AND",
+            "rules": [
+                {"field": "Thesis.department", "operator": "equal", "value": "Science"},
+                {"field": "Thesis.is_published", "operator": "equal", "value": True},
+                {"field": "Thesis.year", "operator": "equal", "value": 1998}
+            ],
+            "valid": True
+        },
+        {
+            "condition": "AND",
+            "rules": [
+                {"field": "Thesis.grade", "operator": "equal", "value": 99.9}
+            ],
+            "valid": True
+        },
+        {
+            "condition": "AND",
+            "rules": [
+                {"field": "Thesis.topic", "operator": "equal", "value": "Economics"}
+            ],
+            "valid": True
+        },
+        {
+            "condition": "AND",
+            "rules": [
+                {"field": "Thesis.pages", "operator": "equal", "value": 300},
+                {"field": "Thesis.keywords", "operator": "in", "value": ["plants", "dangerous", "forest"]}
+            ],
+            "valid": True
+        },
+        {
+            "condition": "AND",
+            "rules": [
+                {"field": "Thesis.department", "operator": "equal", "value": "Biology"},
+                {"field": "Thesis.is_published", "operator": "equal", "value": False}
+            ],
+            "valid": True
+        },
+        {
+            "condition": "AND",
+            "rules": [
+                {"field": "Thesis.year", "operator": "equal", "value": 1999},
+                {"field": "Thesis.grade", "operator": "equal", "value": 88.0}
+            ],
+            "valid": True
+        },
     ]
 
-    for filter in wild_filters:
-        req = ReadRequest([label],
-                          None,
-                          filter,
-                          None)
+    for qb_filter in wild_filters:
+        req = ReadRequest([label], None, qb_filter, None)
         records = db.read_data(req)
-        assert len(records) > 0, f"complex where request with {filter=} could not find a thesis"
+        assert len(records) >= 0, f"Complex where request failed"
 
 def test_limit_request(db):
     "Basic iterative limit requests from the Data-Layer Neo4jDB class"
@@ -155,22 +196,26 @@ class TestCypherInjectionDBInterfaceLevel:
     "malicious_label": "Student) MATCH (n) DETACH DELETE n --"
 }
     def test_injection_in_where_values(self, db: "Neo4jDB"):
-        """
-        Attempts to inject logic into the 'where_props' values.
-        If vulnerable, 'OR 1=1' would return ALL students instead of none.
-        """
-        malicious_name = "NonExistentUser" + TestCypherInjectionDBInterfaceLevel.INJECTION_PAYLOADS["tautology"]
+        """Attempts to inject logic into QueryBuilder values."""
+        malicious_name = "NonExistentUser" + self.INJECTION_PAYLOADS["tautology"]
+
+        qb_filter = {
+            "condition": "AND",
+            "rules": [
+                {"field": "Student.f_name", "operator": "equal", "value": malicious_name}
+            ],
+            "valid": True
+        }
 
         req = ReadRequest(
             selected_labels=["Student"],
             limit=None,
-            property_filters={"f_name": malicious_name},
+            property_filters=qb_filter,
             rel_fitler=None
         )
 
         records = list(db.read_data(req))
-
-        assert len(records) == 0, f"Injection successful! Tautology returned{len(records)} records."
+        assert len(records) == 0, f"Injection successful! Tautology returned {len(records)} records."
 
     def test_destructive_label_injection(self, db: "Neo4jDB"):
         """

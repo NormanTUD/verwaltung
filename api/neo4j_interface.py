@@ -68,9 +68,7 @@ def construct_cypher_query(
         return_clause = " RETURN n"
 
     # where clause
-    where_clauses: list[str] = []
     parameters: dict[str, Any] = {}
-
 
 
     if not property_filters: where_clause = ""
@@ -81,11 +79,10 @@ def construct_cypher_query(
         # TODO: Remove TDD Fallback
         if where.is_valid:
             where_clause, parameters = "WHERE " + where.clause, where.parameters
-            logger.info(f"DEV: qb-parser: valid: {where_clause=},\n    {parameters=}")
+            logger.debug(f"DEV: qb-parser: valid: {where_clause=},\n    {parameters=}")
         else:
+            logger.warning("Outdated property_filters request")
             where_clause, parameters = old_where_clause(property_filters)
-            logger.info(f"DEV: qb-parser: broken result: {where_clause}, {parameters}")
-
 
 
 

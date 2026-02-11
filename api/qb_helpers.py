@@ -2,10 +2,7 @@ from __future__ import annotations
 from typing import TypedDict, Literal, Any
 from dataclasses import dataclass
 
-try:
-    from api.neo4j_interface_helpers import label_validation
-except ModuleNotFoundError:
-    def label_validation(label:str, logger=None) -> bool: return True
+from api.neo4j_interface_helpers import label_validation
 
 
 class QBRule(TypedDict, total=False):
