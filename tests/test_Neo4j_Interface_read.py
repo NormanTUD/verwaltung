@@ -53,81 +53,88 @@ class TestCypherConstruction:
                 pytest.fail(f"Cypher Construction Test: Value Error not risen for label {l}")
             assert exc_info.type == ValueError, f"Cypher Construction did not catch special char {l}"
 
-def test_simple_db_reads(db: "Neo4jDB"):
-    "Basic Read requests from the Data-Layer Neo4jDB class"
-    # Simple Request
+class TestBasicDBReads:
+    """Integration tests for core Neo4jDB read operations:
+    simple reads, where filters, limits, relationships, and error handling."""
 
-    label1 = "Student"
-    req = ReadRequest([label1],  None, None, None)
-    records = list(db.read_data(req))
-    for s in t_helpers.STUDENTS:
-        assert s.f_name in [r.data()["n"]["f_name"] for r in records]
+    def test_simple_db_reads(self, db: "Neo4jDB"):
+        """Basic read requests from the Data-Layer Neo4jDB class."""
+        label1 = "Student"
+        req = ReadRequest([label1], None, None, None)
+        records = list(db.read_data(req))
+        for s in t_helpers.STUDENTS:
+            assert s.f_name in [r.data()["n"]["f_name"] for r in records]
 
-    label2 = "Seminar"
-    req = ReadRequest([label2],  None, None, None)
-    records = list(db.read_data(req))
-    for c in t_helpers.SEMINARS:
-        assert c.name in [r.data()["n"]["title"] for r in records]
+        label2 = "Seminar"
+        req = ReadRequest([label2], None, None, None)
+        records = list(db.read_data(req))
+        for c in t_helpers.SEMINARS:
+            assert c.name in [r.data()["n"]["title"] for r in records]
 
-def test_where_request(db):
-    """Basic where requests using QueryBuilder format"""
-    lbl = "Student"
-    names = [s.f_name for s in t_helpers.STUDENTS]
+    def test_where_request(self, db: "Neo4jDB"):
+        """Basic where requests using QueryBuilder format."""
+        lbl = "Student"
+        names = [s.f_name for s in t_helpers.STUDENTS]
 
-    for n in names:
-        qb_filter = {
-            "condition": "AND",
-            "rules": [
-                {"field": "Student.f_name", "operator": "equal", "value": n}
-            ],
-            "valid": True
-        }
-        req = ReadRequest([lbl], None, qb_filter, None)
+        for n in names:
+            qb_filter = {
+                "condition": "AND",
+                "rules": [
+                    {"field": "Student.f_name", "operator": "equal", "value": n}
+                ],
+                "valid": True,
+            }
+            req = ReadRequest([lbl], None, qb_filter, None)
+            records = list(db.read_data(req))
+
+            assert n in [r.data()["n"]["f_name"] for r in records] and len(records) == 1
+            assert "Cookiebert Strauss" not in [r.data()["n"]["f_name"] for r in records]
+
+    @pytest.mark.parametrize("limit", range(1, 8))
+    def test_limit_request(self, db: "Neo4jDB", limit: int):
+        """Iterative limit requests from the Data-Layer Neo4jDB class."""
+        lbl = "Student"
+        req = ReadRequest([lbl], limit, None, None)
+        records = list(db.read_data(req))
+        assert len(records) == limit
+
+    def test_simple_relationships(self, db: "Neo4jDB"):
+        """Basic relationship requests from the Data-Layer Neo4jDB class."""
+        label1 = "Student"
+        req = ReadRequest(
+            [label1],
+            None,
+            None,
+            [t_helpers.CONNECTIONS[(t_helpers.Student, t_helpers.Seminar)]],
+        )
         records = list(db.read_data(req))
 
-        assert n in [r.data()["n"]["f_name"] for r in records] and len(records) == 1
-        assert "Cookiebert Strauss" not in [r.data()["n"]["f_name"] for r in records]
+        assert len(records) > 5, (
+            f"Too few records for student-seminar enrolled relation: {records}"
+        )
+        for r in records:
+            relation = r.data()["r"]
+            assert relation[1] == t_helpers.CONNECTIONS[
+                (t_helpers.Student, t_helpers.Seminar)
+            ], f"No relation in {relation}, or at least not at index 1"
 
-
-
-def test_limit_request(db):
-    "Basic iterative limit requests from the Data-Layer Neo4jDB class"
-    # Limits
-    lbl= "Student"
-    for i in range(1, 8):
-        req = ReadRequest([lbl], i,  None, None)
+    def test_unpresent_label(self, db: "Neo4jDB"):
+        """Requests for a label that doesn't exist should return nothing."""
+        m_label = "COOOOKIES"
+        req = ReadRequest([m_label], None, None, ["ENROLLED"])
         records = list(db.read_data(req))
-        assert len(records) == i
+        assert len(records) == 0
 
-def test_simple_relationships(db: "Neo4jDB"):
-    "Basic relationship requests from the Data-Layer Neo4jDB class"
-    label1 = "Student"
-
-    # req = ReadRequest([label1], label1, 3,  None, None, )
-    req = ReadRequest([label1],  None, None, [t_helpers.CONNECTIONS[(t_helpers.Student, t_helpers.Seminar)]])
-    records = list(db.read_data(req))
-
-    assert len(records) > 5, f"To little records for student-class enrolled relation {records}"
-    for r in records:
-         relation = r.data()["r"]
-         assert relation[1] == t_helpers.CONNECTIONS[(t_helpers.Student, t_helpers.Seminar)], f"[Test] , no relation in {relation}, or at least not at index 1? "
-
-def test_unpresent_label(db):
-    " Basic requests for a label that doesnt exist from the Data-Layer Neo4jDB class"
-    m_label = "COOOOKIES"
-    req = ReadRequest([m_label],  None, None, ["ENROLLED"])
-    records = list(db.read_data(req))
-    assert len(records) == 0
-
-def test_bad_limit(db):
-    " Expected behavior with wrong label input"
-    label1 = "Student"
-    bad_limits = {-3, "f", 14.13}
-    for bad_lim in bad_limits:
-        req = ReadRequest(selected_labels=[label1],
-                            limit= bad_lim,
-                            property_filters=None,
-                            rel_fitler=None)
+    @pytest.mark.parametrize("bad_lim", [-3, "f", 14.13], ids=["negative", "string", "float"])
+    def test_bad_limit(self, db: "Neo4jDB", bad_lim):
+        """Expected behavior with wrong limit input."""
+        label1 = "Student"
+        req = ReadRequest(
+            selected_labels=[label1],
+            limit=bad_lim,
+            property_filters=None,
+            rel_fitler=None,
+        )
         with pytest.raises(ClientError):
             db.read_data(req)
 
