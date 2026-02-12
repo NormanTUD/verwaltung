@@ -227,6 +227,14 @@ class QueryBuilderProcessor:
         joiner = f" {condition} "
         return joiner.join(clauses)
 
+    def _unvalid_cypher_where(self, msg):
+        return CypherWhereClause(
+                clause="",
+                parameters={},
+                is_valid=False,
+                errors=[msg]
+            )
+
     def process(self, qb_json: dict) -> CypherWhereClause:
         """
         Main entry point: Process jQuery QueryBuilder JSON into Cypher WHERE clause.
@@ -244,12 +252,10 @@ class QueryBuilderProcessor:
 
         # Check validity flag from QueryBuilder
         if not qb_json.get("valid", False):
-            return CypherWhereClause(
-                clause="",
-                parameters={},
-                is_valid=False,
-                errors=["QueryBuilder reported invalid state"]
-            )
+            return self._unvalid_cypher_where("QueryBuilder reported invalid state")
+
+        if not qb_json.get("condition"):
+            return self._unvalid_cypher_where("No Condition was in the QB keys")
 
         # Process the root group
         clause = self._process_group(qb_json)

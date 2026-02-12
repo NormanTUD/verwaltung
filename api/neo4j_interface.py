@@ -89,9 +89,9 @@ def construct_cypher_query(
         if where.is_valid:
             where_clause, parameters = "WHERE " + where.clause, where.parameters
             logger.debug(f"DEV: qb-parser: valid: {where_clause=},\n    {parameters=}")
-        else:
-            logger.warning("Outdated property_filters request")
-            where_clause, parameters = old_where_clause(property_filters)
+        else: raise ValueError(f"{where.errors}")
+            # logger.warning("Outdated property_filters request")
+            # where_clause, parameters = old_where_clause(property_filters)
 
 
 
