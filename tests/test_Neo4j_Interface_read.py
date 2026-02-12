@@ -88,65 +88,7 @@ def test_where_request(db):
         assert n in [r.data()["n"]["f_name"] for r in records] and len(records) == 1
         assert "Cookiebert Strauss" not in [r.data()["n"]["f_name"] for r in records]
 
-@pytest.mark.skip(reason=" complex wheres - test needs refactoring - Will be looked into")
-def test_complex_where_requests(db):
-    """Complex where requests using QueryBuilder format"""
-    label = "Thesis"
 
-    wild_filters = [
-        {
-            "condition": "AND",
-            "rules": [
-                {"field": "Thesis.department", "operator": "equal", "value": "Science"},
-                {"field": "Thesis.is_published", "operator": "equal", "value": True},
-                {"field": "Thesis.year", "operator": "equal", "value": 1998}
-            ],
-            "valid": True
-        },
-        {
-            "condition": "AND",
-            "rules": [
-                {"field": "Thesis.grade", "operator": "equal", "value": 99.9}
-            ],
-            "valid": True
-        },
-        {
-            "condition": "AND",
-            "rules": [
-                {"field": "Thesis.topic", "operator": "equal", "value": "Economics"}
-            ],
-            "valid": True
-        },
-        {
-            "condition": "AND",
-            "rules": [
-                {"field": "Thesis.pages", "operator": "equal", "value": 300},
-                {"field": "Thesis.keywords", "operator": "in", "value": ["plants", "dangerous", "forest"]}
-            ],
-            "valid": True
-        },
-        {
-            "condition": "AND",
-            "rules": [
-                {"field": "Thesis.department", "operator": "equal", "value": "Biology"},
-                {"field": "Thesis.is_published", "operator": "equal", "value": False}
-            ],
-            "valid": True
-        },
-        {
-            "condition": "AND",
-            "rules": [
-                {"field": "Thesis.year", "operator": "equal", "value": 1999},
-                {"field": "Thesis.grade", "operator": "equal", "value": 88.0}
-            ],
-            "valid": True
-        },
-    ]
-
-    for qb_filter in wild_filters:
-        req = ReadRequest([label], None, qb_filter, None)
-        records = db.read_data(req)
-        assert len(records) > 0, f"Complex where request failed"
 
 def test_limit_request(db):
     "Basic iterative limit requests from the Data-Layer Neo4jDB class"
