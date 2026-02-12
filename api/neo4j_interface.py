@@ -16,6 +16,15 @@ Dataclasses
 """
 @dataclass
 class ReadRequest():
+    """
+    dataclass that holds query parameters for the db.
+    :selected_labes: a list of the labels to be retrieved
+    :limit: maximum amount of returned nodes
+    :property_filters: JQueryBuider output
+    :rel_filters: list of relations  between nodes
+
+    some parameters like a max_depth are not implemented as of now.
+    """
 
     selected_labels: list[str]
     limit: int | None

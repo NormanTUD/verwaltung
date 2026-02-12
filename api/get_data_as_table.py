@@ -1,5 +1,5 @@
 import json
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, Response, Parse_Error
 from oasis_helper import conditional_login_required
 
 from api.neo4j_interface import Neo4jDB, ReadRequest
@@ -11,12 +11,8 @@ from typing import Any
 
 log = logging.getLogger("[API] get_data_as_table")
 log.setLevel(logging.INFO)
-def create_get_data_bp() -> Blueprint:
-    log.debug("Registering Blueprint")
-    bp = Blueprint("get_data_bp", __name__)
 
-
-    def parse_request_params(req) -> ReadRequest:
+def parse_request_params(req) -> ReadRequest:
         nodes_param = req.args.get("nodes")
         if not nodes_param:
             raise ValueError("Parameter 'nodes' required")
@@ -41,9 +37,8 @@ def create_get_data_bp() -> Blueprint:
 
         qb_raw = req.args.get("qb")
         if qb_raw and qb_raw.lower() != "null":
-            qb_json = json.loads(qb_raw)
-            log.info(f"DEV:  {qb_json=}")
-            property_filters = qb_json
+            property_filters = json.loads(qb_raw)
+
 
 
         # allow manual where override
@@ -54,67 +49,7 @@ def create_get_data_bp() -> Blueprint:
 
         return ReadRequest(selected_labels, limit, property_filters, rel_filter)
 
-    @bp.route("/get_data_as_table", methods=["GET"])
-    @conditional_login_required
-    def get_data_as_table2():
-        driver = current_app.config["driver"]
-        interf_db = Neo4jDB(driver)
-        params = parse_request_params(request)
-
-        # BUG: The next logging process produces a weird error
-        # log.debug("Parsed Parameters from Front", params)
-
-        data = interf_db.read_data(params)
-        log.debug(f" data was read: {data}"[:100])
-
-        # df = records_to_table(data)
-        data_dict = records_to_json(data, params)
-
-        log.debug(f"JSON Data: {data_dict}"[:200])
-        return jsonify(data_dict)
-
-    return bp
-
-def cols_from_data(data: list[Record]) -> list[dict]:
-    """ Parses the data for columns, where each column is a node:property"""
-    # Create Columns
-    columns:list = []
-    known_node_types = set()
-    for record in data:
-        for element in record:
-            if isinstance(element, Relationship): continue
-            label = list(element.labels)[0]
-            if label in known_node_types: continue
-            for prop, val in element.items():
-                columns.append({"nodeType": label,
-                                "property": prop})
-            known_node_types.add(label)
-    return columns
-
-def distance_of_unrelated_node_types(columns: list) -> dict[str, int]:
-    """ Calculates how many columns each type of node has."""
-    columns_per_node_type:dict = {}
-    prev = None
-    for i, c in enumerate(columns):
-        node_type = c["nodeType"]
-        if not prev:
-            prev = node_type
-            continue
-        if node_type != prev:
-            columns_per_node_type[node_type] = i
-            prev = node_type
-    return columns_per_node_type
-
-def get_data_print(data):
-    LIM = "    "
-    for record in data:
-        print("Record:")
-        for element in record:
-            print(f"{LIM}{element}")
-            for property, value in element.items():
-                print(LIM * 2, property, value)
-
-def records_to_json(data: list[Record], params:ReadRequest) -> dict[str, Any]:
+def records_to_json(data: list[Record], params:ReadRequest) -> Response:
     if not data:
         return {"columns": [], "rows": []}
 
@@ -161,4 +96,81 @@ def records_to_json(data: list[Record], params:ReadRequest) -> dict[str, Any]:
 
         rows.append(row)
 
-    return {"columns": columns, "rows": rows}
+    return jsonify({"columns": columns, "rows": rows})
+
+def create_get_data_bp(parser=parse_request_params,
+                       translator=records_to_json,
+                       ) -> Blueprint:
+    """
+    Returns the blueprint to create_data
+
+    :param parser: Component which takes the request as an arg and returns a ReadRequest
+    :translator: Component that takes the Neo4j records as an Input and returns the json.
+    """
+
+    log.debug("Registering Blueprint")
+    bp = Blueprint("get_data_bp", __name__)
+
+    # this is probably gross, as it handles everything and returns everything to the user
+    # however error handeling should happen here?
+    @bp.errorhandler(Exception)
+    def handle_parse_error(error):
+        return jsonify({'error': str(error)}), 400
+
+
+    @bp.route("/get_data_as_table", methods=["GET"])
+    @conditional_login_required
+    def get_data_as_table2() -> Response:
+        driver = current_app.config["driver"]
+        interf_db = Neo4jDB(driver)
+
+        params: ReadRequest = parser(request)
+        data = interf_db.read_data(params)
+
+        log.debug(f" data was read: {data}"[:100])
+
+        data_dict = translator(data, params)
+
+        log.debug(f"JSON Data: {data_dict}"[:200])
+        return data_dict
+
+    return bp
+
+def cols_from_data(data: list[Record]) -> list[dict]:
+    """ Parses the data for columns, where each column is a node:property"""
+    # Create Columns
+    columns:list = []
+    known_node_types = set()
+    for record in data:
+        for element in record:
+            if isinstance(element, Relationship): continue
+            label = list(element.labels)[0]
+            if label in known_node_types: continue
+            for prop, val in element.items():
+                columns.append({"nodeType": label,
+                                "property": prop})
+            known_node_types.add(label)
+    return columns
+
+def distance_of_unrelated_node_types(columns: list) -> dict[str, int]:
+    """ Calculates how many columns each type of node has."""
+    columns_per_node_type:dict = {}
+    prev = None
+    for i, c in enumerate(columns):
+        node_type = c["nodeType"]
+        if not prev:
+            prev = node_type
+            continue
+        if node_type != prev:
+            columns_per_node_type[node_type] = i
+            prev = node_type
+    return columns_per_node_type
+
+def get_data_print(data):
+    LIM = "    "
+    for record in data:
+        print("Record:")
+        for element in record:
+            print(f"{LIM}{element}")
+            for property, value in element.items():
+                print(LIM * 2, property, value)
