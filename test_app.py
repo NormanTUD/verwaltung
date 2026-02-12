@@ -15,7 +15,8 @@ from oasis_helper import load_or_generate_secret_key
 warnings.filterwarnings("ignore", category=ResourceWarning)
 
 # Lade Umgebungsvariablen aus der .env.test-Datei für die Tests
-load_dotenv('.env.test')
+if not load_dotenv('.env.test'): print(".env could not be loaded")
+
 
 # Wichtig: Importieren Sie die App-Instanz aus Ihrer Hauptdatei
 
