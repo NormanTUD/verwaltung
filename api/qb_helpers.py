@@ -194,7 +194,7 @@ class QueryBuilderProcessor:
             return f"NOT ({condition})"
         return condition
 
-    def _process_group(self, group: QBGroup) -> str | None:
+    def _process_group(self, group: QBGroup | dict) -> str | None:
         """Recursively process a QueryBuilder group (AND/OR conditions)."""
         condition = group.get("condition", "AND").upper()
         rules = group.get("rules", [])
