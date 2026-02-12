@@ -51,19 +51,19 @@ wait_for_app() {
 
 run_app() {
     log "Starte Docker-Compose für $APP_NAME im Hintergrund auf Port $APP_PORT..."
-    APP_PORT=$APP_PORT docker-compose up -d --build "$APP_NAME"
+    APP_PORT=$APP_PORT docker compose up -d --build "$APP_NAME"
     wait_for_app
     log "Container läuft und ist erreichbar. Skript beendet sich nun."
 }
 
 run_tests() {
     log "Starte Testumgebung..."
-    APP_PORT=$APP_PORT docker-compose up -d --build "$APP_NAME"
+    APP_PORT=$APP_PORT docker compose up -d --build "$APP_NAME"
     wait_for_app
     log "Führe Tests aus..."
-    docker-compose run --rm "$APP_NAME" pytest || error "Tests fehlgeschlagen!"
+    docker compose run --rm "$APP_NAME" pytest || error "Tests fehlgeschlagen!"
     log "Tests abgeschlossen. Fahre Container herunter..."
-    docker-compose down
+    docker compose down
 }
 
 main() {
