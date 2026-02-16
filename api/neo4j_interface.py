@@ -22,6 +22,8 @@ class ReadRequest():
     :limit: maximum amount of returned nodes
     :property_filters: JQueryBuider output
     :rel_filters: list of relations  between nodes
+    :rel_as_filter: returns only nodes that have the requested relationships if True,
+    else requests all Nodes regardless if they have the connection or not.
 
     some parameters like a max_depth are not implemented as of now.
     """
@@ -29,7 +31,8 @@ class ReadRequest():
     selected_labels: list[str]
     limit: int | None
     property_filters: dict[str, str] | None
-    rel_fitler: list[str] | None
+    rel_filter: list[str] | None
+    rel_as_filter: bool | None = None # This is for logging that the frontend does not implement this endpoint, can be changed to True later on.
 
 
 """
@@ -42,7 +45,8 @@ def construct_cypher_query(
     property_filters: dict | None = None,
     rel_types: list[str] | None = None,
     limit: int | None = None,
-    all_labels: bool = False
+    all_labels: bool = False,
+    rel_as_filter = True
 ) -> tuple[str, dict[str, Any]]:
 
     # if not node_labels: raise ValueError("N4JDB: construct_cypher: Unvalid node labels")
@@ -65,20 +69,10 @@ def construct_cypher_query(
         node_label_clause = ":" + "|".join(node_labels)
     node_pattern = f"(n{node_label_clause})"
 
-    # Relationship clause (optional)
 
-    if rel_types:
-        rel_type_clause = ":" + "|".join(rel_types)
-        rel_pattern = f"-[r{rel_type_clause}]->(m)"
-        match_clause = f"MATCH {node_pattern}{rel_pattern}"
-        return_clause = " RETURN n, r, m"
-    else:
-        match_clause = f"MATCH {node_pattern}"
-        return_clause = " RETURN n"
 
     # where clause
     parameters: dict[str, Any] = {}
-
 
     if not property_filters: where_clause = ""
     else:
@@ -93,23 +87,36 @@ def construct_cypher_query(
             # logger.warning("Outdated property_filters request")
             # where_clause, parameters = old_where_clause(property_filters)
 
-
-
     # limit
     limit_clause = ""
     if limit is not None:
         limit_clause = " LIMIT $limit"
         parameters["limit"] = limit
 
+    # Relationship clause (optional)
+
+    if rel_types:
+        rel_type_clause = ":" + "|".join(rel_types)
+        rel_pattern = f"-[r{rel_type_clause}]->(m)"
+        if rel_as_filter:
+            match_clause = f"MATCH {node_pattern}{rel_pattern} {where_clause}"
+        else:
+            match_clause = f"MATCH {node_pattern} {where_clause} OPTIONAL MATCH {node_pattern}{rel_pattern}"
+
+        return_clause = " RETURN n, r, m"
+    else:
+        match_clause = f"MATCH {node_pattern} {where_clause}"
+        return_clause = " RETURN n"
+
+
+
     # Construct
     cypher = (
         f"{match_clause}"
-        f"{where_clause}"
+        #f"{where_clause}"
         f"{return_clause}"
         f"{limit_clause}"
     )
-    if 'limit' in parameters:
-        parameters["limit"] = limit
     return cypher, parameters
 
 """
@@ -146,18 +153,21 @@ class Neo4jDB(Neo4jDBInterface):
 
     def read_data(self, req_data: ReadRequest) -> list[Record]: #node_types, relationships = None, filters = None, limit=None
         node_types = req_data.selected_labels
-        relationships = req_data.rel_fitler
+        relationships = req_data.rel_filter
         filters = req_data.property_filters
         limit = req_data.limit
         if not limit: limit = 1000
-
+        rel_as_filter = req_data.rel_as_filter
+        if rel_as_filter is None:
+            rel_as_filter = True
+            self.logger.info("Rel_as_filter switch is not (yet) used by the frontend")
         # max_depth is not implemented
         self.logger.info("cypher construction: max_depth from ReadRequest is not implemented.")
 
         self.logger.debug(f"Read Query: {node_types=}, {relationships=}, {filters=}, {limit=}")
 
         # tightly coupled - but the cypher constructing is a bridge between request interface and db access
-        cypher, params = construct_cypher_query(node_types, filters, relationships, limit)
+        cypher, params = construct_cypher_query(node_types, filters, relationships, limit, rel_as_filter=rel_as_filter)
         self.logger.debug(f"Cypher was created: {cypher} with paramets: {params}")
 
         with self._driver.session() as session:

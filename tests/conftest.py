@@ -3,7 +3,6 @@ import t_helpers
 from neo4j import GraphDatabase
 from api.neo4j_interface import Neo4jDB
 
-# Fixtures in this file will be available to all other files in the folder
 
 URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 AUTH =(

@@ -133,7 +133,7 @@ class TestBasicDBReads:
             selected_labels=[label1],
             limit=bad_lim,
             property_filters=None,
-            rel_fitler=None,
+            rel_filter=None,
         )
         with pytest.raises(ClientError):
             db.read_data(req)
@@ -162,7 +162,7 @@ class TestCypherInjectionDBInterfaceLevel:
             selected_labels=["Student"],
             limit=None,
             property_filters=qb_filter,
-            rel_fitler=None
+            rel_filter=None
         )
 
         records = list(db.read_data(req))
@@ -177,7 +177,7 @@ class TestCypherInjectionDBInterfaceLevel:
             selected_labels=[TestCypherInjectionDBInterfaceLevel.INJECTION_PAYLOADS["malicious_label"]],
             limit=None,
             property_filters=None,
-            rel_fitler=None
+            rel_filter=None
         )
 
         try:
@@ -189,14 +189,14 @@ class TestCypherInjectionDBInterfaceLevel:
             selected_labels=["Student"],
             limit=None,
             property_filters=None,
-            rel_fitler=None
+            rel_filter=None
         )
         students = list(db.read_data(check_req))
         assert len(students) > 0, "Destructive injection in Label succeeded! Students were deleted."
 
     def test_injection_in_relationships(self, db: "Neo4jDB"):
         """
-        Attempts to inject Cypher into the 'rel_fitler' list.
+        Attempts to inject Cypher into the 'rel_filter' list.
         """
         malicious_rel = "ENROLLED]-(s) RETURN s UNION CALL db.labels() --"
 
@@ -204,7 +204,7 @@ class TestCypherInjectionDBInterfaceLevel:
             selected_labels=["Student"],
             limit=None,
             property_filters=None,
-            rel_fitler=[malicious_rel]
+            rel_filter=[malicious_rel]
         )
 
         try:
@@ -225,7 +225,7 @@ class TestCypherInjectionDBInterfaceLevel:
             selected_labels=["Student"],
             limit=malicious_limit,
             property_filters=None,
-            rel_fitler=None
+            rel_filter=None
         )
 
         try:
@@ -247,7 +247,7 @@ class TestCypherInjectionDBInterfaceLevel:
             selected_labels=["Student"],
             limit=None,
             property_filters={"f_name": malicious_val},
-            rel_fitler=None
+            rel_filter=None
         )
 
         try:
@@ -259,7 +259,7 @@ class TestCypherInjectionDBInterfaceLevel:
             selected_labels=["Student"],
             limit=None,
             property_filters=None,
-            rel_fitler=None
+            rel_filter=None
         )
         remaining_students = list(db.read_data(check_req))
 
@@ -309,7 +309,7 @@ class TestPropertyFilters:
             selected_labels=[label or self.LABEL],
             limit=None,
             property_filters=qb_filter,
-            rel_fitler=None,
+            rel_filter=None,
         )
         return list(db.read_data(req))
 
@@ -761,7 +761,7 @@ class TestPropertyFilters:
             selected_labels=[self.LABEL],
             limit=2,
             property_filters=qb,
-            rel_fitler=None,
+            rel_filter=None,
         )
         records = list(db.read_data(req))
         assert len(records) == 2
@@ -775,7 +775,7 @@ class TestPropertyFilters:
             selected_labels=[self.LABEL],
             limit=None,
             property_filters=qb,
-            rel_fitler=[t_helpers.CONNECTIONS[(t_helpers.Student, t_helpers.MasterThesis)]],
+            rel_filter=[t_helpers.CONNECTIONS[(t_helpers.Student, t_helpers.MasterThesis)]],
         )
         records = list(db.read_data(req))
         for r in records:
@@ -794,3 +794,455 @@ class TestPropertyFilters:
         assert len(records) == 1
         assert records[0].data()["n"]["f_name"] == "Hermoine"
 
+class TestRelAsFilter:
+    """
+    Test suite for the `rel_as_filter` parameter on ReadRequest / construct_cypher_query.
+
+    Two modes:
+      rel_as_filter=True  (default) → strict MATCH: only nodes participating in the relationship are returned.
+      rel_as_filter=False           → OPTIONAL MATCH: all matching nodes returned; relationships enriched where present.
+    """
+
+    AUTHORED_REL = t_helpers.CONNECTIONS[(t_helpers.Student, t_helpers.MasterThesis)]
+    ENROLLED_REL = t_helpers.CONNECTIONS[(t_helpers.Student, t_helpers.Seminar)]
+    SUPERVISES_REL = t_helpers.CONNECTIONS[(t_helpers.Teacher, t_helpers.MasterThesis)]
+
+    STUDENTS_WITH_THESIS = {1, 2, 3, 4, 5}
+    STUDENTS_WITHOUT_THESIS = {6, 7, 8}
+    ALL_STUDENT_IDS = STUDENTS_WITH_THESIS | STUDENTS_WITHOUT_THESIS
+
+    # ═══════════════════════════════════════════════════════════════
+    # A. CYPHER CONSTRUCTION — verify query shape
+    # ═══════════════════════════════════════════════════════════════
+
+    def test_default_rel_as_filter_is_true(self):
+        """Backward compatibility: omitting rel_as_filter produces a strict MATCH (no OPTIONAL)."""
+        cypher, _ = construct_cypher_query(
+            node_labels=["Student"],
+            rel_types=[self.AUTHORED_REL],
+        )
+        assert "OPTIONAL" not in cypher
+        assert "MATCH" in cypher
+
+    def test_cypher_rel_as_filter_true_produces_strict_match(self):
+        """rel_as_filter=True should produce a single MATCH with the relationship pattern."""
+        cypher, _ = construct_cypher_query(
+            node_labels=["Student"],
+            rel_types=[self.AUTHORED_REL],
+            rel_as_filter=True,
+        )
+        assert "OPTIONAL" not in cypher
+        assert f"-[r:{self.AUTHORED_REL}]->" in cypher
+
+    def test_cypher_rel_as_filter_false_produces_optional_match(self):
+        """rel_as_filter=False should produce MATCH (n:Label) OPTIONAL MATCH (n)-[r:...]->(m)."""
+        cypher, _ = construct_cypher_query(
+            node_labels=["Student"],
+            rel_types=[self.AUTHORED_REL],
+            rel_as_filter=False,
+        )
+        assert "OPTIONAL MATCH" in cypher
+        # The node MATCH should appear without the relationship pattern
+        assert "MATCH (n:Student)" in cypher
+        assert f"-[r:{self.AUTHORED_REL}]->" in cypher
+
+    def test_cypher_rel_as_filter_ignored_when_no_rel_types(self):
+        """When rel_types is None, rel_as_filter should have no effect on the query."""
+        cypher_default, _ = construct_cypher_query(
+            node_labels=["Student"],
+            rel_types=None,
+            rel_as_filter=True,
+        )
+        cypher_optional, _ = construct_cypher_query(
+            node_labels=["Student"],
+            rel_types=None,
+            rel_as_filter=False,
+        )
+        assert cypher_default == cypher_optional
+        assert "OPTIONAL" not in cypher_default
+
+    def test_cypher_rel_as_filter_false_returns_n_r_m(self):
+        """Even in OPTIONAL mode, the RETURN clause should include n, r, m."""
+        cypher, _ = construct_cypher_query(
+            node_labels=["Student"],
+            rel_types=[self.AUTHORED_REL],
+            rel_as_filter=False,
+        )
+        assert "RETURN n, r, m" in cypher
+
+    def test_cypher_rel_as_filter_false_with_multiple_rel_types(self):
+        """OPTIONAL MATCH should work with multiple relationship types (OR'd)."""
+        cypher, _ = construct_cypher_query(
+            node_labels=["Student"],
+            rel_types=[self.AUTHORED_REL, self.ENROLLED_REL],
+            rel_as_filter=False,
+        )
+        assert "OPTIONAL MATCH" in cypher
+        assert f"{self.AUTHORED_REL}|{self.ENROLLED_REL}" in cypher
+
+    # ═══════════════════════════════════════════════════════════════
+    # B. INTEGRATION — rel_as_filter=True (strict / default)
+    # ═══════════════════════════════════════════════════════════════
+
+    def test_strict_mode_excludes_unrelated_nodes(self, db: "Neo4jDB"):
+        """
+        rel_as_filter=True (default): Students without an 'authored' relationship
+        should NOT appear in the results.
+        """
+        req = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=None,
+            rel_filter=[self.AUTHORED_REL],
+            rel_as_filter=True,
+        )
+        records = list(db.read_data(req))
+        returned_ids = {r.data()["n"]["student_id"] for r in records}
+
+        for sid in self.STUDENTS_WITHOUT_THESIS:
+            assert sid not in returned_ids, (
+                f"Student {sid} has no 'authored' rel but appeared in strict mode"
+            )
+
+    def test_strict_mode_only_returns_related_nodes(self, db: "Neo4jDB"):
+        """rel_as_filter=True: only students 1–5 (who authored a thesis) are returned."""
+        req = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=None,
+            rel_filter=[self.AUTHORED_REL],
+            rel_as_filter=True,
+        )
+        records = list(db.read_data(req))
+        returned_ids = {r.data()["n"]["student_id"] for r in records}
+
+        assert returned_ids == self.STUDENTS_WITH_THESIS
+
+    def test_strict_mode_all_records_have_relationship(self, db: "Neo4jDB"):
+        """In strict mode every returned record must contain a non-null relationship."""
+        req = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=None,
+            rel_filter=[self.AUTHORED_REL],
+            rel_as_filter=True,
+        )
+        records = list(db.read_data(req))
+        for r in records:
+            data = r.data()
+            assert data["r"] is not None, "Strict mode returned a record with null relationship"
+            assert data["m"] is not None, "Strict mode returned a record with null target node"
+
+    # ═══════════════════════════════════════════════════════════════
+    # C. INTEGRATION — rel_as_filter=False (optional enrichment)
+    # ═══════════════════════════════════════════════════════════════
+
+    def test_optional_mode_returns_all_nodes(self, db: "Neo4jDB"):
+        """
+        rel_as_filter=False: ALL students should appear, regardless of
+        whether they have an 'authored' relationship.
+        """
+        req = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=None,
+            rel_filter=[self.AUTHORED_REL],
+            rel_as_filter=False,
+        )
+        records = list(db.read_data(req))
+        returned_ids = {r.data()["n"]["student_id"] for r in records}
+
+        assert self.ALL_STUDENT_IDS.issubset(returned_ids), (
+            f"Optional mode should return all students. Missing: "
+            f"{self.ALL_STUDENT_IDS - returned_ids}"
+        )
+
+    def test_optional_mode_unrelated_nodes_have_null_relationship(self, db: "Neo4jDB"):
+        """
+        rel_as_filter=False: Students without the 'authored' relationship
+        should still appear but with r=None and m=None.
+        """
+        req = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=None,
+            rel_filter=[self.AUTHORED_REL],
+            rel_as_filter=False,
+        )
+        records = list(db.read_data(req))
+
+        for r in records:
+            data = r.data()
+            sid = data["n"]["student_id"]
+            if sid in self.STUDENTS_WITHOUT_THESIS:
+                assert data["r"] is None, (
+                    f"Student {sid} should have null relationship in optional mode"
+                )
+                assert data["m"] is None, (
+                    f"Student {sid} should have null target node in optional mode"
+                )
+
+    def test_optional_mode_related_nodes_still_have_relationship(self, db: "Neo4jDB"):
+        """
+        rel_as_filter=False: Students WITH the 'authored' relationship
+        should still have non-null r and m.
+        """
+        req = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=None,
+            rel_filter=[self.AUTHORED_REL],
+            rel_as_filter=False,
+        )
+        records = list(db.read_data(req))
+
+        related_records = [
+            r for r in records
+            if r.data()["n"]["student_id"] in self.STUDENTS_WITH_THESIS
+        ]
+        assert len(related_records) > 0, "No records found for students who authored theses"
+
+        for r in related_records:
+            data = r.data()
+            assert data["r"] is not None, (
+                f"Student {data['n']['student_id']} authored a thesis but r is null"
+            )
+            assert data["m"] is not None, (
+                f"Student {data['n']['student_id']} authored a thesis but m is null"
+            )
+
+    def test_optional_mode_returns_more_results_than_strict(self, db: "Neo4jDB"):
+        """
+        The optional-mode result set must be a superset of the strict-mode
+        result set (in terms of distinct student IDs).
+        """
+        strict_req = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=None,
+            rel_filter=[self.AUTHORED_REL],
+            rel_as_filter=True,
+        )
+        optional_req = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=None,
+            rel_filter=[self.AUTHORED_REL],
+            rel_as_filter=False,
+        )
+
+        strict_ids = {r.data()["n"]["student_id"] for r in db.read_data(strict_req)}
+        optional_ids = {r.data()["n"]["student_id"] for r in db.read_data(optional_req)}
+
+        assert strict_ids.issubset(optional_ids), (
+            "Strict IDs should be a subset of optional IDs"
+        )
+        assert len(optional_ids) > len(strict_ids), (
+            "Optional mode should return more distinct students than strict mode"
+        )
+
+    # ═══════════════════════════════════════════════════════════════
+    # D. COMBINED WITH PROPERTY FILTERS
+    # ═══════════════════════════════════════════════════════════════
+
+    def test_optional_mode_with_property_filter(self, db: "Neo4jDB"):
+        """
+        rel_as_filter=False + property filter on n: the WHERE clause must
+        bind to n and NOT accidentally filter out NULL rows from OPTIONAL MATCH.
+        Filtering for f_name='Ginny' (student 6, no thesis) should still return her.
+        """
+        qb_filter = {
+            "condition": "AND",
+            "rules": [
+                {"field": "Student.f_name", "operator": "equal", "value": "Ginny"}
+            ],
+            "valid": True,
+        }
+        req = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=qb_filter,
+            rel_filter=[self.AUTHORED_REL],
+            rel_as_filter=False,
+        )
+        records = list(db.read_data(req))
+
+        assert len(records) == 1, (
+            f"Expected exactly 1 record for Ginny, got {len(records)}, {records}"
+        )
+        data = records[0].data()
+        assert data["n"]["f_name"] == "Ginny"
+        assert data["r"] is None, "Ginny has no thesis; r should be null"
+        assert data["m"] is None, "Ginny has no thesis; m should be null"
+
+    def test_strict_mode_with_property_filter(self, db: "Neo4jDB"):
+        """
+        rel_as_filter=True + property filter for a student WITHOUT a thesis:
+        should return nothing because the strict MATCH excludes them.
+        """
+        qb_filter = {
+            "condition": "AND",
+            "rules": [
+                {"field": "Student.f_name", "operator": "equal", "value": "Ginny"}
+            ],
+            "valid": True,
+        }
+        req = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=qb_filter,
+            rel_filter=[self.AUTHORED_REL],
+            rel_as_filter=True,
+        )
+        records = list(db.read_data(req))
+
+        assert len(records) == 0, (
+            "Ginny has no 'authored' rel; strict mode should return 0 records"
+        )
+
+    def test_optional_mode_filter_on_related_student(self, db: "Neo4jDB"):
+        """
+        rel_as_filter=False + filter for Hermione (student 1, HAS thesis):
+        should return her record WITH a populated relationship.
+        """
+        qb_filter = {
+            "condition": "AND",
+            "rules": [
+                {"field": "Student.f_name", "operator": "equal", "value": "Hermoine"}
+            ],
+            "valid": True,
+        }
+        req = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=qb_filter,
+            rel_filter=[self.AUTHORED_REL],
+            rel_as_filter=False,
+        )
+        records = list(db.read_data(req))
+
+        assert len(records) >= 1, "Hermione should be returned"
+        for r in records:
+            data = r.data()
+            assert data["n"]["f_name"] == "Hermoine"
+            assert data["r"] is not None, "Hermione authored a thesis; r should not be null"
+            assert data["m"] is not None, "Hermione authored a thesis; m should not be null"
+
+    # ═══════════════════════════════════════════════════════════════
+    # E. COMBINED WITH LIMIT
+    # ═══════════════════════════════════════════════════════════════
+
+    def test_optional_mode_with_limit(self, db: "Neo4jDB"):
+        """rel_as_filter=False + limit: limit must still be respected."""
+        req = ReadRequest(
+            selected_labels=["Student"],
+            limit=3,
+            property_filters=None,
+            rel_filter=[self.AUTHORED_REL],
+            rel_as_filter=False,
+        )
+        records = list(db.read_data(req))
+        assert len(records) == 3
+
+    def test_strict_mode_with_limit(self, db: "Neo4jDB"):
+        """rel_as_filter=True + limit: limit applies to the filtered set."""
+        req = ReadRequest(
+            selected_labels=["Student"],
+            limit=2,
+            property_filters=None,
+            rel_filter=[self.AUTHORED_REL],
+            rel_as_filter=True,
+        )
+        records = list(db.read_data(req))
+        assert len(records) == 2
+        # All returned records must have a relationship
+        for r in records:
+            assert r.data()["r"] is not None
+
+    # ═══════════════════════════════════════════════════════════════
+    # F. EDGE CASES
+    # ═══════════════════════════════════════════════════════════════
+
+    def test_optional_mode_no_rel_types_same_as_plain_match(self, db: "Neo4jDB"):
+        """When rel_types is None, rel_as_filter=False should behave identically to True."""
+        req_true = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=None,
+            rel_filter=None,
+            rel_as_filter=True,
+        )
+        req_false = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=None,
+            rel_filter=None,
+            rel_as_filter=False,
+        )
+        ids_true = {r.data()["n"]["student_id"] for r in db.read_data(req_true)}
+        ids_false = {r.data()["n"]["student_id"] for r in db.read_data(req_false)}
+
+        assert ids_true == ids_false
+
+    def test_optional_mode_with_nonexistent_rel_type(self, db: "Neo4jDB"):
+        """
+        rel_as_filter=False with a rel type no node has:
+        All students returned but every r and m should be None.
+        """
+        req = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=None,
+            rel_filter=["nonexiste"],
+            rel_as_filter=False,
+        )
+        records = list(db.read_data(req))
+        returned_ids = {r.data()["n"]["student_id"] for r in records}
+
+        assert self.ALL_STUDENT_IDS.issubset(returned_ids), (
+            "All students should still be returned even with a nonexistent relationship"
+        )
+        for r in records:
+            data = r.data()
+            assert data["r"] is None, "No node has this rel; r should always be null"
+            assert data["m"] is None, "No node has this rel; m should always be null"
+
+    def test_strict_mode_with_nonexistent_rel_type(self, db: "Neo4jDB"):
+        """
+        rel_as_filter=True with a rel type no node has:
+        Should return zero records.
+        """
+        req = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=None,
+            rel_filter=["nononexe"],
+            rel_as_filter=True,
+        )
+        records = list(db.read_data(req))
+        assert len(records) == 0
+
+    def test_backward_compatibility_default_matches_explicit_true(self, db: "Neo4jDB"):
+        """
+        Omitting rel_as_filter should produce the same results as explicitly
+        passing rel_as_filter=True (backward compatibility).
+        """
+        req_default = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=None,
+            rel_filter=[self.AUTHORED_REL],
+        )
+        req_explicit = ReadRequest(
+            selected_labels=["Student"],
+            limit=None,
+            property_filters=None,
+            rel_filter=[self.AUTHORED_REL],
+            rel_as_filter=True,
+        )
+        ids_default = {r.data()["n"]["student_id"] for r in db.read_data(req_default)}
+        ids_explicit = {r.data()["n"]["student_id"] for r in db.read_data(req_explicit)}
+
+        assert ids_default == ids_explicit, (
+            "Default behavior must match explicit rel_as_filter=True"
+        )
