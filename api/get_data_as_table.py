@@ -1,16 +1,16 @@
 import json
-from flask import Blueprint, request, jsonify, current_app, Response, Parse_Error
+from flask import Blueprint, request, jsonify, current_app, Response
 from oasis_helper import conditional_login_required
 
 from api.neo4j_interface import Neo4jDB, ReadRequest
 from neo4j import Record
 from neo4j.graph import Node, Relationship
 import logging
-from pandas import DataFrame
-from typing import Any
 
 log = logging.getLogger("[API] get_data_as_table")
-log.setLevel(logging.INFO)
+log.setLevel(logging.DEBUG)
+
+
 
 def parse_request_params(req) -> ReadRequest:
         nodes_param = req.args.get("nodes")
@@ -51,7 +51,7 @@ def parse_request_params(req) -> ReadRequest:
 
 def records_to_json(data: list[Record], params:ReadRequest) -> Response:
     if not data:
-        return {"columns": [], "rows": []}
+        return jsonify({"columns": [], "rows": []})
 
     columns = cols_from_data(data)
     indent_distances = distance_of_unrelated_node_types(columns)
@@ -87,12 +87,16 @@ def records_to_json(data: list[Record], params:ReadRequest) -> Response:
                                   "toId": element.nodes[1].element_id})
         row["cells"] = cells
         row["relations"] = relations
+        log.debug(f"{row=}")
         if not row["relations"]:
             row_type = row["cells"][0]["nodeType"]
             indent = indent_distances.get(row_type)
             if indent:
                 for i in range(indent):
                     row["cells"].insert(0, empty_cell)
+        # else:
+        #     for rel in row["relations"]:
+
 
         rows.append(row)
 
