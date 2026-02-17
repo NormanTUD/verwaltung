@@ -129,13 +129,13 @@ class TestBasicDBReads:
     def test_bad_limit(self, db: "Neo4jDB", bad_lim):
         """Expected behavior with wrong limit input."""
         label1 = "Student"
-        req = ReadRequest(
-            selected_labels=[label1],
-            limit=bad_lim,
-            property_filters=None,
-            rel_filter=None,
-        )
         with pytest.raises(ValueError):
+            req = ReadRequest(
+                selected_labels=[label1],
+                limit=bad_lim,
+                property_filters=None,
+                rel_filter=None,
+            )
             db.read_data(req)
 
 
@@ -220,14 +220,15 @@ class TestCypherInjectionDBInterfaceLevel:
         """
         malicious_limit = "1 UNION ALL MATCH (n) RETURN n"
 
-        req = ReadRequest(
+
+
+        try:
+            req = ReadRequest(
             selected_labels=["Student"],
             limit=malicious_limit,
             property_filters=None,
             rel_filter=None
-        )
-
-        try:
+            )
             records = list(db.read_data(req))
             if len(records) > 1:
                 pytest.fail("Limit injection succeeded: Query returned more than 1 result.")

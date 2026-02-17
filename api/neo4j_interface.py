@@ -34,7 +34,7 @@ class ReadRequest():
     rel_filter: list[str] | None
     rel_as_filter: bool | None = None # This is for logging that the frontend does not implement this endpoint, can be changed to True later on.
 
-    def validate(self):
+    def __post_init__(self):
         """ Basic Validation of the fields on a Type-Basis
         Cypher Validation/Safety is happening in another place"""
         for l in self.selected_labels:
@@ -172,7 +172,7 @@ class Neo4jDB(Neo4jDBInterface):
     """
 
     def read_data(self, req_data: ReadRequest) -> list[Record]: #node_types, relationships = None, filters = None, limit=None
-        req_data.validate()
+
         node_types = req_data.selected_labels
         relationships = req_data.rel_filter
         filters = req_data.property_filters
