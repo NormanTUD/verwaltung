@@ -30,13 +30,21 @@ class ReadRequest():
 
     selected_labels: list[str]
     limit: int | None
-    property_filters: dict[str, str] | None
+    property_filters: dict[str, str|int] | None
     rel_filter: list[str] | None
     rel_as_filter: bool | None = None # This is for logging that the frontend does not implement this endpoint, can be changed to True later on.
 
     def validate(self):
+        for l in self.selected_labels:
+            if not isinstance(l, str): raise ValueError("ReadRequest: Bad label")
         if not isinstance(self.limit, int) or not self.limit > 0:
             if self.limit is not None: raise ValueError("ReadRequest: Bad Limit")
+        if self.property_filters:
+            for k,v in self.property_filters.items():
+                if not isinstance(k, str): raise ValueError("ReadRequest: Bad property filter")
+
+
+
 
 
 
