@@ -34,6 +34,12 @@ class ReadRequest():
     rel_filter: list[str] | None
     rel_as_filter: bool | None = None # This is for logging that the frontend does not implement this endpoint, can be changed to True later on.
 
+    def validate(self):
+        if not isinstance(self.limit, int) or not self.limit > 0:
+            if self.limit is not None: raise ValueError("ReadRequest: Bad Limit")
+
+
+
 
 """
 Helper Functions - Dataclasses End
@@ -152,16 +158,17 @@ class Neo4jDB(Neo4jDBInterface):
     """
 
     def read_data(self, req_data: ReadRequest) -> list[Record]: #node_types, relationships = None, filters = None, limit=None
+        req_data.validate()
         node_types = req_data.selected_labels
         relationships = req_data.rel_filter
         filters = req_data.property_filters
         limit = req_data.limit
         if not limit: limit = 1000
+
         rel_as_filter = req_data.rel_as_filter
         if rel_as_filter is None:
             rel_as_filter = True
             self.logger.info("Rel_as_filter switch is not (yet) used by the frontend")
-        # max_depth is not implemented
         self.logger.info("cypher construction: max_depth from ReadRequest is not implemented.")
 
         self.logger.debug(f"Read Query: {node_types=}, {relationships=}, {filters=}, {limit=}")

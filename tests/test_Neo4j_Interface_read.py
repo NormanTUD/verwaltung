@@ -135,7 +135,7 @@ class TestBasicDBReads:
             property_filters=None,
             rel_filter=None,
         )
-        with pytest.raises(ClientError):
+        with pytest.raises(ValueError):
             db.read_data(req)
 
 
@@ -182,8 +182,7 @@ class TestCypherInjectionDBInterfaceLevel:
 
         try:
             list(db.read_data(req))
-        except Exception:
-            pass
+        except ValueError: pass
 
         check_req = ReadRequest(
             selected_labels=["Student"],
@@ -212,7 +211,7 @@ class TestCypherInjectionDBInterfaceLevel:
             for r in results:
                 data = r.data()
                 assert "label" not in data, "Injection exfiltrated DB labels via UNION!"
-        except Exception:
+        except ValueError:
             pass
 
     def test_injection_in_limit(self, db: "Neo4jDB"):
@@ -232,7 +231,7 @@ class TestCypherInjectionDBInterfaceLevel:
             records = list(db.read_data(req))
             if len(records) > 1:
                 pytest.fail("Limit injection succeeded: Query returned more than 1 result.")
-        except Exception:
+        except ValueError:
             pass
 
     def test_destructive_where_injection(self, db: "Neo4jDB"):
@@ -252,7 +251,7 @@ class TestCypherInjectionDBInterfaceLevel:
 
         try:
             list(db.read_data(req))
-        except Exception:
+        except ValueError:
             pass
 
         check_req = ReadRequest(
@@ -718,12 +717,10 @@ class TestPropertyFilters:
             }],
             "valid": True,
         }
-        try:
+        with pytest.raises(ValueError):
             records = self._read(db, qb)
             assert len(records) <= len(t_helpers.THESES), \
                 "Field‑name injection returned more records than exist!"
-        except (ValueError, Exception):
-            pass  # preferred: explicit rejection
 
     def test_injection_in_operator(self, db):
         """Cypher injection via the operator string."""
@@ -739,8 +736,7 @@ class TestPropertyFilters:
         try:
             records = self._read(db, qb)
             assert len(records) == 0
-        except (ValueError, Exception):
-            pass
+        except ValueError: pass
 
     def test_injection_in_value(self, db):
         """Tautology injection via the value string."""
