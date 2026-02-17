@@ -1,14 +1,14 @@
 import json
 from flask import Blueprint, request, jsonify, current_app, Response
 from oasis_helper import conditional_login_required
-
+from enum import Enum
 from api.neo4j_interface import Neo4jDB, ReadRequest
 from neo4j import Record
 from neo4j.graph import Node, Relationship
 import logging
 
 log = logging.getLogger("[API] get_data_as_table")
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
 
 
 
@@ -55,7 +55,6 @@ def records_to_json(data: list[Record], params:ReadRequest) -> Response:
 
     columns = cols_from_data(data)
     indent_distances = distance_of_unrelated_node_types(columns)
-    # get_data_print(data)
 
     log.debug(f"Counted Columns per Node Type: {indent_distances}")
 
@@ -87,16 +86,13 @@ def records_to_json(data: list[Record], params:ReadRequest) -> Response:
                                   "toId": element.nodes[1].element_id})
         row["cells"] = cells
         row["relations"] = relations
-        log.debug(f"{row=}")
+        #log.debug(f"{row=}")
         if not row["relations"]:
             row_type = row["cells"][0]["nodeType"]
             indent = indent_distances.get(row_type)
             if indent:
                 for i in range(indent):
                     row["cells"].insert(0, empty_cell)
-        # else:
-        #     for rel in row["relations"]:
-
 
         rows.append(row)
 
@@ -124,8 +120,14 @@ def create_get_data_bp(parser=parse_request_params,
         driver = current_app.config["driver"]
         interf_db = Neo4jDB(driver)
 
+        log.debug(f"Parsing request: {request}")
         params: ReadRequest = parser(request)
+        log.debug(f"Parsed request: {params}")
         data = interf_db.read_data(params)
+
+        # Experimental
+        top = topology_detector(data)
+        log.info(f"Topology Detector: {top=}")
 
         log.debug(f" data was read: {data}"[:100])
 
@@ -174,3 +176,87 @@ def get_data_print(data):
             print(f"{LIM}{element}")
             for property, value in element.items():
                 print(LIM * 2, property, value)
+
+
+
+
+from enum import Enum, auto
+from dataclasses import dataclass
+
+class NodeRole(Enum):
+    LEAF = auto() # No Children, effectively a sub-table for every parent node
+    CHAIN = auto() # One Child, creating a sub-table for each node
+    FORK = auto() # 2+ Children, creating multiple sub-tables
+
+class TopologyNode:
+    def __init__(self, node_lbl):
+        self.node_lbl = node_lbl
+        self.connected_to = []
+        self.incoming_con_n = 0
+
+    @property
+    def is_root(self) -> bool:
+        return self.incoming_con_n == 0
+
+    @property
+    def is_leaf(self) -> bool:
+        return len(self.connected_to) == 0
+
+    def get_classification(self):
+        if self.is_leaf: return NodeRole.LEAF
+        if len(self.connected_to) > 1: return NodeRole.FORK
+        else: return NodeRole.CHAIN
+
+    def __repr__(self):
+        return f"{self.node_lbl}: of type {self.get_classification()} with {len(self.connected_to)} children and {self.incoming_con_n} parents. "
+
+
+
+@dataclass(frozen=True)
+class AbstractRelation:
+    from_node_type: str
+    to_node_type:str
+
+
+
+def extract_node_types_and_relations(data)-> tuple[set[str], set[AbstractRelation]]:
+    known_nodes= set()
+    relations = set()
+    for record in data:
+        for element in record:
+
+            if isinstance(element, Relationship):
+                n1 = element.nodes[0]
+                l1, = n1.labels
+                n2 = element.nodes[1]
+                l2, = n2.labels
+
+                r = AbstractRelation(l1, l2)
+                if r in relations: continue
+                relations.add(r)
+                log.debug("Found a relation")
+                continue
+
+            label = list(element.labels)[0]
+            if label in known_nodes: continue
+            known_nodes.add(label)
+
+    return known_nodes, relations
+
+
+
+def topology_detector(data):
+    node_types, relations = extract_node_types_and_relations(data)
+    log.info(f"topology detect: \n    {node_types=}\n    {relations=} ")
+    nodes = {n:TopologyNode(n) for n in node_types}
+
+    for r in relations:
+        # Wont work for relation between two nodes of same type
+        # wed create a TopNode that points to itself, is no root
+        from_node = nodes[r.from_node_type]
+        to_node = nodes[r.to_node_type]
+        from_node.connected_to.append(to_node)
+        to_node.incoming_con_n += 1
+
+
+    return sorted([n for n in nodes.values()], key=lambda node: len(node.connected_to))
