@@ -35,6 +35,8 @@ class ReadRequest():
     rel_as_filter: bool | None = None # This is for logging that the frontend does not implement this endpoint, can be changed to True later on.
 
     def validate(self):
+        """ Basic Validation of the fields on a Type-Basis
+        Cypher Validation/Safety is happening in another place"""
         for l in self.selected_labels:
             if not isinstance(l, str): raise ValueError("ReadRequest: Bad label")
         if not isinstance(self.limit, int) or not self.limit > 0:
@@ -42,7 +44,11 @@ class ReadRequest():
         if self.property_filters:
             for k,v in self.property_filters.items():
                 if not isinstance(k, str): raise ValueError("ReadRequest: Bad property filter")
-
+        if self.rel_filter is not None:
+            for rf in self.rel_filter:
+                if not isinstance(rf, str): raise ValueError("ReadRequest: Bad relationship")
+        if self.rel_as_filter is not None:
+            if not isinstance(self.rel_as_filter, bool): raise ValueError("ReadRequest: Bad rel_as_filter switch")
 
 
 
