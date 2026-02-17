@@ -115,11 +115,7 @@ def create_get_data_bp(parser=parse_request_params,
     log.debug("Registering Blueprint")
     bp = Blueprint("get_data_bp", __name__)
 
-    # this is probably gross, as it handles everything and returns everything to the user
-    # however error handeling should happen here?
-    @bp.errorhandler(Exception)
-    def handle_parse_error(error):
-        return jsonify({'error': str(error)}), 400
+
 
 
     @bp.route("/get_data_as_table", methods=["GET"])
