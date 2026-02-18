@@ -197,7 +197,10 @@ class TopologyNode:
 
     @property
     def is_root(self) -> bool:
-        return self.incoming_con_n == 0
+        if self.incoming_con_n == 0: return True
+        self_refs = self.connected_to.count(self)
+        return self_refs == self.incoming_con_n
+
 
     @property
     def is_leaf(self) -> bool:
@@ -217,10 +220,6 @@ class TopologyNode:
 class AbstractRelation:
     from_node_type: str
     to_node_type:str
-
-
-
-
 
 
 
