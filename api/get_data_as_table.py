@@ -188,6 +188,7 @@ class NodeRole(Enum):
     LEAF = auto() # No Children, effectively a sub-table for every parent node
     CHAIN = auto() # One Child, creating a sub-table for each node
     FORK = auto() # 2+ Children, creating multiple sub-tables
+    # maybe we should classify convergences
 
 class TopologyNode:
     def __init__(self, node_lbl):
