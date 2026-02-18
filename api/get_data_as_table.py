@@ -126,8 +126,9 @@ def create_get_data_bp(parser=parse_request_params,
         data = interf_db.read_data(params)
 
         # Experimental
-        top = topology_detector(data)
-        log.info(f"Topology Detector: {top=}")
+        top_translator = TopologyTranslator(data)
+        top_translator.print_topology()
+
 
         log.debug(f" data was read: {data}"[:100])
 
@@ -219,44 +220,82 @@ class AbstractRelation:
 
 
 
-def extract_node_types_and_relations(data)-> tuple[set[str], set[AbstractRelation]]:
-    known_nodes= set()
-    relations = set()
-    for record in data:
-        for element in record:
 
-            if isinstance(element, Relationship):
-                n1 = element.nodes[0]
-                l1, = n1.labels
-                n2 = element.nodes[1]
-                l2, = n2.labels
 
-                r = AbstractRelation(l1, l2)
-                if r in relations: continue
-                relations.add(r)
-                log.debug("Found a relation")
+
+
+class TopologyTranslator:
+    def __init__(self, data:list[Record], logger=log):
+        self.log = log
+        self.top = self.topology_detector(data)
+    """ Class that transforms Neo4j Data into a json-readable table"""
+
+    def topology_detector(self, data: list[Record]):
+        node_types, relations = self.extract_node_types_and_relations(data)
+        log.info(f"topology detect: \n    {node_types=}\n    {relations=} ")
+        nodes = {n:TopologyNode(n) for n in node_types}
+
+        for r in relations:
+            # Wont work for relation between two nodes of same type
+            # wed create a TopNode that points to itself, is no root
+            from_node = nodes[r.from_node_type]
+            to_node = nodes[r.to_node_type]
+            from_node.connected_to.append(to_node)
+            to_node.incoming_con_n += 1
+
+        self.top = sorted([n for n in nodes.values()], key=lambda node: -len(node.connected_to))
+        return self.top
+
+
+    def extract_node_types_and_relations(self, data: list[Record])-> tuple[set[str], set[AbstractRelation]]:
+        known_nodes= set()
+        relations = set()
+        for record in data:
+            for element in record:
+
+                if isinstance(element, Relationship):
+                    n1 = element.nodes[0]
+                    l1, = n1.labels
+                    n2 = element.nodes[1]
+                    l2, = n2.labels
+
+                    r = AbstractRelation(l1, l2)
+                    if r in relations: continue
+                    relations.add(r)
+                    # log.debug("Found a relation")
+                    continue
+
+                label = list(element.labels)[0]
+                if label in known_nodes: continue
+                known_nodes.add(label)
+
+        return known_nodes, relations
+
+    def print_topology(self):
+        if not self.top: return None
+
+        # keeping a set of visited nodes can help us traverse cyclical graphs
+        visited = set()
+        indent = "    "
+        count = 0
+        frontier = [(self.top[0], 0)]
+
+        while frontier:
+            current_node, level = frontier.pop(0)
+            if current_node in visited:
                 continue
 
-            label = list(element.labels)[0]
-            if label in known_nodes: continue
-            known_nodes.add(label)
+            visited.add(current_node)
 
-    return known_nodes, relations
+            print(f"{indent*level}{current_node.node_lbl}")
 
-
-
-def topology_detector(data):
-    node_types, relations = extract_node_types_and_relations(data)
-    log.info(f"topology detect: \n    {node_types=}\n    {relations=} ")
-    nodes = {n:TopologyNode(n) for n in node_types}
-
-    for r in relations:
-        # Wont work for relation between two nodes of same type
-        # wed create a TopNode that points to itself, is no root
-        from_node = nodes[r.from_node_type]
-        to_node = nodes[r.to_node_type]
-        from_node.connected_to.append(to_node)
-        to_node.incoming_con_n += 1
+            children = current_node.connected_to
+            if children:
+                count += 1
+                for c in children: frontier.append((c, count))
 
 
-    return sorted([n for n in nodes.values()], key=lambda node: len(node.connected_to))
+
+
+
+
