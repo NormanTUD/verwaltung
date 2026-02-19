@@ -5,6 +5,7 @@ from enum import Enum
 from api.neo4j_interface import Neo4jDB, ReadRequest
 from neo4j import Record
 from neo4j.graph import Node, Relationship
+from api.topology_detector import TopologyTranslator
 import logging
 
 log = logging.getLogger("[API] get_data_as_table")
@@ -177,125 +178,5 @@ def get_data_print(data):
             print(f"{LIM}{element}")
             for property, value in element.items():
                 print(LIM * 2, property, value)
-
-
-
-
-from enum import Enum, auto
-from dataclasses import dataclass
-
-class NodeRole(Enum):
-    LEAF = auto() # No Children, effectively a sub-table for every parent node
-    CHAIN = auto() # One Child, creating a sub-table for each node
-    FORK = auto() # 2+ Children, creating multiple sub-tables
-    # maybe we should classify convergences
-
-class TopologyNode:
-    def __init__(self, node_lbl):
-        self.node_lbl = node_lbl
-        self.connected_to = []
-        self.incoming_con_n = 0
-
-    @property
-    def is_root(self) -> bool:
-        if self.incoming_con_n == 0: return True
-        self_refs = self.connected_to.count(self)
-        return self_refs == self.incoming_con_n
-
-
-    @property
-    def is_leaf(self) -> bool:
-        return len(self.connected_to) == 0
-
-    def get_classification(self):
-        if self.is_leaf: return NodeRole.LEAF
-        if len(self.connected_to) > 1: return NodeRole.FORK
-        else: return NodeRole.CHAIN
-
-    def __repr__(self):
-        return f"{self.node_lbl}: of type {self.get_classification()} with {len(self.connected_to)} children and {self.incoming_con_n} parents. "
-
-
-
-@dataclass(frozen=True)
-class AbstractRelation:
-    from_node_type: str
-    to_node_type:str
-
-
-
-class TopologyTranslator:
-    def __init__(self, data:list[Record], logger=log):
-        self.log = log
-        self.top = self.topology_detector(data)
-    """ Class that transforms Neo4j Data into a json-readable table"""
-
-    def topology_detector(self, data: list[Record]):
-        node_types, relations = self.extract_node_types_and_relations(data)
-        log.info(f"topology detect: \n    {node_types=}\n    {relations=} ")
-        nodes = {n:TopologyNode(n) for n in node_types}
-
-        for r in relations:
-            # Wont work for relation between two nodes of same type
-            # wed create a TopNode that points to itself, is no root
-            from_node = nodes[r.from_node_type]
-            to_node = nodes[r.to_node_type]
-            from_node.connected_to.append(to_node)
-            to_node.incoming_con_n += 1
-
-        self.top = sorted([n for n in nodes.values()], key=lambda node: -len(node.connected_to))
-        return self.top
-
-
-    def extract_node_types_and_relations(self, data: list[Record])-> tuple[set[str], set[AbstractRelation]]:
-        known_nodes= set()
-        relations = set()
-        for record in data:
-            for element in record:
-
-                if isinstance(element, Relationship):
-                    n1 = element.nodes[0]
-                    l1, = n1.labels
-                    n2 = element.nodes[1]
-                    l2, = n2.labels
-
-                    r = AbstractRelation(l1, l2)
-                    if r in relations: continue
-                    relations.add(r)
-                    # log.debug("Found a relation")
-                    continue
-
-                label = list(element.labels)[0]
-                if label in known_nodes: continue
-                known_nodes.add(label)
-
-        return known_nodes, relations
-
-    def print_topology(self):
-        if not self.top: return None
-
-        # keeping a set of visited nodes can help us traverse cyclical graphs
-        visited = set()
-        indent = "    "
-        count = 0
-        frontier = [(self.top[0], 0)]
-
-        while frontier:
-            current_node, level = frontier.pop(0)
-            if current_node in visited:
-                continue
-
-            visited.add(current_node)
-
-            print(f"{indent*level}{current_node.node_lbl}")
-
-            children = current_node.connected_to
-            if children:
-                count += 1
-                for c in children: frontier.append((c, count))
-
-
-
-
 
 

@@ -51,10 +51,6 @@ class ReadRequest():
             if not isinstance(self.rel_as_filter, bool): raise ValueError("ReadRequest: Bad rel_as_filter switch")
 
 
-
-
-
-
 """
 Helper Functions - Dataclasses End
 """
