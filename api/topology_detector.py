@@ -1,3 +1,4 @@
+from __future__ import annotations
 from enum import Enum, auto
 from dataclasses import dataclass
 from neo4j import Record
@@ -10,6 +11,11 @@ class NodeRole(Enum):
     CHAIN = auto() # One Child, creating a sub-table for each node
     FORK = auto() # 2+ Children, creating multiple sub-tables
     ROOT = auto()
+
+class CycleType(Enum):
+    NONE = auto()
+    CROSS_TYPE = auto()
+    SAME_TYPE = auto()
 
 class TopologyNode:
     def __init__(self, node_lbl:str):
@@ -39,12 +45,42 @@ class TopologyNode:
         return f"{self.node_lbl}: of type {self.get_classification()} with {len(self.connected_to)} children and {self.incoming_con_n} parents. "
 
 
+
 @dataclass(frozen=True)
 class AbstractRelation:
     label :str
     from_node_type :str
     to_node_type :str
 
+
+@dataclass
+class SameTypeLoopInfo:
+    """Which relations cause the same-type loop.
+    Expansion depth is NOT decided here — that's a request-level concern."""
+    relations: list[AbstractRelation]
+
+@dataclass
+class TopologyTree:
+    """ Result of a Graph-Topology Analysis """
+    node_label: str
+    roles: set[NodeRole]
+    children: list[TopologyTree]
+    relation_from_parent: None | AbstractRelation
+    cycle_type: CycleType
+    same_type_info: None | SameTypeLoopInfo = None  # only populated when SAME_TYPE
+
+    def __post_init__(self):
+        if not isinstance(self.node_label, str):
+            raise ValueError(f"{self.node_label} was not a string")
+        if not all(isinstance(r, NodeRole) for r in self.roles ):
+            raise ValueError(f"{self.roles} was rejected bc of type")
+        if not all(isinstance(c, TopologyTree) for c in self.children):
+            raise ValueError(f"{self.children} rejected bc of type.")
+        if not isinstance(self.cycle_type, CycleType):
+            raise ValueError(f"{self.cycle_type} was invalid")
+        if self.same_type_info:
+            if not isinstance(self.same_type_info, SameTypeLoopInfo):
+                raise ValueError(f"{self.same_type_info} was rejected bc of type")
 
 class TopologyTranslator:
     def __init__(self, data:list[Record], logger=log):
@@ -55,7 +91,9 @@ class TopologyTranslator:
     def topology_detector(self, data: list[Record]):
         node_types, relations = self.extract_node_types_and_relations(data)
         log.info(f"topology detect: \n    {node_types=}\n    {relations=} ")
+        # create dict of node_name:TopologyNode
         nodes = {n:TopologyNode(n) for n in node_types}
+
 
         for r in relations:
             # Wont work for relation between two nodes of same type
@@ -67,6 +105,76 @@ class TopologyTranslator:
 
         top = top = sorted([n for n in nodes.values()], key=lambda node: -len(node.connected_to))
         return top, relations
+
+
+    def get_topology_tree(self) -> list[TopologyTree]:
+        """Returns a list of TopologyTree roots representing the full schema topology.
+
+        - Same-type loops are captured as metadata (not recursed into)
+        - Cross-type loops are detected via per-path ancestors and marked
+        - Neither loop type is expanded — that's the consumer's job
+        """
+        if not self.top: return []
+
+        roots = self.roots
+        if not roots:
+            self.log.warning("No root nodes found — possible full cycle. "
+                            "Using first node as fallback.")
+            roots = [self.top[0]]
+
+        trees = []
+        for root in roots:
+            tree = self._build_tree(root, ancestors=set())
+            trees.append(tree)
+
+        return trees
+
+
+    def _build_tree(self, node: TopologyNode, ancestors: set) -> TopologyTree:
+        # Loop Detection
+        same_type = [(child, rel) for child, rel in node.connected_to
+                    if child.node_lbl == node.node_lbl]
+        cross_type = [(child, rel) for child, rel in node.connected_to
+                    if child.node_lbl != node.node_lbl]
+
+        same_type_info = None
+        if same_type:
+            same_type_info = SameTypeLoopInfo(
+                relations=[rel for _, rel in same_type]
+            )
+
+        # Cross-type loop Detection
+        if node.node_lbl in ancestors:
+            return TopologyTree(
+                node_label=node.node_lbl,
+                roles=node.get_classification(),
+                children=[],               # hard stop — don't recurse
+                relation_from_parent=None,  # caller sets this after return
+                cycle_type=CycleType.CROSS_TYPE,
+                same_type_info=same_type_info  # could still have same-type loops
+            )
+
+        # --- Normal node: recurse into cross-type children only ---
+        ancestors.add(node.node_lbl)
+
+        children = []
+        for child, relation in cross_type:
+            child_tree = self._build_tree(child, ancestors)
+            child_tree.relation_from_parent = relation
+            children.append(child_tree)
+
+        ancestors.remove(node.node_lbl)
+
+        return TopologyTree(
+            node_label=node.node_lbl,
+            roles=node.get_classification(),
+            children=children,
+            relation_from_parent=None,
+            cycle_type=CycleType.SAME_TYPE if same_type else CycleType.NONE,
+            same_type_info=same_type_info
+        )
+
+
 
 
     def extract_node_types_and_relations(self, data: list[Record])-> tuple[set[str], set[AbstractRelation]]:
@@ -95,9 +203,13 @@ class TopologyTranslator:
 
         return known_nodes, relations
 
+    @property
+    def roots(self):
+        return [node for node in self.top if node.is_root]
+
     def print_topology(self):
         if not self.top: return None
-        roots = [node for node in self.top if node.is_root]
+        roots = self.roots()
         if not roots: roots = [self.top[0]]
         nr_nodes = len(self.top)
         longest_path = get_longest_path(self.top[0])
@@ -160,6 +272,8 @@ class TopologyTranslator:
             self._rec_tree_eval(child, max_depth, depth + 1, ancestors)
 
         ancestors.remove(node.node_lbl)
+
+
 
 
 def do_something(node):
