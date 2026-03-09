@@ -3,6 +3,7 @@ from enum import Enum, auto
 from dataclasses import dataclass
 from neo4j import Record
 from neo4j.graph import Relationship
+from api.get_data_as_table_helpers import extract_node_label
 import logging
 log = logging.getLogger("[Topology]")
 
@@ -186,11 +187,9 @@ class TopologyTranslator:
                     if not n1 or not n2:
                         self.log.warning("Found a None-Node in relations.")
                         continue
-                    try:
-                        l1, = n1.labels
-                        l2, = n2.labels
-                    except ValueError:
-                        log.exception("This Strategy cannot process Nodes with more then one label.")
+
+                    l1 = extract_node_label(n1)
+                    l2 = extract_node_label(n2)
                     label = element.type
 
                     r = AbstractRelation(label, l1, l2)
@@ -198,9 +197,11 @@ class TopologyTranslator:
                     relations.add(r)
                     continue
 
-                label = list(element.labels)[0]
+                label = extract_node_label(element)
+
                 if label in known_nodes: continue
                 known_nodes.add(label)
+
 
         self.log.info(f"Extracted {known_nodes} and {relations}")
 
@@ -283,7 +284,7 @@ def do_something(node):
     print(node)
 
 def send_info(msg:str):
-    print(msg)
+    log.debug(msg)
 
 def get_longest_path(node:TopologyNode, visited:set|None=None):
     """ Recursive traversel of a tree to find the longest path. """
