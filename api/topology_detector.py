@@ -212,6 +212,9 @@ class TopologyTranslator:
         return [node for node in self.top if node.is_root]
 
     def print_topology(self):
+        """
+        Development / Debugging Method for Visualization
+        """
         if not self.top: return None
         roots = self.roots
         if not roots: roots = [self.top[0]]
@@ -225,8 +228,11 @@ class TopologyTranslator:
             send_info(f"\n----recursive Tree Crawling with max_depth----")
             self._rec_tree_eval(root, max_depth=(max(nr_nodes, longest_path)))
 
-
     def _iter_printer(self, root):
+        """
+        Development / Debugging Method for Visualization.
+        Used by print_topology.
+        """
         visited = set()
         indent = "    "
         frontier = [(root, 0)] # int keeps track of indentation
@@ -246,6 +252,10 @@ class TopologyTranslator:
                     if not child in visited: frontier.append((child, depth+1))
 
     def _rec_tree_eval(self, node, max_depth, depth=0, ancestors=None):
+        """
+        Development / Debugging Method for Visualization.
+        Used by print_topology.
+        """
         if ancestors is None:
             ancestors = set()
 
@@ -279,9 +289,6 @@ class TopologyTranslator:
 
 
 
-
-def do_something(node):
-    print(node)
 
 def send_info(msg:str):
     log.debug(msg)

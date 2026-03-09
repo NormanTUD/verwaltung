@@ -237,7 +237,6 @@ def parse_request_params(req) -> ReadRequest:
             property_filters = loads(qb_raw)
 
 
-
         # allow manual where override
         manual_where = req.args.get("where")
         if manual_where:
