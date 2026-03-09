@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from api.topology_detector import TopologyTree
     from neo4j import Record
-    from neo4j.graph import Relationship
+from neo4j.graph import Relationship
 
 def _ordered_labels_from_trees(trees: list[TopologyTree]) -> list[str]:
     """Pre-order DFS across all root trees → deterministic label list."""
