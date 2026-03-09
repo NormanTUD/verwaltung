@@ -82,10 +82,11 @@ class TopologyTree:
                 raise ValueError(f"{self.same_type_info} was rejected bc of type")
 
 class TopologyTranslator:
-    def __init__(self, data:list[Record], logger=log):
-        self.log = log
-        self.top, self.relations = self.topology_detector(data)
     """ Class that transforms Neo4j Data into a json-readable table"""
+
+    def __init__(self, data:list[Record], logger=log):
+        self.log = logger
+        self.top, self.relations = self.topology_detector(data)
 
     def topology_detector(self, data: list[Record]):
         node_types, relations = self.extract_node_types_and_relations(data)
@@ -100,7 +101,7 @@ class TopologyTranslator:
             from_node.connected_to.append((to_node, r))
             to_node.incoming_con_n += 1
 
-        top = top = sorted([n for n in nodes.values()], key=lambda node: -len(node.connected_to))
+        top = sorted([n for n in nodes.values()], key=lambda node: -len(node.connected_to))
         return top, relations
 
 
@@ -185,8 +186,11 @@ class TopologyTranslator:
                     if not n1 or not n2:
                         self.log.warning("Found a None-Node in relations.")
                         continue
-                    l1, = n1.labels
-                    l2, = n2.labels
+                    try:
+                        l1, = n1.labels
+                        l2, = n2.labels
+                    except ValueError:
+                        log.exception("This Strategy cannot process Nodes with more then one label.")
                     label = element.type
 
                     r = AbstractRelation(label, l1, l2)
