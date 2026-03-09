@@ -214,8 +214,6 @@ def create_get_data_bp(parser=parse_request_params,
     bp = Blueprint("get_data_bp", __name__)
 
 
-
-
     @bp.route("/get_data_as_table", methods=["GET"])
     @conditional_login_required
     def get_data_as_table2() -> Response:
@@ -228,10 +226,6 @@ def create_get_data_bp(parser=parse_request_params,
 
         data = interf_db.read_data(params)
         log.debug(f" data was read: {data}"[:100])
-
-        # Experimental
-        top_translator = TopologyTranslator(data)
-        top_translator.print_topology()
 
         data_dict = translator(data, params)
 
