@@ -45,7 +45,6 @@ class TopologyNode:
         return f"{self.node_lbl}: of type {self.get_classification()} with {len(self.connected_to)} children and {self.incoming_con_n} parents. "
 
 
-
 @dataclass(frozen=True)
 class AbstractRelation:
     label :str
@@ -175,8 +174,6 @@ class TopologyTranslator:
         )
 
 
-
-
     def extract_node_types_and_relations(self, data: list[Record])-> tuple[set[str], set[AbstractRelation]]:
         known_nodes= set()
         relations = set()
@@ -184,9 +181,13 @@ class TopologyTranslator:
             for element in record:
 
                 if isinstance(element, Relationship):
+
                     n1 = element.nodes[0]
-                    l1, = n1.labels
                     n2 = element.nodes[1]
+                    if not n1 or not n2:
+                        self.log.warning("Found a None-Node in relations.")
+                        continue
+                    l1, = n1.labels
                     l2, = n2.labels
                     label = element.type
 
@@ -209,10 +210,10 @@ class TopologyTranslator:
 
     def print_topology(self):
         if not self.top: return None
-        roots = self.roots()
+        roots = self.roots
         if not roots: roots = [self.top[0]]
         nr_nodes = len(self.top)
-        longest_path = get_longest_path(self.top[0])
+        longest_path = max(get_longest_path(r) for r in roots)
         send_info(f"Found roots: {roots},  {longest_path=}  {nr_nodes=}")
 
         for root in roots:

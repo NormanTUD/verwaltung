@@ -12,3 +12,6 @@ flaskenv
 venv
 saved_queries.json
 johns_doc/
+api/topology_cli.py
+result.txt
+api/topology_cli_run_tests.py
