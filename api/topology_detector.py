@@ -89,14 +89,12 @@ class TopologyTranslator:
 
     def topology_detector(self, data: list[Record]):
         node_types, relations = self.extract_node_types_and_relations(data)
-        log.info(f"topology detect: \n    {node_types=}\n    {relations=} ")
+        log.debug(f"topology detect: \n    {node_types=}\n    {relations=} ")
         # create dict of node_name:TopologyNode
         nodes = {n:TopologyNode(n) for n in node_types}
 
 
         for r in relations:
-            # Wont work for relation between two nodes of same type
-            # wed create a TopNode that points to itself, is no root
             from_node = nodes[r.from_node_type]
             to_node = nodes[r.to_node_type]
             from_node.connected_to.append((to_node, r))

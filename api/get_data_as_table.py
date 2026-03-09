@@ -5,7 +5,8 @@ from enum import Enum
 from api.neo4j_interface import Neo4jDB, ReadRequest
 from neo4j import Record
 from neo4j.graph import Node, Relationship
-from api.topology_detector import TopologyTranslator
+from api.topology_detector import TopologyTranslator, TopologyTree
+from api.topology_helpers import _ordered_labels_from_trees, _discover_properties, _build_columns, _grouping_sort_key, _topology_tree_to_dict
 import logging
 
 log = logging.getLogger("[API] get_data_as_table")
@@ -99,8 +100,108 @@ def records_to_json(data: list[Record], params:ReadRequest) -> Response:
 
     return jsonify({"columns": columns, "rows": rows})
 
+def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
+    """ Strategy to build a json response from neo4j records.
+    Uses the topological approach of first deriving a table-structure from the node-types and relations."""
+    if not data:
+        return jsonify({"columns": [], "rows": [], "topology": []})
+
+    # Analyse Topology
+    top_translator = TopologyTranslator(data)
+    trees = top_translator.get_topology_tree()
+
+    if not trees:
+        log.warning("Topology tree empty - falling back to flat records_to_json")
+        return records_to_json(data, params)
+
+    # ── 2. Derive a deterministic label order (pre-order DFS of trees) ──
+    ordered_labels: list[str] = _ordered_labels_from_trees(trees)
+
+    # ── 3. Discover property names per node type (first-seen order) ─────
+    props_by_type: dict[str, list[str]] = _discover_properties(data)
+
+    # Defensive: include any data labels the topology didn't surface
+    for label in props_by_type:
+        if label not in ordered_labels:
+            ordered_labels.append(label)
+
+    # ── 4. Build columns in topological order ───────────────────────────
+    columns, col_offset, total_cols = _build_columns(ordered_labels, props_by_type)
+
+    if total_cols == 0:
+        return jsonify({"columns": [], "rows": [], "topology": []})
+
+    # ── 5. Populate rows ────────────────────────────────────────────────
+    empty_cell = {"nodeId": None, "nodeType": None, "value": None}
+    rows: list[dict] = []
+
+    for record in data:
+        cells = [dict(empty_cell) for _ in range(total_cols)]
+        relations: list[dict] = []
+        same_type_extras: list[list[dict]] = []
+
+        for element in record:
+            if isinstance(element, Node):
+                label = list(element.labels)[0]
+                if label not in col_offset:
+                    log.debug(f"Skipping node label '{label}' – not in column map")
+                    continue
+
+                offset = col_offset[label]
+                props = props_by_type.get(label, [])
+
+                # Slot already occupied → same-type overflow
+                if cells[offset]["nodeId"] is not None:
+                    overflow = [
+                        {
+                            "nodeId": element.element_id,
+                            "nodeType": label,
+                            "value": element.get(prop),
+                        }
+                        for prop in props
+                    ]
+                    same_type_extras.append(overflow)
+                    continue
+
+                for i, prop in enumerate(props):
+                    cells[offset + i] = {
+                        "nodeId": element.element_id,
+                        "nodeType": label,
+                        "value": element.get(prop),
+                    }
+
+            elif isinstance(element, Relationship):
+                from_node = element.nodes[0]
+                to_node = element.nodes[1]
+                if from_node and to_node:
+                    relations.append({
+                        "fromId": from_node.element_id,
+                        "relation": element.type,
+                        "toId": to_node.element_id,
+                    })
+
+        row: dict = {"cells": cells, "relations": relations}
+        if same_type_extras:
+            row["sameTypeNodes"] = same_type_extras
+        rows.append(row)
+
+    # ── 6. Sort rows so that shared parents are grouped together ────────
+    #    Key: tuple of nodeId strings in topological label order.
+    #    Identical root ids sort next to each other, then second-level, …
+    rows.sort(key=lambda r: _grouping_sort_key(r, ordered_labels, col_offset))
+
+    # ── 7. Attach topology metadata for the frontend ────────────────────
+    topology_meta = [_topology_tree_to_dict(t) for t in trees]
+
+    return jsonify({
+        "columns": columns,
+        "rows": rows,
+        "topology": topology_meta,
+    })
+
+
 def create_get_data_bp(parser=parse_request_params,
-                       translator=records_to_json,
+                       translator=topological_rec_to_json,#records_to_json
                        ) -> Blueprint:
     """
     Returns the blueprint to create_data
@@ -124,14 +225,13 @@ def create_get_data_bp(parser=parse_request_params,
         log.debug(f"Parsing request: {request}")
         params: ReadRequest = parser(request)
         log.debug(f"Parsed request: {params}")
+
         data = interf_db.read_data(params)
+        log.debug(f" data was read: {data}"[:100])
 
         # Experimental
         top_translator = TopologyTranslator(data)
         top_translator.print_topology()
-
-
-        log.debug(f" data was read: {data}"[:100])
 
         data_dict = translator(data, params)
 
