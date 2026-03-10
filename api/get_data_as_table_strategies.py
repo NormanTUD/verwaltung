@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from flask import Response
     from neo4j import Record
-    from api.neo4j_interface import ReadRequest
+from api.neo4j_interface import ReadRequest
 
 from api.topology_detector import TopologyTranslator
 from api.topology_helpers import (_build_columns,
@@ -119,10 +119,10 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
         log.warning("Topology tree empty - falling back to flat records_to_json")
         return records_to_json(data, params)
 
-    # ── 2. Derive a deterministic label order (pre-order DFS of trees) ──
+    # Label Order
     ordered_labels: list[str] = _ordered_labels_from_trees(trees)
 
-    # ── 3. Discover property names per node type (first-seen order) ─────
+    # find properties
     props_by_type: dict[str, list[str]] = _discover_properties(data)
 
     # Defensive: include any data labels the topology didn't surface
@@ -130,13 +130,13 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
         if label not in ordered_labels:
             ordered_labels.append(label)
 
-    # ── 4. Build columns in topological order ───────────────────────────
+    # build the columns
     columns, col_offset, total_cols = _build_columns(ordered_labels, props_by_type)
 
     if total_cols == 0:
         return jsonify({"columns": [], "rows": [], "topology": []})
 
-    # ── 5. Populate rows ────────────────────────────────────────────────
+    # build rows
     empty_cell:dict[str,str|None] = {"nodeId": None, "nodeType": None, "value": None}
     rows: list[dict] = []
 

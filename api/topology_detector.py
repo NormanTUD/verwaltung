@@ -45,13 +45,11 @@ class TopologyNode:
     def __repr__(self):
         return f"{self.node_lbl}: of type {self.get_classification()} with {len(self.connected_to)} children and {self.incoming_con_n} parents. "
 
-
 @dataclass(frozen=True)
 class AbstractRelation:
     label :str
     from_node_type :str
     to_node_type :str
-
 
 @dataclass
 class SameTypeLoopInfo:
@@ -83,19 +81,25 @@ class TopologyTree:
                 raise ValueError(f"{self.same_type_info} was rejected bc of type")
 
 class TopologyTranslator:
-    """ Class that transforms Neo4j Data into a json-readable table"""
+    """ Class that abstracts Neo4j Data into a Tree of Node-Types that can be
+    used for building a table"""
 
     def __init__(self, data:list[Record], logger=log):
         self.log = logger
         self.top, self.relations = self.topology_detector(data)
 
     def topology_detector(self, data: list[Record]):
+        """ Iterates over the data and creates abstractions with additional data of the nodes and relations. """
+        if len(data) > 1000:
+            self.log.warning(f"Topology Translation may be to expansive with big data-responses. {len(data)=}")
+
         node_types, relations = self.extract_node_types_and_relations(data)
         log.debug(f"topology detect: \n    {node_types=}\n    {relations=} ")
+
         # create dict of node_name:TopologyNode
         nodes = {n:TopologyNode(n) for n in node_types}
 
-
+        # evaluate relations
         for r in relations:
             from_node = nodes[r.from_node_type]
             to_node = nodes[r.to_node_type]
@@ -175,6 +179,8 @@ class TopologyTranslator:
 
 
     def extract_node_types_and_relations(self, data: list[Record])-> tuple[set[str], set[AbstractRelation]]:
+        """ iterates over all records, finding node types and relations
+        this may become to expansive at huge datasets."""
         known_nodes= set()
         relations = set()
         for record in data:
