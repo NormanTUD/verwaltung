@@ -2,7 +2,7 @@ import json
 from flask import Blueprint, request, current_app, Response
 from oasis_helper import conditional_login_required
 from api.neo4j_interface import Neo4jDB, ReadRequest
-from api.get_data_as_table_strategies import topological_rec_to_json, records_to_json, parse_request_params
+from api.read_as_table.strategies import topological_rec_to_json, records_to_json, parse_request_params
 import logging
 
 
@@ -16,6 +16,7 @@ def create_get_data_bp(parser=parse_request_params,
     :param parser: Component which takes the request as an arg and returns a ReadRequest.
     :translator: Component that takes the Neo4j records as an Input and returns the json.
     """
+    logging.basicConfig(level=logging.DEBUG)
 
     bp = Blueprint("get_data_bp", __name__)
 

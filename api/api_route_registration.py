@@ -1,6 +1,5 @@
 
 def register_blueprints(app, graph):
-    from api.get_data_as_table import create_get_data_bp
     from api.dump_database import create_dump_database_bp
     from api.reset_and_load_data import create_reset_and_load_data_bp
     from api.delete_node import create_delete_node_bp
@@ -22,7 +21,6 @@ def register_blueprints(app, graph):
     from api.save_queries import create_save_queries
     from index_manager import create_index_bp
 
-    app.register_blueprint(create_get_data_bp(), url_prefix='/api')
     app.register_blueprint(create_dump_database_bp(graph), url_prefix='/api')
     app.register_blueprint(create_reset_and_load_data_bp(graph), url_prefix='/api')
     app.register_blueprint(create_delete_node_bp(graph), url_prefix='/api')
@@ -44,3 +42,7 @@ def register_blueprints(app, graph):
 
     app.register_blueprint(create_index_bp(graph), url_prefix='/')
     app.register_blueprint(create_query_overview(), url_prefix='/')
+
+    from logging import getLogger
+    log = getLogger("[Blueprints]")
+    log.info(" still registering via api.api_route_registration.py, shall be moved to api.__init__.py")

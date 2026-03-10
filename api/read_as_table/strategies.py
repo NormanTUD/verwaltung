@@ -5,8 +5,8 @@ if TYPE_CHECKING:
     from neo4j import Record
 from api.neo4j_interface import ReadRequest
 
-from api.topology_detector import TopologyTranslator
-from api.topology_helpers import (_build_columns,
+from api.read_as_table.topology_detector import TopologyTranslator
+from api.read_as_table.topology_helpers import (_build_columns,
                                   _discover_properties,
                                   _grouping_sort_key,
                                   _ordered_labels_from_trees,
@@ -16,7 +16,7 @@ from json import loads
 from logging import getLogger
 log = getLogger("[API] get_data_as_table")
 from neo4j.graph import Node, Relationship
-from api.get_data_as_table_helpers import extract_node_label
+from api.read_as_table.helpers import extract_node_label
 """
 Helpers
 """

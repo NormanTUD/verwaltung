@@ -3,7 +3,7 @@ from enum import Enum, auto
 from dataclasses import dataclass
 from neo4j import Record
 from neo4j.graph import Relationship
-from api.get_data_as_table_helpers import extract_node_label
+from api.read_as_table.helpers import extract_node_label
 import logging
 log = logging.getLogger("[Topology]")
 
