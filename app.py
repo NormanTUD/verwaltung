@@ -70,7 +70,7 @@ try:
     print("Trying Imports")
     from importers import importers_bp
 
-    from flask import Flask, request, redirect, url_for, render_template_string, jsonify, send_from_directory, render_template, abort, send_file, flash, g, has_app_context, Response, session
+    from flask import Flask, request, redirect, url_for, jsonify, render_template, flash, session
     from flask_login import LoginManager, login_user, logout_user, current_user, login_required
 
     from oasis_helper import conditional_login_required
@@ -98,7 +98,6 @@ try:
 
     import oasis_helper
 
-    from api.get_data_as_table import create_get_data_bp
     from api.dump_database import create_dump_database_bp
     from api.reset_and_load_data import create_reset_and_load_data_bp
     from api.delete_node import create_delete_node_bp
@@ -158,6 +157,8 @@ app.secret_key = oasis_helper.load_or_generate_secret_key()
 # usage of py2neo Graph
 graph = oasis_helper.get_graph_db_connection()
 app.config['GRAPH'] = graph
+
+# usage of neo4j-library graph
 from api.api_route_registration import register_blueprints
 from api.neo4j_interface import Neo4jDBInterface
 from neo4j import GraphDatabase
@@ -168,7 +169,8 @@ AUTH =(
 )
 app.config["driver"] = GraphDatabase.driver(URI, auth=AUTH)
 register_blueprints(app, graph)
-
+import api
+api.initialize_api(app)
 
 
 @login_manager.user_loader
