@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from api.topology_detector import TopologyTree
+    from api.read_as_table.topology_detector import TopologyTree
     from neo4j import Record
 from neo4j.graph import Relationship
 
@@ -97,3 +97,4 @@ def _topology_tree_to_dict(tree: TopologyTree) -> dict:
         ),
         "children": [_topology_tree_to_dict(c) for c in tree.children],
     }
+

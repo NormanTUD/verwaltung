@@ -177,8 +177,9 @@ class Neo4jDB(Neo4jDBInterface):
 
         rel_as_filter = req_data.rel_as_filter
         if rel_as_filter is None:
-            rel_as_filter = True
-            self.logger.info("Rel_as_filter switch is not (yet) used by the frontend")
+            from api.read_as_table.constants import REL_AS_FILTER
+            rel_as_filter = REL_AS_FILTER
+            self.logger.info(f"Rel_as_filter switch is not (yet) used by the frontend, defaulting to api.read_as_table.constants value: {REL_AS_FILTER}")
         self.logger.info("cypher construction: max_depth from ReadRequest is not implemented.")
 
         self.logger.debug(f"Read Query: {node_types=}, {relationships=}, {filters=}, {limit=}")
