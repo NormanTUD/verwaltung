@@ -1,9 +1,13 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
+import logging
 if TYPE_CHECKING:
     from api.read_as_table.topology_detector import TopologyTree
     from neo4j import Record
 from neo4j.graph import Relationship
+from api.read_as_table.helpers import extract_node_label
+
+log = logging.getLogger("[Topology Helper]")
 
 def _ordered_labels_from_trees(trees: list[TopologyTree]) -> list[str]:
     """Pre-order DFS across all root trees → deterministic label list."""
@@ -11,14 +15,35 @@ def _ordered_labels_from_trees(trees: list[TopologyTree]) -> list[str]:
     visited: set[str] = set()
     for tree in trees:
         _dfs_collect_labels(tree, ordered, visited)
+    log.debug(f"ordered label found: {ordered}")
     return ordered
 
 
 def _dfs_collect_labels(
     tree: TopologyTree, result: list[str], visited: set[str]
 ) -> None:
+
     if tree.node_label in visited:
         return
+
+    # bad solution for same-type-loop
+    """
+    if tree.same_type_info:
+        log.debug(f"Found a Cycle of the same Type when collecting nodes: {tree.same_type_info=}")
+        # if tree.relation_from_parent:
+        parent = deepcopy(tree)
+        parent.node_label += " :" + tree.same_type_info.relations[0].label + "->"
+        child = tree
+
+        child.node_label = "->" + tree.node_label
+        visited.add(parent.node_label)
+        visited.add(child.node_label)
+        for t in (parent, child):
+            log.debug(f"     New Label:  {t.node_label}")
+            result.append(t.node_label)
+            _dfs_collect_labels(t, result, visited)
+        return
+    """
     visited.add(tree.node_label)
     result.append(tree.node_label)
     for child in tree.children:
@@ -33,7 +58,7 @@ def _discover_properties(data: list[Record]) -> dict[str, list[str]]:
         for element in record:
             if isinstance(element, Relationship):
                 continue
-            label = list(element.labels)[0]
+            label = extract_node_label(element, log)
             if label not in props_by_type:
                 props_by_type[label] = list(element.keys())
     return props_by_type
@@ -50,6 +75,7 @@ def _build_columns(
     for label in ordered_labels:
         props = props_by_type.get(label)
         if not props:
+            log.debug(f"Could not find props for {label}")
             continue
         col_offset[label] = idx
         for prop in props:
@@ -97,4 +123,3 @@ def _topology_tree_to_dict(tree: TopologyTree) -> dict:
         ),
         "children": [_topology_tree_to_dict(c) for c in tree.children],
     }
-

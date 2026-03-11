@@ -114,6 +114,9 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
     # Analyse Topology
     top_translator = TopologyTranslator(data)
     trees = top_translator.get_topology_tree()
+    log.debug(f"{trees=}")
+
+    top_translator.print_topology()
 
     if not trees:
         log.warning("Topology tree empty - falling back to flat records_to_json")
@@ -124,6 +127,28 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
 
     # find properties
     props_by_type: dict[str, list[str]] = _discover_properties(data)
+    log.debug(f"{props_by_type}")
+
+    """
+
+    # Hacky Solution, this will lead to problems if node types contain each other.
+    inserters = set()
+    for key in props_by_type.keys():
+        for lbl in ordered_labels:
+            if key == lbl:
+                continue
+            if key in lbl:
+                # props_by_type[lbl] = props_by_type[key] # Runtime Error
+                inserters.add( (key, lbl) )
+
+    if inserters:
+        for insert in inserters:
+            props_by_type[insert[1]] = props_by_type[insert[0]]
+        for insert in inserters:
+            props_by_type.pop(insert[0], None)
+
+    # hack end
+    """
 
     # Defensive: include any data labels the topology didn't surface
     for label in props_by_type:

@@ -203,10 +203,11 @@ class TopologyTranslator:
                     relations.add(r)
                     continue
 
-                label = extract_node_label(element)
+                else:
+                    label = extract_node_label(element)
 
-                if label in known_nodes: continue
-                known_nodes.add(label)
+                    if label in known_nodes: continue
+                    known_nodes.add(label)
 
 
         self.log.info(f"Extracted {known_nodes} and {relations}")
