@@ -18,3 +18,4 @@ api/read_as_table/topology_cli_run_tests.py
 tests/setup_complex_db.py
 api/read_as_table/topology_cli_run_tests.py
 api/read_as_table/topology_cli.py
+topology_report_*.txt
