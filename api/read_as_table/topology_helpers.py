@@ -18,6 +18,14 @@ def _ordered_labels_from_trees(trees: list[TopologyTree]) -> list[str]:
     log.debug(f"ordered label found: {ordered}")
     return ordered
 
+def _ordered_list_from_tree(trees: list[TopologyTree]) -> list[str]:
+    """Pre-order DFS across all root trees → deterministic label list."""
+    ordered: list= []
+    visited: set = set()
+    for tree in trees:
+        _dfs_collect_labels(tree, ordered, visited)
+    log.debug(f"ordered nodes found: {ordered}")
+    return ordered
 
 def _dfs_collect_labels(
     tree: TopologyTree, result: list[str], visited: set[str]
@@ -48,6 +56,17 @@ def _dfs_collect_labels(
     result.append(tree.node_label)
     for child in tree.children:
         _dfs_collect_labels(child, result, visited)
+
+def _dfs_tree_to_list(tree:TopologyTree,
+                      result:list[TopologyTree],
+                        visited: set[TopologyTree]) -> None:
+    if tree in visited:
+        return
+
+    visited.add(tree)
+    result.append(tree)
+    for child in tree.children:
+        _dfs_tree_to_list(child, result, visited)
 
 
 
@@ -83,6 +102,46 @@ def _build_columns(
         idx += len(props)
     return columns, col_offset, idx
 
+def _build_columns_from_trees(
+    trees: list[TopologyTree],
+    props_by_type: dict[str, list[str]],
+) -> tuple[list[dict], dict[str, list[int]], int, list[str]]:
+    """Builds columns directly from the tree structure, supporting duplicate layers."""
+    columns: list[dict] = []
+    col_offset: dict[str, list[int]] = {}
+    ordered_labels: list[str] = []
+    idx = 0
+    visited_ids = set()
+
+    def traverse(node: TopologyTree, depth: int):
+        nonlocal idx
+        # Track by memory ID to allow cloned self-loop nodes to be processed
+        if id(node) in visited_ids:
+            return
+        visited_ids.add(id(node))
+
+        label = node.node_label
+        if label not in ordered_labels:
+            ordered_labels.append(label)
+
+        props = props_by_type.get(label)
+        if props:
+            if label not in col_offset:
+                col_offset[label] = []
+            col_offset[label].append(idx)
+
+            for prop in props:
+                # 'depth' is added here to help the frontend render nested headers
+                columns.append({"nodeType": label, "property": prop, "depth": depth})
+            idx += len(props)
+
+        for child in node.children:
+            traverse(child, depth + 1)
+
+    for tree in trees:
+        traverse(tree, 0)
+
+    return columns, col_offset, idx, ordered_labels
 
 def _grouping_sort_key(
     row: dict,
@@ -96,6 +155,24 @@ def _grouping_sort_key(
             key.append("")
             continue
         cell = row["cells"][col_offset[label]]
+        key.append(str(cell.get("nodeId") or ""))
+    return key
+
+
+def _grouping_sort_key2(
+    row: dict,
+    ordered_labels: list[str],
+    col_offset: dict[str, list[int]],
+) -> list[str]:
+    """Produce a composite key that groups rows sharing the same parent."""
+    key: list[str] = []
+    for label in ordered_labels:
+        if label not in col_offset or not col_offset[label]:
+            key.append("")
+            continue
+        # Group by the FIRST occurrence (root-most) of the node label
+        first_offset = col_offset[label][0]
+        cell = row["cells"][first_offset]
         key.append(str(cell.get("nodeId") or ""))
     return key
 

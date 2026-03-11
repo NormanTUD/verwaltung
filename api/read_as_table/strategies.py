@@ -7,9 +7,12 @@ from api.neo4j_interface import ReadRequest
 
 from api.read_as_table.topology_detector import TopologyTranslator
 from api.read_as_table.topology_helpers import (_build_columns,
+                                                    _build_columns_from_trees,
                                   _discover_properties,
                                   _grouping_sort_key,
+                                  _grouping_sort_key2,
                                   _ordered_labels_from_trees,
+                                  _ordered_list_from_tree,
                                   _topology_tree_to_dict)
 from flask import jsonify
 from json import loads
@@ -114,7 +117,7 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
     # Analyse Topology
     top_translator = TopologyTranslator(data)
     trees = top_translator.get_topology_tree()
-    log.debug(f"{trees=}")
+    #log.debug(f"{trees=}")
 
     top_translator.print_topology()
 
@@ -123,52 +126,41 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
         return records_to_json(data, params)
 
     # Label Order
-    ordered_labels: list[str] = _ordered_labels_from_trees(trees)
+    # ordered_labels: list[str] = _ordered_labels_from_trees(trees)
+    # ordered_trees: list = _ordered_list_from_tree(trees)
 
     # find properties
     props_by_type: dict[str, list[str]] = _discover_properties(data)
     log.debug(f"{props_by_type}")
 
-    """
-
-    # Hacky Solution, this will lead to problems if node types contain each other.
-    inserters = set()
-    for key in props_by_type.keys():
-        for lbl in ordered_labels:
-            if key == lbl:
-                continue
-            if key in lbl:
-                # props_by_type[lbl] = props_by_type[key] # Runtime Error
-                inserters.add( (key, lbl) )
-
-    if inserters:
-        for insert in inserters:
-            props_by_type[insert[1]] = props_by_type[insert[0]]
-        for insert in inserters:
-            props_by_type.pop(insert[0], None)
-
-    # hack end
-    """
+    # Build columns straight from the topology tree
+    columns, col_offset, total_cols, ordered_labels = _build_columns_from_trees(
+        trees, props_by_type
+    )
 
     # Defensive: include any data labels the topology didn't surface
-    for label in props_by_type:
-        if label not in ordered_labels:
+    for label, props in props_by_type.items():
+        if label not in col_offset:
+            col_offset[label] = [total_cols]
             ordered_labels.append(label)
-
-    # build the columns
-    columns, col_offset, total_cols = _build_columns(ordered_labels, props_by_type)
+            for prop in props:
+                columns.append({"nodeType": label, "property": prop, "depth": 0})
+            total_cols += len(props)
 
     if total_cols == 0:
         return jsonify({"columns": [], "rows": [], "topology": []})
 
     # build rows
-    empty_cell:dict[str,str|None] = {"nodeId": None, "nodeType": None, "value": None}
+    empty_cell: dict[str, str | None] = {"nodeId": None, "nodeType": None, "value": None}
     rows: list[dict] = []
 
     for record in data:
         cells = [dict(empty_cell) for _ in range(total_cols)]
         relations: list[dict] = []
         same_type_extras: list[list[dict]] = []
+
+        # Track how many times we've seen a node type in THIS record path
+        seen_counts: dict[str, int] = {}
 
         for element in record:
             if isinstance(element, Node):
@@ -177,11 +169,15 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
                     log.debug(f"Skipping node label '{label}' – not in column map")
                     continue
 
-                offset = col_offset[label]
+                # Figure out which "layer" of this node type we are currently looking at
+                occurrence_idx = seen_counts.get(label, 0)
+                seen_counts[label] = occurrence_idx + 1
+
+                offsets = col_offset[label]
                 props = props_by_type.get(label, [])
 
-                # Slot already occupied → same-type overflow
-                if cells[offset]["nodeId"] is not None:
+                # If we've seen this type more times than we expanded in the tree -> overflow
+                if occurrence_idx >= len(offsets):
                     overflow = [
                         {
                             "nodeId": element.element_id,
@@ -193,6 +189,8 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
                     same_type_extras.append(overflow)
                     continue
 
+                # Place into the corresponding column block for this layer
+                offset = offsets[occurrence_idx]
                 for i, prop in enumerate(props):
                     cells[offset + i] = {
                         "nodeId": element.element_id,
@@ -201,6 +199,7 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
                     }
 
             elif isinstance(element, Relationship):
+                # ... [Relationship handling remains the same] ...
                 from_node = element.nodes[0]
                 to_node = element.nodes[1]
                 if from_node and to_node:
@@ -209,7 +208,6 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
                         "relation": element.type,
                         "toId": to_node.element_id,
                     })
-
         row: dict = {"cells": cells, "relations": relations}
         if same_type_extras:
             row["sameTypeNodes"] = same_type_extras
@@ -218,15 +216,16 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
     # ── 6. Sort rows so that shared parents are grouped together ────────
     #    Key: tuple of nodeId strings in topological label order.
     #    Identical root ids sort next to each other, then second-level, …
-    rows.sort(key=lambda r: _grouping_sort_key(r, ordered_labels, col_offset))
+    rows.sort(key=lambda r: _grouping_sort_key2(r, ordered_labels, col_offset))
 
     # ── 7. Attach topology metadata for the frontend ────────────────────
     topology_meta = [_topology_tree_to_dict(t) for t in trees]
 
+
     return jsonify({
         "columns": columns,
         "rows": rows,
-        "topology": topology_meta,
+        "topology_meta": topology_meta
     })
 
 

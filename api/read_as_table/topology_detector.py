@@ -1,9 +1,11 @@
 from __future__ import annotations
+from copy import deepcopy
 from enum import Enum, auto
 from dataclasses import dataclass
 from neo4j import Record
 from neo4j.graph import Relationship
 from api.read_as_table.helpers import extract_node_label
+from api.read_as_table.constants import SAME_TYPE_DEPTH
 import logging
 log = logging.getLogger("[Topology]")
 
@@ -110,7 +112,7 @@ class TopologyTranslator:
         return top, relations
 
 
-    def get_topology_tree(self) -> list[TopologyTree]:
+    def get_topology_tree(self, recursion_depth:int=SAME_TYPE_DEPTH) -> list[TopologyTree]:
         """Returns a list of TopologyTree roots representing the full schema topology.
 
         - Same-type loops are captured as metadata (not recursed into)
@@ -129,7 +131,10 @@ class TopologyTranslator:
         for root in roots:
             tree = self._build_tree(root, ancestors=set())
             trees.append(tree)
+            # expand
+            _expand_same_type(tree, recursion_depth)
 
+        self.log.debug(f"Returning {len(trees)} Trees: {[t for t in trees]}")
         return trees
 
 
@@ -295,6 +300,36 @@ class TopologyTranslator:
         ancestors.remove(node.node_lbl)
 
 
+
+def _expand_same_type(tree:TopologyTree, depth:int):
+    visited = list()
+    nodes = [tree]
+    added = []
+
+    for n in nodes:
+        if n in visited: return
+        visited.append(n)
+        nodes.extend(n.children)
+        if n.same_type_info:
+            if NodeRole.LEAF in n.roles:
+                n.roles.remove(NodeRole.LEAF)
+            for i in range(depth):
+                child = deepcopy(n)
+                if NodeRole.ROOT in child.roles:
+                    child.roles.remove(NodeRole.ROOT)
+
+                n.children.append(child)
+                n = child
+                added.append(child)
+                if i == depth:
+                    n.roles.add(NodeRole.LEAF)
+                else:
+                    if not NodeRole.CHAIN in n.roles:
+                        n.roles.add(NodeRole.CHAIN)
+    added_str = [f"\n" + f"    {a}" for a in added]
+    log.debug(f"expanded same_type nodes: {added_str}")
+
+    return added
 
 
 def send_info(msg:str):
