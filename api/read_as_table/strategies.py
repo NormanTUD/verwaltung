@@ -55,10 +55,13 @@ def distance_of_unrelated_node_types(columns: list) -> dict[str, int]:
     return columns_per_node_type
 
 """
-Response Strategies
+Responses
 """
 
+
 def records_to_json(data: list[Record], params:ReadRequest) -> Response:
+    """ Creates the table for the Frontend from the record.
+    Probably outdated and unused."""
     if not data:
         return jsonify({"columns": [], "rows": []})
 
@@ -117,17 +120,12 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
     # Analyse Topology
     top_translator = TopologyTranslator(data)
     trees = top_translator.get_topology_tree()
-    #log.debug(f"{trees=}")
 
     top_translator.print_topology()
 
     if not trees:
         log.warning("Topology tree empty - falling back to flat records_to_json")
         return records_to_json(data, params)
-
-    # Label Order
-    # ordered_labels: list[str] = _ordered_labels_from_trees(trees)
-    # ordered_trees: list = _ordered_list_from_tree(trees)
 
     # find properties
     props_by_type: dict[str, list[str]] = _discover_properties(data)
@@ -137,6 +135,8 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
     columns, col_offset, total_cols, ordered_labels = _build_columns_from_trees(
         trees, props_by_type
     )
+
+    log.debug(f"Columns found: {columns}")
 
     # Defensive: include any data labels the topology didn't surface
     for label, props in props_by_type.items():
@@ -199,7 +199,6 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
                     }
 
             elif isinstance(element, Relationship):
-                # ... [Relationship handling remains the same] ...
                 from_node = element.nodes[0]
                 to_node = element.nodes[1]
                 if from_node and to_node:
@@ -213,12 +212,10 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
             row["sameTypeNodes"] = same_type_extras
         rows.append(row)
 
-    # ── 6. Sort rows so that shared parents are grouped together ────────
-    #    Key: tuple of nodeId strings in topological label order.
-    #    Identical root ids sort next to each other, then second-level, …
+    # Sort rows so that shared parents are grouped together
     rows.sort(key=lambda r: _grouping_sort_key2(r, ordered_labels, col_offset))
 
-    # ── 7. Attach topology metadata for the frontend ────────────────────
+    # Attach topology metadata for the frontend
     topology_meta = [_topology_tree_to_dict(t) for t in trees]
 
 
@@ -230,7 +227,7 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
 
 
 """
-Request Parsing Strategies
+Request Parsing
 """
 
 def parse_request_params(req) -> ReadRequest:
@@ -242,7 +239,7 @@ def parse_request_params(req) -> ReadRequest:
         if req.args.get("maxDepth"):
             log.info("Max Depth is passed from the frontend but is ultimately not used")
             # We dont need it, as we alway want to search by relationship type
-            # and not retrieve nodes simply because thei're connected in any way.
+            # and not retrieve nodes simply because they're connected in any way.
             # max_depth = int(req.args.get("maxDepth", max(3, len(selected_labels))))
 
         limit_raw = req.args.get("limit")
@@ -265,6 +262,5 @@ def parse_request_params(req) -> ReadRequest:
         manual_where = req.args.get("where")
         if manual_where:
             raise NotImplementedError(f"Where clauses are not supported atm")
-            # where = manual_where
 
         return ReadRequest(selected_labels, limit, property_filters, rel_filter)

@@ -189,11 +189,6 @@ class Neo4jDB(Neo4jDBInterface):
         self.logger.debug(f"Cypher was created: {cypher} with paramets: {params}")
 
         with self._driver.session() as session:
-            """
-            converting the Result object to a list of Records is memory intensive
-            should be no problem if we dont have results with over 1000s of Nodes
-            However to fulfill the endpoint, we can validate the limit to be <1000?
-            """
 
             r = session.run(cypher, params)
             result = list(r)

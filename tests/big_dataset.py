@@ -183,8 +183,8 @@ class ScienceGraphBuilder:
         # -------------------------------------------------------------
         # Chain
         self.add_edge("Person", "person_1", "manages", "Person", "person_2")
-        self.add_edge("Person", "person_2", "supervises", "Person", "person_3")
-        self.add_edge("Person", "person_3", "supervises", "Person", "person_4")
+        self.add_edge("Person", "person_2", "manages", "Person", "person_3")
+        self.add_edge("Person", "person_3", "manages", "Person", "person_4")
 
         # Same-Type Loop (Administrative Paradox!)
         self.add_edge("Person", "person_5", "manages", "Person", "person_6")
