@@ -7,7 +7,7 @@ from neo4j.graph import Relationship
 from api.read_as_table.helpers import extract_node_label
 from api.read_as_table.constants import SAME_TYPE_DEPTH, TOPOLOGY_DATA_MAX_WARN
 import logging
-log = logging.getLogger("[Topology]")
+log = logging.getLogger("[API] read_as_table.topology_detector")
 
 class NodeRole(Enum):
     LEAF = auto() # No Children, effectively a sub-table for every parent node

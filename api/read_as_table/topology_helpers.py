@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 from neo4j.graph import Relationship
 from api.read_as_table.helpers import extract_node_label
 
-log = logging.getLogger("[Topology Helper]")
+log = logging.getLogger("[API] read_as_table.topology_helpers")
 
 
 def _dfs_collect_labels(

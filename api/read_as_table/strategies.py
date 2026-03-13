@@ -12,8 +12,8 @@ from api.read_as_table.topology_helpers import (_build_columns_from_trees,
                                   _topology_tree_to_dict)
 from flask import jsonify
 from json import loads
-from logging import getLogger
-log = getLogger("[API] get_data_as_table")
+from logging import getLogger, DEBUG
+log = getLogger("[API] read_as_table.strategies")
 from neo4j.graph import Node, Relationship
 from api.read_as_table.helpers import extract_node_label
 """
@@ -117,7 +117,8 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
     top_translator = TopologyTranslator(data)
     trees = top_translator.get_topology_tree()
 
-    top_translator.print_topology()
+    if log.isEnabledFor(DEBUG):
+        top_translator.print_topology()
 
     if not trees:
         log.warning("Topology tree empty - falling back to flat records_to_json")

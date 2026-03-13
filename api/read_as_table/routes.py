@@ -8,7 +8,7 @@ import logging
 
 def create_get_data_bp(parser=parse_request_params,
                        translator=topological_rec_to_json,
-                       log = logging.getLogger("[API] get_data_as_table")
+                       log = logging.getLogger("[API] read_as_table.routes")
                        ) -> Blueprint:
     """
     Returns the blueprint to create_data
