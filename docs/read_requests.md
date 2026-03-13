@@ -1,6 +1,6 @@
 # Reading from the DB
 Read Requests are done via `api.read_as_table` submodule, which provides a blueprint that is registered in `api.__init__`.
-At registration time we can inject the components for the [[#Parser]] and the [[#translator]].
+At registration time we can inject the components for the [[#Parser]] and the [[#Translator]].
 
 We get a driver from the `neo4j` python module, which needs to be registered at the `current_app.config["driver"]`.
 
@@ -10,7 +10,7 @@ First the [[#Parser]] will evaluate the parameters that we reveive from the fron
 
 Then the [[#Neo4jDB Object]] will read evaluate the parameters, construct the cypher and execute it.
 
-Lastly, the [[#translator]] will create a json response which we then return to the frontend.
+Lastly, the [[#Translator]] will create a json response which we then return to the frontend.
 
 
 ## Parser
@@ -26,9 +26,9 @@ location: `api.neo4j_interface.Neo4jDB`
 - executes it with a driver session.
 
 
-## translator
+## Translator
 
-### [[Topology Based translator]]
+### [[Topology Based Translator]]
 location: `api.read_as_table.strategies.py`
 
 *This Component is used in ReadRequests, after the Neo4j Records have been retrieved this translates them into a table-based .json response.
@@ -57,3 +57,6 @@ It consists of 2 sub-concepts, the [[#Evaluator]] and the [[#Table Builder]]. An
 - Sorts the `rows` to group information of `single-nodes` together
 
 
+## Response
+
+## Errors
