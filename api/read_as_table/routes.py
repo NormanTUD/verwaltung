@@ -26,17 +26,21 @@ def create_get_data_bp(parser=parse_request_params,
         driver = current_app.config["driver"]
 
         log.debug(f"Parsing request: {request}")
-        params: ReadRequest = parser(request)
-        log.debug(f"Parsed request: {params}")
 
-        interf_db = Neo4jDB(driver)
-        data = interf_db.read_data(params)
-        log.debug(f" data was read: {data}"[:100])
+        try:
+            params: ReadRequest = parser(request)
+            log.debug(f"Parsed request: {params}")
 
-        data_dict = translator(data, params)
+            interf_db = Neo4jDB(driver)
+            data = interf_db.read_data(params)
+            log.debug(f" data was read: {data}"[:100])
 
-        log.debug(f"JSON Data: {data_dict}"[:200])
-        return data_dict
+            data_dict = translator(data, params)
+
+            log.debug(f"JSON Data: {data_dict}"[:200])
+            return data_dict
+        except ValueError as e:
+            return Response(json.dumps({"error": str(e)}), status=400, mimetype="application/json")
 
     return bp
 
