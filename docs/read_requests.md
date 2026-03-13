@@ -61,5 +61,7 @@ It consists of 2 sub-concepts, the [[#Evaluator]] and the [[#Table Builder]]. An
 
 
 ## Response
+- JSON response with `"rows"` and `"columns"`, and unused `"topology_meta"`
 
 ## Errors
+- Should only raise 400 or 500 if I messed up.
