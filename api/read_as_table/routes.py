@@ -34,10 +34,10 @@ def create_get_data_bp(parser=parse_request_params,
             data = interf_db.read_data(params)
             log.debug(f" data was read: {data}"[:100])
 
-            data_dict = translator(data, params)
+            response = translator(data, params)
 
-            log.debug(f"JSON Data: {data_dict}"[:200])
-            return data_dict
+            log.debug(f"Response: {response}"[:200])
+            return response
         except ValueError as e:
             return Response(json.dumps({"error": str(e)}), status=400, mimetype="application/json")
 
