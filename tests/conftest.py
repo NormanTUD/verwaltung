@@ -2,7 +2,6 @@ import pytest, os
 import t_helpers
 from neo4j import GraphDatabase
 from api.neo4j_interface import Neo4jDB
-from test_db2 import academic_graph_fixture
 from t_helpers import add_node, connect_nodes
 
 
