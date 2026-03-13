@@ -302,13 +302,13 @@ class TopologyTranslator:
 
 
 def _expand_same_type(tree:TopologyTree, depth:int):
-    visited = list()
+    visited: set[int] = set()
     nodes = [tree]
     added = []
 
     for n in nodes:
-        if n in visited: continue
-        visited.append(n)
+        if id(n) in visited: continue
+        visited.add(id(n))
         nodes.extend(n.children)
         if n.same_type_info:
             if NodeRole.LEAF in n.roles:
