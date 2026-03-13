@@ -2,12 +2,12 @@ import json
 from flask import Blueprint, request, current_app, Response
 from oasis_helper import conditional_login_required
 from api.neo4j_interface import Neo4jDB, ReadRequest
-from api.read_as_table.strategies import topological_rec_to_json, records_to_json, parse_request_params
+from api.read_as_table.strategies import topological_rec_to_json, parse_request_params
 import logging
 
 
 def create_get_data_bp(parser=parse_request_params,
-                       translator=topological_rec_to_json,#records_to_json,
+                       translator=topological_rec_to_json,
                        log = logging.getLogger("[API] get_data_as_table")
                        ) -> Blueprint:
     """
@@ -21,7 +21,7 @@ def create_get_data_bp(parser=parse_request_params,
 
     @bp.route("/get_data_as_table", methods=["GET"])
     @conditional_login_required
-    def get_data_as_table2() -> Response:
+    def get_data_as_table() -> Response:
         driver = current_app.config["driver"]
 
         log.debug(f"Parsing request: {request}")

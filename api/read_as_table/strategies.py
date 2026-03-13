@@ -162,7 +162,7 @@ def topological_rec_to_json(data: list[Record], params:ReadRequest) -> Response:
             if isinstance(element, Node):
                 label = list(element.labels)[0]
                 if label not in col_offset:
-                    log.debug(f"Skipping node label '{label}' – not in column map")
+                    log.debug(f"Skipping node label '{label}' - not in column map")
                     continue
 
                 # Figure out which "layer" of this node type we are currently looking at
@@ -240,7 +240,7 @@ def parse_request_params(req) -> ReadRequest:
         limit = int(limit_raw) if limit_raw else None
 
         if req.args.get("filterLabels"):
-            log.info("Frontend Send Deprecated field fiter_labels")
+            log.info("Frontend Send Deprecated field filter_labels")
 
         property_filters = None
 

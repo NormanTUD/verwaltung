@@ -4,6 +4,9 @@ At registration time we can inject the components for the [[#Parser]] and the [[
 
 We get a driver from the `neo4j` python module, which needs to be registered at the `current_app.config["driver"]`.
 
+## Important Assumptions
+- Nodes do have exactly one label.
+- Nodes of the same label have the same properties.
 
 ## Anatomy of  Call
 First the [[#Parser]] will evaluate the parameters that we reveive from the frontend and construct a [[ReadRequest]] from it.
