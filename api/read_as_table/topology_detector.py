@@ -108,7 +108,7 @@ class TopologyTranslator:
             from_node.connected_to.append((to_node, r))
             to_node.incoming_con_n += 1
 
-        top = sorted([n for n in nodes.values()], key=lambda node: -len(node.connected_to))
+        top = sorted(nodes.values(), key=lambda node: -len(node.connected_to))
         return top, relations
 
 
