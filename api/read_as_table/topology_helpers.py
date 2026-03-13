@@ -9,23 +9,6 @@ from api.read_as_table.helpers import extract_node_label
 
 log = logging.getLogger("[Topology Helper]")
 
-def _ordered_labels_from_trees(trees: list[TopologyTree]) -> list[str]:
-    """Pre-order DFS across all root trees → deterministic label list."""
-    ordered: list[str] = []
-    visited: set[str] = set()
-    for tree in trees:
-        _dfs_collect_labels(tree, ordered, visited)
-    log.debug(f"ordered label found: {ordered}")
-    return ordered
-
-def _ordered_list_from_tree(trees: list[TopologyTree]) -> list[str]:
-    """Pre-order DFS across all root trees → deterministic label list."""
-    ordered: list= []
-    visited: set = set()
-    for tree in trees:
-        _dfs_collect_labels(tree, ordered, visited)
-    log.debug(f"ordered nodes found: {ordered}")
-    return ordered
 
 def _dfs_collect_labels(
     tree: TopologyTree, result: list[str], visited: set[str]
@@ -34,39 +17,10 @@ def _dfs_collect_labels(
     if tree.node_label in visited:
         return
 
-    # bad solution for same-type-loop
-    """
-    if tree.same_type_info:
-        log.debug(f"Found a Cycle of the same Type when collecting nodes: {tree.same_type_info=}")
-        # if tree.relation_from_parent:
-        parent = deepcopy(tree)
-        parent.node_label += " :" + tree.same_type_info.relations[0].label + "->"
-        child = tree
-
-        child.node_label = "->" + tree.node_label
-        visited.add(parent.node_label)
-        visited.add(child.node_label)
-        for t in (parent, child):
-            log.debug(f"     New Label:  {t.node_label}")
-            result.append(t.node_label)
-            _dfs_collect_labels(t, result, visited)
-        return
-    """
     visited.add(tree.node_label)
     result.append(tree.node_label)
     for child in tree.children:
         _dfs_collect_labels(child, result, visited)
-
-def _dfs_tree_to_list(tree:TopologyTree,
-                      result:list[TopologyTree],
-                        visited: set[TopologyTree]) -> None:
-    if tree in visited:
-        return
-
-    visited.add(tree)
-    result.append(tree)
-    for child in tree.children:
-        _dfs_tree_to_list(child, result, visited)
 
 
 
@@ -83,24 +37,6 @@ def _discover_properties(data: list[Record]) -> dict[str, list[str]]:
     return props_by_type
 
 
-def _build_columns(
-    ordered_labels: list[str],
-    props_by_type: dict[str, list[str]],
-) -> tuple[list[dict], dict[str, int], int]:
-    """Build the column list, a {label→offset} index, and the total width."""
-    columns: list[dict] = []
-    col_offset: dict[str, int] = {}
-    idx = 0
-    for label in ordered_labels:
-        props = props_by_type.get(label)
-        if not props:
-            log.debug(f"Could not find props for {label}")
-            continue
-        col_offset[label] = idx
-        for prop in props:
-            columns.append({"nodeType": label, "property": prop})
-        idx += len(props)
-    return columns, col_offset, idx
 
 def _build_columns_from_trees(
     trees: list[TopologyTree],
@@ -143,20 +79,6 @@ def _build_columns_from_trees(
 
     return columns, col_offset, idx, ordered_labels
 
-def _grouping_sort_key(
-    row: dict,
-    ordered_labels: list[str],
-    col_offset: dict[str, int],
-) -> list[str]:
-    """Produce a composite key that groups rows sharing the same parent."""
-    key: list[str] = []
-    for label in ordered_labels:
-        if label not in col_offset:
-            key.append("")
-            continue
-        cell = row["cells"][col_offset[label]]
-        key.append(str(cell.get("nodeId") or ""))
-    return key
 
 
 def _grouping_sort_key2(

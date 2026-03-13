@@ -6,13 +6,9 @@ if TYPE_CHECKING:
 from api.neo4j_interface import ReadRequest
 
 from api.read_as_table.topology_detector import TopologyTranslator
-from api.read_as_table.topology_helpers import (_build_columns,
-                                                    _build_columns_from_trees,
+from api.read_as_table.topology_helpers import (_build_columns_from_trees,
                                   _discover_properties,
-                                  _grouping_sort_key,
                                   _grouping_sort_key2,
-                                  _ordered_labels_from_trees,
-                                  _ordered_list_from_tree,
                                   _topology_tree_to_dict)
 from flask import jsonify
 from json import loads
