@@ -1,15 +1,16 @@
 # Reading from the DB
 Read Requests are done via `api.read_as_table` submodule, which provides a blueprint that is registered in `api.__init__`.
-At registration time we can inject the components for the [[#Parser]] and the [[#Responder]].
+At registration time we can inject the components for the [[#Parser]] and the [[#translator]].
 
 We get a driver from the `neo4j` python module, which needs to be registered at the `current_app.config["driver"]`.
+
 
 ## Anatomy of  Call
 First the [[#Parser]] will evaluate the parameters that we reveive from the frontend and construct a [[ReadRequest]] from it.
 
 Then the [[#Neo4jDB Object]] will read evaluate the parameters, construct the cypher and execute it.
 
-Lastly, the [[#Responder]] will create a json response which we then return to the frontend.
+Lastly, the [[#translator]] will create a json response which we then return to the frontend.
 
 
 ## Parser
@@ -24,21 +25,27 @@ location: `api.neo4j_interface.Neo4jDB`
 - creates a cypher query via `api.neo4j_interface.construct_cypher_query`
 - executes it with a driver session.
 
-## Responder
 
-### [[Topology Based Responder]]
+## translator
+
+### [[Topology Based translator]]
 location: `api.read_as_table.strategies.py`
 
 *This Component is used in ReadRequests, after the Neo4j Records have been retrieved this translates them into a table-based .json response.
 
-It consists of 2 sub-components, the [[#Evaluator]] and the [[#Table Builder]]. And is an effort to make the translation of graph-based data to a table as solveable as possible.
+It consists of 2 sub-concepts, the [[#Evaluator]] and the [[#Table Builder]]. And is an effort to make the translation of graph-based data to a table as solveable as possible.
+
+
 ### Evaluator
 - Abstracts a Tree-based Topology of the Data with `NodeRoles`: `LEAF`, `ROOT`, `FORK`, `CHAIN`
 - Found Loops (i.e. Node-Types that repeat in the tree) will have their information attached in the optional `TopologyTree.cycle_type`
+
 #### Steps of the Evaluator
 1. call the [[Topology Translator]]
 2. extract `ordered_labels` from the tree(s)
 3. build `props_by_type` out of the data (expansive)
+4. construct the needed columns from the trees and the properties
+
 
 ### Table Builder
 - Creates a `row` for every `record`

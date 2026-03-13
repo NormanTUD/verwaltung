@@ -307,7 +307,7 @@ def _expand_same_type(tree:TopologyTree, depth:int):
     added = []
 
     for n in nodes:
-        if n in visited: return
+        if n in visited: continue
         visited.append(n)
         nodes.extend(n.children)
         if n.same_type_info:
@@ -321,7 +321,7 @@ def _expand_same_type(tree:TopologyTree, depth:int):
                 n.children.append(child)
                 n = child
                 added.append(child)
-                if i == depth:
+                if i == depth-1:
                     n.roles.add(NodeRole.LEAF)
                 else:
                     if not NodeRole.CHAIN in n.roles:
