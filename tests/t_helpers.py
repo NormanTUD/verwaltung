@@ -24,7 +24,7 @@ class Teacher:
     title: str
     f_name: str
     l_name: str
-    node_name: str = "Seminar"
+    node_name: str = "Teacher"
 
 @dataclass(frozen=True, slots=True)
 class MasterThesis:
@@ -237,7 +237,7 @@ def teacher_to_class_connection(driver, teacher_id: int, class_code: int) -> Non
     Create the bidirectional relationship between a teacher and a class.
     """
     src = {"teacher_id": teacher_id}
-    dst = {"class_code": class_code}
+    dst = {"id": class_code}
 
     # Teacher → Class
     connect_nodes(

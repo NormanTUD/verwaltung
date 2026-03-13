@@ -25,7 +25,7 @@ def _dfs_collect_labels(
 
 
 def _discover_properties(data: list[Record]) -> dict[str, list[str]]:
-    """Return {nodeLabel: [prop1, prop2, …]} preserving first-seen order."""
+    """Return {nodeLabel: [prop1, prop2, ...]} preserving first-seen order."""
     props_by_type: dict[str, list[str]] = {}
     for record in data:
         for element in record:

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from neo4j import Record
 from neo4j.graph import Relationship
 from api.read_as_table.helpers import extract_node_label
-from api.read_as_table.constants import SAME_TYPE_DEPTH
+from api.read_as_table.constants import SAME_TYPE_DEPTH, TOPOLOGY_DATA_MAX_WARN
 import logging
 log = logging.getLogger("[Topology]")
 
@@ -92,7 +92,7 @@ class TopologyTranslator:
 
     def topology_detector(self, data: list[Record]):
         """ Iterates over the data and creates abstractions with additional data of the nodes and relations. """
-        if len(data) > 1000:
+        if len(data) > TOPOLOGY_DATA_MAX_WARN:
             self.log.warning(f"Topology Translation may be to expansive with big data-responses. {len(data)=}")
 
         node_types, relations = self.extract_node_types_and_relations(data)
@@ -232,12 +232,12 @@ class TopologyTranslator:
         if not roots: roots = [self.top[0]]
         nr_nodes = len(self.top)
         longest_path = max(get_longest_path(r) for r in roots)
-        send_info(f"Found roots: {roots},  {longest_path=}  {nr_nodes=}")
+        log.debug(f"Found roots: {roots},  {longest_path=}  {nr_nodes=}")
 
         for root in roots:
-            send_info(f"\n ----Iterative Tree Crawling----")
+            log.debug(f"\n ----Iterative Tree Crawling----")
             self._iter_printer(root)
-            send_info(f"\n----recursive Tree Crawling with max_depth----")
+            log.debug(f"\n----recursive Tree Crawling with max_depth----")
             self._rec_tree_eval(root, max_depth=(max(nr_nodes, longest_path)))
 
     def _iter_printer(self, root):
@@ -248,19 +248,19 @@ class TopologyTranslator:
         visited = set()
         indent = "    "
         frontier = [(root, 0)] # int keeps track of indentation
-        send_info(f"Graph of {root}")
+        log.debug(f"Graph of {root}")
         while frontier:
             current_node, depth = frontier.pop(0)
             if current_node in visited:
                 continue
             visited.add(current_node)
-            send_info(f"{indent*depth}{current_node}")
+            log.debug(f"{indent*depth}{current_node}")
 
             # print connections
             connection = current_node.connected_to
             if connection:
                 for child, relation in connection:
-                    send_info(f"{indent * (depth+1)}-->{relation}->{child}")
+                    log.debug(f"{indent * (depth+1)}-->{relation}->{child}")
                     if not child in visited: frontier.append((child, depth+1))
 
     def _rec_tree_eval(self, node, max_depth, depth=0, ancestors=None):
@@ -273,7 +273,7 @@ class TopologyTranslator:
 
         if node.node_lbl in ancestors:
             indent = "    " * depth
-            send_info(f"{indent}↩ [{node.node_lbl}] (CROSS_TYPE_LOOP — already in this path)")
+            log.debug(f"{indent}↩ [{node.node_lbl}] (CROSS_TYPE_LOOP — already in this path)")
             return
 
         if depth >= max_depth:
@@ -288,13 +288,13 @@ class TopologyTranslator:
 
         if same_type:
             rel_names = [r.label for _, r in same_type]
-            send_info(f"{indent}[{node.node_lbl}] {node.get_classification()} "
+            log.debug(f"{indent}[{node.node_lbl}] {node.get_classification()} "
                     f"⟳ SAME_TYPE_LOOP via {rel_names}")
         else:
-            send_info(f"{indent}[{node.node_lbl}] {node.get_classification()}")
+            log.debug(f"{indent}[{node.node_lbl}] {node.get_classification()}")
 
         for child, relation in cross_type:
-            send_info(f"{indent}    --[{relation.label}]-->")
+            log.debug(f"{indent}    --[{relation.label}]-->")
             self._rec_tree_eval(child, max_depth, depth + 1, ancestors)
 
         ancestors.remove(node.node_lbl)
@@ -331,9 +331,6 @@ def _expand_same_type(tree:TopologyTree, depth:int):
 
     return added
 
-
-def send_info(msg:str):
-    log.debug(msg)
 
 def get_longest_path(node:TopologyNode, visited:set|None=None):
     """ Recursive traversel of a tree to find the longest path. """

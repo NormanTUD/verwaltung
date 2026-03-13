@@ -257,4 +257,10 @@ def parse_request_params(req) -> ReadRequest:
         if manual_where:
             raise NotImplementedError(f"Where clauses are not supported atm")
 
-        return ReadRequest(selected_labels, limit, property_filters, rel_filter)
+        rel_as_filters = req.args.get("rel_as_filter", None)
+
+        if not rel_as_filters:
+            log.info("Frontend has not yet implemented relationship as filter switch")
+
+
+        return ReadRequest(selected_labels, limit, property_filters, rel_filter, rel_as_filters)

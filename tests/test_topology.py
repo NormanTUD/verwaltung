@@ -52,9 +52,7 @@ from api.read_as_table.topology_detector import (
 from api.read_as_table.topology_cli import build_translator
 
 
-# ════════════════════════════════════════════════
-#  Fakes for integration tests (mimic neo4j types)
-# ════════════════════════════════════════════════
+# Neo4j Fakes
 
 class FakeNode:
     """Mimics neo4j.graph.Node with just the .labels interface."""
