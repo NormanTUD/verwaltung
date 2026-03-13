@@ -32,11 +32,11 @@ def create_get_data_bp(parser=parse_request_params,
 
             interf_db = Neo4jDB(driver)
             data = interf_db.read_data(params)
-            log.debug(f" data was read: {data}"[:100])
+            log.debug("data was read: %.100s", data)
 
             response = translator(data, params)
 
-            log.debug(f"Response: {response}"[:200])
+            log.debug("Response: %.200s", response)
             return response
         except ValueError as e:
             return Response(json.dumps({"error": str(e)}), status=400, mimetype="application/json")
