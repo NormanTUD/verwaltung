@@ -226,6 +226,8 @@ def ingest_to_neo4j(driver, graph: ScienceGraphBuilder):
     """Executes parameterized queries to push the constructed graph into Neo4j."""
     with driver.session() as session:
         if CLEAR_DB_ON_START:
+            if not input("Are you really sure that you want to wipe the DB? (y/n)") == "y":
+                return 1
             logger.info("Wiping existing database...")
             session.run("MATCH (n) DETACH DELETE n")
 
