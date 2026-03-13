@@ -57,7 +57,7 @@ Responses
 
 def records_to_json(data: list[Record], params:ReadRequest) -> Response:
     """ Creates the table for the Frontend from the record.
-    Probably outdated and unused."""
+    Fallback Strategy."""
     if not data:
         return jsonify({"columns": [], "rows": []})
 
@@ -234,8 +234,6 @@ def parse_request_params(req) -> ReadRequest:
 
         if req.args.get("maxDepth"):
             log.info("Max Depth is passed from the frontend but is ultimately not used")
-            # We dont need it, as we alway want to search by relationship type
-            # and not retrieve nodes simply because they're connected in any way.
             # max_depth = int(req.args.get("maxDepth", max(3, len(selected_labels))))
 
         limit_raw = req.args.get("limit")

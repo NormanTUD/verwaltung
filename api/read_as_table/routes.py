@@ -16,7 +16,6 @@ def create_get_data_bp(parser=parse_request_params,
     :param parser: Component which takes the request as an arg and returns a ReadRequest.
     :translator: Component that takes the Neo4j records as an Input and returns the json.
     """
-    logging.basicConfig(level=logging.DEBUG)
 
     bp = Blueprint("get_data_bp", __name__)
 
