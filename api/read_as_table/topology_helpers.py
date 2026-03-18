@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 import logging
+
 if TYPE_CHECKING:
     from api.read_as_table.topology_detector import TopologyTree
     from neo4j import Record
@@ -23,7 +24,6 @@ def _dfs_collect_labels(
         _dfs_collect_labels(child, result, visited)
 
 
-
 def _discover_properties(data: list[Record]) -> dict[str, list[str]]:
     """Return {nodeLabel: [prop1, prop2, ...]} preserving first-seen order."""
     props_by_type: dict[str, list[str]] = {}
@@ -35,7 +35,6 @@ def _discover_properties(data: list[Record]) -> dict[str, list[str]]:
             if label not in props_by_type:
                 props_by_type[label] = list(element.keys())
     return props_by_type
-
 
 
 def _build_columns_from_trees(
@@ -80,7 +79,6 @@ def _build_columns_from_trees(
     return columns, col_offset, idx, ordered_labels
 
 
-
 def _grouping_sort_key2(
     row: dict,
     ordered_labels: list[str],
@@ -97,7 +95,6 @@ def _grouping_sort_key2(
         cell = row["cells"][first_offset]
         key.append(str(cell.get("nodeId") or ""))
     return key
-
 
 
 def _topology_tree_to_dict(tree: TopologyTree) -> dict:

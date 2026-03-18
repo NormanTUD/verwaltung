@@ -6,10 +6,11 @@ from api.read_as_table.strategies import topological_rec_to_json, parse_request_
 import logging
 
 
-def create_get_data_bp(parser=parse_request_params,
-                       translator=topological_rec_to_json,
-                       log = logging.getLogger("[API] read_as_table.routes")
-                       ) -> Blueprint:
+def create_get_data_bp(
+    parser=parse_request_params,
+    translator=topological_rec_to_json,
+    log=logging.getLogger("[API] read_as_table.routes"),
+) -> Blueprint:
     """
     Returns the blueprint to create_data
 
@@ -39,7 +40,8 @@ def create_get_data_bp(parser=parse_request_params,
             log.debug("Response: %.200s", response)
             return response
         except ValueError as e:
-            return Response(json.dumps({"error": str(e)}), status=400, mimetype="application/json")
+            return Response(
+                json.dumps({"error": str(e)}), status=400, mimetype="application/json"
+            )
 
     return bp
-
