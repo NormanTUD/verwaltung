@@ -41,7 +41,7 @@ def create_get_data_bp(
             return response
         except ValueError as e:
             return Response(
-                json.dumps({"error": str(e)}), status=400, mimetype="application/json"
+                json.dumps({"error": str(e)}), status=500, mimetype="application/json"
             )
 
     return bp
