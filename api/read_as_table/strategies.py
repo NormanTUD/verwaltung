@@ -95,13 +95,19 @@ def records_to_json(data: list[Record], params: ReadRequest) -> Response:
                     )
 
             elif isinstance(element, Relationship):
+
+                for element in record:
+                    if not all ( e.node for e in element.nodes ):
+                        log.warning(f"relationship without nodes found, cannot process: {element}")
+                        continue
+
                 relations.append(
                     {
-                        "fromId": element.nodes[0].element_id,  # type:ignore
+                        "fromId": element.nodes[0].element_id,
                         "relation": element.type,
                         "toId": element.nodes[1].element_id,
                     }
-                )  # type:ignore
+                )
         row["cells"] = cells
         row["relations"] = relations
 
