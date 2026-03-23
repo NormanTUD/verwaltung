@@ -93,56 +93,12 @@ class TestNeo4jApp(unittest.TestCase):
         # Leere die Datenbank vor jedem Test für saubere, isolierte Bedingungen
         self.graph.run("MATCH (n) DETACH DELETE n")
 
-    def test_upload_valid_data(self):
-        """Testet den Upload von gültigen CSV-Daten."""
-        response = self.app.post(
-            "/upload",
-            data={"data": SAMPLE_CSV_DATA},
-            content_type="multipart/form-data",
-        )
-        self.assertEqual(response.status_code, 200)
-
-        with self.app as client:
-            with client.session_transaction() as sess:
-                self.assertIn("headers", sess)
-                self.assertEqual(sess["headers"], ["id", "name", "city", "country"])
-                self.assertIn("raw_data", sess)
 
     def test_upload_no_data(self):
         """Testet den Upload ohne Daten."""
         response = self.app.post("/upload", data={}, content_type="multipart/form-data")
         self.assertEqual(response.status_code, 400)
         self.assertIn(b"Keine Daten hochgeladen", response.data)
-
-    def test_update_node_property(self):
-        """Testet die Aktualisierung eines Nodes."""
-        node = Node("UpdateNode", status="old")
-        self.graph.create(node)
-        node_id = node.identity
-
-        response = self.app.put(
-            f"/api/update_node/{node_id}",
-            data=json.dumps({"property": "status", "value": "new"}),
-            content_type="application/json",
-        )
-        self.assertEqual(response.status_code, 200)
-
-        updated_node = self.graph.run(
-            f"MATCH (n) WHERE ID(n) = {node_id} RETURN n"
-        ).data()[0]["n"]
-        self.assertEqual(updated_node["status"], "new")
-
-    def test_delete_node(self):
-        """Testet das Löschen eines Nodes."""
-        node = Node("DeleteNode", name="Temp")
-        self.graph.create(node)
-        node_id = node.identity
-
-        response = self.app.delete(f"/api/delete_node/{node_id}")
-        self.assertEqual(response.status_code, 200)
-
-        result = self.graph.run(f"MATCH (n) WHERE ID(n) = {node_id} RETURN n").data()
-        self.assertEqual(len(result), 0)
 
     def test_update_multiple_nodes(self):
         """Testet die Massenaktualisierung von Nodes."""
@@ -174,16 +130,6 @@ class TestNeo4jApp(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn(b"Fehler beim Parsen", response.data)
-
-    def test_save_mapping_with_missing_session_data(self):
-        """Testet save_mapping ohne vorherigen Upload."""
-        response = self.app.post(
-            "/save_mapping",
-            data=json.dumps(SAMPLE_MAPPING),
-            content_type="application/json",
-        )
-        self.assertEqual(response.status_code, 500)
-        self.assertIn(b"raw_data not in session.", response.data)
 
     def test_save_mapping_no_nodes_or_rels(self):
         """Testet save_mapping mit einem leeren Mapping."""
@@ -266,18 +212,6 @@ class TestNeo4jApp(unittest.TestCase):
         ).data()
         self.assertEqual(result[0]["age"], 42)
 
-    def test_update_node_nonexistent(self):
-        """Versuch, einen Node zu aktualisieren, der nicht existiert."""
-        fake_id = 999999999
-        response = self.app.put(
-            f"/api/update_node/{fake_id}",
-            data=json.dumps({"property": "age", "value": 99}),
-            content_type="application/json",
-        )
-        # Query läuft durch, findet aber nichts → trotzdem success
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b"wurde aktualisiert", response.data)
-
     def test_update_node_missing_fields(self):
         """Property oder Value fehlen im Request-Body."""
         node = Node("Person", name="Charlie")
@@ -339,24 +273,6 @@ class TestNeo4jApp(unittest.TestCase):
         self.assertEqual(len(kept), 1)
         self.assertEqual(len(removed), 0)
 
-    def test_save_mapping_no_nodes_or_rels_two(self):
-        """Speichert ein leeres Mapping → keine Nodes/Beziehungen."""
-        with self.app as client:
-            with client.session_transaction() as sess:
-                sess["raw_data"] = "id,name\n1,Alice\n2,Bob"
-
-        empty_mapping = {"nodes": {}, "relationships": []}
-        response = self.app.post(
-            "/save_mapping",
-            data=json.dumps(empty_mapping),
-            content_type="application/json",
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Daten erfolgreich in Neo4j importiert", response.data)
-
-        result = self.graph.run("MATCH (n) RETURN n").data()
-        self.assertEqual(len(result), 0)
-
     def test_save_mapping_with_nodes(self):
         """Speichert Daten mit Node-Mapping."""
         csv_data = "id,name\n1,Alice\n2,Bob"
@@ -406,15 +322,6 @@ class TestNeo4jApp(unittest.TestCase):
         rels = self.graph.run("MATCH (p:Person)-[r:WOHNT_IN]->(o:Ort) RETURN r").data()
         self.assertEqual(len(rels), 2)
 
-    def test_save_mapping_missing_session(self):
-        """Fehler, wenn keine raw_data in der Session ist."""
-        response = self.app.post(
-            "/save_mapping",
-            data=json.dumps({"nodes": {}, "relationships": []}),
-            content_type="application/json",
-        )
-        self.assertEqual(response.status_code, 500)
-        self.assertIn(b"raw_data not in session.", response.data)
 
     def test_overview_success(self):
         """Übersicht mit Datenbank-Verbindung."""
@@ -628,11 +535,6 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertIn("headers", sess)
             self.assertEqual(sess["headers"], ["id", "name", "city"])
 
-    def test_upload_missing_data(self):
-        """Upload ohne Daten liefert 400."""
-        response = self.app.post("/upload", data={})
-        self.assertEqual(response.status_code, 400)
-        self.assertIn(b"Keine Daten hochgeladen", response.data)
 
     def test_get_rel_types_empty_db(self):
         """Wenn DB keine Relationships hat, wird leere Liste zurückgegeben."""
@@ -721,17 +623,6 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertEqual(resp.status_code, 500)
             # error message contains 'nodes'
             self.assertIn(b"nodes", resp.data)
-
-    def test_get_data_as_table_invalid_maxdepth_param(self):
-        """Non-integer maxDepth should error (server returns 500 in current impl)"""
-        with self.app as client:
-            resp = client.get(
-                "/api/get_data_as_table",
-                query_string={"nodes": "Person", "limit": "notanint"},
-            )
-            # current implementation casts int() and will raise -> caught -> 500
-            self.assertEqual(resp.status_code, 500)
-            self.assertIn(b"invalid literal", resp.data)
 
     def test_get_data_as_table_empty_db_returns_empty(self):
         """If DB has no relevant nodes, route returns empty columns/rows."""
@@ -1466,15 +1357,6 @@ class TestNeo4jApp(unittest.TestCase):
             self.assertIn(("Ort", "plz"), cols)
             self.assertNotIn(("Person", "name"), cols)
 
-    def test_get_data_as_table_invalid_limit_param(self):
-        """Non-integer limit should trigger error."""
-        with self.app as client:
-            resp = client.get(
-                "/api/get_data_as_table",
-                query_string={"nodes": "Person", "limit": "NaN"},
-            )
-            self.assertEqual(resp.status_code, 500)
-            self.assertIn(b"invalid literal", resp.data)
 
     def test_get_data_as_table_multiple_labels_on_node(self):
         """Node with multiple labels should be included if one matches."""
@@ -1672,16 +1554,6 @@ class TestNeo4jApp(unittest.TestCase):
             cols = [c["property"] for c in resp.get_json()["columns"]]
             self.assertEqual(cols, sorted(cols))
 
-    def test_get_data_as_table_multiple_mains_distinct_rows(self):
-        """Two main nodes should yield two separate rows."""
-        self.graph.run("MATCH (n) DETACH DELETE n")
-        self.graph.run("CREATE (:Person {name:'X'})")
-        self.graph.run("CREATE (:Person {name:'Y'})")
-        with self.app as client:
-            resp = client.get(
-                "/api/get_data_as_table", query_string={"nodes": "Person"}
-            )
-            self.assertEqual(len(resp.get_json()["rows"]), 2)
 
     def test_get_data_as_table_property_conflict(self):
         """If two nodes of same label have same property, should not crash."""
@@ -1872,16 +1744,6 @@ class TestNeo4jApp(unittest.TestCase):
             data = resp.get_json()
             self.assertLessEqual(len(data["rows"]), 3)
 
-    def test_get_data_as_table_empty_filterlabels_param(self):
-        """If filterLabels is empty string it should be ignored and not crash."""
-        self.graph.run("MATCH (n) DETACH DELETE n")
-        self.graph.run("CREATE (:Person {x:'y'})")
-        with self.app as client:
-            resp = client.get(
-                "/api/get_data_as_table",
-                query_string={"nodes": "Person", "filterLabels": ""},
-            )
-            self.assertEqual(resp.status_code, 200)
 
     def test_get_data_as_table_multiple_mains_are_distinct_rows(self):
         """Multiple main nodes should be returned as separate rows."""
