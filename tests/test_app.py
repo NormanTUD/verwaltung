@@ -4726,6 +4726,148 @@ class TestNeo4jApp(unittest.TestCase):
                     f"Data for {e['person']['vorname']} / {e['kunde']['email']} / {e['bestellung']['bestellnr']} is missing from the result set",
                 )
 
+import pytest
+from app import app, graph
+
+class TestSaveMappingParameterized:
+    """
+    Data-driven test suite for /save_mapping.
+    Replaces 30+ redundant unittest methods with a clean, extensible matrix.
+    """
+
+    @pytest.fixture(autouse=True)
+    def setup_teardown(self):
+        """Ensures a clean database state and test client for each scenario."""
+        self.client = app.test_client()
+        self.client.testing = True
+        app.config["DISABLE_LOGIN"] = True
+        graph.run("MATCH (n) DETACH DELETE n")
+        yield
+        graph.run("MATCH (n) DETACH DELETE n")
+
+
+
+    @pytest.mark.parametrize(
+        "scenario_id, csv_data, mapping, expected_node_counts, expected_properties, expected_rel_counts",
+        [
+            pytest.param(
+                "single_node_basic",
+                "name\nAlice",
+                {
+                    "nodes": {"Person": [{"original": "name", "renamed": "name"}]},
+                    "relationships": []
+                },
+                {"Person": 1},
+                [("Person", "name", "Alice")],
+                {},
+                id="single_node_basic"
+            ),
+            pytest.param(
+                "complex_types_and_special_chars",
+                "person,city,age,active\nÅlice & Bob,Berlin,30,True\nBób,Hamburg,25,False",
+                {
+                    "nodes": {
+                        "Person": [
+                            {"original": "person", "renamed": "name"},
+                            {"original": "age", "renamed": "age"},
+                            {"original": "active", "renamed": "is_active"}
+                        ],
+                        "City": [{"original": "city", "renamed": "name"}]
+                    },
+                    "relationships": [{"from": "Person", "to": "City", "type": "LIVES_IN"}]
+                },
+                {"Person": 2, "City": 2},
+                [
+                    ("Person", "name", "Ålice & Bob"),
+                    ("Person", "age", 30),          # tests numeric casting integration
+                    ("Person", "is_active", False), # tests boolean casting integration
+                    ("City", "name", "Berlin")
+                ],
+                {"LIVES_IN": 2},
+                id="complex_types_and_special_chars"
+            ),
+            pytest.param(
+                "duplicates_and_missing_fields_deduplication",
+                "person,company\nAlice,ACME\nAlice,ACME\nBob,\n,Globex",
+                {
+                    "nodes": {
+                        "Person": [{"original": "person", "renamed": "name"}],
+                        "Company": [{"original": "company", "renamed": "company_name"}]
+                    },
+                    "relationships": [{"from": "Person", "to": "Company", "type": "WORKS_AT"}]
+                },
+                {"Person": 2, "Company": 2}, # Proves duplicate rows map to 1 node
+                [
+                    ("Person", "name", "Alice"),
+                    ("Person", "name", "Bob"),
+                    ("Company", "company_name", "ACME"),
+                    ("Company", "company_name", "Globex")
+                ],
+                {"WORKS_AT": 1},
+                id="duplicates_and_missing_fields_deduplication"
+            ),
+            pytest.param(
+                "hyper_complex_multi_layer_simulation",
+                "person,city,company,project\nEve,Berlin,ACME,ProjX\nDave,Berlin,Globex,ProjX",
+                {
+                    "nodes": {
+                        "Person": [{"original": "person", "renamed": "name"}],
+                        "City": [{"original": "city", "renamed": "name"}],
+                        "Company": [{"original": "company", "renamed": "name"}],
+                        "Project": [{"original": "project", "renamed": "name"}],
+                    },
+                    "relationships": [
+                        {"from": "Person", "to": "City", "type": "WOHNT_IN"},
+                        {"from": "Person", "to": "Company", "type": "ARBEITET_FUER"},
+                        {"from": "Person", "to": "Project", "type": "ARBEITET_AN"},
+                        {"from": "Project", "to": "Company", "type": "BELONGS_TO"}
+                    ]
+                },
+                {"Person": 2, "City": 1, "Company": 2, "Project": 1},
+                [
+                    ("Person", "name", "Eve"), ("Person", "name", "Dave"),
+                    ("City", "name", "Berlin"), ("Project", "name", "ProjX")
+                ],
+                {
+                    "WOHNT_IN": 2,
+                    "ARBEITET_FUER": 2,
+                    "ARBEITET_AN": 2,
+                    "BELONGS_TO": 2
+                },
+                id="hyper_complex_multi_layer_simulation"
+            )
+        ]
+    )
+    def test_save_mapping(self, scenario_id, csv_data, mapping, expected_node_counts, expected_properties, expected_rel_counts):
+        # 1. Inject CSV data into the Flask session
+        with self.client.session_transaction() as sess:
+
+            sess["raw_data"] = csv_data
+
+        # 2. Post mapping payload
+        resp = self.client.post("/save_mapping", json=mapping)
+
+        # 3. Assert HTTP success
+        assert resp.status_code == 200, f"Expected 200 OK for {scenario_id}, got {resp.status_code}"
+
+        # 4. Verify exact Graph Node topologies
+        for label, expected_count in expected_node_counts.items():
+            count = graph.run(f"MATCH (n:`{label}`) RETURN count(n) AS c").data()[0]["c"]
+            assert count == expected_count, f"Node count mismatch for '{label}' in {scenario_id}"
+
+        # 5. Verify property type casting and exact database values
+        for label, prop, val in expected_properties:
+            match_count = graph.run(
+                f"MATCH (n:`{label}` {{{prop}: $val}}) RETURN count(n) AS c",
+                val=val
+            ).data()[0]["c"]
+            assert match_count > 0, f"Property missing or incorrect mapping: {label}.{prop} != {val} in {scenario_id}"
+
+        # 6. Verify Relationships were merged correctly
+        for rel_type, expected_count in expected_rel_counts.items():
+            count = graph.run(f"MATCH ()-[r:`{rel_type}`]->() RETURN count(r) AS c").data()[0]["c"]
+            assert count == expected_count, f"Relationship count mismatch for '{rel_type}' in {scenario_id}"
+
 
 if __name__ == "__main__":
     try:
