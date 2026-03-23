@@ -40,6 +40,7 @@ def create_get_data_bp(
             log.debug("Response: %.200s", response)
             return response
         except ValueError as e:
+            log.warning(f"Request failed: {e}")
             return Response(
                 json.dumps({"error": str(e)}), status=500, mimetype="application/json"
             )
