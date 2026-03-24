@@ -12,10 +12,8 @@ flaskenv
 venv
 saved_queries.json
 johns_doc/
-api/read_as_table/topology_cli.py
 result.txt
 api/read_as_table/topology_cli_run_tests.py
 tests/setup_complex_db.py
 api/read_as_table/topology_cli_run_tests.py
-api/read_as_table/topology_cli.py
 topology_report_*.txt
