@@ -32,7 +32,7 @@ jobs:
       - name: Run docker tests
         run: |
           docker-compose up -d neo4j-db
-          bash run_tests
+          bash run_tests.sh
 
       - name: Create a new version
         if: ${{ success() }}
