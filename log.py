@@ -1,5 +1,5 @@
 import logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.ERROR)
 mod_loggers = {logging.getLogger("py2neo"),
                logging.getLogger("neo4j"),
                logging.getLogger("werkzeug"),

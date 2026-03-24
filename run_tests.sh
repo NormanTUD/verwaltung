@@ -53,10 +53,12 @@ if [[ ! -d ~/.verwaltung_test_env ]]; then
 		sudo apt install chromium
 	fi
 
-	pip install -r requirements.txt
+
 fi
 
 source ~/.verwaltung_test_env/bin/activate
+pip install -r requirements.txt
+export PYTHONPATH=$(pwd)
 
 echo "====== pip install playwright ======"
 if ! pip install playwright; then
@@ -69,14 +71,15 @@ echo "====== Checked virtualenv ======"
 if $run_python_tests; then
 	echo "====== Run tests ======"
 
-	python3 test_app.py
+	~/.verwaltung_test_env/bin/pytest --maxfail=5 --disable-warnings -rxXs tests/
+
 
 	if [[ $? -ne 0 ]]; then
 		echo "test_app.py failed"
 		exit 1
 	fi
 
-	python3 _run_tests.py $*
+	# python3 _run_tests.py $*
 	exit_code=$?
 	echo "====== Ran tests ======"
 else

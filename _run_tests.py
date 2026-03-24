@@ -14,7 +14,7 @@ sys.exit(1)
 DEFAULT_CHROMIUM_PATH = "/usr/bin/chromium"
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.ERROR,
     format="%(asctime)s [%(levelname)s] %(message)s",
     stream=sys.stderr,
 )

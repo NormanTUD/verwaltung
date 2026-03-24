@@ -4,6 +4,7 @@ import sys
 import unittest
 import os
 from uuid import uuid4
+import logging
 import json
 import warnings
 from unittest.mock import patch
@@ -12,6 +13,7 @@ from py2neo import Graph, Node, Relationship, Subgraph
 from dotenv import load_dotenv
 from app import get_all_nodes_and_relationships, app, graph
 from oasis_helper import load_or_generate_secret_key
+
 
 warnings.filterwarnings("ignore", category=ResourceWarning)
 
@@ -87,6 +89,8 @@ class TestNeo4jApp(unittest.TestCase):
         self.app.testing = True
 
         app.config["DISABLE_LOGIN"] = True
+
+        # logging.basicConfig(level=logging.ERROR)
 
         self.graph = self.__class__.graph
 
@@ -1705,7 +1709,7 @@ class TestNeo4jApp(unittest.TestCase):
             rel_pairs = {(r["fromId"], r["toId"], r["relation"]) for r in rels}
             self.assertLessEqual(len(rel_pairs), len(rels))
 
-    @pytest.mark.skip(reason="We dont support nodes with multiple labelss")
+    @pytest.mark.skip(reason="We dont support nodes with multiple labels")
     def test_get_data_as_table_nodes_with_multiple_labels_and_filter(self):
         """Nodes that have multiple labels should still be included when filterLabels is used."""
         self.graph.run("MATCH (n) DETACH DELETE n")

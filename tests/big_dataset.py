@@ -4,7 +4,7 @@ import random
 from typing import Any
 from neo4j import GraphDatabase
 
-logging.basicConfig(level=logging.INFO)
+
 logger = logging.getLogger("[DataGenerator]")
 
 # ---------------------------------------------------------
