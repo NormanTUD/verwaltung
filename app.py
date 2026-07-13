@@ -50,14 +50,14 @@ except ModuleNotFoundError:
     sys.exit(1)
 
 VENV_PATH = Path.home() / ".verwaltung_venv"
-PYTHON_BIN = (
+PYTHON_BIN:Path = (
     VENV_PATH
     / ("Scripts" if platform.system() == "Windows" else "bin")
     / ("python.exe" if platform.system() == "Windows" else "python")
 )
 
 
-pip_install_modules = [
+pip_install_modules:list[Path|str] = [
     PYTHON_BIN,
     "-m",
     "pip",
@@ -116,14 +116,15 @@ try:
 
     from sqlalchemy.orm import sessionmaker, joinedload, Session, Query
     from sqlalchemy.orm.attributes import flag_modified
-    from sqlalchemy.orm.exc import NoResultFound, DetachedInstanceError
-    from sqlalchemy.exc import SQLAlchemyError
+    from sqlalchemy.orm.exc import DetachedInstanceError
+    from sqlalchemy.exc import SQLAlchemyError, NoResultFound
 
     from sqlalchemy.orm.strategy_options import Load
     from sqlalchemy.orm.strategy_options import Load
 
     from sqlalchemy.orm.attributes import flag_modified
 
+    from db_defs import User, Role, Base
     from db_defs import *
     import io
 
@@ -192,13 +193,15 @@ login_manager.login_message = "Bitte melde dich an, um fortzufahren."
 app.secret_key = oasis_helper.load_or_generate_secret_key()
 
 # usage of py2neo Graph
-graph = oasis_helper.get_graph_db_connection()
+from py2neo import Graph
+from py2neo.cypher import Record
+graph: Graph = oasis_helper.get_graph_db_connection()
 app.config["GRAPH"] = graph
 
 # usage of neo4j-library graph
 from api.api_route_registration import register_blueprints
-from api.neo4j_interface import Neo4jDBInterface
 from neo4j import GraphDatabase
+
 
 URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 AUTH = (os.getenv("NEO4J_USER", "neo4j"), os.getenv("NEO4J_PASS", "testTEST12345678"))
@@ -235,7 +238,7 @@ def login():
             if user:
                 if not user.is_active:
                     flash("Benutzer ist noch nicht aktiviert.")
-                elif check_password_hash(user.password, password):
+                elif check_password_hash(str(user.password), password):
                     login_user(user)
                     return redirect(url_for("index"))
                 else:
@@ -405,8 +408,9 @@ def search():
                 n = r["n"]
                 m = r["m"]
                 rel = r["rel"]
+                if not n or not m: continue
 
-                # 🔹 Prüfen, welcher Node die Query matched
+                # Prüfen, welcher Node die Query matched
                 matching_node = None
                 if any(query.lower() in str(n[k]).lower() for k in n.keys()):
                     matching_node = n
@@ -415,7 +419,8 @@ def search():
                 else:
                     continue  # keiner matched, skip
 
-                # 🔹 QB-Rules nur für matching_node
+
+                # QB-Rules nur für matching_node
                 rules = []
                 for k in matching_node.keys():
                     if query.lower() in str(matching_node[k]).lower():
@@ -651,10 +656,6 @@ def create_relationship(from_node_type, to_node_type, rel_type, nodes_created):
         MERGE ({from_var})-[rel:{rel_label}]->({to_var})
         """
         graph.run(rel_query)
-        # print(f"  ✅ Beziehung '{clean_rel_type}' zwischen '{from_node_type}' und '{to_node_type}' erstellt.")
-    # else:
-    # print(f"  ❌ Beziehung konnte nicht erstellt werden, Knoten fehlen: '{from_node_type}' (vorhanden: {from_node_type in nodes_created}), '{to_node_type}' (vorhanden: {to_node_type in nodes_created}).")
-
 
 def get_all_nodes_and_relationships():
     """Holt alle aktuell vorhandenen Node-Typen und Relationship-Typen aus der Datenbank."""
@@ -669,6 +670,7 @@ def get_all_nodes_and_relationships():
     # Labels kann eine Liste enthalten, also flachziehen
     labels = set()
     for entry in node_labels:
+        if not entry["labels"]: break
         for label in entry["labels"]:
             labels.add(label)
 
