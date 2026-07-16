@@ -544,7 +544,7 @@ EQ_S3_ROOT = r"""
 EQ_S3_FALLBACK = r"""
 \underbrace{v^{\star}}_{\text{fallback root}}
 \;=\;
-\underbrace{\arg\max}_{\text{pick the biggest}}_{\;\underbrace{v}_{\text{over all vertices}} \in \underbrace{\mathcal{N}}_{\text{node graph}}}
+\underbrace{\arg\max}_{{\text{pick the biggest}}_{\;\underbrace{v}_{\text{over all vertices}} \in \underbrace{\mathcal{N}}_{\text{node graph}}}}
 \;\;\underbrace{|v.C|}_{\text{out-degree}}
 """
 
